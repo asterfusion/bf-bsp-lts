@@ -1,0 +1,66 @@
+/******************************************************************************
+
+This file contains information about accessing Tofino SPI EEPROM thru I2c 
+method for using it on Barefoot switches and porting it on other platforms.
+
+SPI EEPROM that is connected to Tofino switch contains firmware necessary to
+bring up the Tofino's PCIe link. SPI access controller resides on Tofino chip. 
+It must be accessed by i2c means when the ASIC is not accesible on PCIe bus for
+whatever reasons.
+
+The files provided here make up a C program to read and write EEPROM thru i2c
+means. The porting layer is clearly defined that must be implemented for the 
+given platform.
+
+
+Description of files:
+
+tofino_spi_if.c: All necessary functions to read and program the EEPROM 
+including a main(). The usage is as per print_usage() output. The command takes
+a file name that contains binary data to write in the EEPROM and read from the
+EEPROM. <offset> is the offset into the SPI eeprom to read or write and it 
+defaults to zero if not supplied in the command line. <size> is the number of 
+bytes to write into eeprom or read from eeprom (from <offset>). If it is not
+supplied in the command line, it defaults to the file size if writing and EEPROM
+size if reading from the EEPROM. The program checks for maximum size of EEPROM 
+against "BF_SPI_EEPROM_SIZE". 
+
+tofino_spi_if.h: contains necessary macros plus forward declarations of the 
+                 functions of the poring layer.
+
+/* Any platform specific initialization necessary for setting up i2c access 
+ * to the ASIC. This function is called before the the access of the ASIC begins
+ */
+int tofino_porting_spi_init(int dev_id, void *arg);
+
+/* Any platform specific cleanup necessary for shutting down i2c access to the 
+ * ASIC. This function is called after the access of the ASIC completes. 
+ */
+int tofino_porting_spi_finish(int dev_id);
+
+/* Platform specific functions to write <data> to a register at offset <reg> 
+ * within the ASIC <devi_id>
+ */
+int tofino_porting_spi_reg_wr(int dev_id, uint32_t reg, uint32_t data);
+
+/* Platform specific functions to read <data> from a register at offset <reg> 
+ * within the ASIC <devi_id>
+*/
+int tofino_porting_spi_reg_rd(int dev_id, uint32_t reg, uint32_t *data);
+
+tofino_porting_spi.c:
+This file implements the porting functions implemented for a given platform.
+
+tofino_porting_spi.h:
+Header file for porting implementation.
+
+
+How to make :
+The Makefile in this folder is tailored to the Mavericks build requirements. 
+A platform specific Makefile must be created. If there is no dependencies, 
+following command line, at the minimum would work.
+
+gcc -o spi_i2c_util tofino_porting_spi.c tofino_spi_if.c
+
+
+************************************************************************/

@@ -1,0 +1,126 @@
+Barefoot Networks Diags
+=======================
+--- Extracting package ---
+mkdir diag_pkg
+tar -xvzf <bf-diag-image-name> -C diag_pkg
+
+--- Environment setup ---
+sudo bash
+export BF_DIAG_PKG_DIR=$(pwd)/diag_pkg
+export BF_DIAG_INSTALL_DIR=$BF_DIAG_PKG_DIR/install
+export LD_LIBRARY_PATH=/usr/local/lib:$BF_DIAG_INSTALL_DIR/lib:$LD_LIBRARY_PATH
+cd $BF_DIAG_INSTALL_DIR/bin
+
+Build bf_kdrv locally
+=======================
+cd $BF_DIAG_PKG_DIR/bf_kdrv
+make
+cp bf_kdrv.ko $BF_DIAG_INSTALL_DIR/lib/modules/.
+
+CP2112 Utility
+=======================
+The <cp2112_util> is a stand alone utility which provides you access to the
+CP2112 on board.
+
+Mavericks has 2 boards, hence all the commands take a board id as an input. 0 refers to the CP2112 device on the physically located lower board while 1 refers to the CP2112 device on the physically located upper board.
+However, Montara has only 1 board and the ONLY allowed parameter for it is 1
+
+--Running the cp2112 util
+$ cd $BF_DIAG_INSTALL_DIR/bin/
+$ ./cp2112_util <board_type(Montara->0, Mavericks->1)> <command_name> <board_id(lower->0/upper->1)> [<parameter> <parameter>]
+
+A dump of all the commands can be obtained by simply running 
+$ ./cp2112_util
+Usage: 
+./cp2112_util <Montara->0, Mavericks->1> read <dev(Lower->0, Upper->1)> <i2c_addr> <length>
+./cp2112_util <Montara->0, Mavericks->1> write <dev(Lower->0, Upper->1)> <i2c_addr> <length> <byte1> [<byte2> ...]
+./cp2112_util <Montara->0, Mavericks->1> addr-read <dev(Lower->0, Upper->1)> <i2c_addr> <read_length> <write_length> <byte1> [<byte2> ...]
+./cp2112_util <Montara->0, Mavericks->1> addr-read-unsafe <dev(Lower->0, Upper->1)> <i2c_addr> <read_length> <write_length> <byte1> [<byte2> ...]
+./cp2112_util <Montara->0, Mavericks->1> detect <dev(Lower->0, Upper->1)>
+
+Example usages of the utility are as follows-
+./cp2112_util 1 read 0 0xe0 1
+./cp2112_util 0 detect 1
+
+
+BF-SHELL UCLI
+=======================
+
+Introduction:
+BF-Shell UCLI gives access to internal BF commands. You can telnet to the
+switch to get access to ucli.
+
+Creating a Session:
+Here is the sequence to login to ucli.
+
+1. telnet <switch-IP> 9999
+   Expected output:  bfshell>
+   If you are on the switch, you could simply do:
+   telnet localhost 9999
+2. Type "ucli" at the bfshell prompt
+   bfshell> ucli
+   You are now in the bf-shell ucli.
+   Expected output:  bf-sde>
+3. If you want to enter the Port-manager command subtree, type "pm"
+   bf-sde> pm
+   Expected output: bf-sde.bf_pltfm.pm>
+4. You can type "help" for a list of supported commands.
+   Use ".." to go one level behind in the ucli tree.
+5. To exit ucli type "exit"
+
+Ending a Session:
+To end the session close the telnet session
+
+Commands supported:
+1. pm show : Brief dump of port counters and other port information
+
+
+SWUTIL Utility
+=======================
+Introduction:
+swutil is a utility that can be used to issue diag commands.
+Note that any port specified to swutil should be the front panel port number.
+
+Setup:
+swutil binary can be found in the following location.
+$BF_DIAG_INSTALL_DIR/bin
+
+Commands:
+Following commands are available in swutil
+
+1.  ./swutil -C -S --install-path=$BF_DIAG_INSTALL_DIR
+    Install path is the directory path where the install directory is located
+    Run command as superuser. Please load Kernel driver before starting bf-drivers:
+    $BF_DIAG_INSTALL_DIR/bin/bf_kdrv_mod_load $BF_DIAG_INSTALL_DIR
+2.  ./swutil -C -r --install-path=$BF_DIAG_INSTALL_DIR
+    Install path is the directory path where the install directory is located
+    Run command as superuser
+3.  ./swutil -C -s
+    Run command as superuser
+4.  ./swutil linespeed init <start_port> <size> <type>
+5.  ./swutil linespeed run <time> <pkt_size> <num_packet>
+6.  ./swutil linespeed stop
+7.  ./swutil linespeed show
+8.  ./swutil linespeed end
+9.  ./swutil ps [front-port-name]
+10. ./swutil phy info
+11. ./swutil show pmap
+12. ./swutil show temp
+13. ./swutil vlan create <vid>  pbm=<portbitmap> ubm=<portbitmap>
+    Multiple ports could be specified using comma and/or range.
+    Example: pbm=1-3,5,8,10-11
+14. ./swutil vlan add <vid> pbm=<portbitmap> ubm=<portbitmap>
+15. ./swutil vlan destroy <vid>
+16. ./swutil vlan show
+17. ./swutil led <color> [front-port-name]
+18. ./swutil led_port
+19. ./swutil phy diag <front-port-name> feyescan u=1 if=line lane=0
+20. ./swutil port <front-port-name> speed={100000 | 40000 | 25000 | 10000 }
+21. ./swutil version
+22. ./swutil xport fec <front-port-name> {ON | OFF}
+23. ./swutil xport autoneg <front-port-name> {ON | OFF | DEFAULT}
+24. ./swutil phy <front-port-name> { CL93N72_UT_CTL2r.1 CL93N72_TXFIR_PRE={-31 - 31} |
+                                     CL93N72_UT_CTL3r.1 CL93N72_TXFIR_MAIN={0 - 23}  |
+                                     CL93N72_UT_CTL2r.1 CL93N72_TXFIR_POST={-31 - 31} }
+25. ./swutil phy diag <front-port-name> prbs set p={0 | 1 | 3 | 4 | 5 } speed={10000 | 25000}
+26. ./swutil phy diag <front-port-name> prbs { show | clean }

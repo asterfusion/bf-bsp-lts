@@ -1,0 +1,20 @@
+/* Keep adding the notes as for every new credo firmnware releases */
+/* History maintenance started with release dated 6/29 */
+
+===============================================================================
+Release Document Date 06/29/2018:
+Doc updated by: Credo App Team
+Product Name: Golden Eagle 2 Barefoot Use only
+Update Info: FW Release, 2018-06-29, Hash Code 0xDD44B7, CRC=0x1005
+
+Changes:
+1. Firmware updated to work with Luxtera optical modules
+  BFN reported that the retimer was flapping on some of the Luxtera optical 
+modules when plugged in. It was noticed that the Luxtera module has a 
+stringent requirement for jitter than the spec. To be able to meet those, 
+TOP PLL was enabled.
+
+2. The correct settings for VCO CAP and charge pump current were programmed 
+in the registers for the TOP PLL
+===============================================================================
+

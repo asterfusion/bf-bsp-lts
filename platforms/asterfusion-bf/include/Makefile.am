@@ -1,0 +1,13 @@
+libpltfm_driver_includedir = $(includedir)/bf_pltfm/asterfusion-bf
+nobase_libpltfm_driver_include_HEADERS = bf_pltfm_slave_i2c.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_master_i2c.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_uart.h
+nobase_libpltfm_driver_include_HEADERS += pltfm_types.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_spi.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_si5342.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_cp2112_intf.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_chss_mgmt_intf.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_bmc_tty.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_rtmr.h
+nobase_libpltfm_driver_include_HEADERS += bf_pltfm_rptr.h
+nobase_libpltfm_driver_include_HEADERS += bf_mav_led.h

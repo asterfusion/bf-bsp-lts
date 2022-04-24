@@ -1,0 +1,31 @@
+Barefoot Networks CP2112 Source Code
+====================================
+--- Extracting package ---
+mkdir cp2112_src_pkg
+tar -xvzf <cp2112_source_pkg_name> -C cp2112_src_pkg
+
+--- Environment setup ---
+sudo bash
+export CP2112_SRC_PKG_DIR=$(pwd)/cp2112_src_pkg
+export LD_LIBRARY_PATH=/usr/local/lib:$CP2112_SRC_PKG_DIR/install/lib:$LD_LIBRARY_PATH
+
+--- Compiling the utility ---
+cd $CP2112_SRC_PKG_DIR
+make
+
+--- Running the utility ---
+./cp2112_util <board_type(Montara->0, Mavericks->1)> <command_name> <board_id(lower->0/upper->1)> [<parameter> <parameter>]
+
+A dump of all the commands can be obtained by simply running 
+./cp2112_util
+
+Usage:
+./cp2112_util <Montara->0, Mavericks->1> read <dev(Lower->0, Upper->1)> <i2c_addr> <length>
+./cp2112_util <Montara->0, Mavericks->1> write <dev(Lower->0, Upper->1)> <i2c_addr> <length> <byte1> [<byte2> ...]
+./cp2112_util <Montara->0, Mavericks->1> addr-read <dev(Lower->0, Upper->1)> <i2c_addr> <read_length> <write_length> <byte1> [<byte2> ...]
+./cp2112_util <Montara->0, Mavericks->1> addr-read-unsafe <dev(Lower->0, Upper->1)> <i2c_addr> <read_length> <write_length> <byte1> [<byte2> ...]
+./cp2112_util <Montara->0, Mavericks->1> detect <dev(Lower->0, Upper->1)>
+
+Example usages of the utility are as follows-
+./cp2112_util 1 read 0 0xe0 1
+./cp2112_util 0 detect 1

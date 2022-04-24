@@ -1,0 +1,188 @@
+Barefoot Networks Platforms Software
+====================================
+The <bf-platforms> package contains sources for the drivers and agents
+for Barefoot Networks Reference Platforms. This package provides platform 
+specific port managment functionalities (those which are outside of Barefoot 
+Switch device).
+
+The <bf-platforms> package is organized as follows
+
+  drivers/
+
+    The code in this folder implements and registers the required set of
+    vector functions with BF-SDE to manage plaform specific portions of
+    port management. This code is platform independent and designed to be
+    reused across diffrent platforms based on Barefoot Networks' devices.
+    It does not contain any platform specific code or direct calls into such.
+
+    The code is further organized under these sub-folders to cover various
+    aspects of port management like lane-mapping and configurations,
+    transceiver management, LED management.
+
+    drivers/src/
+    drivers/include/
+
+        bf_port_mgmt/
+          Perform port management housekeeping functions like QSFP monitoring
+          and and orchestrating various port related devices like QSFP, LED,
+          RETIMERS
+          
+        bf_bd_cfg/
+          Provides board configuration API e.g. serdes lane mappings and
+          settings to be used with bf_port_mgmt
+
+        bf_qsfp/
+            QSFP configuration and monitoring APIs to be used with bf_port_mgmt
+
+        bf_led/
+            Port LED Mgmt APIs to be used with bf_port_mgmt
+
+        bf_platform_mgr/
+            Daemon that perform platform initialization, register port
+            management vector-set with BF-SDE
+
+      drivers/include/
+        Header files associated with various driver modules as under
+        drivers/src. These header files can be included from anywhere in
+        bf-platforms.
+
+  platforms/
+
+    This folder is meant to host platform specific driver implementations of
+    port management functions that will be invoked by the platform independent
+    <bf-platforms>/drivers code over a standardized interface published in
+    <bf-platforms>/platforms/include
+
+    platforms/include/
+      The functions declared in these header files must be implemented or
+      stubbed out (if not applicable for a particular platform). These
+      functions are invoked by modules under <bf-platforms>/drivers
+
+      bf_plfm_qsfp.h
+        Functions to implement access QSFP registers and manage it's RESET,
+        INTERRUPT, PRESENCE and LPMODE hardware signals
+
+      bf_pltfm_ext_phy.h
+        Here, "ext_phy" means any device or circuit that is between Barefoot
+        Device and QSFP modules. It could be a retimer or repeater or nothing
+        at all. The functions must be implemented suitably or stubbed out if
+        there is no such device existings on the platform
+
+      bf_pltfm_led.h
+        Functions to initialize LED sub-system and manage LEDs
+
+      bf_pltfm_bd_cfg.h
+        Functions to return number of ports on board, name of the board and
+        board map per the board map format.
+
+      bf_pltfm.h
+        Platform level intialization and exit-clean up functions and
+        platform specific post-asic-intialization functions
+
+    platforms/common/
+        This directory contains the generic code that can be shared across
+        platforms like accton-bf, newport etc. Note the attributes of this
+        directory -
+        a) DONOT create any 'Makefile' inside common or its sub-directories.
+           We expect the code residing here to be sourced from platform
+           specific Makefile
+        b) Under common, create the functionality name like /device.s
+           Place device driver code under /devices/<gpio, flash>.
+           Public methods for all devices should be at devices/include.
+           Example hierarchy for GPIO driver pca953x is shown below
+           common/
+           └── devices
+               ├── include
+               │   └── bf_pcal9535.h
+               └── pca953x
+                   ├── bf_pcal9535.c
+                   └── bf_pcal9535_priv.h
+ 
+    The platform specific implementations of the above functions are to be
+    hosted under platforms/$my_platform folder similar to Barefoot reference
+    platform code is under 'accton-bf' folder
+
+    platforms/$my_platform
+
+
+Dependencies
+============
+The <bf-platforms> does not expect any other libraries to be pre-installed.
+
+
+Building and installing
+=======================
+The building of drivers produces a set of libraries that need to be
+loaded (or linked to) the application.
+Here're the steps to build and install the <bf-platforms> package
+
+    cd <bf-platforms>
+    ./configure --prefix=$BSP_INSTALL
+                [--enable-thrift]
+                [-host=i386-linux-gnu CFLAGS=-m32 CXXFLAGS=-m32 LDFLAGS=-m32]
+    make
+    make install
+
+NOTE 1:
+    - In order to exercise PTF scripts, '--enable-thrift' option is required
+
+NOTE 2:
+    - The '-host' option is required for cross-compiling for 32-bit i686 CPU
+
+NOTE 3:
+    - The above builds "accton-bf" platform. Use the option,
+      "--with-tof-brgup-plat", with configure command, in order to build other
+      platform instead of "accton-bf", i.e., tofino-bringup-platform or
+      $my_platform (refer to the last section in this file on $my_platform)
+
+Artifacts installed
+===================
+Here're the artifacts that get installed for <bf-platforms>
+
+Build artifacts:
+
+    header files for driver API to  $BSP_INSTALL/include/
+
+    libpltfm_driver.[a,la,so] to $BSP_INSTALL/lib/
+        driver library to manage the platform components
+
+    libpltfm_mgr.[a,la,so] to $BSP_INSTALL/lib
+        platform monitoring agent
+
+
+Incorporating support for a new platform $my_platform:
+======================================================
+
+
+step 1: create a new directory, $my_platform, under bf-platforms/platform
+        (like accton-bf)
+step 2: vendor implementation can suitably organize its code under this
+        directory. accton-bf provides an example. But, directory and makefile
+        structure can vary. $my_platform/Makefile.am should be capable of 
+        building the entire $my_platform module.
+        Contents under "BUILD_TOFINO_BRINGUP_PLAT" conditional build would need
+        tweaking in multiple Makefile.am(s).
+  step 2A:
+        Any vendor platform implementation must implement all functions
+        declared in all the header files under bf-platforms/include. These
+        functions include the necessary comments in front of them.
+  Step 2B:
+       Makefile changes.
+       bf-platform/configure.ac
+           Remove "accton-bf" specific default header file include path in
+           AC_SUBST([AM_CPPFLAGS]
+           Replace "platform/tofino-bringup/Makefile" (towards the end) with
+           "platform/$my_platform/Makefile
+
+       bf-platforms/Makefile.am
+	   Replace under "if BUILD_TOFINO_BRINGUP_PLAT"
+           "libpltfm_mgr_la_LIBADD += $(builddir)/platforms/\
+           tofino-bringup/libtofbringup_driver" with
+           "libpltfm_mgr_la_LIBADD += $(builddir)/platforms/$my_platform/<*.la>
+
+       bf-platforms/platorms/Makefile.am
+	   Replace under "if BUILD_TOFINO_BRINGUP_PLAT"
+           "tofino-bringup" with "$my_platform"
+  step 2C:
+       Invoke configure command with an additional option parameter,
+       "--with-tof-brgup-plat" (without quotes)
