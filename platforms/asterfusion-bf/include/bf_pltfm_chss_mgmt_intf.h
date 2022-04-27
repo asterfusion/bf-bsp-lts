@@ -248,7 +248,7 @@ typedef struct bf_pltfm_fan_info_t {
 
 typedef struct bf_pltfm_fan_data_t {
     bf_pltfm_fan_info_t
-    F[10]; /* 10 is Max number of fans*/
+    F[12]; /* 12 is Max number of fans*/
     uint8_t fantray_present;   /* Fan tray presence */
 } bf_pltfm_fan_data_t;
 

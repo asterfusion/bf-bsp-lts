@@ -20,8 +20,6 @@
 #include <errno.h>
 #include <ctype.h>
 
-#include <linux/i2c-dev.h>
-
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include "bf_pltfm_cgos_i2c.h"
 #include <bf_types/bf_types.h>
@@ -517,7 +515,9 @@ int check_funcs (int file, int size, int pec)
 
 static int bf_pltfm_master_i2c_select(uint8_t read_write_slave)
 {
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (X308P)) {
+        i2c_ctx.fd = i2c_ctx.fd_suio;
+    } else if (platform_type_equal (X312P)) {
         if (platform_subtype_equal(v1dot2)) {
             i2c_ctx.fd = i2c_ctx.fd_cp2112;
         } else if (platform_subtype_equal(v1dot3)) {

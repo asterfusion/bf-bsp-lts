@@ -19,8 +19,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <curl/curl.h>
-#include <linux/i2c-dev.h>
 #include <math.h>
 
 /* Module includes */
@@ -84,6 +82,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
+        memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
         return BF_PLTFM_SUCCESS;
     }
 
@@ -161,6 +160,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
+        memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
         return BF_PLTFM_SUCCESS;
     }
 
@@ -171,6 +171,81 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US * 1.5);
+    } else {
+        ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                       BMC_CMD_PSU_GET, wr_buf, 2, 0xFF, rd_buf,
+                                       BMC_COMM_INTERVAL_US);
+    }
+
+    if ((ret == 27) && (rd_buf[0] == 26)) {
+        info[0].vin        = rd_buf[1] << 8 | rd_buf[2];
+        info[0].vout       = rd_buf[3] << 8 | rd_buf[4];
+        info[0].iin        = rd_buf[5] << 8 | rd_buf[6];
+        info[0].iout       = rd_buf[7] << 8 | rd_buf[8];
+        info[0].pwr_out    = rd_buf[9] << 8 | rd_buf[10];
+        info[0].pwr_in     = rd_buf[11] << 8 | rd_buf[12];
+
+        info[1].vin        = rd_buf[14] << 8 | rd_buf[15];
+        info[1].vout       = rd_buf[16] << 8 | rd_buf[17];
+        info[1].iin        = rd_buf[18] << 8 | rd_buf[19];
+        info[1].iout       = rd_buf[20] << 8 | rd_buf[21];
+        info[1].pwr_out    = rd_buf[22] << 8 | rd_buf[23];
+        info[1].pwr_in     = rd_buf[24] << 8 | rd_buf[25];
+
+        err = BF_PLTFM_SUCCESS;
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
+(
+    bf_pltfm_pwr_supply_t pwr, bool *present,
+    bf_pltfm_pwr_supply_info_t *info)
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    int err = BF_PLTFM_COMM_FAILED, ret = 0;
+
+    wr_buf[0] = BMC_SUB1_STATUS;
+    wr_buf[1] = 0xAA;
+
+    if (g_access_bmc_through_uart) {
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                  BMC_COMM_INTERVAL_US *
+                  3);    /* the usec may be too long. */
+    }
+
+    if ((ret == 7) && (rd_buf[0] == 6)) {
+        info[0].presence = (rd_buf[3] == 1) ?
+                           false : true;
+        info[1].presence = (rd_buf[6] == 1) ?
+                           false : true;
+        err = BF_PLTFM_SUCCESS;
+    }
+
+    if (!err) {
+        *present = info[pwr - 1].presence;
+    }
+
+    /* There's no PSU info if the psu is absent.
+     * Here return success.
+     * by tsihang, 2021-07-13. */
+    if (! (*present)) {
+        memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+        return BF_PLTFM_SUCCESS;
+    }
+
+    wr_buf[0] = BMC_SUB1_INFO;
+    wr_buf[1] = 0xAA;
+
+    if (g_access_bmc_through_uart) {
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                  BMC_COMM_INTERVAL_US *
+                  3);    /* the usec may be too long. */
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
                                        BMC_CMD_PSU_GET, wr_buf, 2, 0xFF, rd_buf,
@@ -246,7 +321,8 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         }
 
         // if not present return
-        if (!*present) {
+        if (! (*present)) {
+            memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
             return BF_PLTFM_SUCCESS;
         }
 
@@ -447,6 +523,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             return BF_PLTFM_COMM_FAILED;
         }
 
+        // if not present return
+        if (! (*present)) {
+            memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+            return BF_PLTFM_SUCCESS;
+        }
+
         /*PSU Pout 00: 02 <psu low> <psu high>*/
         buf[2] = 0x96;
         ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, 10000);
@@ -583,7 +665,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             LOG_ERROR("Read psu sn error\n");
             return BF_PLTFM_COMM_FAILED;
         } else {
-            memcpy (info->serial, &psu_sn_data[1], 11);
+            memcpy (info->serial, &psu_sn_data[1], 10);
             if (debug_print) {
                 fprintf (stdout, "sn is %s\n",
                         info->serial);
@@ -668,6 +750,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
                &tmp_psu_data[0]);
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
+              (pwr, present, (bf_pltfm_pwr_supply_info_t *)
+               &tmp_psu_data[0]);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
                &tmp_psu_data[0]);
     } else if (platform_type_equal (X312P)) {

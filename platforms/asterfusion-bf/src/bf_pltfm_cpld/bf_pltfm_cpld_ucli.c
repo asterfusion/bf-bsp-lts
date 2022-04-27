@@ -38,8 +38,8 @@ static void hex_dump (ucli_context_t *uc,
 
 int select_cpld (int cpld)
 {
-    /* for X312P, there's no need to select CPLD */
-    if (platform_type_equal (X312P)) {
+    /* for X312P and X308P, there's no need to select CPLD */
+    if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
         return 0;
     }
 
@@ -69,8 +69,8 @@ int select_cpld (int cpld)
 
 int unselect_cpld()
 {
-    /* for X312P, there's no need to select CPLD */
-    if (platform_type_equal (X312P)) {
+    /* for X312P and X308P, there's no need to select CPLD */
+    if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
         return 0;
     }
 
@@ -617,6 +617,64 @@ end:
     return rc;
 }
 
+/* Reset PCA9548 for QSFP/SFP control.
+ * CPLD1 offset = 2, and
+ * bit[2] reset PCA9548 for Y33~Y48, C1~C8
+ * bit[1] reset PCA9548 for Y1~Y32
+ * by yanghuachen, 2022-02-25 */
+int bf_pltfm_pca9548_reset_x308p()
+{
+    int rc = 0;
+    uint8_t val = 0, val0 = 0, val1 = 0;
+    int usec = 500;
+
+    rc |= bf_pltfm_master_i2c_read_byte (
+              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
+
+    val = val0;
+    val |= (1 << 1);
+    val |= (1 << 2);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              BF_MAV_SYSCPLD1_I2C_ADDR, 2, val);
+    bf_sys_usleep (usec);
+
+    /* read back for log. */
+    rc |= bf_pltfm_master_i2c_read_byte (
+              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val1);
+    if (rc != 0) {
+        goto end;
+    }
+
+    fprintf (stdout,
+             "PCA9548(0-6)  +RST : (0x%02x -> 0x%02x)\n", val0,
+             val1);
+    LOG_DEBUG ("PCA9548(0-6) +RST : (0x%02x -> 0x%02x)",
+               val0, val1);
+
+    val = val1;
+    val &= ~ (1 << 1);
+    val &= ~ (1 << 2);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              BF_MAV_SYSCPLD1_I2C_ADDR, 2, val);
+    bf_sys_usleep (usec);
+
+    /* read back for log. */
+    rc |= bf_pltfm_master_i2c_read_byte (
+              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
+    if (rc) {
+        goto end;
+    }
+
+    fprintf (stdout,
+             "PCA9548(0-6)  -RST : (0x%02x -> 0x%02x)\n", val1,
+             val0);
+    LOG_DEBUG ("PCA9548(0-6) -RST : (0x%02x -> 0x%02x)",
+               val1, val0);
+
+end:
+    return rc;
+}
+
 int bf_pltfm_pca9548_reset_x312p()
 {
     int rc = 0;
@@ -801,6 +859,20 @@ end:
     return rc;
 }
 
+int bf_pltfm_syscpld_init_x308p()
+{
+//    int rc;
+    MASTER_I2C_LOCK;
+
+    /* only one cpld, no need to reset cpld */
+//    bf_pltfm_syscpld_reset_x308p();
+    /* reset PCA9548 */
+    bf_pltfm_pca9548_reset_x308p();
+
+    MASTER_I2C_UNLOCK;
+    return 0;
+}
+
 int bf_pltfm_syscpld_init_hc()
 {
     int rc;
@@ -844,6 +916,9 @@ int bf_pltfm_syscpld_init()
     } else if (platform_type_equal (X532P)) {
         bf_pltfm_max_cplds = 2;
         return bf_pltfm_syscpld_init_x532p();
+    } else if (platform_type_equal (X308P)) {
+        bf_pltfm_max_cplds = 2;
+        return bf_pltfm_syscpld_init_x308p();
     } else if (platform_type_equal (HC)) {
         bf_pltfm_max_cplds = 3;
         return bf_pltfm_syscpld_init_hc();

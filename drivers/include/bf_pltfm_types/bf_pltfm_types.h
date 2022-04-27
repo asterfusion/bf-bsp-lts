@@ -175,6 +175,18 @@ struct st_ctx_t {
 #define bf_pm_intf_is_device_family_tofino((dev)) (true)
 #endif
 
+
+/* for those OS <= debian 9 and > debian 9. */
+#define OS_VERSION 9
+#define OS_VERSION_EQ(key) \
+        EQ(OS_VERSION, (key))
+
+#define OS_VERSION_GT(key) \
+        GT(OS_VERSION, (key))
+
+#define OS_VERSION_LT(key) \
+        LT(OS_VERSION, (key))
+
 #ifdef __cplusplus
 }
 #endif /* C++ */

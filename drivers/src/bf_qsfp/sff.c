@@ -520,7 +520,7 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
     const char *empty = "                ";
     if (*vendor) {
         strncpy (se->info.vendor, (char *)vendor,
-                 strlen ((char *)vendor));
+                 strlen ((char *)vendor) >= 16 ? 16 : strlen ((char *)vendor));
         make_printable__ (se->info.vendor,
                           sizeof (se->info.vendor));
         se->info.vendor[16] = '\0';
@@ -531,7 +531,7 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*model) {
         strncpy (se->info.model, (char *)model,
-                 strlen ((char *)model));
+                 strlen ((char *)model) >= 16 ? 16 : strlen ((char *)model));
         make_printable__ (se->info.model,
                           sizeof (se->info.model));
         se->info.model[16] = '\0';
@@ -542,7 +542,7 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*serial) {
         strncpy (se->info.serial, (char *)serial,
-                 strlen ((char *)serial));
+                 strlen ((char *)serial) >= 16 ? 16 : strlen ((char *)serial));
         make_printable__ (se->info.serial,
                           sizeof (se->info.serial));
         se->info.serial[16] = '\0';
@@ -553,7 +553,7 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*date) {
         strncpy (se->info.date, (char *)date,
-                 strlen ((char *)date));
+                 strlen ((char *)date) >= 8 ? 8 : strlen ((char *)date));
         make_printable__ (se->info.date,
                           sizeof (se->info.date));
         se->info.date[8] = '\0';
@@ -564,7 +564,7 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*rev) {
         strncpy (se->info.rev, (char *)rev,
-                 strlen ((char *)rev));
+                 strlen ((char *)rev) >= 4 ? 4 : strlen ((char *)rev));
         make_printable__ (se->info.rev,
                           sizeof (se->info.rev));
         se->info.rev[4] = '\0';
@@ -575,7 +575,7 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*oui) {
         strncpy (se->info.oui, (char *)oui,
-                 strlen ((char *)oui));
+                 3);
         se->info.oui[3] = '\0';
     } else {
         strncpy (se->info.oui, empty, 3);
@@ -968,15 +968,15 @@ sff_info_init (sff_info_t *info,
 
     if (vendor) {
         strncpy (info->vendor, vendor,
-                 sizeof (info->vendor));
+                 strlen (info->vendor));
     }
     if (model) {
         strncpy (info->model, model,
-                 sizeof (info->model));
+                 strlen (info->model));
     }
     if (serial) {
         strncpy (info->serial, serial,
-                 sizeof (info->serial));
+                 strlen (info->serial));
     }
 
     info->length = length;

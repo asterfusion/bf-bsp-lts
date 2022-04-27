@@ -50,13 +50,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <math.h>
 #include <string.h>
-#include <curl/curl.h>
 #include <bfsys/bf_sal/bf_sys_sem.h>
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_pltfm_bmc_tty.h>
 #include <bf_pltfm.h>
+#include "bf_pltfm_uart.h"
 
 #define DEFAULT_TIMEOUT_MS 500
 
@@ -990,6 +990,7 @@ static bf_pltfm_status_t bf_pltfm_cp2112_open (
     if (platform_type_equal (X532P) ||
         (platform_type_equal (X564P) &&
          platform_subtype_equal (v1dot2)) ||
+         platform_type_equal (X308P) ||
         platform_type_equal (HC)) {
         g_max_cp2112_num = 2;
     } else if (platform_type_equal (X312P)) {
@@ -1502,13 +1503,13 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error: Unable to open CP2112 devices iteration %d <rc=%d>",
                        tried_reset_on_error, sts);
-            if (tried_reset_on_error == 1) {
+            if (tried_reset_on_error == 3) {
                 return sts;
             }
             bf_pltfm_cp2112_de_init();
             bf_sys_usleep (5000);
             bf_pltfm_bmc_cp2112_reset (true);
-            tried_reset_on_error = 1;
+            tried_reset_on_error ++;
             bf_sys_sleep (2);
         } else {
             LOG_DEBUG ("CP2112 summary: ");
@@ -1706,7 +1707,25 @@ static int write_data_cb (void *ptr)
 bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
     bool primary)
 {
-    /* TBD. */
+    /* Make it very clear for those platforms which could offer cp2112 reset oper by doing below operations.
+     * Because we cann't and shouldn't assume platforms which are NOT X312P-T could reset cp2112 like this.
+     * by tsihang, 2022-04-27. */
+    if (platform_type_equal (X564P) ||
+        platform_type_equal (X532P) ||
+        platform_type_equal (X308P)) {
+        uint8_t rd_buf[128];
+        char cmd = 0x10;
+        uint8_t wr_buf[2] = {0x01, 0xAA};
+        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+        wr_buf[0] = 0x02;
+        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+    } else if (platform_type_equal(X312P)) {
+        /* TBD */
+    } else if (platform_type_equal(HC)) {
+        /* TBD */
+    }
 
     (void)primary;
     return BF_PLTFM_SUCCESS;

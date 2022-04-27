@@ -92,6 +92,11 @@ pltfm_bd_map_t pltfm_board_maps[] = {
         ROWS (mavericks_P0B_bd_map_x532p)
     },
     {
+        BF_PLTFM_BD_ID_MAVERICKS_P0B,
+        mavericks_P0B_bd_map_x308p,
+        ROWS (mavericks_P0B_bd_map_x308p)
+    },
+    {
         BF_PLTFM_BD_ID_MONTARA_P0B,
         montara_P0B_bd_map_x312p,
         ROWS (montara_P0B_bd_map_x312p)
@@ -110,6 +115,8 @@ pltfm_bd_map_t *platform_pltfm_bd_map_get (
         return &pltfm_board_maps[X564P];
     } else if (platform_type_equal (X532P)) {
         return &pltfm_board_maps[X532P];
+    } else if (platform_type_equal (X308P)) {
+        return &pltfm_board_maps[X308P];
     } else if (platform_type_equal (X312P)) {
         return &pltfm_board_maps[X312P];
     } else if (platform_type_equal (HC)) {

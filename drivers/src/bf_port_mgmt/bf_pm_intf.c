@@ -22,6 +22,7 @@
 #include <bf_pm/bf_pm_intf.h>
 #include <bf_pltfm.h>
 #include <bf_pltfm_ext_phy.h>
+#include <bf_pltfm_bd_cfg.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bfutils/map/map.h>
 
@@ -76,6 +77,7 @@ qsfp_quick_rmv_pres_mask[3];  // 0->lower mask, 1->upper mask
 // 2->cpu port mask
 
 static int bf_pm_num_qsfp = 0;
+static int bf_pm_num_mac  = 0;
 
 extern bool dev_port_in_tx_mode[];
 
@@ -479,6 +481,14 @@ bf_pltfm_status_t qsfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
+    } else if (bf_pltfm_equal (X308P)) {
+        sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
     } else if (bf_pltfm_equal (X312P)) {
         sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
@@ -527,6 +537,7 @@ void qsfp_scan_timer_cb (struct bf_sys_timer_s
     static int dumped = 0;
     if (!dumped) {
         LOG_DEBUG ("QSFP Scan started..");
+        fprintf (stdout, "QSFP Scan started..\n");
         dumped = 1;
     }
     // printf("QSFP timer off\n");
@@ -571,11 +582,11 @@ bf_status_t bf_pltfm_pm_media_type_get (
     bf_pltfm_port_info_t *port_info,
     bf_media_type_t *media_type)
 {
-    /* bf_pm_num_qsfp is equle the number of MAC. No matter SFP or QSFP,
+    /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
      */
-    if ((int)port_info->conn_id > bf_pm_num_qsfp) {
+    if ((int)port_info->conn_id > bf_pm_num_mac) {
         *media_type = BF_MEDIA_TYPE_UNKNOWN;
         return BF_PLTFM_INVALID_ARG;
     }
@@ -597,7 +608,7 @@ bf_status_t bf_pltfm_pm_media_type_get (
     if (is_panel_sfp (port_info->conn_id,
                       port_info->chnl_id)) {
         int module = 0;
-        bf_sfp_get_port (port_info->chnl_id,
+        bf_sfp_get_port (port_info->conn_id,
                          port_info->chnl_id, &module);
         if (!pm_sfp_info_arr[module].is_present) {
             /*Indicates that no SFP is inserted in the port. Hence the media type is
@@ -1002,16 +1013,18 @@ handle_removal:
                     sfp_present_actions (module);
                 }
                 sfp_fsm_inserted (module);
-            } //else {lower_ports :
-            //sfp_state_ha_config_set (dev_id, conn_id);
-            //}
+            } else {
+                //sfp_state_ha_config_set (dev_id, conn_id);
+                sfp_fsm_inserted (module);
+            }
         } else {
             // Update the cached status of the qsfp
             if (!bf_pltfm_pm_is_ha_mode()) {
                 sfp_scan_removed (dev_id, module);
-            } //else {
-            //  qsfp_state_ha_config_delete (module);
-            //}
+            } else {
+                //sfp_state_ha_config_delete (module);
+                sfp_scan_removed (dev_id, module);
+            }
         }
 
         module++;
@@ -1064,6 +1077,22 @@ bf_pltfm_status_t sfp_scan (bf_dev_id_t dev_id)
         sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+    } else if (bf_pltfm_equal (X308P)) {
+        sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+        sts = sfp_scan_helper (dev_id, 33, upper_mask,
+                               0);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the SFPs (33-64)  at %s:%d\n",
                        bf_pltfm_err_str (sts),
                        __func__,
                        __LINE__);
@@ -1164,12 +1193,12 @@ bf_pltfm_status_t bf_pltfm_pm_port_sfp_type_get (
     if (!port_info || !qsfp_type) {
         return BF_PLTFM_INVALID_ARG;
     }
-    /* bf_pm_num_qsfp is equle the number of MAC. No matter SFP or QSFP,
+    /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
      */
     if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_sfp) ||
+         bf_pm_num_mac) ||
         (port_info->chnl_id >= QSFP_NUM_CHN) ||
         !is_panel_sfp (port_info->conn_id,
                        port_info->chnl_id)) {
@@ -1194,12 +1223,12 @@ bf_pltfm_status_t pltfm_pm_port_sfp_is_present (
     if (!port_info) {
         return BF_PLTFM_INVALID_ARG;
     }
-    /* bf_pm_num_qsfp is equle the number of MAC. No matter SFP or QSFP,
+    /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
      */
     if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_sfp) ||
+         bf_pm_num_mac) ||
         (port_info->chnl_id >= QSFP_NUM_CHN) ||
         !is_panel_sfp (port_info->conn_id,
                        port_info->chnl_id)) {
@@ -1265,8 +1294,12 @@ bf_pltfm_status_t bf_pltfm_pm_port_qsfp_type_get (
     if (!port_info || !qsfp_type) {
         return BF_PLTFM_INVALID_ARG;
     }
+    /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
+     * this branch can be used for two of them. So I keep it here.
+     * by tsihang, 2021-07-18.
+     */
     if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_qsfp) ||
+         bf_pm_num_mac) ||
         (port_info->chnl_id >= QSFP_NUM_CHN)) {
         return BF_PLTFM_INVALID_ARG;
     }
@@ -1296,8 +1329,12 @@ bf_pltfm_status_t pltfm_pm_port_qsfp_is_present (
     if (!port_info) {
         return BF_PLTFM_INVALID_ARG;
     }
+    /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
+     * this branch can be used for two of them. So I keep it here.
+     * by tsihang, 2021-07-18.
+     */
     if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_qsfp) ||
+         bf_pm_num_mac) ||
         (port_info->chnl_id >= QSFP_NUM_CHN)) {
         return BF_PLTFM_INVALID_ARG;
     }
@@ -1388,7 +1425,9 @@ bf_pltfm_status_t bf_pltfm_pm_init (
     int conn_id;
     bf_sys_timer_status_t rc;
 
+    /* Real QSFPs of current platforms. */
     bf_pm_num_qsfp = bf_qsfp_get_max_qsfp_ports();
+    bf_pm_num_mac  = platform_num_ports_get ();
     LOG_DEBUG ("num of QSFPs = %2d, BF_DRV_VER %s",
                bf_pm_num_qsfp, bf_drv_get_version());
     fprintf (stdout, "num of QSFPs = %d, BF_DRV_VER %s\n",

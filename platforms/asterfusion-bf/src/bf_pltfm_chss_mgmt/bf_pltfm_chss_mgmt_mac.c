@@ -77,6 +77,13 @@ bf_pltfm_chss_mgmt_port_mac_addr_get (
                        port_info->conn_id,
                        port_info->chnl_id);
         }
+    } else if (platform_type_equal (X308P)) {
+        if ((port_info->conn_id > 33) ||
+            (port_info->chnl_id >= max_chnl_id)) {
+            LOG_ERROR ("Invalid argument conn_id: %d chnl_id: %d\n",
+                       port_info->conn_id,
+                       port_info->chnl_id);
+        }
     } else if (platform_type_equal (X312P)) {
         if ((port_info->conn_id > 33) ||
             (port_info->chnl_id >= max_chnl_id)) {

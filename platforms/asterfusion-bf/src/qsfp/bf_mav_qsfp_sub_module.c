@@ -162,6 +162,17 @@ static struct qsfp_ctx_t qsfp_ctx_x564p[] = {
     {"C64", 64, (0x76 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (4)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (4)}},
 };
 
+static struct qsfp_ctx_t qsfp_ctx_x308p[] = {
+    {"C1",   1, (0x76 << 1), 0, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (0)}, {BF_MAV_SYSCPLD1, 0x14, BIT (0)}},
+    {"C2",   2, (0x76 << 1), 1, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (1)}, {BF_MAV_SYSCPLD1, 0x14, BIT (1)}},
+    {"C3",   3, (0x76 << 1), 2, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (2)}, {BF_MAV_SYSCPLD1, 0x14, BIT (2)}},
+    {"C4",   4, (0x76 << 1), 3, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (3)}, {BF_MAV_SYSCPLD1, 0x14, BIT (3)}},
+    {"C5",   5, (0x76 << 1), 4, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (4)}, {BF_MAV_SYSCPLD1, 0x14, BIT (4)}},
+    {"C6",   6, (0x76 << 1), 5, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (5)}, {BF_MAV_SYSCPLD1, 0x14, BIT (5)}},
+    {"C7",   7, (0x76 << 1), 6, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (6)}, {BF_MAV_SYSCPLD1, 0x14, BIT (6)}},
+    {"C8",   8, (0x76 << 1), 7, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (7)}, {BF_MAV_SYSCPLD1, 0x14, BIT (7)}},
+};
+
 /* Not finished yet, please help this work.
  * by tsihang, 2021-07-18. */
 static struct qsfp_ctx_t qsfp_ctx_hc[] = {
@@ -539,6 +550,8 @@ static int qsfp_init_sub_bus (
         max_pca9548_cnt = 4;
     } else if (platform_type_equal (X564P)) {
         max_pca9548_cnt = 8;
+    } else if (platform_type_equal (X308P)) {
+        max_pca9548_cnt = 7;
     }
 
     /* Initialize all PCA9548 devices to select channel 0 */
@@ -584,6 +597,9 @@ int bf_pltfm_init_cp2112_qsfp_bus (
     } else if (platform_type_equal (X564P)) {
         g_qsfp_ctx = &qsfp_ctx_x564p[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x564p));
+    } else if (platform_type_equal (X308P)) {
+        g_qsfp_ctx = &qsfp_ctx_x308p[0];
+        bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x308p));
     } else if (platform_type_equal (X312P)) {
         g_qsfp_ctx = &qsfp_ctx_x312p[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x312p));
@@ -608,6 +624,10 @@ bool is_panel_qsfp_module (unsigned int module)
         if ((module >= 1) && (module <= 64)) {
             return true;
         }
+    } else if (platform_type_equal (X308P)) {
+        if ((module >= 1) && (module <= 8)) {
+            return true;
+        }
     } else if (platform_type_equal (X312P)) {
         if ((module >= 1) && (module <= 12)) {
             return true;
@@ -628,6 +648,10 @@ bool is_panel_sfp_module (unsigned int module)
         }
     } else if (platform_type_equal (X564P)) {
         if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (X308P)) {
+        if ((module >= 1) && (module <= 48)) {
             return true;
         }
     } else if (platform_type_equal (X312P)) {
@@ -676,6 +700,12 @@ bool is_internal_port_need_autonegotiate (
     } else if (platform_type_equal (X532P)) {
         if (conn_id == 33) {
             if ((chnl_id == 2) || (chnl_id == 3)) {
+                return true;
+            }
+        }
+    } else if (platform_type_equal (X308P)) {
+        if (conn_id == 33) {
+            if (chnl_id <= 3) {
                 return true;
             }
         }
@@ -1414,6 +1444,37 @@ end:
  * within a single cp2112 domain
  * bit 0: module present, 1: not-present
  */
+static int bf_pltfm_get_sub_module_pres_x308p (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h)
+{
+    int rc = 0;
+    uint8_t val = 0;
+    uint32_t qsfp_pres_h = 0xFFFFFFFF;
+    uint32_t qsfp_pres_l = 0xFFFFFF00;
+    hndl = hndl;
+
+    MASTER_I2C_LOCK;
+    /* MISC */
+    rc |= bf_pltfm_master_i2c_read_byte (
+              BF_MAV_SYSCPLD1_I2C_ADDR, 0x06, &val);
+
+    qsfp_pres_l |= val;
+
+    MASTER_I2C_UNLOCK;
+
+    *pres_l = qsfp_pres_l;
+    *pres_h = qsfp_pres_h;
+
+    return rc;
+
+}
+
+/*
+ * get the qsfp present mask status for the group of qsfps that are
+ * within a single cp2112 domain
+ * bit 0: module present, 1: not-present
+ */
 int bf_pltfm_get_sub_module_pres (
     bf_pltfm_cp2112_device_ctx_t *hndl,
     uint32_t *pres_l, uint32_t *pres_h)
@@ -1423,6 +1484,9 @@ int bf_pltfm_get_sub_module_pres (
                 pres_l, pres_h);
     } else if (platform_type_equal (X564P)) {
         return bf_pltfm_get_sub_module_pres_x564p (hndl,
+                pres_l, pres_h);
+    } else if (platform_type_equal (X308P)) {
+        return bf_pltfm_get_sub_module_pres_x308p (hndl,
                 pres_l, pres_h);
     } else if (platform_type_equal (X312P)) {
         return bf_pltfm_get_sub_module_pres_x312p (hndl,

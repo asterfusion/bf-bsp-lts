@@ -15,6 +15,7 @@
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_sfp.h>
 
+static bool sfp_debug_on = false;
 static int bf_plt_max_sfp;
 
 /*
@@ -401,14 +402,16 @@ int bf_sfp_update_cache (int port)
         return -1;
     }
 
-    LOG_DEBUG (
-        " SFP    %2d : %s", port,
-        bf_sfp_is_sff8472 (port) ? "SFF-8472" :
-        "Unknown");
+    if (sfp_debug_on) {
+        LOG_DEBUG (
+            " SFP    %2d : %s", port,
+            bf_sfp_is_sff8472 (port) ? "SFF-8472" :
+            "Unknown");
 
-    LOG_DEBUG (
-        " SFP    %2d : %s", port,
-        bf_sfp_is_flat_mem (port) ? "Flat" : "Paged");
+        LOG_DEBUG (
+            " SFP    %2d : %s", port,
+            bf_sfp_is_flat_mem (port) ? "Flat" : "Paged");
+    }
 
     sff_dom_info_t sdi;
     sff_eeprom_t *se;
@@ -456,11 +459,11 @@ int bf_sfp_update_cache (int port)
         bf_sfp_info_arr[port].passive_cu = false;
     }
 
-    bf_sfp_sff_info_show (sff);
-
-    LOG_DEBUG (" SFP    %2d : Update cache complete",
-               port);
-
+    if (sfp_debug_on) {
+        bf_sfp_sff_info_show (sff);
+        LOG_DEBUG (" SFP    %2d : Update cache complete",
+                   port);
+    }
     return 0;
 
 }

@@ -170,6 +170,34 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
                     t.tmp6, "Fan 2");
         /* Added more sensors. */
+    } else if (platform_type_equal (X308P)) {
+        aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
+                    t.tmp1, "Far left of mainboard");
+        aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
+                    t.tmp2, "Far right of mainboard");
+        aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
+                    t.tmp3, "Fan 1");
+        aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
+                    t.tmp4, "Fan 2");
+        aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
+                    t.tmp5, "BF Ambient");
+        aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
+                    t.tmp6, "BF Junction");
+        // if == -100.0, means no GHC-0 installed
+        if (t.tmp7 != -100.0) {
+            aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
+                        t.tmp7, "GHC-0 Ambient");
+            aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
+                        t.tmp8, "GHC-0 Junction");
+        }
+        // if == -100.0, means no GHC-0 installed
+        if (t.tmp9 != -100.0) {
+            aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
+                        t.tmp9, "GHC-1 Ambient");
+            aim_printf (&uc->pvs, "tmp10   %.1f C   \"%s\"\n",
+                        t.tmp10,"GHC-1 Junction");
+        }
+        /* Added more sensors. */
     } else if (platform_type_equal (X312P)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "lm75");

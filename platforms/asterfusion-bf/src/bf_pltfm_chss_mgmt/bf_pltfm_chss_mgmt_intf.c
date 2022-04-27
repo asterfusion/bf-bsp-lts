@@ -135,6 +135,9 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
                 }
             }
 
+            /* Make sure that the UART configuration is disabled in /etc/platform.conf
+             * when current platform is X312P-T.
+             * by tsihang, 2022-04-27. */
             p = strstr (entry, "uart:");
             if (p) {
                 p += 5;
@@ -142,9 +145,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
                     uart_ctx.dev[i] = p[i];
                 }
                 /* Identify to open UART. */
-                if (is_CG15XX()) {
-                    uart_ctx.flags |= AF_PLAT_UART_ENABLE;
-                }
+                uart_ctx.flags |= AF_PLAT_UART_ENABLE;
             }
 
             memset (&entry[0], 0, lqe_valen);

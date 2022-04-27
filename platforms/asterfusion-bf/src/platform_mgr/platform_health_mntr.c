@@ -200,12 +200,11 @@ static void check_pwr_supply (void)
 
     if (!presence) {
         LOG_WARNING ("POWER SUPPLY 1 not present \n");
-    } else {
-#if defined(HAVE_ONLP)
-        /* Added ONLP API */
-        bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
-#endif
     }
+#if defined(HAVE_ONLP)
+    /* Added ONLP API */
+    bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
+#endif
 
     pwr = POWER_SUPPLY2;
     if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
@@ -217,12 +216,11 @@ static void check_pwr_supply (void)
 
     if (!presence) {
         LOG_WARNING ("POWER SUPPLY 2 not present \n");
-    } else {
-#if defined(HAVE_ONLP)
-        /* Added ONLP API */
-        bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
-#endif
     }
+#if defined(HAVE_ONLP)
+    /* Added ONLP API */
+    bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
+#endif
     return;
 }
 
@@ -298,6 +296,22 @@ static void check_chassis_temperature (void)
             bf_pltfm_chss_mgmt_onlp_temp (4, (float)t.tmp4);
             bf_pltfm_chss_mgmt_onlp_temp (5, (float)t.tmp5);
             bf_pltfm_chss_mgmt_onlp_temp (6, (float)t.tmp6);
+        } else if (platform_type_equal (X308P)) {
+            bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
+            bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);
+            bf_pltfm_chss_mgmt_onlp_temp (3, (float)t.tmp3);
+            bf_pltfm_chss_mgmt_onlp_temp (4, (float)t.tmp4);
+            bf_pltfm_chss_mgmt_onlp_temp (5, (float)t.tmp5);
+            bf_pltfm_chss_mgmt_onlp_temp (6, (float)t.tmp6);
+            int i = 7;
+            if (t.tmp7 != -100.0) {
+                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp7);
+                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp8);
+            }
+            if (t.tmp9 != -100.0) {
+                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp9);
+                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp10);
+            }
         } else if (platform_type_equal (X312P)) {
             bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
             bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);

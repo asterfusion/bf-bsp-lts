@@ -18,7 +18,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <curl/curl.h>
 #include <unistd.h>
 
 /* Module includes */
@@ -128,6 +127,48 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x564p__ (
 }
 
 static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_pwr_rails_get_x308p__ (
+    bf_pltfm_pwr_rails_info_t *pwr_rails)
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    int err = BF_PLTFM_COMM_FAILED, ret;
+
+    wr_buf[0] = 0xAA;
+    wr_buf[1] = 0xAA;
+
+    if (g_access_bmc_through_uart) {
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_VRAIL_GET, wr_buf, 2, rd_buf, (128 - 1),
+                  BMC_COMM_INTERVAL_US);
+
+        if ((ret == 17) && (rd_buf[0] == 16)) {
+            pwr_rails->vrail1 = rd_buf[11] * 1000 +
+                                rd_buf[12] *
+                                100;     /* For SONIC, 1 pwr_rails needed. */
+            pwr_rails->vrail2 = rd_buf[13] * 1000 +
+                                rd_buf[14] * 100;
+            pwr_rails->vrail3 = rd_buf[1]  * 1000 +
+                                rd_buf[2]  * 100;
+            pwr_rails->vrail4 = rd_buf[3]  * 1000 +
+                                rd_buf[4]  * 100;
+            pwr_rails->vrail5 = rd_buf[5]  * 1000 +
+                                rd_buf[6]  * 100;
+            pwr_rails->vrail6 = rd_buf[15] * 1000 +
+                                rd_buf[16] * 100;
+            pwr_rails->vrail7 = rd_buf[7]  * 1000 +
+                                rd_buf[8]  * 100;
+            pwr_rails->vrail8 = rd_buf[9]  * 1000 +
+                                rd_buf[10] * 100;
+
+            err = BF_PLTFM_SUCCESS;
+        }
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
     bf_pltfm_pwr_rails_info_t *pwr_rails)
 {
@@ -186,6 +227,9 @@ __bf_pltfm_chss_mgmt_pwr_rails_get__ (
               (pwr_rails);
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_pwr_rails_get_x564p__
+              (pwr_rails);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_pwr_rails_get_x308p__
               (pwr_rails);
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__

@@ -117,9 +117,9 @@ bool platform_is_hw (void)
 static void pltfm_mgr_start_health_mntr (void)
 {
     int ret = 0;
-    /* Start the tcl-server thread */
     pthread_attr_t health_mntr_t_attr;
     pthread_attr_init (&health_mntr_t_attr);
+
     if ((ret = pthread_create (
                    &bf_pltfm_mgr_ctx()->health_mntr_t_id,
                    &health_mntr_t_attr,
@@ -190,6 +190,7 @@ static bf_pltfm_status_t chss_mgmt_init()
     /* Check strictly. */
     if (!platform_type_equal (X532P) &&
         !platform_type_equal (X564P) &&
+        !platform_type_equal (X308P) &&
         !platform_type_equal (X312P) &&
         !platform_type_equal (HC)    &&
         1 /* More platform here */) {
@@ -216,6 +217,16 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 6;
+        } else if (platform_type_equal (X308P)) {
+            bf_pltfm_mgr_ctx()->flags = (
+                                            AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
+                                            AF_PLAT_MNTR_FAN |
+                                            AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
+                                        );
+            bf_pltfm_mgr_ctx()->fan_group_count = 6;
+            bf_pltfm_mgr_ctx()->fan_per_group = 2;
+            bf_pltfm_mgr_ctx()->psu_count = 2;
+            bf_pltfm_mgr_ctx()->sensor_count = 10;
         } else if (platform_type_equal (X312P)) {
             bf_pltfm_mgr_ctx()->flags = (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
@@ -349,6 +360,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     aim_printf (&uc->pvs, "Platform : %s\n",
                 platform_type_equal (X532P) ? "X532P-T"  :
                 platform_type_equal (X564P) ? "X564P-T"  :
+                platform_type_equal (X308P) ? "X308P-T"  :
                 platform_type_equal (X312P) ? "X312P-T"  :
                 platform_type_equal (HC)    ? "HC36Y24C" :
                 "Unknown");
@@ -437,6 +449,12 @@ void bf_pltfm_platform_exit (void *arg)
      * by tsihang, 2021-07-08. */
     pltfm_mgr_stop_health_mntr();
 
+    /* Fixed a bug while push pipeline by p4runtime.
+     * by tsihang, 2022-04-25. */
+    if (bf_pltfm_led_de_init()) {
+        LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr LED.");
+    }
+
     if (bf_pltfm_cp2112_de_init()) {
         LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr CP2112.");
     }
@@ -444,11 +462,6 @@ void bf_pltfm_platform_exit (void *arg)
     if (bf_pltfm_master_i2c_de_init()) {
         LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr Master I2C.");
     }
-#if 1
-    if (bf_pltfm_led_de_init()) {
-        LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr LED.");
-    }
-#endif
     if (bf_pltfm_uart_de_init()) {
         LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr UART.");
     }
@@ -508,6 +521,9 @@ bf_status_t bf_pltfm_platform_init (
     bf_switchd_context_t *switchd_ctx =
         (bf_switchd_context_t *)arg;
 
+    /* Avoid warning */
+    switchd_ctx = switchd_ctx;
+
     mkdir (LOG_DIR_PREFIX,
            S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
@@ -556,7 +572,7 @@ bf_status_t bf_pltfm_platform_init (
             LOG_ERROR ("Error in sfp init \n");
             err |= BF_PLTFM_COMM_FAILED;
         }
-
+#if 0
         /* Initialize repeater library */
         if (bd == BF_PLTFM_BD_ID_MAVERICKS_P0C) {
             bool is_in_ha =
@@ -572,7 +588,7 @@ bf_status_t bf_pltfm_platform_init (
                 err |= BF_PLTFM_COMM_FAILED;
             }
         }
-
+#endif
         if (err != BF_PLTFM_SUCCESS) {
             return -1;
         }

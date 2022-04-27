@@ -146,14 +146,10 @@ struct led_ctx_t {
     uint32_t         chnl_id;
     bf_io_pin_pair_t idx;
     uint16_t cpld_offset;
-    bool h_l;       /* high 4-bit or low 4-bit in a byte which the led col stands.
-                     * For some platform, the led is controled by cpld without rich
-                     * color to choice, that means, the indicator is unused in
-                     * that case.
-                     * by tsihang, 2021-07-14. */
+    uint8_t bit_offset;
     uint8_t val;    /* cached led value. */
 };
-#define NOT_USED            false
+#define NOT_USED            0
 
 static struct led_ctx_t *
 connID_chnlID_to_led_ctx_index[BF_PLAT_MAX_QSFP +
@@ -161,316 +157,377 @@ connID_chnlID_to_led_ctx_index[BF_PLAT_MAX_QSFP +
 = {{INVALID}};
 
 static struct led_ctx_t led_ctx_x532p[] = {
-    {"C1",   1, UINT8_MAX, PIN01, 0x53, false, 0xFF},
-    {"C2",   2, UINT8_MAX, PIN01, 0x53, true,  0xFF},
-    {"C3",   3, UINT8_MAX, PIN01, 0x52, false, 0xFF},
-    {"C4",   4, UINT8_MAX, PIN01, 0x52, true,  0xFF},
+    {"C1",   1, UINT8_MAX, PIN01, 0x53, 0, 0xFF},
+    {"C2",   2, UINT8_MAX, PIN01, 0x53, 4, 0xFF},
+    {"C3",   3, UINT8_MAX, PIN01, 0x52, 0, 0xFF},
+    {"C4",   4, UINT8_MAX, PIN01, 0x52, 4, 0xFF},
 
-    {"C5",   5, UINT8_MAX, PIN01, 0x51, false, 0xFF},
-    {"C6",   6, UINT8_MAX, PIN01, 0x51, true,  0xFF},
-    {"C7",   7, UINT8_MAX, PIN01, 0x50, false, 0xFF},
-    {"C8",   8, UINT8_MAX, PIN01, 0x50, true,  0xFF},
+    {"C5",   5, UINT8_MAX, PIN01, 0x51, 0, 0xFF},
+    {"C6",   6, UINT8_MAX, PIN01, 0x51, 4, 0xFF},
+    {"C7",   7, UINT8_MAX, PIN01, 0x50, 0, 0xFF},
+    {"C8",   8, UINT8_MAX, PIN01, 0x50, 4, 0xFF},
 
-    {"C9",   9, UINT8_MAX, PIN01, 0x4F, false, 0xFF},
-    {"C10", 10, UINT8_MAX, PIN01, 0x4F, true,  0xFF},
-    {"C11", 11, UINT8_MAX, PIN01, 0x4E, false, 0xFF},
-    {"C12", 12, UINT8_MAX, PIN01, 0x4E, true,  0xFF},
+    {"C9",   9, UINT8_MAX, PIN01, 0x4F, 0, 0xFF},
+    {"C10", 10, UINT8_MAX, PIN01, 0x4F, 4, 0xFF},
+    {"C11", 11, UINT8_MAX, PIN01, 0x4E, 0, 0xFF},
+    {"C12", 12, UINT8_MAX, PIN01, 0x4E, 4, 0xFF},
 
-    {"C13", 13, UINT8_MAX, PIN01, 0x4D, false, 0xFF},
-    {"C14", 14, UINT8_MAX, PIN01, 0x4D, true,  0xFF},
-    {"C15", 15, UINT8_MAX, PIN01, 0x4C, false, 0xFF},
-    {"C16", 16, UINT8_MAX, PIN01, 0x4C, true,  0xFF},
+    {"C13", 13, UINT8_MAX, PIN01, 0x4D, 0, 0xFF},
+    {"C14", 14, UINT8_MAX, PIN01, 0x4D, 4, 0xFF},
+    {"C15", 15, UINT8_MAX, PIN01, 0x4C, 0, 0xFF},
+    {"C16", 16, UINT8_MAX, PIN01, 0x4C, 4, 0xFF},
 
-    {"C17", 17, UINT8_MAX, PIN01, 0x4B, false, 0xFF},
-    {"C18", 18, UINT8_MAX, PIN01, 0x4B, true,  0xFF},
-    {"C19", 19, UINT8_MAX, PIN01, 0x4A, false, 0xFF},
-    {"C20", 20, UINT8_MAX, PIN01, 0x4A, true,  0xFF},
+    {"C17", 17, UINT8_MAX, PIN01, 0x4B, 0, 0xFF},
+    {"C18", 18, UINT8_MAX, PIN01, 0x4B, 4, 0xFF},
+    {"C19", 19, UINT8_MAX, PIN01, 0x4A, 0, 0xFF},
+    {"C20", 20, UINT8_MAX, PIN01, 0x4A, 4, 0xFF},
 
-    {"C21", 21, UINT8_MAX, PIN01, 0x49, false, 0xFF},
-    {"C22", 22, UINT8_MAX, PIN01, 0x49, true,  0xFF},
-    {"C23", 23, UINT8_MAX, PIN01, 0x48, false, 0xFF},
-    {"C24", 24, UINT8_MAX, PIN01, 0x48, true,  0xFF},
+    {"C21", 21, UINT8_MAX, PIN01, 0x49, 0, 0xFF},
+    {"C22", 22, UINT8_MAX, PIN01, 0x49, 4, 0xFF},
+    {"C23", 23, UINT8_MAX, PIN01, 0x48, 0, 0xFF},
+    {"C24", 24, UINT8_MAX, PIN01, 0x48, 4, 0xFF},
 
-    {"C25", 25, UINT8_MAX, PIN01, 0x57, false, 0xFF},
-    {"C26", 26, UINT8_MAX, PIN01, 0x57, true,  0xFF},
-    {"C27", 27, UINT8_MAX, PIN01, 0x56, false, 0xFF},
-    {"C28", 28, UINT8_MAX, PIN01, 0x56, true,  0xFF},
+    {"C25", 25, UINT8_MAX, PIN01, 0x57, 0, 0xFF},
+    {"C26", 26, UINT8_MAX, PIN01, 0x57, 4, 0xFF},
+    {"C27", 27, UINT8_MAX, PIN01, 0x56, 0, 0xFF},
+    {"C28", 28, UINT8_MAX, PIN01, 0x56, 4, 0xFF},
 
-    {"C29", 29, UINT8_MAX, PIN01, 0x55, false, 0xFF},
-    {"C30", 30, UINT8_MAX, PIN01, 0x55, true,  0xFF},
-    {"C31", 31, UINT8_MAX, PIN01, 0x54, false, 0xFF},
-    {"C32", 32, UINT8_MAX, PIN01, 0x54, true,  0xFF},
+    {"C29", 29, UINT8_MAX, PIN01, 0x55, 0, 0xFF},
+    {"C30", 30, UINT8_MAX, PIN01, 0x55, 4, 0xFF},
+    {"C31", 31, UINT8_MAX, PIN01, 0x54, 0, 0xFF},
+    {"C32", 32, UINT8_MAX, PIN01, 0x54, 4, 0xFF},
 
-    {"Y1",  33,         0, PIN01, 0x58, true,  0xFF},
-    {"Y2",  33,         1, PIN01, 0x58, false, 0xFF},
+    {"Y1",  33,         0, PIN01, 0x58, 4, 0xFF},
+    {"Y2",  33,         1, PIN01, 0x58, 0, 0xFF},
 };
 
 static struct led_ctx_t led_ctx_x564p[] = {
-    {"C1",   1, UINT8_MAX, PIN01, 0x48, false, 0xFF},
-    {"C2",   2, UINT8_MAX, PIN01, 0x48, true,  0xFF},
-    {"C3",   3, UINT8_MAX, PIN01, 0x49, false, 0xFF},
-    {"C4",   4, UINT8_MAX, PIN01, 0x49, true,  0xFF},
+    {"C1",   1, UINT8_MAX, PIN01, 0x48, 0, 0xFF},
+    {"C2",   2, UINT8_MAX, PIN01, 0x48, 4, 0xFF},
+    {"C3",   3, UINT8_MAX, PIN01, 0x49, 0, 0xFF},
+    {"C4",   4, UINT8_MAX, PIN01, 0x49, 4, 0xFF},
 
-    {"C5",   5, UINT8_MAX, PIN01, 0x4C, false, 0xFF},
-    {"C6",   6, UINT8_MAX, PIN01, 0x4C, true,  0xFF},
-    {"C7",   7, UINT8_MAX, PIN01, 0x4D, false, 0xFF},
-    {"C8",   8, UINT8_MAX, PIN01, 0x4D, true,  0xFF},
+    {"C5",   5, UINT8_MAX, PIN01, 0x4C, 0, 0xFF},
+    {"C6",   6, UINT8_MAX, PIN01, 0x4C, 4, 0xFF},
+    {"C7",   7, UINT8_MAX, PIN01, 0x4D, 0, 0xFF},
+    {"C8",   8, UINT8_MAX, PIN01, 0x4D, 4, 0xFF},
 
-    {"C9",   9, UINT8_MAX, PIN01, 0x50, false, 0xFF},
-    {"C10", 10, UINT8_MAX, PIN01, 0x50, true,  0xFF},
-    {"C11", 11, UINT8_MAX, PIN01, 0x51, false, 0xFF},
-    {"C12", 12, UINT8_MAX, PIN01, 0x51, true,  0xFF},
+    {"C9",   9, UINT8_MAX, PIN01, 0x50, 0, 0xFF},
+    {"C10", 10, UINT8_MAX, PIN01, 0x50, 4, 0xFF},
+    {"C11", 11, UINT8_MAX, PIN01, 0x51, 0, 0xFF},
+    {"C12", 12, UINT8_MAX, PIN01, 0x51, 4, 0xFF},
 
-    {"C13", 13, UINT8_MAX, PIN01, 0x54, false, 0xFF},
-    {"C14", 14, UINT8_MAX, PIN01, 0x54, true,  0xFF},
-    {"C15", 15, UINT8_MAX, PIN01, 0x55, false, 0xFF},
-    {"C16", 16, UINT8_MAX, PIN01, 0x55, true,  0xFF},
+    {"C13", 13, UINT8_MAX, PIN01, 0x54, 0, 0xFF},
+    {"C14", 14, UINT8_MAX, PIN01, 0x54, 4, 0xFF},
+    {"C15", 15, UINT8_MAX, PIN01, 0x55, 0, 0xFF},
+    {"C16", 16, UINT8_MAX, PIN01, 0x55, 4, 0xFF},
 
-    {"C17", 17, UINT8_MAX, PIN45, 0x48, false, 0xFF},
-    {"C18", 18, UINT8_MAX, PIN45, 0x48, true,  0xFF},
-    {"C19", 19, UINT8_MAX, PIN45, 0x49, false, 0xFF},
-    {"C20", 20, UINT8_MAX, PIN45, 0x49, true,  0xFF},
+    {"C17", 17, UINT8_MAX, PIN45, 0x48, 0, 0xFF},
+    {"C18", 18, UINT8_MAX, PIN45, 0x48, 4, 0xFF},
+    {"C19", 19, UINT8_MAX, PIN45, 0x49, 0, 0xFF},
+    {"C20", 20, UINT8_MAX, PIN45, 0x49, 4, 0xFF},
 
-    {"C21", 21, UINT8_MAX, PIN45, 0x4C, false, 0xFF},
-    {"C22", 22, UINT8_MAX, PIN45, 0x4C, true,  0xFF},
-    {"C23", 23, UINT8_MAX, PIN45, 0x4D, false, 0xFF},
-    {"C24", 24, UINT8_MAX, PIN45, 0x4D, true,  0xFF},
+    {"C21", 21, UINT8_MAX, PIN45, 0x4C, 0, 0xFF},
+    {"C22", 22, UINT8_MAX, PIN45, 0x4C, 4, 0xFF},
+    {"C23", 23, UINT8_MAX, PIN45, 0x4D, 0, 0xFF},
+    {"C24", 24, UINT8_MAX, PIN45, 0x4D, 4, 0xFF},
 
-    {"C25", 25, UINT8_MAX, PIN45, 0x50, false, 0xFF},
-    {"C26", 26, UINT8_MAX, PIN45, 0x50, true,  0xFF},
-    {"C27", 27, UINT8_MAX, PIN45, 0x51, false, 0xFF},
-    {"C28", 28, UINT8_MAX, PIN45, 0x51, true,  0xFF},
+    {"C25", 25, UINT8_MAX, PIN45, 0x50, 0, 0xFF},
+    {"C26", 26, UINT8_MAX, PIN45, 0x50, 4, 0xFF},
+    {"C27", 27, UINT8_MAX, PIN45, 0x51, 0, 0xFF},
+    {"C28", 28, UINT8_MAX, PIN45, 0x51, 4, 0xFF},
 
-    {"C29", 29, UINT8_MAX, PIN45, 0x54, false, 0xFF},
-    {"C30", 30, UINT8_MAX, PIN45, 0x54, true,  0xFF},
-    {"C31", 31, UINT8_MAX, PIN45, 0x55, false, 0xFF},
-    {"C32", 32, UINT8_MAX, PIN45, 0x55, true,  0xFF},
+    {"C29", 29, UINT8_MAX, PIN45, 0x54, 0, 0xFF},
+    {"C30", 30, UINT8_MAX, PIN45, 0x54, 4, 0xFF},
+    {"C31", 31, UINT8_MAX, PIN45, 0x55, 0, 0xFF},
+    {"C32", 32, UINT8_MAX, PIN45, 0x55, 4, 0xFF},
 
-    {"C33", 33, UINT8_MAX, PIN01, 0x4B, true,  0xFF},
-    {"C34", 34, UINT8_MAX, PIN01, 0x4B, false, 0xFF},
-    {"C35", 35, UINT8_MAX, PIN01, 0x4A, true,  0xFF},
-    {"C36", 36, UINT8_MAX, PIN01, 0x4A, false, 0xFF},
+    {"C33", 33, UINT8_MAX, PIN01, 0x4B, 4, 0xFF},
+    {"C34", 34, UINT8_MAX, PIN01, 0x4B, 0, 0xFF},
+    {"C35", 35, UINT8_MAX, PIN01, 0x4A, 4, 0xFF},
+    {"C36", 36, UINT8_MAX, PIN01, 0x4A, 0, 0xFF},
 
-    {"C37", 37, UINT8_MAX, PIN01, 0x4F, true,  0xFF},
-    {"C38", 38, UINT8_MAX, PIN01, 0x4F, false, 0xFF},
-    {"C39", 39, UINT8_MAX, PIN01, 0x4E, true,  0xFF},
-    {"C40", 40, UINT8_MAX, PIN01, 0x4E, false, 0xFF},
+    {"C37", 37, UINT8_MAX, PIN01, 0x4F, 4, 0xFF},
+    {"C38", 38, UINT8_MAX, PIN01, 0x4F, 0, 0xFF},
+    {"C39", 39, UINT8_MAX, PIN01, 0x4E, 4, 0xFF},
+    {"C40", 40, UINT8_MAX, PIN01, 0x4E, 0, 0xFF},
 
-    {"C41", 41, UINT8_MAX, PIN01, 0x53, true,  0xFF},
-    {"C42", 42, UINT8_MAX, PIN01, 0x53, false, 0xFF},
-    {"C43", 43, UINT8_MAX, PIN01, 0x52, true,  0xFF},
-    {"C44", 44, UINT8_MAX, PIN01, 0x52, false, 0xFF},
+    {"C41", 41, UINT8_MAX, PIN01, 0x53, 4, 0xFF},
+    {"C42", 42, UINT8_MAX, PIN01, 0x53, 0, 0xFF},
+    {"C43", 43, UINT8_MAX, PIN01, 0x52, 4, 0xFF},
+    {"C44", 44, UINT8_MAX, PIN01, 0x52, 0, 0xFF},
 
-    {"C45", 45, UINT8_MAX, PIN01, 0x57, true,  0xFF},
-    {"C46", 46, UINT8_MAX, PIN01, 0x57, false, 0xFF},
-    {"C47", 47, UINT8_MAX, PIN01, 0x56, true,  0xFF},
-    {"C48", 48, UINT8_MAX, PIN01, 0x56, false, 0xFF},
+    {"C45", 45, UINT8_MAX, PIN01, 0x57, 4, 0xFF},
+    {"C46", 46, UINT8_MAX, PIN01, 0x57, 0, 0xFF},
+    {"C47", 47, UINT8_MAX, PIN01, 0x56, 4, 0xFF},
+    {"C48", 48, UINT8_MAX, PIN01, 0x56, 0, 0xFF},
 
-    {"C49", 49, UINT8_MAX, PIN45, 0x4B, true,  0xFF},
-    {"C50", 50, UINT8_MAX, PIN45, 0x4B, false, 0xFF},
-    {"C51", 51, UINT8_MAX, PIN45, 0x4A, true,  0xFF},
-    {"C52", 52, UINT8_MAX, PIN45, 0x4A, false, 0xFF},
+    {"C49", 49, UINT8_MAX, PIN45, 0x4B, 4, 0xFF},
+    {"C50", 50, UINT8_MAX, PIN45, 0x4B, 0, 0xFF},
+    {"C51", 51, UINT8_MAX, PIN45, 0x4A, 4, 0xFF},
+    {"C52", 52, UINT8_MAX, PIN45, 0x4A, 0, 0xFF},
 
-    {"C53", 53, UINT8_MAX, PIN45, 0x4F, true,  0xFF},
-    {"C54", 54, UINT8_MAX, PIN45, 0x4F, false, 0xFF},
-    {"C55", 55, UINT8_MAX, PIN45, 0x4E, true,  0xFF},
-    {"C56", 56, UINT8_MAX, PIN45, 0x4E, false, 0xFF},
+    {"C53", 53, UINT8_MAX, PIN45, 0x4F, 4, 0xFF},
+    {"C54", 54, UINT8_MAX, PIN45, 0x4F, 0, 0xFF},
+    {"C55", 55, UINT8_MAX, PIN45, 0x4E, 4, 0xFF},
+    {"C56", 56, UINT8_MAX, PIN45, 0x4E, 0, 0xFF},
 
-    {"C57", 57, UINT8_MAX, PIN45, 0x57, true,  0xFF},
-    {"C58", 58, UINT8_MAX, PIN45, 0x57, false, 0xFF},
-    {"C59", 59, UINT8_MAX, PIN45, 0x56,     1, 0xFF},
-    {"C60", 60, UINT8_MAX, PIN45, 0x56, false, 0xFF},
+    {"C57", 57, UINT8_MAX, PIN45, 0x57, 4, 0xFF},
+    {"C58", 58, UINT8_MAX, PIN45, 0x57, 0, 0xFF},
+    {"C59", 59, UINT8_MAX, PIN45, 0x56, 4, 0xFF},
+    {"C60", 60, UINT8_MAX, PIN45, 0x56, 0, 0xFF},
 
-    {"C61", 61, UINT8_MAX, PIN45, 0x53, true,  0xFF},
-    {"C62", 62, UINT8_MAX, PIN45, 0x53, false, 0xFF},
-    {"C63", 63, UINT8_MAX, PIN45, 0x52, true,  0xFF},
-    {"C64", 64, UINT8_MAX, PIN45, 0x52, false, 0xFF},
+    {"C61", 61, UINT8_MAX, PIN45, 0x53, 4, 0xFF},
+    {"C62", 62, UINT8_MAX, PIN45, 0x53, 0, 0xFF},
+    {"C63", 63, UINT8_MAX, PIN45, 0x52, 4, 0xFF},
+    {"C64", 64, UINT8_MAX, PIN45, 0x52, 0, 0xFF},
 
-    {"Y1",  65,         0, PIN01, 0x58, false, 0xFF},
-    {"Y2",  65,         1, PIN01, 0x58, true,  0xFF},
+    {"Y1",  65,         0, PIN01, 0x58, 0, 0xFF},
+    {"Y2",  65,         1, PIN01, 0x58, 4, 0xFF},
+};
+
+static struct led_ctx_t led_ctx_x308p[] = {
+    { "C1",  1, UINT8_MAX, PIN45, 0x48, NOT_USED, 0xff},               //C1
+    { "C2",  2, UINT8_MAX, PIN45, 0x4A, NOT_USED, 0xff},               //C2
+    { "C3",  3, UINT8_MAX, PIN45, 0x4C, NOT_USED, 0xff},               //C3
+    { "C4",  4, UINT8_MAX, PIN45, 0x4E, NOT_USED, 0xff},               //C4
+    { "C5",  5, UINT8_MAX, PIN45, 0x50, NOT_USED, 0xff},               //C5
+    { "C6",  6, UINT8_MAX, PIN45, 0x52, NOT_USED, 0xff},               //C6
+    { "C7",  7, UINT8_MAX, PIN45, 0x54, NOT_USED, 0xff},               //C7
+    { "C8",  8, UINT8_MAX, PIN45, 0x56, NOT_USED, 0xff},               //C8
+
+    { "Y1",  9, 0, PIN01, 0x48, 0, 0xff},               //Y01
+    { "Y2",  9, 1, PIN01, 0x48, 2, 0xff},               //Y02
+    { "Y3",  9, 2, PIN01, 0x48, 4, 0xff},               //Y03
+    { "Y4",  9, 3, PIN01, 0x48, 6, 0xff},               //Y04
+    { "Y5", 10, 0, PIN01, 0x49, 0, 0xff},               //Y05
+    { "Y6", 10, 1, PIN01, 0x49, 2, 0xff},               //Y06
+    { "Y7", 10, 2, PIN01, 0x49, 6, 0xff},               //Y07
+    { "Y8", 10, 3, PIN01, 0x49, 4, 0xff},               //Y08
+    { "Y9", 11, 0, PIN01, 0x4A, 0, 0xff},               //Y09
+    {"Y10", 11, 1, PIN01, 0x4A, 2, 0xff},               //Y10
+    {"Y11", 11, 2, PIN01, 0x4A, 4, 0xff},               //Y11
+    {"Y12", 11, 3, PIN01, 0x4A, 6, 0xff},               //Y12
+    {"Y13", 12, 0, PIN01, 0x4B, 4, 0xff},               //Y13
+    {"Y14", 12, 1, PIN01, 0x4B, 2, 0xff},               //Y14
+    {"Y15", 12, 2, PIN01, 0x4B, 6, 0xff},               //Y15
+    {"Y16", 12, 3, PIN01, 0x4B, 0, 0xff},               //Y16
+    {"Y17", 13, 0, PIN01, 0x4C, 0, 0xff},               //Y17
+    {"Y18", 13, 1, PIN01, 0x4C, 2, 0xff},               //Y18
+    {"Y19", 13, 2, PIN01, 0x4C, 4, 0xff},               //Y19
+    {"Y20", 13, 3, PIN01, 0x4C, 6, 0xff},               //Y20
+    {"Y21", 14, 0, PIN01, 0x4D, 0, 0xff},               //Y21
+    {"Y22", 14, 1, PIN01, 0x4D, 2, 0xff},               //Y22
+    {"Y23", 14, 2, PIN01, 0x4D, 6, 0xff},               //Y23
+    {"Y24", 14, 3, PIN01, 0x4D, 4, 0xff},               //Y24
+
+    {"Y25", 15, 0, PIN01, 0x4E, 0, 0xff},               //Y25
+    {"Y26", 15, 1, PIN01, 0x4E, 2, 0xff},               //Y26
+    {"Y27", 15, 2, PIN01, 0x4E, 4, 0xff},               //Y27
+    {"Y28", 15, 3, PIN01, 0x4E, 6, 0xff},               //Y28
+    {"Y29", 16, 0, PIN01, 0x4F, 4, 0xff},               //Y29
+    {"Y30", 16, 1, PIN01, 0x4F, 2, 0xff},               //Y30
+    {"Y31", 16, 2, PIN01, 0x4F, 6, 0xff},               //Y31
+    {"Y32", 16, 3, PIN01, 0x4F, 0, 0xff},               //Y32
+    {"Y33", 17, 0, PIN01, 0x50, 0, 0xff},               //Y33
+    {"Y34", 17, 1, PIN01, 0x50, 2, 0xff},               //Y34
+    {"Y35", 17, 2, PIN01, 0x50, 4, 0xff},               //Y35
+    {"Y36", 17, 3, PIN01, 0x50, 6, 0xff},               //Y36
+    {"Y37", 18, 0, PIN01, 0x51, 0, 0xff},               //Y37
+    {"Y38", 18, 1, PIN01, 0x51, 2, 0xff},               //Y38
+    {"Y39", 18, 2, PIN01, 0x51, 6, 0xff},               //Y39
+    {"Y40", 18, 3, PIN01, 0x51, 4, 0xff},               //Y40
+    {"Y41", 19, 0, PIN01, 0x52, 0, 0xff},               //Y41
+    {"Y42", 19, 1, PIN01, 0x52, 2, 0xff},               //Y42
+    {"Y43", 19, 2, PIN01, 0x52, 4, 0xff},               //Y43
+    {"Y44", 19, 3, PIN01, 0x52, 6, 0xff},               //Y44
+    {"Y45", 20, 0, PIN01, 0x53, 4, 0xff},               //Y45
+    {"Y46", 20, 1, PIN01, 0x53, 2, 0xff},               //Y46
+    {"Y47", 20, 2, PIN01, 0x53, 6, 0xff},               //Y47
+    {"Y48", 20, 3, PIN01, 0x53, 0, 0xff},               //Y48
 };
 
 /* Not finished yet.
  * Please help fix it.
  * by tsihang, 2021-07-18. */
 static struct led_ctx_t led_ctx_hc[] = {
-    {"C1",  22, UINT8_MAX, PIN45, 0x4f, true,  0xFF},   /* QSFP  22 */
-    {"C2",  21, UINT8_MAX, PIN45, 0x53, true,  0xFF},   /* QSFP  21 */
-    {"C3",  24, UINT8_MAX, PIN45, 0x4f, false, 0xFF},   /* QSFP  24 */
-    {"C4",  20, UINT8_MAX, PIN45, 0x4e, true,  0xFF},   /* QSFP  20 */
-    {"C5",  19, UINT8_MAX, PIN45, 0x53, false, 0xFF},   /* QSFP  19 */
-    {"C6",  23, UINT8_MAX, PIN45, 0x4e, false, 0xFF},   /* QSFP  23 */
-    {"C7",  16, UINT8_MAX, PIN45, 0x52, true,  0xFF},   /* QSFP  16 */
-    {"C8",  15, UINT8_MAX, PIN45, 0x50, true,  0xFF},   /* QSFP  15 */
-    {"C9",  18, UINT8_MAX, PIN45, 0x52, false, 0xFF},   /* QSFP  18 */
-    {"C10", 14, UINT8_MAX, PIN45, 0x51, true,  0xFF},   /* QSFP  14 */
-    {"C11", 13, UINT8_MAX, PIN45, 0x50, false, 0xFF},   /* QSFP  13 */
-    {"C12", 17, UINT8_MAX, PIN45, 0x51, false, 0xFF},   /* QSFP  17 */
-    {"C13", 10, UINT8_MAX, PIN45, 0x4c, true,  0xFF},   /* QSFP  10 */
-    {"C14",  9, UINT8_MAX, PIN45, 0x4d, true,  0xFF},   /* QSFP   9 */
-    {"C15", 12, UINT8_MAX, PIN45, 0x4c, false, 0xFF},   /* QSFP  12 */
-    {"C16",  8, UINT8_MAX, PIN45, 0x4b, true,  0xFF},   /* QSFP   8 */
-    {"C17",  7, UINT8_MAX, PIN45, 0x4d, false, 0xFF},   /* QSFP   7 */
-    {"C18", 11, UINT8_MAX, PIN45, 0x4b, false, 0xFF},   /* QSFP  11 */
-    {"C19",  4, UINT8_MAX, PIN45, 0x49, true,  0xFF},   /* QSFP   4 */
-    {"C20",  3, UINT8_MAX, PIN45, 0x4a, true,  0xFF},   /* QSFP   3 */
-    {"C21",  6, UINT8_MAX, PIN45, 0x49, false, 0xFF},   /* QSFP   6 */
-    {"C22",  2, UINT8_MAX, PIN45, 0x48, true,  0xFF},   /* QSFP   2 */
-    {"C23",  1, UINT8_MAX, PIN45, 0x4a, false, 0xFF},   /* QSFP   1 */
-    {"C24",  5, UINT8_MAX, PIN45, 0x48, false, 0xFF},   /* QSFP   5 */
+    {"C1",  22, UINT8_MAX, PIN45, 0x4f, 4, 0xFF},   /* QSFP  22 */
+    {"C2",  21, UINT8_MAX, PIN45, 0x53, 4, 0xFF},   /* QSFP  21 */
+    {"C3",  24, UINT8_MAX, PIN45, 0x4f, 0, 0xFF},   /* QSFP  24 */
+    {"C4",  20, UINT8_MAX, PIN45, 0x4e, 4, 0xFF},   /* QSFP  20 */
+    {"C5",  19, UINT8_MAX, PIN45, 0x53, 0, 0xFF},   /* QSFP  19 */
+    {"C6",  23, UINT8_MAX, PIN45, 0x4e, 0, 0xFF},   /* QSFP  23 */
+    {"C7",  16, UINT8_MAX, PIN45, 0x52, 4, 0xFF},   /* QSFP  16 */
+    {"C8",  15, UINT8_MAX, PIN45, 0x50, 4, 0xFF},   /* QSFP  15 */
+    {"C9",  18, UINT8_MAX, PIN45, 0x52, 0, 0xFF},   /* QSFP  18 */
+    {"C10", 14, UINT8_MAX, PIN45, 0x51, 4, 0xFF},   /* QSFP  14 */
+    {"C11", 13, UINT8_MAX, PIN45, 0x50, 0, 0xFF},   /* QSFP  13 */
+    {"C12", 17, UINT8_MAX, PIN45, 0x51, 0, 0xFF},   /* QSFP  17 */
+    {"C13", 10, UINT8_MAX, PIN45, 0x4c, 4, 0xFF},   /* QSFP  10 */
+    {"C14",  9, UINT8_MAX, PIN45, 0x4d, 4, 0xFF},   /* QSFP   9 */
+    {"C15", 12, UINT8_MAX, PIN45, 0x4c, 0, 0xFF},   /* QSFP  12 */
+    {"C16",  8, UINT8_MAX, PIN45, 0x4b, 4, 0xFF},   /* QSFP   8 */
+    {"C17",  7, UINT8_MAX, PIN45, 0x4d, 0, 0xFF},   /* QSFP   7 */
+    {"C18", 11, UINT8_MAX, PIN45, 0x4b, 0, 0xFF},   /* QSFP  11 */
+    {"C19",  4, UINT8_MAX, PIN45, 0x49, 4, 0xFF},   /* QSFP   4 */
+    {"C20",  3, UINT8_MAX, PIN45, 0x4a, 4, 0xFF},   /* QSFP   3 */
+    {"C21",  6, UINT8_MAX, PIN45, 0x49, 0, 0xFF},   /* QSFP   6 */
+    {"C22",  2, UINT8_MAX, PIN45, 0x48, 4, 0xFF},   /* QSFP   2 */
+    {"C23",  1, UINT8_MAX, PIN45, 0x4a, 0, 0xFF},   /* QSFP   1 */
+    {"C24",  5, UINT8_MAX, PIN45, 0x48, 0, 0xFF},   /* QSFP   5 */
 
-    {"Y1",  32,         0, PIN01, 0x4c, false, 0xFF},   /* QSFP 32 */
-    {"Y2",  32,         1, PIN01, 0x50, true,  0xFF},   /* QSFP 32 */
-    {"Y3",  33,         3, PIN01, 0x5a, true,  0xFF},   /* QSFP 33 */
-    {"Y4",  32,         2, PIN01, 0x55, false, 0xFF},   /* QSFP 32 */
-    {"Y5",  32,         3, PIN01, 0x59, true,  0xFF},   /* QSFP 32 */
-    {"Y6",  33,         2, PIN01, 0x56, false, 0xFF},   /* QSFP 33 */
-    {"Y7",  31,         0, PIN01, 0x4c, true,  0xFF},   /* QSFP 31 */
-    {"Y8",  31,         1, PIN01, 0x51, false, 0xFF},   /* QSFP 31 */
-    {"Y9",  33,         1, PIN01, 0x51, true,  0xFF},   /* QSFP 33 */
-    {"Y10", 31,         2, PIN01, 0x55, true,  0xFF},   /* QSFP 31 */
-    {"Y11", 31,         3, PIN01, 0x5a, false, 0xFF},   /* QSFP 31 */
-    {"Y12", 33,         0, PIN01, 0x4d, false, 0xFF},   /* QSFP 33 */
-    {"Y13", 29,         0, PIN01, 0x4a, true,  0xFF},   /* QSFP 29 */
-    {"Y14", 29,         1, PIN01, 0x4f, false, 0xFF},   /* QSFP 29 */
-    {"Y15", 30,         3, PIN01, 0x59, false, 0xFF},   /* QSFP 30 */
-    {"Y16", 29,         2, PIN01, 0x53, true,  0xFF},   /* QSFP 29 */
-    {"Y17", 29,         3, PIN01, 0x58, false, 0xFF},   /* QSFP 29 */
-    {"Y18", 30,         2, PIN01, 0x54, true,  0xFF},   /* QSFP 30 */
-    {"Y19", 28,         0, PIN01, 0x4b, false, 0xFF},   /* QSFP 28 */
-    {"Y20", 28,         1, PIN01, 0x4f, true,  0xFF},   /* QSFP 28 */
-    {"Y21", 30,         1, PIN01, 0x50, false, 0xFF},   /* QSFP 30 */
-    {"Y22", 28,         2, PIN01, 0x54, false, 0xFF},   /* QSFP 28 */
-    {"Y23", 28,         3, PIN01, 0x58, true,  0xFF},   /* QSFP 28 */
-    {"Y24", 30,         0, PIN01, 0x4b, true,  0xFF},   /* QSFP 30 */
-    {"Y25", 26,         0, PIN01, 0x49, false, 0xFF},   /* QSFP 26 */
-    {"Y26", 26,         1, PIN01, 0x4d, true,  0xFF},   /* QSFP 26 */
-    {"Y27", 27,         3, PIN01, 0x57, true,  0xFF},   /* QSFP 27 */
-    {"Y28", 26,         2, PIN01, 0x52, false, 0xFF},   /* QSFP 26 */
-    {"Y29", 26,         3, PIN01, 0x56, true,  0xFF},   /* QSFP 26 */
-    {"Y30", 27,         2, PIN01, 0x4a, false, 0xFF},   /* QSFP 27 */
-    {"Y31", 25,         0, PIN01, 0x49, true,  0xFF},   /* QSFP 25 */
-    {"Y32", 25,         1, PIN01, 0x4e, false, 0xFF},   /* QSFP 25 */
-    {"Y33", 27,         1, PIN01, 0x4e, true,  0xFF},   /* QSFP 27 */
-    {"Y34", 25,         2, PIN01, 0x52, true,  0xFF},   /* QSFP 25 */
-    {"Y35", 25,         3, PIN01, 0x57, false, 0xFF},   /* QSFP 25 */
-    {"Y36", 27,         0, PIN01, 0x53, false, 0xFF},   /* QSFP 27 */
+    {"Y1",  32,         0, PIN01, 0x4c, 0, 0xFF},   /* QSFP 32 */
+    {"Y2",  32,         1, PIN01, 0x50, 4, 0xFF},   /* QSFP 32 */
+    {"Y3",  33,         3, PIN01, 0x5a, 4, 0xFF},   /* QSFP 33 */
+    {"Y4",  32,         2, PIN01, 0x55, 0, 0xFF},   /* QSFP 32 */
+    {"Y5",  32,         3, PIN01, 0x59, 4, 0xFF},   /* QSFP 32 */
+    {"Y6",  33,         2, PIN01, 0x56, 0, 0xFF},   /* QSFP 33 */
+    {"Y7",  31,         0, PIN01, 0x4c, 4, 0xFF},   /* QSFP 31 */
+    {"Y8",  31,         1, PIN01, 0x51, 0, 0xFF},   /* QSFP 31 */
+    {"Y9",  33,         1, PIN01, 0x51, 4, 0xFF},   /* QSFP 33 */
+    {"Y10", 31,         2, PIN01, 0x55, 4, 0xFF},   /* QSFP 31 */
+    {"Y11", 31,         3, PIN01, 0x5a, 0, 0xFF},   /* QSFP 31 */
+    {"Y12", 33,         0, PIN01, 0x4d, 0, 0xFF},   /* QSFP 33 */
+    {"Y13", 29,         0, PIN01, 0x4a, 4, 0xFF},   /* QSFP 29 */
+    {"Y14", 29,         1, PIN01, 0x4f, 0, 0xFF},   /* QSFP 29 */
+    {"Y15", 30,         3, PIN01, 0x59, 0, 0xFF},   /* QSFP 30 */
+    {"Y16", 29,         2, PIN01, 0x53, 4, 0xFF},   /* QSFP 29 */
+    {"Y17", 29,         3, PIN01, 0x58, 0, 0xFF},   /* QSFP 29 */
+    {"Y18", 30,         2, PIN01, 0x54, 4, 0xFF},   /* QSFP 30 */
+    {"Y19", 28,         0, PIN01, 0x4b, 0, 0xFF},   /* QSFP 28 */
+    {"Y20", 28,         1, PIN01, 0x4f, 4, 0xFF},   /* QSFP 28 */
+    {"Y21", 30,         1, PIN01, 0x50, 0, 0xFF},   /* QSFP 30 */
+    {"Y22", 28,         2, PIN01, 0x54, 0, 0xFF},   /* QSFP 28 */
+    {"Y23", 28,         3, PIN01, 0x58, 4, 0xFF},   /* QSFP 28 */
+    {"Y24", 30,         0, PIN01, 0x4b, 4, 0xFF},   /* QSFP 30 */
+    {"Y25", 26,         0, PIN01, 0x49, 0, 0xFF},   /* QSFP 26 */
+    {"Y26", 26,         1, PIN01, 0x4d, 4, 0xFF},   /* QSFP 26 */
+    {"Y27", 27,         3, PIN01, 0x57, 4, 0xFF},   /* QSFP 27 */
+    {"Y28", 26,         2, PIN01, 0x52, 0, 0xFF},   /* QSFP 26 */
+    {"Y29", 26,         3, PIN01, 0x56, 4, 0xFF},   /* QSFP 26 */
+    {"Y30", 27,         2, PIN01, 0x4a, 0, 0xFF},   /* QSFP 27 */
+    {"Y31", 25,         0, PIN01, 0x49, 4, 0xFF},   /* QSFP 25 */
+    {"Y32", 25,         1, PIN01, 0x4e, 0, 0xFF},   /* QSFP 25 */
+    {"Y33", 27,         1, PIN01, 0x4e, 4, 0xFF},   /* QSFP 27 */
+    {"Y34", 25,         2, PIN01, 0x52, 4, 0xFF},   /* QSFP 25 */
+    {"Y35", 25,         3, PIN01, 0x57, 0, 0xFF},   /* QSFP 25 */
+    {"Y36", 27,         0, PIN01, 0x53, 0, 0xFF},   /* QSFP 27 */
 
-    {"Y37", 65,         1, PIN01, 0x48, true,  0xFF},    /* QSFP 65 */
-    {"Y38", 65,         0, PIN01, 0x48, false, 0xFF},    /* QSFP 65 */
+    {"Y37", 65,         1, PIN01, 0x48, 4, 0xFF},    /* QSFP 65 */
+    {"Y38", 65,         0, PIN01, 0x48, 0, 0xFF},    /* QSFP 65 */
 };
 
 static struct led_ctx_t led_ctx_x312p[] = {
-    {"C1", 30, 0, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C1
-    {"C1", 30, 1, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C1
-    {"C1", 30, 2, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C1
-    {"C1", 30, 3, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C1
+    {"C1", 30, 0, PIN01, (0x71 << 8) | 0x90, 0, 0xff},              //C1
+    {"C1", 30, 1, PIN01, (0x71 << 8) | 0x90, 1, 0xff},              //C1
+    {"C1", 30, 2, PIN01, (0x71 << 8) | 0x90, 2, 0xff},              //C1
+    {"C1", 30, 3, PIN01, (0x71 << 8) | 0x90, 3, 0xff},              //C1
 
-    {"C2", 32, 0, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C2
-    {"C2", 32, 1, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C2
-    {"C2", 32, 2, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C2
-    {"C2", 32, 3, PIN01, (0x71 << 8) | 0x90, NOT_USED, 0xff},              //C2
+    {"C2", 32, 0, PIN01, (0x71 << 8) | 0x90, 4, 0xff},              //C2
+    {"C2", 32, 1, PIN01, (0x71 << 8) | 0x90, 5, 0xff},              //C2
+    {"C2", 32, 2, PIN01, (0x71 << 8) | 0x90, 6, 0xff},              //C2
+    {"C2", 32, 3, PIN01, (0x71 << 8) | 0x90, 7, 0xff},              //C2
 
-    {"C3",  6, 0, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C3
-    {"C3",  6, 1, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C3
-    {"C3",  6, 2, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C3
-    {"C3",  6, 3, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C3
+    {"C3",  6, 0, PIN01, (0x81 << 8) | 0xA0, 0, 0xff},              //C3
+    {"C3",  6, 1, PIN01, (0x81 << 8) | 0xA0, 1, 0xff},              //C3
+    {"C3",  6, 2, PIN01, (0x81 << 8) | 0xA0, 2, 0xff},              //C3
+    {"C3",  6, 3, PIN01, (0x81 << 8) | 0xA0, 3, 0xff},              //C3
 
-    {"C4",  2, 0, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C4
-    {"C4",  2, 1, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C4
-    {"C4",  2, 2, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C4
-    {"C4",  2, 3, PIN01, (0x81 << 8) | 0xA0, NOT_USED, 0xff},              //C4
+    {"C4",  2, 0, PIN01, (0x81 << 8) | 0xA0, 4, 0xff},              //C4
+    {"C4",  2, 1, PIN01, (0x81 << 8) | 0xA0, 5, 0xff},              //C4
+    {"C4",  2, 2, PIN01, (0x81 << 8) | 0xA0, 6, 0xff},              //C4
+    {"C4",  2, 3, PIN01, (0x81 << 8) | 0xA0, 7, 0xff},              //C4
 
-    {"C5",  4, 0, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C5
-    {"C5",  4, 1, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C5
-    {"C5",  4, 2, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C5
-    {"C5",  4, 3, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C5
+    {"C5",  4, 0, PIN01, (0x91 << 8) | 0xB0, 0, 0xff},              //C5
+    {"C5",  4, 1, PIN01, (0x91 << 8) | 0xB0, 1, 0xff},              //C5
+    {"C5",  4, 2, PIN01, (0x91 << 8) | 0xB0, 2, 0xff},              //C5
+    {"C5",  4, 3, PIN01, (0x91 << 8) | 0xB0, 3, 0xff},              //C5
 
-    {"C6",  5, 0, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C6
-    {"C6",  5, 1, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C6
-    {"C6",  5, 2, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C6
-    {"C6",  5, 3, PIN01, (0x91 << 8) | 0xB0, NOT_USED, 0xff},              //C6
+    {"C6",  5, 0, PIN01, (0x91 << 8) | 0xB0, 4, 0xff},              //C6
+    {"C6",  5, 1, PIN01, (0x91 << 8) | 0xB0, 5, 0xff},              //C6
+    {"C6",  5, 2, PIN01, (0x91 << 8) | 0xB0, 6, 0xff},              //C6
+    {"C6",  5, 3, PIN01, (0x91 << 8) | 0xB0, 7, 0xff},              //C6
 
-    {"C7",  3, 0, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C7
-    {"C7",  3, 1, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C7
-    {"C7",  3, 2, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C7
-    {"C7",  3, 3, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C7
+    {"C7",  3, 0, PIN01, (0xA1 << 8) | 0xC0, 0, 0xff},              //C7
+    {"C7",  3, 1, PIN01, (0xA1 << 8) | 0xC0, 1, 0xff},              //C7
+    {"C7",  3, 2, PIN01, (0xA1 << 8) | 0xC0, 2, 0xff},              //C7
+    {"C7",  3, 3, PIN01, (0xA1 << 8) | 0xC0, 3, 0xff},              //C7
 
-    {"C8",  1, 0, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C8
-    {"C8",  1, 1, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C8
-    {"C8",  1, 2, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C8
-    {"C8",  1, 3, PIN01, (0xA1 << 8) | 0xC0, NOT_USED, 0xff},              //C8
+    {"C8",  1, 0, PIN01, (0xA1 << 8) | 0xC0, 4, 0xff},              //C8
+    {"C8",  1, 1, PIN01, (0xA1 << 8) | 0xC0, 5, 0xff},              //C8
+    {"C8",  1, 2, PIN01, (0xA1 << 8) | 0xC0, 6, 0xff},              //C8
+    {"C8",  1, 3, PIN01, (0xA1 << 8) | 0xC0, 7, 0xff},              //C8
 
-    {"C9", 31, 0, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},              //C9
-    {"C9", 31, 1, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},              //C9
-    {"C9", 31, 2, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},              //C9
-    {"C9", 31, 3, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},              //C9
+    {"C9", 31, 0, PIN01, (0xB1 << 8) | 0xD0, 0, 0xff},              //C9
+    {"C9", 31, 1, PIN01, (0xB1 << 8) | 0xD0, 1, 0xff},              //C9
+    {"C9", 31, 2, PIN01, (0xB1 << 8) | 0xD0, 2, 0xff},              //C9
+    {"C9", 31, 3, PIN01, (0xB1 << 8) | 0xD0, 3, 0xff},              //C9
 
-    {"C10", 29, 0, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},             //C10
-    {"C10", 29, 1, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},             //C10
-    {"C10", 29, 2, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},             //C10
-    {"C10", 29, 3, PIN01, (0xB1 << 8) | 0xD0, NOT_USED, 0xff},             //C10
+    {"C10", 29, 0, PIN01, (0xB1 << 8) | 0xD0, 4, 0xff},             //C10
+    {"C10", 29, 1, PIN01, (0xB1 << 8) | 0xD0, 5, 0xff},             //C10
+    {"C10", 29, 2, PIN01, (0xB1 << 8) | 0xD0, 6, 0xff},             //C10
+    {"C10", 29, 3, PIN01, (0xB1 << 8) | 0xD0, 7, 0xff},             //C10
 
-    {"C11", 27, 0, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C11
-    {"C11", 27, 1, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C11
-    {"C11", 27, 2, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C11
-    {"C11", 27, 3, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C11
+    {"C11", 27, 0, PIN01, (0xC1 << 8) | 0xE0, 0, 0xff},             //C11
+    {"C11", 27, 1, PIN01, (0xC1 << 8) | 0xE0, 1, 0xff},             //C11
+    {"C11", 27, 2, PIN01, (0xC1 << 8) | 0xE0, 2, 0xff},             //C11
+    {"C11", 27, 3, PIN01, (0xC1 << 8) | 0xE0, 3, 0xff},             //C11
 
-    {"C12", 28, 0, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C12
-    {"C12", 28, 1, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C12
-    {"C12", 28, 2, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C12
-    {"C12", 28, 3, PIN01, (0xC1 << 8) | 0xE0, NOT_USED, 0xff},             //C12
+    {"C12", 28, 0, PIN01, (0xC1 << 8) | 0xE0, 4, 0xff},             //C12
+    {"C12", 28, 1, PIN01, (0xC1 << 8) | 0xE0, 5, 0xff},             //C12
+    {"C12", 28, 2, PIN01, (0xC1 << 8) | 0xE0, 6, 0xff},             //C12
+    {"C12", 28, 3, PIN01, (0xC1 << 8) | 0xE0, 7, 0xff},             //C12
 
-    { "Y1", 21, 3, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y01
-    { "Y2", 21, 2, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y02
-    { "Y3", 20, 3, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y03
-    { "Y4", 21, 1, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y04
-    { "Y5", 21, 0, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y05
-    { "Y6", 20, 2, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y06
-    { "Y7", 19, 3, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y07
-    { "Y8", 19, 2, PIN01, (0xF0 << 8) | 0x20, NOT_USED, 0xff},                     //Y08
-    { "Y9", 20, 1, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y09
-    {"Y10", 19, 1, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y10
-    {"Y11", 19, 0, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y11
-    {"Y12", 20, 0, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y12
-    {"Y13", 17, 3, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y13
-    {"Y14", 17, 2, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y14
-    {"Y15", 15, 3, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y15
-    {"Y16", 17, 1, PIN01, (0x11 << 8) | 0x30, NOT_USED, 0xff},                     //Y16
-    {"Y17", 17, 0, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y17
-    {"Y18", 15, 2, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y18
-    {"Y19", 13, 3, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y19
-    {"Y20", 13, 2, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y20
-    {"Y21", 15, 1, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y21
-    {"Y22", 13, 1, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y22
-    {"Y23", 13, 0, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y23
-    {"Y24", 15, 0, PIN01, (0x21 << 8) | 0x40, NOT_USED, 0xff},                     //Y24
-    {"Y25", 11, 3, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y25
-    {"Y26", 11, 2, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y26
-    {"Y27", 12, 3, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y27
-    {"Y28", 11, 1, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y28
-    {"Y29", 11, 0, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y29
-    {"Y30", 12, 2, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y30
-    {"Y31", 10, 3, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y31
-    {"Y32", 10, 2, PIN01, (0x31 << 8) | 0x50, NOT_USED, 0xff},                     //Y32
-    {"Y33", 12, 1, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y33
-    {"Y34", 10, 1, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y34
-    {"Y35", 10, 0, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y35
-    {"Y36", 12, 0, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y36
-    {"Y37",  8, 3, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y37
-    {"Y38",  8, 2, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y38
-    {"Y39",  9, 3, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y39
-    {"Y40",  8, 1, PIN01, (0x41 << 8) | 0x60, NOT_USED, 0xff},                     //Y40
-    {"Y41",  8, 0, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y41
-    {"Y42",  9, 2, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y42
-    {"Y43",  7, 3, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y43
-    {"Y44",  7, 2, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y44
-    {"Y45",  9, 1, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y45
-    {"Y46",  7, 1, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y46
-    {"Y47",  7, 0, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y47
-    {"Y48",  9, 0, PIN01, (0x51 << 8) | 0x70, NOT_USED, 0xff},                     //Y48
-    {"Y49", 33, 0, PIN01, (0x61 << 8) | 0x80, NOT_USED, 0xff},                     //Y49
-    {"Y50", 33, 1, PIN01, (0x61 << 8) | 0x80, NOT_USED, 0xff},                     //Y50
+    { "Y1", 21, 3, PIN01, (0xF0 << 8) | 0x20, 0, 0xff},             //Y01
+    { "Y2", 21, 2, PIN01, (0xF0 << 8) | 0x20, 1, 0xff},             //Y02
+    { "Y3", 20, 3, PIN01, (0xF0 << 8) | 0x20, 2, 0xff},             //Y03
+    { "Y4", 21, 1, PIN01, (0xF0 << 8) | 0x20, 3, 0xff},             //Y04
+    { "Y5", 21, 0, PIN01, (0xF0 << 8) | 0x20, 4, 0xff},             //Y05
+    { "Y6", 20, 2, PIN01, (0xF0 << 8) | 0x20, 5, 0xff},             //Y06
+    { "Y7", 19, 3, PIN01, (0xF0 << 8) | 0x20, 6, 0xff},             //Y07
+    { "Y8", 19, 2, PIN01, (0xF0 << 8) | 0x20, 7, 0xff},             //Y08
+    { "Y9", 20, 1, PIN01, (0x11 << 8) | 0x30, 0, 0xff},             //Y09
+    {"Y10", 19, 1, PIN01, (0x11 << 8) | 0x30, 1, 0xff},             //Y10
+    {"Y11", 19, 0, PIN01, (0x11 << 8) | 0x30, 2, 0xff},             //Y11
+    {"Y12", 20, 0, PIN01, (0x11 << 8) | 0x30, 3, 0xff},             //Y12
+    {"Y13", 17, 3, PIN01, (0x11 << 8) | 0x30, 4, 0xff},             //Y13
+    {"Y14", 17, 2, PIN01, (0x11 << 8) | 0x30, 5, 0xff},             //Y14
+    {"Y15", 15, 3, PIN01, (0x11 << 8) | 0x30, 6, 0xff},             //Y15
+    {"Y16", 17, 1, PIN01, (0x11 << 8) | 0x30, 7, 0xff},             //Y16
+    {"Y17", 17, 0, PIN01, (0x21 << 8) | 0x40, 0, 0xff},             //Y17
+    {"Y18", 15, 2, PIN01, (0x21 << 8) | 0x40, 1, 0xff},             //Y18
+    {"Y19", 13, 3, PIN01, (0x21 << 8) | 0x40, 2, 0xff},             //Y19
+    {"Y20", 13, 2, PIN01, (0x21 << 8) | 0x40, 3, 0xff},             //Y20
+    {"Y21", 15, 1, PIN01, (0x21 << 8) | 0x40, 4, 0xff},             //Y21
+    {"Y22", 13, 1, PIN01, (0x21 << 8) | 0x40, 5, 0xff},             //Y22
+    {"Y23", 13, 0, PIN01, (0x21 << 8) | 0x40, 6, 0xff},             //Y23
+    {"Y24", 15, 0, PIN01, (0x21 << 8) | 0x40, 7, 0xff},             //Y24
+    {"Y25", 11, 3, PIN01, (0x31 << 8) | 0x50, 0, 0xff},             //Y25
+    {"Y26", 11, 2, PIN01, (0x31 << 8) | 0x50, 1, 0xff},             //Y26
+    {"Y27", 12, 3, PIN01, (0x31 << 8) | 0x50, 2, 0xff},             //Y27
+    {"Y28", 11, 1, PIN01, (0x31 << 8) | 0x50, 3, 0xff},             //Y28
+    {"Y29", 11, 0, PIN01, (0x31 << 8) | 0x50, 4, 0xff},             //Y29
+    {"Y30", 12, 2, PIN01, (0x31 << 8) | 0x50, 5, 0xff},             //Y30
+    {"Y31", 10, 3, PIN01, (0x31 << 8) | 0x50, 6, 0xff},             //Y31
+    {"Y32", 10, 2, PIN01, (0x31 << 8) | 0x50, 7, 0xff},             //Y32
+    {"Y33", 12, 1, PIN01, (0x41 << 8) | 0x60, 0, 0xff},             //Y33
+    {"Y34", 10, 1, PIN01, (0x41 << 8) | 0x60, 1, 0xff},             //Y34
+    {"Y35", 10, 0, PIN01, (0x41 << 8) | 0x60, 2, 0xff},             //Y35
+    {"Y36", 12, 0, PIN01, (0x41 << 8) | 0x60, 3, 0xff},             //Y36
+    {"Y37",  8, 3, PIN01, (0x41 << 8) | 0x60, 4, 0xff},             //Y37
+    {"Y38",  8, 2, PIN01, (0x41 << 8) | 0x60, 5, 0xff},             //Y38
+    {"Y39",  9, 3, PIN01, (0x41 << 8) | 0x60, 6, 0xff},             //Y39
+    {"Y40",  8, 1, PIN01, (0x41 << 8) | 0x60, 7, 0xff},             //Y40
+    {"Y41",  8, 0, PIN01, (0x51 << 8) | 0x70, 0, 0xff},             //Y41
+    {"Y42",  9, 2, PIN01, (0x51 << 8) | 0x70, 1, 0xff},             //Y42
+    {"Y43",  7, 3, PIN01, (0x51 << 8) | 0x70, 2, 0xff},             //Y43
+    {"Y44",  7, 2, PIN01, (0x51 << 8) | 0x70, 3, 0xff},             //Y44
+    {"Y45",  9, 1, PIN01, (0x51 << 8) | 0x70, 4, 0xff},             //Y45
+    {"Y46",  7, 1, PIN01, (0x51 << 8) | 0x70, 5, 0xff},             //Y46
+    {"Y47",  7, 0, PIN01, (0x51 << 8) | 0x70, 6, 0xff},             //Y47
+    {"Y48",  9, 0, PIN01, (0x51 << 8) | 0x70, 7, 0xff},             //Y48
+    {"Y49", 33, 0, PIN01, (0x61 << 8) | 0x80, 1, 0xff},             //Y49
+    {"Y50", 33, 1, PIN01, (0x61 << 8) | 0x80, 0, 0xff},             //Y50
 };
 
 static struct led_ctx_t *g_led_ctx = NULL;
@@ -650,7 +707,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x5 (
         return -1;
     }
     // set val
-    if (p->h_l) {
+    if (p->bit_offset) {
         val0 = (0x0F & val0) | (val << 4);
     } else {
         val0 = (0xF0 & val0) | val;
@@ -663,6 +720,115 @@ bf_pltfm_port_led_by_tofino_sync_set_x5 (
                  err);
         return -2;
     }
+    // record
+    p->val = val;
+    bf_sys_usleep (500);
+
+#if defined(HAVE_ASYNC_LED)
+    // log
+    if (async_led_debug_on) {
+        fprintf (stdout,
+                 "%25s   : %2d/%2d : %2x : %2x : %2x\n",
+                 "led to cpld", p->conn_id,
+                 p->chnl_id,
+                 val0, val, p->val);
+    }
+#endif
+    return err;
+}
+
+static int
+bf_pltfm_port_led_by_tofino_sync_set_x308p (
+    int chip_id,
+    struct led_ctx_t *p,
+    uint8_t val)
+{
+    // define
+    int err = BF_PLTFM_SUCCESS;
+    uint8_t val0;
+
+    // read cached led color, if same as the value in cpld, return as early as possible.
+    if (p->val == val) {
+        return 0;
+    }
+
+    // translate to the data format for CPLD
+    uint8_t led_active = (val & BF_MAV_PORT_LED_BLINK) ? 0x01 : 0x00;
+    uint8_t led_link, led_speed;
+
+    switch (val & (BF_MAV_PORT_LED_RED + BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_BLUE)) {
+        case BF_MAV_PORT_LED_GREEN:
+            led_link  = 0x01;
+            led_speed = 0x00;           // 10G
+            break;
+        case (BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_BLUE):
+            led_link  = 0x01;
+            led_speed = 0x01;           // 25G
+            break;
+        case BF_MAV_PORT_LED_BLUE:
+            led_link  = 0x01;
+            led_speed = 0x02;           // 40G
+            break;
+        case (BF_MAV_PORT_LED_BLUE + BF_MAV_PORT_LED_RED):
+            led_link  = 0x01;
+            led_speed = 0x03;           // 50G
+            break;
+        case (BF_MAV_PORT_LED_RED + BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_BLUE):
+            led_link  = 0x01;
+            led_speed = 0x03;           // 100G
+            break;
+        case (BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_RED):
+            led_link  = 0x00;
+            led_speed = 0x00;           // link down
+            break;
+        default:
+            led_link  = 0x00;
+            led_speed = 0x00;           // link down
+            break;
+    }
+
+    // read
+    err = bf_pltfm_tf_cpld_read (p->idx,
+                                 AF_LED_CPLD_I2C_ADDR, p->cpld_offset, &val0);
+    if (err) {
+        fprintf (stdout, "1 tf cpld read error<%d>\n",
+                 err);
+        return -1;
+    }
+
+    // set val
+    if (p->desc[0] == 'C') {
+        if (led_speed == 0x03) {
+            val0 = (led_speed << 2) + (led_link << 1) + led_active;
+        } else {
+            val = (led_speed << 2) + (led_link << 1) + led_active;
+            val0 = (val0 & ~(0x0F << p->bit_offset)) | (val << p->bit_offset);
+        }
+    } else {
+        val = (led_link << 1) + led_active;
+        val0 = (val0 & ~(0x03 << p->bit_offset)) | (val << p->bit_offset);
+    }
+
+    // write
+    err = bf_pltfm_tf_cpld_write (p->idx,
+                                  AF_LED_CPLD_I2C_ADDR, p->cpld_offset, val0);
+    if (err) {
+        fprintf (stdout, "2 tf cpld write error<%d>\n",
+                 err);
+        return -2;
+    }
+
+    // if speed == 50G/100G, write 0 at offset + 1
+    if (led_speed == 0x03) {
+        err = bf_pltfm_tf_cpld_write (p->idx,
+                                  AF_LED_CPLD_I2C_ADDR, p->cpld_offset+1, 0);
+        if (err) {
+            fprintf (stdout, "2 tf cpld write error<%d>\n",
+                 err);
+            return -2; 
+        }
+    }
+
     // record
     p->val = val;
     bf_sys_usleep (500);
@@ -704,7 +870,7 @@ bf_pltfm_port_led_by_tofino_sync_set_hc (
         return -1;
     }
     // set val
-    if (p->h_l) {
+    if (p->bit_offset) {
         val0 = (0x0F & val0) | (val << 4);
     } else {
         val0 = (0xF0 & val0) | val;
@@ -735,7 +901,7 @@ bf_pltfm_port_led_by_tofino_sync_set_hc (
 }
 
 static int
-bf_pltfm_port_led_by_tofino_sync_set_x3 (
+bf_pltfm_port_led_by_tofino_sync_set_x312p (
     int chip_id,
     struct led_ctx_t *p,
     uint8_t val)
@@ -750,44 +916,15 @@ bf_pltfm_port_led_by_tofino_sync_set_x3 (
                          (~BF_MAV_PORT_LED_BLINK)) ? true : false;
     bool cached_blink = (p->val &
                          BF_MAV_PORT_LED_BLINK) ? true : false;
-    uint32_t module;
     uint8_t light_offset = (uint8_t) (p->cpld_offset &
                                       0x00FF);
-    uint8_t blink_offset = (uint8_t) ((
-                                          p->cpld_offset >> 8) & 0x00FF);
-    uint8_t bit;
+    uint8_t blink_offset = (uint8_t) ((p->cpld_offset >> 8) & 0x00FF);
     uint8_t val0, val1;
-
-    // read cached led color, if same as the value in cpld, return as early as possible.
-    if (p->val == val) {
-        return 0;
-    }
 
     // read cached led color, if same as the value in cpld, return as early as possible.
     if ((need_blink == cached_blink) &&
         (need_light == cached_light)) {
         return 0;
-    }
-
-    if (p->desc[0] == 'C') {
-        // it is QSFP
-        module = strtol (&p->desc[1], NULL, 10);
-        if (module == 0) {
-            return -1;
-        }
-        if (module % 2) {
-            bit = 0;
-        } else {
-            bit = 4;
-        }
-        bit += p->chnl_id;
-    } else {
-        // it is SFP
-        module = strtol (&p->desc[1], NULL, 10);
-        if (module == 0) {
-            return -1;
-        }
-        bit = (module - 1) % 8;
     }
 
     //fprintf(stdout, "%d/%d(Y%d) val is 0x%x, %s %s\n", p->conn_id, p->chnl_id, module, val, need_light?"need_light":"", need_blink?"need_blink":"");
@@ -807,9 +944,9 @@ bf_pltfm_port_led_by_tofino_sync_set_x3 (
         // chage val
         val1 = val0;
         if (need_light) {
-            val1 &= ~ (1 << bit);
+            val1 &= ~ (1 << p->bit_offset);
         } else {
-            val1 |= (1 << bit);
+            val1 |= (1 << p->bit_offset);
         }
 
         // write light
@@ -840,9 +977,9 @@ bf_pltfm_port_led_by_tofino_sync_set_x3 (
         // chage val
         val1 = val0;
         if (need_blink) {
-            val1 &= ~ (1 << bit);
+            val1 &= ~ (1 << p->bit_offset);
         } else {
-            val1 |= (1 << bit);
+            val1 |= (1 << p->bit_offset);
         }
 
         // write blink
@@ -930,8 +1067,11 @@ static int bf_pltfm_port_led_by_tofino_sync_set (
         platform_type_equal (X532P)) {
         err = bf_pltfm_port_led_by_tofino_sync_set_x5 (
                   chip_id, p, val);
+    } else if (platform_type_equal (X308P)) {
+        err = bf_pltfm_port_led_by_tofino_sync_set_x308p (
+                  chip_id, p, val);
     } else if (platform_type_equal (X312P)) {
-        err = bf_pltfm_port_led_by_tofino_sync_set_x3 (
+        err = bf_pltfm_port_led_by_tofino_sync_set_x312p (
                   chip_id, p, val);
     } else if (platform_type_equal (HC)) {
         err = bf_pltfm_port_led_by_tofino_sync_set_hc (
@@ -1150,6 +1290,7 @@ void *led_traffic_func (void *arg)
 #endif
         foreach_element (0, g_max_led_ctx)
         {
+            has_traffic = false;
             p = &g_led_ctx[each_element];
             port_info.conn_id = p->conn_id;
             port_info.chnl_id = p->chnl_id;
@@ -1681,6 +1822,7 @@ int bf_pltfm_led_init (int chip_id)
     /* PIN pair 0:1 go to upper CPLD */
     if (platform_type_equal (X564P) ||
         platform_type_equal (X532P) ||
+        platform_type_equal (X308P) ||
         platform_type_equal (HC)) {
         /* PIN pair 0:1 go to upper CPLD */
         if (bf_pltfm_tf_i2c_init (chip_id, PIN01)) {
@@ -1690,6 +1832,7 @@ int bf_pltfm_led_init (int chip_id)
     }
 
     if (platform_type_equal (X564P) ||
+        platform_type_equal (X308P) ||
         platform_type_equal (HC)) {
         /* PIN pair 4:5 go to lower CPLD */
         if (bf_pltfm_tf_i2c_init (chip_id, PIN45)) {
@@ -1704,6 +1847,9 @@ int bf_pltfm_led_init (int chip_id)
     } else if (platform_type_equal (X564P)) {
         g_led_ctx = &led_ctx_x564p[0];
         g_max_led_ctx = ARRAY_LENGTH (led_ctx_x564p);
+    } else if (platform_type_equal (X308P)) {
+        g_led_ctx = &led_ctx_x308p[0];
+        g_max_led_ctx = ARRAY_LENGTH (led_ctx_x308p);
     } else if (platform_type_equal (X312P)) {
         g_led_ctx = &led_ctx_x312p[0];
         g_max_led_ctx = ARRAY_LENGTH (led_ctx_x312p);

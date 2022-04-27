@@ -19,9 +19,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <linux/i2c-dev.h>
 
-#include <curl/curl.h>
 
 /* Module includes */
 #include <bf_switchd/bf_switchd.h>
@@ -185,6 +183,40 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
 }
 
 static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
+    bf_pltfm_fan_data_t *fdata)
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    uint32_t i = 0;
+    int err = BF_PLTFM_COMM_FAILED, ret;
+
+    if (g_access_bmc_through_uart) {
+        wr_buf[0] = 0xAA;
+        wr_buf[1] = 0xAA;
+
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_FAN_ALL, wr_buf, 2, rd_buf, (128 - 1),
+                  BMC_COMM_INTERVAL_US);
+        if ((ret == 27) && (rd_buf[0] == 26)) {
+            for (i = 0;
+                 i < bf_pltfm_mgr_ctx()->fan_group_count *
+                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
+                fdata->F[i].fan_num     = i + 1;
+                fdata->F[i].present     = (rd_buf[1] & (0x01 <<
+                                                        (i >> 1))) ? 1 : 0;
+                fdata->F[i].direction   = 1;
+                fdata->F[i].front_speed = (rd_buf[2 * i + 3] << 8)
+                                          + rd_buf[2 * i + 4];
+                err = BF_PLTFM_SUCCESS;
+            }
+        }
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
     bf_pltfm_fan_data_t *fdata)
 {
@@ -322,6 +354,30 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x564p__ (
 }
 
 static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_fan_speed_set_x308p__ (
+    bf_pltfm_fan_info_t *fdata)
+{
+    uint8_t wr_buf[2];
+    int err = BF_PLTFM_COMM_FAILED;
+
+    wr_buf[0] = fdata->fan_num;
+    wr_buf[1] = fdata->percent;
+
+    if (g_access_bmc_through_uart) {
+        err = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
+                  BMC_COMM_INTERVAL_US);
+    } else {
+        err = bf_pltfm_bmc_write (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2);
+    }
+
+    /* read back to checkout. */
+
+    return err;
+}
+
+static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
     bf_pltfm_fan_info_t *fdata)
 {
@@ -366,6 +422,9 @@ __bf_pltfm_chss_mgmt_fan_data_get__ (
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x564p__
               (fdata);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_x308p__
+              (fdata);
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x312p__
               (fdata);
@@ -401,6 +460,9 @@ __bf_pltfm_chss_mgmt_fan_speed_set__ (
               (fdata);
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_x564p__
+              (fdata);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_fan_speed_set_x308p__
               (fdata);
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_x312p__

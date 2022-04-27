@@ -10,10 +10,14 @@
 #define _BF_PLTFM_MASTER_I2C_H
 #include <bfutils/uCli/ucli.h>
 
-#if 0
+#if OS_VERSION_LT(10)
+/* Debian 9/8/... */
+//#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
+#else
+/* Debian 10/11 ..., smbus IO APIs are located in /usr/include/i2c/smbus.h */
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
-/* Debian 10, smbus IO APIs are located in /usr/include/i2c/smbus.h */
 #include <i2c/smbus.h>
 #endif
 

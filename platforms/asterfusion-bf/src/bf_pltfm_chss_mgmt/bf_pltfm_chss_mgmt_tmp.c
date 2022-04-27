@@ -18,9 +18,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <curl/curl.h>
 #include <unistd.h>
-#include <linux/i2c-dev.h>
 
 /* Module includes */
 #include <bf_pltfm_types/bf_pltfm_types.h>
@@ -114,6 +112,52 @@ __bf_pltfm_chss_mgmt_temperature_get_x564p__ (
         tmp->tmp6 = (float)rd_buf[6];
 
         err = BF_PLTFM_SUCCESS;
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_temperature_get_x308p__ (
+    bf_pltfm_temperature_info_t *tmp)
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    int err = BF_PLTFM_COMM_FAILED, ret;
+
+    wr_buf[0] = 0xAA;
+    wr_buf[1] = 0xAA;
+
+    if (g_access_bmc_through_uart) {
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, rd_buf,
+                  (128 - 1),
+                  BMC_COMM_INTERVAL_US);
+
+        if ((ret == 11) && (rd_buf[0] == 10)) {
+            tmp->tmp1 = (float)rd_buf[1];
+            tmp->tmp2 = (float)rd_buf[2];
+            tmp->tmp3 = (float)rd_buf[3];
+            tmp->tmp4 = (float)rd_buf[4];
+            tmp->tmp5 = (float)rd_buf[5];
+            tmp->tmp6 = (float)rd_buf[6];
+            if (rd_buf[7] == 0x9C) {
+                tmp->tmp7 = -100.0;
+                tmp->tmp8 = -100.0;
+            } else {
+                tmp->tmp7 = (float)rd_buf[7];
+                tmp->tmp7 = (float)rd_buf[8];
+            }
+            if (rd_buf[9] == 0x9C) {
+                tmp->tmp9 = -100.0;
+                tmp->tmp10= -100.0;
+            } else {
+                tmp->tmp9 = (float)rd_buf[9];
+                tmp->tmp10= (float)rd_buf[10];
+            }
+
+            err = BF_PLTFM_SUCCESS;
+        }
     }
 
     return err;
@@ -214,6 +258,9 @@ __bf_pltfm_chss_mgmt_temperature_get__ (
               (tmp);
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x564p__
+              (tmp);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_temperature_get_x308p__
               (tmp);
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x312p__
@@ -382,6 +429,50 @@ bf_pltfm_chss_mgmt_tmp_init()
                      t.tmp5, "Fan 1");
             fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
                      t.tmp6, "Fan 2");
+            /* Added more sensors. */
+        } else if (platform_type_equal (X308P)) {
+            fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
+                     t.tmp1, "Far left of mainboard");
+            fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
+                     t.tmp2, "Far right of mainboard");
+            fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
+                     t.tmp3, "Fan 1");
+            fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
+                     t.tmp4, "Fan 2");
+            fprintf (stdout, "tmp5    %.1f C   \"%s\"\n",
+                     t.tmp5, "BF Ambient");
+            fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
+                     t.tmp6, "BF Junction");
+            // if == -100.0, means no GHC-0 installed
+            if (t.tmp7 == -100.0) {
+                fprintf (stdout, "tmp7    %s      \"%s\"\n",
+                         "  X", "GHC-0 Ambient");
+                fprintf (stdout, "tmp8    %s      \"%s\"\n",
+                         "  X", "GHC-0 Junction");
+                bf_pltfm_mgr_ctx()->sensor_count -= 2;
+            } else {
+                fprintf (stdout, "tmp7    %.1f C   \"%s\"\n",
+                         t.tmp7, "GHC-0 Ambient");
+                fprintf (stdout, "tmp8    %.1f C   \"%s\"\n",
+                         t.tmp8, "GHC-0 Junction");
+            }
+            // if == -100.0;, means no GHC-1 installed
+            if (t.tmp9 == -100.0) {
+                fprintf (stdout, "tmp9    %s      \"%s\"\n",
+                         "  X", "GHC-1 Ambient");
+                fprintf (stdout, "tmp10   %s      \"%s\"\n",
+                         "  X", "GHC-1 Junction");
+                bf_pltfm_mgr_ctx()->sensor_count -= 2;
+            } else {
+                fprintf (stdout, "tmp9    %.1f C   \"%s\"\n",
+                         t.tmp9, "GHC-1 Ambient");
+                fprintf (stdout, "tmp10   %.1f C   \"%s\"\n",
+                         t.tmp10, "GHC-1 Junction");
+            }
+            // if no GHC0 and GHC1, only have 4 * 2 fans
+            if (bf_pltfm_mgr_ctx()->sensor_count == 6) {
+                bf_pltfm_mgr_ctx()->fan_group_count = 4;
+            }
             /* Added more sensors. */
         } else if (platform_type_equal (X312P)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",

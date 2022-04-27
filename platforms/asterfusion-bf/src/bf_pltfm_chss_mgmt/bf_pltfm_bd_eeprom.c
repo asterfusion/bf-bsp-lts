@@ -20,7 +20,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
-#include <curl/curl.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_pltfm.h>
@@ -124,6 +123,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
     {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
     {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS640T-A1-V1.2", X564P, v1dot2},  // X564P-T V1.2
+    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
     {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.0",            X312P, v1dot0},
     {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.1",            X312P, v1dot1},
     {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.2",            X312P, v1dot2},
@@ -190,6 +190,7 @@ const char *dump_pltfm()
 {
     return (bf_cur_pltfm_type == X564P ? "X564P-T" :
             bf_cur_pltfm_type == X532P ? "X532P-T" :
+            bf_cur_pltfm_type == X308P ? "X308P-T" :
             bf_cur_pltfm_type == X312P ? "X312P-T" :
             "HC");
 }
@@ -248,7 +249,7 @@ static int product_name (const char *index)
         i++;
     }
     str[i] = '\0';
-    strncpy (eeprom.bf_pltfm_product_name, str, i);
+    strncpy (eeprom.bf_pltfm_product_name, str, i + 1);
 
     LOG_DEBUG ("Product Name: %s \n",
                eeprom.bf_pltfm_product_name);
@@ -300,7 +301,7 @@ static int product_serial_number (const char
     }
     str[i] = '\0';
 
-    strncpy (eeprom.bf_pltfm_product_serial, str, i);
+    strncpy (eeprom.bf_pltfm_product_serial, str, i + 1);
 
     LOG_DEBUG ("Product Serial Number: %s \n",
                eeprom.bf_pltfm_product_serial);
@@ -643,7 +644,7 @@ static int product_main_board_version (
     str[i] = '\0';
 
     strncpy (eeprom.bf_pltfm_main_board_version, str,
-             i);
+             i + 1);
 
     LOG_DEBUG ("Product Main Board Version: %s \n",
                eeprom.bf_pltfm_main_board_version);
@@ -671,7 +672,7 @@ static int comexpress_version (const char *index)
     }
     str[i] = '\0';
 
-    strncpy (eeprom.bf_pltfm_come_version, str, i);
+    strncpy (eeprom.bf_pltfm_come_version, str, i + 1);
 
     LOG_DEBUG ("Product COMe Board Version: %s \n",
                eeprom.bf_pltfm_come_version);
@@ -694,7 +695,7 @@ static int ghc_bd0_version (const char *index)
     }
     str[i] = '\0';
 
-    strncpy (eeprom.bf_pltfm_ghc_bd0_version, str, i);
+    strncpy (eeprom.bf_pltfm_ghc_bd0_version, str, i + 1);
 
     LOG_DEBUG ("Product Computing Card0 Version: %s \n",
                eeprom.bf_pltfm_ghc_bd0_version);
@@ -717,7 +718,7 @@ static int ghc_bd1_version (const char *index)
     }
     str[i] = '\0';
 
-    strncpy (eeprom.bf_pltfm_ghc_bd1_version, str, i);
+    strncpy (eeprom.bf_pltfm_ghc_bd1_version, str, i + 1);
 
     LOG_DEBUG ("Product Computing Card1 Version: %s \n",
                eeprom.bf_pltfm_ghc_bd1_version);
@@ -941,6 +942,15 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
                          tlv->code);
                 exit (0);
         }
+    }
+
+    if (platform_type_equal (X308P)) {
+        /* Access CPLD through SIO */ 
+        uint8_t rd_buf[128];
+        char cmd = 0x0F;
+        uint8_t wr_buf[2] = {0x02, 0xAA};
+        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
     }
 
     /* Open eeprom data file, if non-exist, create it.
