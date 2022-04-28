@@ -319,7 +319,7 @@ static int sm_bus_config_init (
 
     cfg.address = 0x02;
     cfg.auto_send_read = 0;
-    cfg.speed = 240000;
+    cfg.speed = 100000;
     cfg.write_timeout_ms = 0;
     cfg.read_timeout_ms = 0;
     cfg.retry_limit = 1;
@@ -1076,7 +1076,7 @@ static bf_pltfm_status_t bf_pltfm_cp2112_open (
         if (rc != 0) {
             LOG_ERROR ("Error in claiming the interface with error code %s",
                        libusb_strerror (rc));
-            return -5;
+            //return -5;
         }
 
         LOG_DEBUG ("Interface Claimed.");
@@ -1089,7 +1089,7 @@ static bf_pltfm_status_t bf_pltfm_cp2112_open (
                 LOG_ERROR ("Error in initializing the sm bus config at %s:%d",
                            __func__,
                            __LINE__);
-                return -6;
+                //return -6;
             }
         }
         LOG_DEBUG ("SMBus initialized.");
@@ -1478,8 +1478,96 @@ bf_pltfm_cp2112_device_ctx_t
      * See differentiate_cp2112_devices for reference.
      * by tsihang, 2021-07-14. */
     cp2112_id = cp2112_id;
-    return &cp2112_dev_arr[cp2112_id_map[CP2112_ID_1]];
+    return &cp2112_dev_arr[cp2112_id_map[cp2112_id]];
 #endif
+}
+
+/* Toggle the reset pin of CP2112 thru the COMe->BMC->CPLD path.
+ * by tsihang, 2021-07-21. */
+bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
+    bool primary)
+{
+    /* Make it very clear for those platforms which could offer cp2112 reset oper by doing below operations.
+     * Because we cann't and shouldn't assume platforms which are NOT X312P-T could reset cp2112 like this.
+     * by tsihang, 2022-04-27. */
+    if (platform_type_equal (X564P) ||
+        platform_type_equal (X532P) ||
+        platform_type_equal (X308P)) {
+        uint8_t rd_buf[128];
+        char cmd = 0x10;
+        uint8_t wr_buf[2] = {0x01, 0xAA};
+        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+        wr_buf[0] = 0x02;
+        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+    } else if (platform_type_equal(X312P)) {
+        /* TBD */
+    } else if (platform_type_equal(HC)) {
+        /* TBD */
+    }
+
+    (void)primary;
+    return BF_PLTFM_SUCCESS;
+}
+
+
+/* This API must be called with care. Ensure that other subsystem
+ *  is not currently using cp2112
+ */
+bf_pltfm_status_t bf_pltfm_cp2112_soft_reset()
+{
+    bf_pltfm_status_t sts;
+
+    sts = bf_pltfm_cp2112_de_init();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: Unable to de init CP2112 devices at %s:%d",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
+        return sts;
+    }
+
+    usleep (500000);
+
+    sts = bf_pltfm_cp2112_init();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: Unable to init CP2112 devices at %s:%d",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
+        return sts;
+    }
+
+    return BF_PLTFM_SUCCESS;
+}
+
+/* This API must be called with care. Ensure that other subsystem
+ *  is not currently using cp2112
+ */
+bf_pltfm_status_t bf_pltfm_cp2112_hard_reset()
+{
+    bf_pltfm_status_t sts;
+
+    sts = bf_pltfm_cp2112_de_init();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: Unable to de init CP2112 devices at %s:%d",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
+        return sts;
+    }
+
+    usleep (5000);
+
+    /* Use BMC interface to reset cp2112. */
+    sts = bf_pltfm_bmc_cp2112_reset (true);
+    if (sts) {
+        LOG_ERROR ("Error resetting primary cp2112\n");
+        return BF_PLTFM_COMM_FAILED;
+    }
+
+    return BF_PLTFM_SUCCESS;
 }
 
 bf_pltfm_status_t bf_pltfm_cp2112_init()
@@ -1506,9 +1594,7 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
             if (tried_reset_on_error == 3) {
                 return sts;
             }
-            bf_pltfm_cp2112_de_init();
-            bf_sys_usleep (5000);
-            bf_pltfm_bmc_cp2112_reset (true);
+            bf_pltfm_cp2112_hard_reset ();
             tried_reset_on_error ++;
             bf_sys_sleep (2);
         } else {
@@ -1606,10 +1692,6 @@ bf_pltfm_status_t bf_pltfm_cp2112_de_init()
     fprintf(stdout, "================== Deinit .... %48s ================== \n",
         __func__);
 
-    if (!bf_pltfm_cp2112_initialized) {
-        return BF_PLTFM_SUCCESS;
-    }
-
     LOG_DEBUG (
         "%s[%d], "
         "cp2112.deinit(%s)"
@@ -1657,36 +1739,6 @@ bf_pltfm_status_t bf_pltfm_cp2112_de_init()
     return BF_PLTFM_SUCCESS;
 }
 
-/* This API must be called with care. Ensure that other subsystem
- *  is not currently using cp2112
- */
-bf_pltfm_status_t bf_pltfm_cp2112_soft_reset()
-{
-    bf_pltfm_status_t sts;
-
-    sts = bf_pltfm_cp2112_de_init();
-    if (sts != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error %s: Unable to de init CP2112 devices at %s:%d",
-                   bf_pltfm_err_str (sts),
-                   __func__,
-                   __LINE__);
-        return sts;
-    }
-
-    usleep (500000);
-
-    sts = bf_pltfm_cp2112_init();
-    if (sts != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error %s: Unable to init CP2112 devices at %s:%d",
-                   bf_pltfm_err_str (sts),
-                   __func__,
-                   __LINE__);
-        return sts;
-    }
-
-    return BF_PLTFM_SUCCESS;
-}
-
 #if 0  // Do not use curl interface to reset cp2112
 static int write_data_cb (void *ptr)
 {
@@ -1701,63 +1753,6 @@ static int write_data_cb (void *ptr)
     return strlen ((char *)ptr);
 }
 #endif
-
-/* Toggle the reset pin of CP2112 thru the COMe->BMC->CPLD path.
- * by tsihang, 2021-07-21. */
-bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
-    bool primary)
-{
-    /* Make it very clear for those platforms which could offer cp2112 reset oper by doing below operations.
-     * Because we cann't and shouldn't assume platforms which are NOT X312P-T could reset cp2112 like this.
-     * by tsihang, 2022-04-27. */
-    if (platform_type_equal (X564P) ||
-        platform_type_equal (X532P) ||
-        platform_type_equal (X308P)) {
-        uint8_t rd_buf[128];
-        char cmd = 0x10;
-        uint8_t wr_buf[2] = {0x01, 0xAA};
-        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
-        wr_buf[0] = 0x02;
-        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
-    } else if (platform_type_equal(X312P)) {
-        /* TBD */
-    } else if (platform_type_equal(HC)) {
-        /* TBD */
-    }
-
-    (void)primary;
-    return BF_PLTFM_SUCCESS;
-}
-
-/* This API must be called with care. Ensure that other subsystem
- *  is not currently using cp2112
- */
-bf_pltfm_status_t bf_pltfm_cp2112_hard_reset()
-{
-    bf_pltfm_status_t sts;
-
-    sts = bf_pltfm_cp2112_de_init();
-    if (sts != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error %s: Unable to de init CP2112 devices at %s:%d",
-                   bf_pltfm_err_str (sts),
-                   __func__,
-                   __LINE__);
-        return sts;
-    }
-
-    usleep (5000);
-
-    /* Use BMC interface to reset cp2112. */
-    sts = bf_pltfm_bmc_cp2112_reset (true);
-    if (sts) {
-        LOG_ERROR ("Error resetting primary cp2112\n");
-        return BF_PLTFM_COMM_FAILED;
-    }
-
-    return BF_PLTFM_SUCCESS;
-}
 
 bool bf_pltfm_cp2112_addr_scan (
     bf_pltfm_cp2112_device_ctx_t *dev,

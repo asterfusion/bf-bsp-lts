@@ -79,6 +79,8 @@ int bf_pltfm_agent_rpc_server_thrift_service_rmv (
 
 #endif
 
+static bf_dev_init_mode_t g_switchd_init_mode = BF_DEV_INIT_COLD;
+
 extern ucli_node_t
 *bf_pltfm_cpld_ucli_node_create (ucli_node_t *m);
 
@@ -265,6 +267,10 @@ static bf_pltfm_status_t chss_mgmt_init()
              bf_pltfm_mgr_ctx()->psu_count);
     fprintf (stdout, "Max SNRs : %2d\n",
              bf_pltfm_mgr_ctx()->sensor_count);
+
+    if (g_switchd_init_mode != BF_DEV_INIT_COLD) {
+        return BF_PLTFM_SUCCESS;
+    }
 
     bf_pltfm_chss_mgmt_fan_init();
     bf_pltfm_chss_mgmt_pwr_init();
@@ -455,10 +461,16 @@ void bf_pltfm_platform_exit (void *arg)
         LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr LED.");
     }
 
-    if (bf_pltfm_cp2112_de_init()) {
-        LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr CP2112.");
+    /* Make it very clear for those platforms which need cp2112 de-init by doing below operations.
+     * Because we cann't and shouldn't assume platforms which are NOT X312P-T could de-init cp2112.
+     * by tsihang, 2022-04-27. */
+    if (platform_type_equal (X564P) ||
+        platform_type_equal (X532P) ||
+        platform_type_equal (X308P)) {
+        if (bf_pltfm_cp2112_de_init()) {
+            LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr CP2112.");
+        }
     }
-
     if (bf_pltfm_master_i2c_de_init()) {
         LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr Master I2C.");
     }
@@ -515,14 +527,12 @@ static void hostinfo()
 bf_status_t bf_pltfm_platform_init (
     void *arg)
 {
-    int ret = 0;
-    bf_pltfm_board_id_t bd;
+    int err = BF_PLTFM_SUCCESS;
     /* To avoid dependency error, by tsihang, 2021-07-13. */
     bf_switchd_context_t *switchd_ctx =
         (bf_switchd_context_t *)arg;
 
-    /* Avoid warning */
-    switchd_ctx = switchd_ctx;
+    g_switchd_init_mode = switchd_ctx->init_mode;
 
     mkdir (LOG_DIR_PREFIX,
            S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -535,73 +545,71 @@ bf_status_t bf_pltfm_platform_init (
     hostinfo();
 
     /* Initialize the Chassis Management library */
-    ret = chss_mgmt_init();
-    if (ret != BF_PLTFM_SUCCESS) {
+    err = chss_mgmt_init();
+    if (err) {
         LOG_ERROR ("pltfm_mgr: chassis mgmt library init failed\n");
         return -1;
     }
 
-    bf_pltfm_chss_mgmt_bd_type_get (&bd);
-
-    /* Reset and de-reset cpld2 and cpld3 for SFP */
-    if (platform_type_equal (X312P)) {
-        //ret = cp2112_init();
-    }
-
-    if (bf_pltfm_syscpld_init()) {
-        LOG_ERROR ("Error in syscpld init \n");
+    err = bf_pltfm_syscpld_init();
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: Error in syscpld init \n");
         return BF_PLTFM_COMM_FAILED;
     }
 
-    if (!platform_type_equal (X312P)) {
-        ret = cp2112_init();
+    /* Make it very clear for those platforms which need cp2112 init by doing below operations.
+     * Because we cann't and shouldn't assume platforms which are NOT X312P-T could init cp2112.
+     * by tsihang, 2022-04-27. */
+    if (platform_type_equal (X564P) ||
+        platform_type_equal (X532P) ||
+        platform_type_equal (X308P)) {
+        /* Initialize the CP2112 devices for the platform */
+        err = cp2112_init();
+        if (err) {
+            LOG_ERROR ("pltfm_mgr: Error in cp2112 init \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
     }
 
-    /* Initialize the CP2112 devices for the platform */
-    if (ret == BF_PLTFM_SUCCESS) {
-        int err = BF_PLTFM_SUCCESS;
+    /* Register qsfp module */
+    err = bf_pltfm_qsfp_init (NULL);
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: Error in qsfp init \n");
+        return BF_PLTFM_COMM_FAILED;
+    }
 
-        /* Register qsfp module */
-        if (bf_pltfm_qsfp_init (NULL)) {
-            LOG_ERROR ("Error in qsfp init \n");
-            err |= BF_PLTFM_COMM_FAILED;
-        }
+    /* Register sfp module */
+    err = bf_pltfm_sfp_init (NULL);
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: Error in sfp init \n");
+        return BF_PLTFM_COMM_FAILED;
+    }
 
-        /* Register sfp module */
-        if (bf_pltfm_sfp_init (NULL)) {
-            LOG_ERROR ("Error in sfp init \n");
-            err |= BF_PLTFM_COMM_FAILED;
-        }
 #if 0
-        /* Initialize repeater library */
-        if (bd == BF_PLTFM_BD_ID_MAVERICKS_P0C) {
-            bool is_in_ha =
-                switchd_ctx->init_mode ==
-                BF_DEV_WARM_INIT_FAST_RECFG
-                ? true
-                : (switchd_ctx->init_mode ==
-                   BF_DEV_WARM_INIT_HITLESS ? true
-                   : false);
-            if (bf_pltfm_rtmr_pre_init (
-                    switchd_ctx->install_dir, is_in_ha)) {
-                LOG_ERROR ("Error while retimer library init \n");
-                err |= BF_PLTFM_COMM_FAILED;
-            }
+    /* Initialize repeater library */
+    if (bd == BF_PLTFM_BD_ID_MAVERICKS_P0C) {
+        bool is_in_ha =
+            switchd_ctx->init_mode ==
+            BF_DEV_WARM_INIT_FAST_RECFG
+            ? true
+            : (switchd_ctx->init_mode ==
+               BF_DEV_WARM_INIT_HITLESS ? true
+               : false);
+        if (bf_pltfm_rtmr_pre_init (
+                switchd_ctx->install_dir, is_in_ha)) {
+            LOG_ERROR ("Error while retimer library init \n");
+            err |= BF_PLTFM_COMM_FAILED;
         }
-#endif
-        if (err != BF_PLTFM_SUCCESS) {
-            return -1;
-        }
-
-        /* Start Health Monitor */
-        pltfm_mgr_start_health_mntr();
-    } else {
-        LOG_ERROR ("Error in cp2112 initialization\n");
-        return BF_PLTFM_COMM_FAILED;
     }
+#endif
+
+    /* Start Health Monitor */
+    pltfm_mgr_start_health_mntr();
 
     bf_pltfm_ucli_node = bf_pltfm_ucli_node_create();
     bf_drv_shell_register_ucli (bf_pltfm_ucli_node);
+
+    /* Launch RPC server (thrift-plugins). */
 #ifdef THRIFT_ENABLED
     bf_platform_rpc_server_start (
         &bf_pltfm_rpc_server_cookie);
