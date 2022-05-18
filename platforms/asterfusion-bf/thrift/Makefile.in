@@ -136,10 +136,8 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 libplatform_thrift_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
 am__objects_1 = gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc.lo \
-	gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo \
 	gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_types.lo
 am__objects_2 = gen-cpp/libplatform_thrift_la-pltfm_pm_rpc.lo \
-	gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo \
 	gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_types.lo
 am__objects_3 = $(am__objects_1) $(am__objects_2)
 am_libplatform_thrift_la_OBJECTS =  \
@@ -392,8 +390,6 @@ $(bf_platform_thrift_cxx_files)
 pltfm_mgr_rpc_thrift_cxx_files = \
 gen-cpp/pltfm_mgr_rpc.cpp \
 gen-cpp/pltfm_mgr_rpc.h \
-gen-cpp/pltfm_mgr_rpc_constants.cpp \
-gen-cpp/pltfm_mgr_rpc_constants.h \
 gen-cpp/pltfm_mgr_rpc_types.cpp \
 gen-cpp/pltfm_mgr_rpc_types.h
 
@@ -409,8 +405,6 @@ pltfm_mgr_rpc_PYTHON = $(pltfm_mgr_rpc_thrift_py_files)
 pltfm_pm_rpc_thrift_cxx_files = \
 gen-cpp/pltfm_pm_rpc.cpp \
 gen-cpp/pltfm_pm_rpc.h \
-gen-cpp/pltfm_pm_rpc_constants.cpp \
-gen-cpp/pltfm_pm_rpc_constants.h \
 gen-cpp/pltfm_pm_rpc_types.cpp \
 gen-cpp/pltfm_pm_rpc_types.h
 
@@ -525,13 +519,9 @@ gen-cpp/$(DEPDIR)/$(am__dirstamp):
 	@: > gen-cpp/$(DEPDIR)/$(am__dirstamp)
 gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc.lo:  \
 	gen-cpp/$(am__dirstamp) gen-cpp/$(DEPDIR)/$(am__dirstamp)
-gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo:  \
-	gen-cpp/$(am__dirstamp) gen-cpp/$(DEPDIR)/$(am__dirstamp)
 gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_types.lo:  \
 	gen-cpp/$(am__dirstamp) gen-cpp/$(DEPDIR)/$(am__dirstamp)
 gen-cpp/libplatform_thrift_la-pltfm_pm_rpc.lo:  \
-	gen-cpp/$(am__dirstamp) gen-cpp/$(DEPDIR)/$(am__dirstamp)
-gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo:  \
 	gen-cpp/$(am__dirstamp) gen-cpp/$(DEPDIR)/$(am__dirstamp)
 gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_types.lo:  \
 	gen-cpp/$(am__dirstamp) gen-cpp/$(DEPDIR)/$(am__dirstamp)
@@ -550,10 +540,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_constants.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_types.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc_constants.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc_types.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/libplatform_thrift_la-bf_platform_rpc_server.Plo@am__quote@
 
@@ -595,13 +583,6 @@ gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc.lo: gen-cpp/pltfm_mgr_rpc.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -c -o gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc.lo `test -f 'gen-cpp/pltfm_mgr_rpc.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_mgr_rpc.cpp
 
-gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo: gen-cpp/pltfm_mgr_rpc_constants.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -MT gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo -MD -MP -MF gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_constants.Tpo -c -o gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo `test -f 'gen-cpp/pltfm_mgr_rpc_constants.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_mgr_rpc_constants.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_constants.Tpo gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_constants.Plo
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='gen-cpp/pltfm_mgr_rpc_constants.cpp' object='gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -c -o gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_constants.lo `test -f 'gen-cpp/pltfm_mgr_rpc_constants.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_mgr_rpc_constants.cpp
-
 gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_types.lo: gen-cpp/pltfm_mgr_rpc_types.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -MT gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_types.lo -MD -MP -MF gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_types.Tpo -c -o gen-cpp/libplatform_thrift_la-pltfm_mgr_rpc_types.lo `test -f 'gen-cpp/pltfm_mgr_rpc_types.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_mgr_rpc_types.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_types.Tpo gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_mgr_rpc_types.Plo
@@ -615,13 +596,6 @@ gen-cpp/libplatform_thrift_la-pltfm_pm_rpc.lo: gen-cpp/pltfm_pm_rpc.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='gen-cpp/pltfm_pm_rpc.cpp' object='gen-cpp/libplatform_thrift_la-pltfm_pm_rpc.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -c -o gen-cpp/libplatform_thrift_la-pltfm_pm_rpc.lo `test -f 'gen-cpp/pltfm_pm_rpc.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_pm_rpc.cpp
-
-gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo: gen-cpp/pltfm_pm_rpc_constants.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -MT gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo -MD -MP -MF gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc_constants.Tpo -c -o gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo `test -f 'gen-cpp/pltfm_pm_rpc_constants.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_pm_rpc_constants.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc_constants.Tpo gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc_constants.Plo
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='gen-cpp/pltfm_pm_rpc_constants.cpp' object='gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -c -o gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_constants.lo `test -f 'gen-cpp/pltfm_pm_rpc_constants.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_pm_rpc_constants.cpp
 
 gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_types.lo: gen-cpp/pltfm_pm_rpc_types.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libplatform_thrift_la_CXXFLAGS) $(CXXFLAGS) -MT gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_types.lo -MD -MP -MF gen-cpp/$(DEPDIR)/libplatform_thrift_la-pltfm_pm_rpc_types.Tpo -c -o gen-cpp/libplatform_thrift_la-pltfm_pm_rpc_types.lo `test -f 'gen-cpp/pltfm_pm_rpc_types.cpp' || echo '$(srcdir)/'`gen-cpp/pltfm_pm_rpc_types.cpp

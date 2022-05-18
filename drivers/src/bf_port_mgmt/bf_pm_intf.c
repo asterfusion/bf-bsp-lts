@@ -11,20 +11,16 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include <bf_bd_cfg/bf_bd_cfg_intf.h>
-#include <bf_port_mgmt/bf_port_mgmt_intf.h>
-
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_sem.h>
-#include <bfsys/bf_sal/bf_sys_timer.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_switchd/bf_switchd.h>
 #include <tofino/bf_pal/bf_pal_pltfm_porting.h>
+#include <bf_bd_cfg/bf_bd_cfg_intf.h>
+#include <bf_port_mgmt/bf_port_mgmt_intf.h>
 #include <bf_pm/bf_pm_intf.h>
 #include <bf_pltfm.h>
 #include <bf_pltfm_ext_phy.h>
 #include <bf_pltfm_bd_cfg.h>
-#include <bf_pltfm_types/bf_pltfm_types.h>
-#include <bfutils/map/map.h>
 
 #include "bf_pm_priv.h"
 

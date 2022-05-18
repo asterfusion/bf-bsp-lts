@@ -8,10 +8,6 @@
 #ifndef _AF_PLTFM_TYPES_H
 #define _AF_PLTFM_TYPES_H
 
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
-
 /* Allow the use in C++ code. */
 #ifdef __cplusplus
 extern "C" {

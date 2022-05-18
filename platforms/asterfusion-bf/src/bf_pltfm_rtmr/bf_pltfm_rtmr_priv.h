@@ -15,8 +15,6 @@
 #ifndef _BF_PLTFM_RTMR_PRIV_H
 #define _BF_PLTFM_RTMR_PRIV_H
 
-#include <bfsys/bf_sal/bf_sys_intf.h>
-
 /* typedef for retimer i2c address mapping */
 typedef struct bf_pltfm_rtmr_i2c_addr_t {
     uint8_t rtmr_num;     /* Retimer Number */

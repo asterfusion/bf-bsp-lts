@@ -16,11 +16,7 @@
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 #include <bf_pltfm_ext_phy.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
-
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_sem.h>
-#include <bfsys/bf_sal/bf_sys_timer.h>
-
 #include <tofino/bf_pal/bf_pal_pltfm_porting.h>
 #include <bf_pm/bf_pm_intf.h>
 #include <bf_bd_cfg/bf_bd_cfg_porting.h>

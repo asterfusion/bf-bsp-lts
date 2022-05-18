@@ -4,7 +4,6 @@
 #include <string.h>
 #include "bf_pltfm_cgos_i2c.h"
 
-#include "bfsys/bf_sal/bf_sys_intf.h"
 #include "bf_pltfm_types/bf_pltfm_types.h"
 
 

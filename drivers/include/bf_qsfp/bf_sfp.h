@@ -10,10 +10,6 @@
 #include <bf_qsfp/sff.h>
 #include <bf_qsfp/bf_qsfp.h>
 
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
-
 /* Allow the use in C++ code. */
 #ifdef __cplusplus
 extern "C" {

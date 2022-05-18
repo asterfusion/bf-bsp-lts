@@ -752,6 +752,33 @@ static int eecrc32 (const char *index)
 
     return 0;
 }
+
+static void further_decode ()
+{
+    int i;
+    char temp[32] = {0};
+    struct tlv_t *tlv;
+
+    if (platform_type_equal (X312P)) {
+        for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
+            tlv = &tlvs[i];
+            memset (temp, 0, 32);
+            if (tlv->code == 0x24) {
+                sprintf(temp, "%02X:%02X:%02X:%02X:%02X:%02X", tlv->content[0],
+                    tlv->content[1], tlv->content[2], tlv->content[3], tlv->content[4], tlv->content[5]);
+                memcpy(tlv->content, (uint8_t *)temp, 32);
+            } else if(tlv->code == 0x2a) {
+                sprintf(temp, "%d", tlv->content[1]);
+                memcpy(tlv->content, (uint8_t *)temp, 1);
+            } else if(tlv->code == 0xfe) {
+                sprintf(temp, "0x%02X%02X%02X%02X", tlv->content[0],
+                    tlv->content[1], tlv->content[2], tlv->content[3]);
+                memcpy(tlv->content, (uint8_t *)temp, 32);
+            }
+        }
+    }
+}
+
 /*
  * Example format of EEPROM returned by onie_syseeprom
  *
@@ -786,7 +813,6 @@ static int eecrc32 (const char *index)
  *   Checksum is valid.
  *   msh />
  */
-
 bf_pltfm_status_t bf_pltfm_bd_type_init()
 {
     uint8_t wr_buf[2];
@@ -796,17 +822,23 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     int err;
     int usec;
     size_t l = 0, offset = 0;
+    struct tlv_t *tlv;
 
     fprintf (stdout,
              "\n\n================== EEPROM ==================\n");
 
     for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
         /* Read EEPROM. */
-        wr_buf[0] = tlvs[i].code;
+        tlv = &tlvs[i];
+        wr_buf[0] = tlv->code;
         wr_buf[1] = 0xAA;
+
+        memset (rd_buf, 0, 128);
+
         // Must give bmc more time to prepare data
-        usec = (tlvs[i].code == 0x21) ?
+        usec = (tlv->code == 0x21) ?
                BMC_COMM_INTERVAL_US * 5 : BMC_COMM_INTERVAL_US;
+
         if (g_access_bmc_through_uart) {
             err = bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                                 2, rd_buf, 128 - 1, usec);
@@ -823,11 +855,12 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
                 l = rd_buf[0];
                 offset = 1;
             }
-            memcpy (tlvs[i].content, &rd_buf[offset], l);
+
+            memcpy (tlv->content, &rd_buf[offset], l);
             fprintf (stdout, "0x%02x %20s: %32s\n",
-                     tlvs[i].code, tlvs[i].desc, tlvs[i].content);
-            LOG_DEBUG ("0x%02x %20s: %32s", tlvs[i].code,
-                       tlvs[i].desc, tlvs[i].content);
+                     tlv->code, tlv->desc, tlv->content);
+            LOG_DEBUG ("0x%02x %20s: %32s", tlv->code,
+                       tlv->desc, tlv->content);
         }
     }
     fprintf (stdout, "\n\n");
@@ -836,7 +869,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
      * Parse EEPROM data received from OPENBMC.
      * @return status
      */
-    struct tlv_t *tlv;
     char data[1024];
     int length;
     FILE *fp = NULL;
@@ -951,6 +983,12 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
         uint8_t wr_buf[2] = {0x02, 0xAA};
         bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                       2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+    }
+
+    /* Further decode when platform detected.
+     * by tsihang, 2022-05-12. */
+    if (platform_type_equal (X312P)) {
+        further_decode ();
     }
 
     /* Open eeprom data file, if non-exist, create it.

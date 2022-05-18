@@ -7,7 +7,6 @@
  ******************************************************************************/
 #include <string.h>
 
-#include <bfsys/bf_sal/bf_sys_timer.h>
 #include <dvm/bf_drv_intf.h>
 #include <lld/lld_gpio_if.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
@@ -20,9 +19,6 @@
 #include <bf_pltfm_bd_cfg.h>
 #include <bf_pltfm_led.h>
 #include <bf_mav_led.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 
 /**** MAVERICKS LED holding buffer organization ******
  * sysCPLD proxies as the LED driver. Each sysCPLD has got 64  8bit

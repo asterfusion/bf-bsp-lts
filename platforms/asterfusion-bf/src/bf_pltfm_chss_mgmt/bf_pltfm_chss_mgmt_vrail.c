@@ -33,7 +33,7 @@
 
 #define BMC_CMD_VRAIL_GET 0x08
 
-bf_pltfm_pwr_rails_info_t bmc_vrail_data = {0};
+bf_pltfm_pwr_rails_info_t bmc_vrail_data;
 
 
 static bf_pltfm_status_t
@@ -174,9 +174,9 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
 {
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
-    }
-
-    if (platform_subtype_equal(v1dot3)) {
+        /* Not supported in v2. */
+        pwr_rails = pwr_rails;
+    } else if (platform_subtype_equal(v1dot3)) {
         uint8_t buf[4] = {0};
         int err;
         uint8_t vrail_data[3] = {0};
@@ -196,8 +196,6 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
                             * 1000 / 512;
                             /* For SONIC, 1 pwr_rails needed. */
     }
-
-    pwr_rails = pwr_rails;
     return BF_PLTFM_SUCCESS;
 }
 
@@ -239,7 +237,6 @@ __bf_pltfm_chss_mgmt_pwr_rails_get__ (
               (pwr_rails);
     }
 
-
     memcpy (&bmc_vrail_data, pwr_rails,
             sizeof (bf_pltfm_pwr_rails_info_t));
 
@@ -269,6 +266,9 @@ bf_pltfm_chss_mgmt_pwr_rails_init()
 
     fprintf (stdout,
              "\n\n================== RAIL INIT ==================\n");
+
+    memset (&bmc_vrail_data, 0,
+        sizeof (bf_pltfm_pwr_rails_info_t));
 
     if (__bf_pltfm_chss_mgmt_pwr_rails_get__ (
             &t) != BF_PLTFM_SUCCESS) {

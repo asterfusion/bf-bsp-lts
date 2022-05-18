@@ -41,7 +41,7 @@
 #define BMC_SUB2_RPM    0x00
 #define BMC_SUB2_STATUS 0x01
 
-static bf_pltfm_fan_data_t bmc_fan_data = {0};
+static bf_pltfm_fan_data_t bmc_fan_data;
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
@@ -260,9 +260,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
                 }
             }
         }
-    }
-
-    if (platform_subtype_equal(v1dot3)) {
+    } else if (platform_subtype_equal(v1dot3)) {
         uint8_t buf[4] = {0};
         uint8_t data[3] = {0};
         uint8_t i = 0;
@@ -313,7 +311,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x532p__ (
     int err = BF_PLTFM_COMM_FAILED;
 
     wr_buf[0] = fdata->fan_num;
-    wr_buf[1] = fdata->percent;
+    wr_buf[1] = fdata->speed_level;
 
     if (g_access_bmc_through_uart) {
         err = bf_pltfm_bmc_uart_write_read (
@@ -337,7 +335,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x564p__ (
     int err = BF_PLTFM_COMM_FAILED;
 
     wr_buf[0] = fdata->fan_num;
-    wr_buf[1] = fdata->percent;
+    wr_buf[1] = fdata->speed_level;
 
     if (g_access_bmc_through_uart) {
         err = bf_pltfm_bmc_uart_write_read (
@@ -361,7 +359,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x308p__ (
     int err = BF_PLTFM_COMM_FAILED;
 
     wr_buf[0] = fdata->fan_num;
-    wr_buf[1] = fdata->percent;
+    wr_buf[1] = fdata->speed_level;
 
     if (g_access_bmc_through_uart) {
         err = bf_pltfm_bmc_uart_write_read (
@@ -385,11 +383,45 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
 
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
-        
-    }
+        uint8_t buf[2] = {0};
+        uint8_t res[I2C_SMBUS_BLOCK_MAX + 2];
+        int rdlen;
 
-    if (platform_subtype_equal(v1dot3)) {
+        // fan status
+        buf[0] = 0x00;
+        buf[1] = fdata->speed_level;
+        rdlen = bf_pltfm_bmc_write_read (0x3e, 0x7, buf,
+                                        2, 0xff, res, 100000);
+        if (rdlen == -1) {
+            LOG_ERROR("write fan speed to bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+    } else if (platform_subtype_equal(v1dot3)) {
+        uint8_t buf[5] = {0};
+        uint8_t data[32] = {0};
+        int rdlen = 0;
 
+        buf[0] = 0x04;
+        buf[1] = 0x4c;
+        buf[2] = 0x4a;
+        buf[3] = 0x01;
+        buf[4] = 0x22;
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, 10000);
+        if (rdlen == -1) {
+            LOG_ERROR("write fan speed to bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+
+        buf[0] = 0x04;
+        buf[1] = 0x4c;
+        buf[2] = 0x4c;
+        buf[3] = 0x01;
+        buf[4] = fdata->speed_level;
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, 10000);
+        if (rdlen == -1) {
+            LOG_ERROR("write fan speed to bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
     }
 
     return BF_PLTFM_SUCCESS;
@@ -507,6 +539,8 @@ bf_pltfm_chss_mgmt_fan_init()
     fprintf (stdout,
              "\n\n================== FANs INIT ==================\n");
 
+    memset (&bmc_fan_data, 0,
+         sizeof (bf_pltfm_fan_data_t));
     if (__bf_pltfm_chss_mgmt_fan_data_get__ (
             &fdata) != BF_PLTFM_SUCCESS) {
         fprintf (stdout,

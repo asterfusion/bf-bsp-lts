@@ -25,9 +25,6 @@
 #include <bf_types/bf_types.h>
 #include <dvm/bf_drv_intf.h>
 #include <bf_pltfm_master_i2c.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 
 #include <pltfm_types.h>

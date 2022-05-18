@@ -13,8 +13,6 @@ AM_CPPFLAGS += -I$(builddir)/gen-cpp/
 pltfm_mgr_rpc_thrift_cxx_files = \
 gen-cpp/pltfm_mgr_rpc.cpp \
 gen-cpp/pltfm_mgr_rpc.h \
-gen-cpp/pltfm_mgr_rpc_constants.cpp \
-gen-cpp/pltfm_mgr_rpc_constants.h \
 gen-cpp/pltfm_mgr_rpc_types.cpp \
 gen-cpp/pltfm_mgr_rpc_types.h
 pltfm_mgr_rpc_thrift_py_files = \
@@ -29,8 +27,6 @@ pltfm_mgr_rpc_PYTHON = $(pltfm_mgr_rpc_thrift_py_files)
 pltfm_pm_rpc_thrift_cxx_files = \
 gen-cpp/pltfm_pm_rpc.cpp \
 gen-cpp/pltfm_pm_rpc.h \
-gen-cpp/pltfm_pm_rpc_constants.cpp \
-gen-cpp/pltfm_pm_rpc_constants.h \
 gen-cpp/pltfm_pm_rpc_types.cpp \
 gen-cpp/pltfm_pm_rpc_types.h
 pltfm_pm_rpc_thrift_py_files = \

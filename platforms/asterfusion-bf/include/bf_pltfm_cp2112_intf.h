@@ -37,9 +37,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
 #include <libusb-1.0/libusb.h> /* cor cp2112 */
 
 #ifdef __cplusplus

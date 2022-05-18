@@ -10,7 +10,6 @@
 #define __USE_GNU    /* See feature_test_macros(7) */
 #include <pthread.h>
 
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_bd_cfg/bf_bd_cfg_porting.h>

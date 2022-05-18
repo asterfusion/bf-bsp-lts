@@ -33,15 +33,14 @@
 #include "chss_mgmt_tmp.h"
 #include "chss_mgmt.h"
 
-static char sensors_out[BF_SNSR_OUT_BUF_SIZE];
 #define MAX_SWITCH_SENSORS 10
 
 #define BMC_CMD_SENSOR_CNT_GET 0x03
 #define BMC_CMD_SENSOR_TMP_GET 0x04
 
-static bf_pltfm_temperature_info_t bmc_tmp_data = {0};
+static bf_pltfm_temperature_info_t bmc_tmp_data;
 static bf_pltfm_switch_temperature_info_t
-switch_tmp_data[MAX_SWITCH_SENSORS] = {0};
+switch_tmp_data[MAX_SWITCH_SENSORS];
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_temperature_get_x532p__ (
@@ -182,9 +181,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
             tmp->tmp1 = (float)res[1];      // LM75
             tmp->tmp2 = (float)res[2];      // LM63
         }
-    }
-
-    if (platform_subtype_equal(v1dot3)) {
+    } else if (platform_subtype_equal(v1dot3)) {
         uint8_t buf[4] = {0};
         int err;
         uint8_t tmp_data1[3] = {0};
@@ -391,6 +388,7 @@ bf_pltfm_status_t pltfm_mgr_sensor_out_get (
     char *info,
     size_t info_size)
 {
+    char sensors_out[BF_SNSR_OUT_BUF_SIZE] = {0};
     /* Prepare sensors_out for callers who want get these by RPC. */
     options = options;
     info = info;
@@ -406,9 +404,19 @@ bf_pltfm_status_t
 bf_pltfm_chss_mgmt_tmp_init()
 {
     bf_pltfm_temperature_info_t t;
+    bf_pltfm_switch_temperature_info_t *s;
 
     fprintf (stdout,
              "\n\n================== TMPs INIT ==================\n");
+
+    memset (&bmc_tmp_data, 0,
+        sizeof (bf_pltfm_temperature_info_t));
+    int i;
+    for (i = 0; i < MAX_SWITCH_SENSORS; i ++) {
+        s = &switch_tmp_data[i];
+        memset (s, 0,
+            sizeof (bf_pltfm_switch_temperature_info_t));
+    }
 
     if (__bf_pltfm_chss_mgmt_temperature_get__ (
             &t) != BF_PLTFM_SUCCESS) {

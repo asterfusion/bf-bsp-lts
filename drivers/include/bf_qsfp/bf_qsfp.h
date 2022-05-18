@@ -18,10 +18,8 @@
 #ifndef _BF_QSFP_H
 #define _BF_QSFP_H
 
+#include <bf_types/bf_types.h>
 #include <bf_qsfp/sff.h>
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
 
 /* Allow the use in C++ code. */
 #ifdef __cplusplus

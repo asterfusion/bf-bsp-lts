@@ -129,8 +129,10 @@ int platform_name_get_str (char *name,
                            size_t name_size)
 {
     bf_pltfm_status_t sts;
-    bf_pltfm_board_id_t bd_id;
+    uint8_t type, subtype;
 
+#if 0
+    bf_pltfm_board_id_t bd_id;
     sts = bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
     if (sts != BF_PLTFM_SUCCESS) {
         snprintf (name, name_size, "Board type: Error");
@@ -171,6 +173,41 @@ int platform_name_get_str (char *name,
             break;
     }
     name[name_size - 1] = '\0';
+#else
+    sts = bf_pltfm_chss_mgmt_platform_type_get(&type, &subtype);
+    if (sts != BF_PLTFM_SUCCESS) {
+        snprintf (name, name_size, "Board type: Error");
+        name[name_size - 1] = '\0';
+        return sts;
+    }
+
+    switch (type) {
+        case X564P:
+            snprintf (name, name_size,
+                      "Platform: X564P-T");
+            break;
+        case X532P:
+            snprintf (name, name_size,
+                      "Platform: X532P-T");
+            break;
+        case X308P:
+            snprintf (name, name_size,
+                      "Platform: X308P-T");
+            break;
+        case X312P:
+            snprintf (name, name_size,
+                      "Platform: X312P-T");
+            break;
+        case HC:
+            snprintf (name, name_size,
+                      "Platform: HC36Y24C");
+            break;
+        default:
+            snprintf (name, name_size, "Platform: Unknown");
+            break;
+    }
+    name[name_size - 1] = '\0';
+#endif
     return 0;
 }
 

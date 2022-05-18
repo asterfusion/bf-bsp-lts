@@ -204,9 +204,30 @@ struct qsfp_ctx_t   {
     /* struct st_ctx_t lpmode; */
 };
 
-bool is_panel_qsfp_module (unsigned int  module);
-bool is_panel_sfp_module (unsigned int  module);
-bool is_panel_cpu_module (unsigned int  module);
+
+extern int bf_pltfm_qsfp_lookup_by_module (
+    int module,
+    uint32_t *conn_id
+);
+extern int bf_pltfm_vqsfp_lookup_by_module (
+    int module,
+    uint32_t *conn_id
+);
+
+bool is_panel_qsfp_module (
+    unsigned int module);
+
+bool is_panel_sfp_module (
+    unsigned int module);
+
+bool is_xsfp_module (
+    unsigned int module);
+
+bool is_vsfp_module (
+    unsigned int module);
+
+bool is_vqsfp_module (
+    unsigned int module);
 
 #ifdef __cplusplus
 }

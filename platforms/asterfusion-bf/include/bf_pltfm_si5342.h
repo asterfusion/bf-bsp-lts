@@ -8,8 +8,6 @@
 #ifndef _BF_PLTFM_SI5342_H
 #define _BF_PLTFM_SI5342_H
 
-#include <bfutils/uCli/ucli.h>
-
 /* Allow the use in C++ code. */
 #ifdef __cplusplus
 extern "C" {

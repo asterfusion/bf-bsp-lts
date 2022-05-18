@@ -10,7 +10,6 @@
 #include <string.h>
 
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_sem.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_pltfm_cp2112_intf.h>
@@ -43,6 +42,10 @@
 
 #define DEFAULT_TIMEOUT_MS 500
 #define INVALIDBIT(b) (-1)
+
+/* GHC channel num. */
+static int max_vqsfp = 4;
+static int max_vsfp = 6;
 
 typedef enum {
     /* The PCA9548 switch selecting for 32 port controllers
@@ -173,33 +176,50 @@ static struct qsfp_ctx_t qsfp_ctx_x308p[] = {
     {"C8",   8, (0x76 << 1), 7, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (7)}, {BF_MAV_SYSCPLD1, 0x14, BIT (7)}},
 };
 
+/* Fixed me */
+static struct qsfp_ctx_t vqsfp_ctx_x308p[] = {
+    /* vQSFP: C9,C10,C11,C12, treated as QSFP by stratum. */
+    {"C9",  24, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 9*/
+    {"C10", 22, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 10*/
+    {"C11", 26, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 11*/
+    {"C12", 14, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 12*/
+
+    /* GHC0 in the future. */
+    {"C13", 18, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 18*/
+    {"C14", 23, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 23*/
+
+    /* GHC1 in the future. */
+    {"C15", 16, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 16*/
+    {"C26", 25, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 25*/
+};
+
 /* Not finished yet, please help this work.
  * by tsihang, 2021-07-18. */
 static struct qsfp_ctx_t qsfp_ctx_hc[] = {
-    {"C23", 1, (0x72 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (6)}, {BF_MAV_SYSCPLD3, 0x12, BIT (6)}}, /* QSFP  1 */
-    {"C22", 2, (0x72 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (5)}, {BF_MAV_SYSCPLD3, 0x12, BIT (5)}}, /* QSFP  2 */
-    {"C20", 3, (0x72 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (3)}, {BF_MAV_SYSCPLD3, 0x12, BIT (3)}}, /* QSFP  3 */
-    {"C19", 4, (0x72 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (2)}, {BF_MAV_SYSCPLD3, 0x12, BIT (2)}}, /* QSFP  4 */
-    {"C24", 5, (0x72 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (7)}, {BF_MAV_SYSCPLD3, 0x12, BIT (7)}}, /* QSFP  5 */
-    {"C21", 6, (0x72 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (4)}, {BF_MAV_SYSCPLD3, 0x12, BIT (4)}}, /* QSFP  6 */
-    {"C17", 7, (0x72 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (0)}, {BF_MAV_SYSCPLD3, 0x12, BIT (0)}}, /* QSFP  7 */
-    {"C16", 8, (0x71 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (7)}, {BF_MAV_SYSCPLD3, 0x11, BIT (7)}}, /* QSFP  8 */
-    {"C14", 9, (0x71 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (5)}, {BF_MAV_SYSCPLD3, 0x11, BIT (5)}}, /* QSFP  9 */
-    {"C13", 10, (0x71 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (4)}, {BF_MAV_SYSCPLD3, 0x11, BIT (4)}}, /* QSFP 10 */
-    {"C18", 11, (0x72 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (1)}, {BF_MAV_SYSCPLD3, 0x12, BIT (1)}}, /* QSFP 11 */
-    {"C15", 12, (0x71 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (6)}, {BF_MAV_SYSCPLD3, 0x11, BIT (6)}}, /* QSFP 12 */
-    {"C11", 13, (0x71 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (2)}, {BF_MAV_SYSCPLD3, 0x11, BIT (2)}}, /* QSFP 13 */
-    {"C10", 14, (0x70 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (1)}, {BF_MAV_SYSCPLD3, 0x11, BIT (1)}}, /* QSFP 14 */
-    {"C8", 15, (0x71 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (7)}, {BF_MAV_SYSCPLD3, 0x10, BIT (7)}}, /* QSFP 15 */
-    {"C7", 16, (0x71 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (6)}, {BF_MAV_SYSCPLD3, 0x10, BIT (6)}}, /* QSFP 16 */
-    {"C12", 17, (0x71 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (3)}, {BF_MAV_SYSCPLD3, 0x11, BIT (3)}}, /* QSFP 17 */
-    {"C9", 18, (0x70 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (0)}, {BF_MAV_SYSCPLD3, 0x11, BIT (0)}}, /* QSFP 18 */
-    {"C5", 19, (0x70 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (4)}, {BF_MAV_SYSCPLD3, 0x10, BIT (4)}}, /* QSFP 19 */
-    {"C4", 20, (0x70 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (3)}, {BF_MAV_SYSCPLD3, 0x10, BIT (3)}}, /* QSFP 20 */
-    {"C2", 21, (0x70 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (1)}, {BF_MAV_SYSCPLD3, 0x10, BIT (1)}}, /* QSFP 21 */
     {"C1", 22, (0x70 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (0)}, {BF_MAV_SYSCPLD3, 0x10, BIT (0)}}, /* QSFP 22 */
-    {"C6", 23, (0x70 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (5)}, {BF_MAV_SYSCPLD3, 0x10, BIT (5)}}, /* QSFP 23 */
+    {"C2", 21, (0x70 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (1)}, {BF_MAV_SYSCPLD3, 0x10, BIT (1)}}, /* QSFP 21 */
     {"C3", 24, (0x70 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (2)}, {BF_MAV_SYSCPLD3, 0x10, BIT (2)}}, /* QSFP 24 */
+    {"C4", 20, (0x70 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (3)}, {BF_MAV_SYSCPLD3, 0x10, BIT (3)}}, /* QSFP 20 */
+    {"C5", 19, (0x70 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (4)}, {BF_MAV_SYSCPLD3, 0x10, BIT (4)}}, /* QSFP 19 */
+    {"C6", 23, (0x70 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (5)}, {BF_MAV_SYSCPLD3, 0x10, BIT (5)}}, /* QSFP 23 */
+    {"C7", 16, (0x71 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (6)}, {BF_MAV_SYSCPLD3, 0x10, BIT (6)}}, /* QSFP 16 */
+    {"C8", 15, (0x71 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (7)}, {BF_MAV_SYSCPLD3, 0x10, BIT (7)}}, /* QSFP 15 */
+    {"C9", 18, (0x70 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (0)}, {BF_MAV_SYSCPLD3, 0x11, BIT (0)}}, /* QSFP 18 */
+    {"C10", 14, (0x70 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (1)}, {BF_MAV_SYSCPLD3, 0x11, BIT (1)}}, /* QSFP 14 */
+    {"C11", 13, (0x71 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (2)}, {BF_MAV_SYSCPLD3, 0x11, BIT (2)}}, /* QSFP 13 */
+    {"C12", 17, (0x71 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (3)}, {BF_MAV_SYSCPLD3, 0x11, BIT (3)}}, /* QSFP 17 */
+    {"C13", 10, (0x71 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (4)}, {BF_MAV_SYSCPLD3, 0x11, BIT (4)}}, /* QSFP 10 */
+    {"C14", 9, (0x71 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (5)}, {BF_MAV_SYSCPLD3, 0x11, BIT (5)}}, /* QSFP  9 */
+    {"C15", 12, (0x71 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (6)}, {BF_MAV_SYSCPLD3, 0x11, BIT (6)}}, /* QSFP 12 */
+    {"C16", 8, (0x71 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (7)}, {BF_MAV_SYSCPLD3, 0x11, BIT (7)}}, /* QSFP  8 */
+    {"C17", 7, (0x72 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (0)}, {BF_MAV_SYSCPLD3, 0x12, BIT (0)}}, /* QSFP  7 */
+    {"C18", 11, (0x72 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (1)}, {BF_MAV_SYSCPLD3, 0x12, BIT (1)}}, /* QSFP 11 */
+    {"C19", 4, (0x72 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (2)}, {BF_MAV_SYSCPLD3, 0x12, BIT (2)}}, /* QSFP  4 */
+    {"C20", 3, (0x72 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (3)}, {BF_MAV_SYSCPLD3, 0x12, BIT (3)}}, /* QSFP  3 */
+    {"C21", 6, (0x72 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (4)}, {BF_MAV_SYSCPLD3, 0x12, BIT (4)}}, /* QSFP  6 */
+    {"C22", 2, (0x72 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (5)}, {BF_MAV_SYSCPLD3, 0x12, BIT (5)}}, /* QSFP  2 */
+    {"C23", 1, (0x72 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (6)}, {BF_MAV_SYSCPLD3, 0x12, BIT (6)}}, /* QSFP  1 */
+    {"C24", 5, (0x72 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (7)}, {BF_MAV_SYSCPLD3, 0x12, BIT (7)}}, /* QSFP  5 */
 };
 
 /* 2021/08/06
@@ -221,48 +241,45 @@ static struct qsfp_ctx_t qsfp_ctx_hc[] = {
  *
  */
 static struct qsfp_ctx_t qsfp_ctx_x312p[] = {
-    {"C8",    1, 0x74, 3, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xf7), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (3)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (3)} }, /* QSFP  1*/
-    {"C4",    2, 0x73, 1, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfd), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (1)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (1)} }, /* QSFP  2*/
-    {"C7",    3, 0x74, 2, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfb), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (2)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (2)} }, /* QSFP  3*/
-    {"C5",    4, 0x74, 0, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfe), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (0)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (0)} }, /* QSFP  4*/
-    {"C6",    5, 0x74, 1, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfd), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (1)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (1)} }, /* QSFP  5*/
-    {"C3",    6, 0x73, 0, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfe), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (0)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (0)} }, /* QSFP  6*/
+    {"C1",   1, 0x73, 2, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfb), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (2)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (2)} }, /* QSFP 30*/
+    {"C2",   2, 0x73, 3, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xf7), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (3)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (3)} }, /* QSFP 32*/
+    {"C3",   3, 0x73, 0, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfe), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (0)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (0)} }, /* QSFP  6*/
+    {"C4",   4, 0x73, 1, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfd), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (1)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (1)} }, /* QSFP  2*/
+    {"C5",   5, 0x74, 0, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfe), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (0)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (0)} }, /* QSFP  4*/
+    {"C6",   6, 0x74, 1, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfd), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (1)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (1)} }, /* QSFP  5*/
+    {"C7",   7, 0x74, 2, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfb), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (2)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (2)} }, /* QSFP  3*/
+    {"C8",   8, 0x74, 3, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xf7), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (3)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (3)} }, /* QSFP  1*/
+    {"C9",   9, 0x74, 4, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xef), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (4)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (4)} }, /* QSFP 31*/
+    {"C10", 10, 0x74, 5, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xdf), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (5)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (5)} }, /* QSFP 29*/
+    {"C11", 11, 0x74, 6, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xbf), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (6)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (6)} }, /* QSFP 27*/
+    {"C12", 12, 0x74, 7, (0x0 | (0x73 << 16) | (0x08 << 8) | 0x7f), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (7)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (7)} }, /* QSFP 28*/
+};
 
-#if 1
-    /* Dirty code. Please refer X308P-T to make QSFP's conn_id to be sequential.
-     * by tsihang, 2022-04-12. */
-    {"EMPTY", 7, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                         /* QSFP  7*/
-    {"EMPTY", 8, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                         /* QSFP  8*/
-    {"EMPTY", 9, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                         /* QSFP  9*/
-    {"EMPTY", 10, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 10*/
-    {"EMPTY", 11, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 11*/
-    {"EMPTY", 12, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 12*/
-    {"EMPTY", 13, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 13*/
-    {"EMPTY", 14, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 14*/
-    {"EMPTY", 15, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 15*/
-    {"EMPTY", 16, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 16*/
-    {"EMPTY", 17, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 17*/
-    {"EMPTY", 18, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 18*/
-    {"EMPTY", 19, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 19*/
-    {"EMPTY", 20, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 20*/
-    {"EMPTY", 21, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 21*/
-    {"EMPTY", 22, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 22*/
-    {"EMPTY", 23, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 23*/
-    {"EMPTY", 24, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 24*/
-    {"EMPTY", 25, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 25*/
-    {"EMPTY", 26, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                        /* QSFP 26*/
-#endif
-    {"C11",  27, 0x74, 6, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xbf), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (6)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (6)} }, /* QSFP 27*/
-    {"C12",  28, 0x74, 7, (0x0 | (0x73 << 16) | (0x08 << 8) | 0x7f), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (7)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (7)} }, /* QSFP 28*/
-    {"C10",  29, 0x74, 5, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xdf), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (5)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (5)} }, /* QSFP 29*/
-    {"C1",   30, 0x73, 2, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfb), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (2)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (2)} }, /* QSFP 30*/
-    {"C9",   31, 0x74, 4, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xef), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (4)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (4)} }, /* QSFP 31*/
-    {"C2",   32, 0x73, 3, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xf7), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (3)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (3)} }, /* QSFP 32*/
+/* vQSFP: C13,C14,C15,C16, treated as QSFP by stratum. */
+static struct qsfp_ctx_t vqsfp_ctx_x312p[] = {
+    /* GHC0 */
+    {"C13", 24, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 24*/
+    {"C14", 22, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 22*/
+
+    /* GHC1 */
+    {"C15", 26, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 26*/
+    {"C16", 14, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 14*/
+
+    /* GHC0 in the future. */
+    {"C17", 18, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 18*/
+    {"C18", 23, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 23*/
+
+    /* GHC1 in the future. */
+    {"C19", 16, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 16*/
+    {"C20", 25, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 25*/
+
 };
 
 /* Global qsfp_ctx specifed by platform.
  * by tsihang, 2021-08-02. */
 static struct qsfp_ctx_t *g_qsfp_ctx;
+/* GHC channel. */
+static struct qsfp_ctx_t *g_vqsfp_ctx;
 
 /* Some QSFP and its logic ID in CPLD are alternant.
  * by tsihang, 2021/06/29. */
@@ -307,7 +324,7 @@ static int qsfp_pres_map_hc[] = {
 
 /* magic array for X312P */
 static int qsfp_pres_map_x312p[] = {
-    3, 4, 2, 0, 30, 28, 26, 27, 5, 1, 29, 31
+    4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 0, 1
 };
 
 /* For those board which has 2 layer PCA9548 to select a port.
@@ -592,100 +609,35 @@ int bf_pltfm_init_cp2112_qsfp_bus (
 #endif
 
     if (platform_type_equal (X532P)) {
+        g_vqsfp_ctx = NULL;
+        max_vqsfp = 0;
         g_qsfp_ctx = &qsfp_ctx_x532p[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x532p));
     } else if (platform_type_equal (X564P)) {
+        g_vqsfp_ctx = NULL;
+        max_vqsfp = 0;
         g_qsfp_ctx = &qsfp_ctx_x564p[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x564p));
     } else if (platform_type_equal (X308P)) {
+        g_vqsfp_ctx = &vqsfp_ctx_x308p[0];
+        max_vqsfp = 4;
         g_qsfp_ctx = &qsfp_ctx_x308p[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x308p));
     } else if (platform_type_equal (X312P)) {
+        g_vqsfp_ctx = &vqsfp_ctx_x312p[0];
+        //max_vqsfp = ARRAY_LENGTH(vqsfp_ctx_x312p);
+        max_vqsfp = 4;
         g_qsfp_ctx = &qsfp_ctx_x312p[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x312p));
     } else if (platform_type_equal (HC)) {
+        g_vqsfp_ctx = NULL;
+        max_vqsfp = 0;
         g_qsfp_ctx = &qsfp_ctx_hc[0];
         bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_hc));
     }
     BUG_ON (g_qsfp_ctx == NULL);
 
     return 0;
-}
-
-/* NOT finished yet. is_panel_sfp is a commonly used API.
- * by tsihang, 2021-07-18. */
-bool is_panel_qsfp_module (unsigned int module)
-{
-    if (platform_type_equal (X532P)) {
-        if ((module >= 1) && (module <= 32)) {
-            return true;
-        }
-    } else if (platform_type_equal (X564P)) {
-        if ((module >= 1) && (module <= 64)) {
-            return true;
-        }
-    } else if (platform_type_equal (X308P)) {
-        if ((module >= 1) && (module <= 8)) {
-            return true;
-        }
-    } else if (platform_type_equal (X312P)) {
-        if ((module >= 1) && (module <= 12)) {
-            return true;
-        }
-    } else if (platform_type_equal (HC)) {
-        if ((module >= 1) && (module <= 24)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool is_panel_sfp_module (unsigned int module)
-{
-    if (platform_type_equal (X532P)) {
-        if ((module >= 1) && (module <= 2)) {
-            return true;
-        }
-    } else if (platform_type_equal (X564P)) {
-        if ((module >= 1) && (module <= 2)) {
-            return true;
-        }
-    } else if (platform_type_equal (X308P)) {
-        if ((module >= 1) && (module <= 48)) {
-            return true;
-        }
-    } else if (platform_type_equal (X312P)) {
-        if ((module >= 1) && (module <= 50)) {
-            return true;
-        }
-    } else if (platform_type_equal (HC)) {
-        if ((module >= 1) && (module <= 38)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool is_panel_cpu_module (unsigned int module)
-{
-    if (platform_type_equal (X532P)) {
-        if ((module >= 1) && (module <= 2)) {
-            return true;
-        }
-    } else if (platform_type_equal (X564P)) {
-        if ((module >= 1) && (module <= 2)) {
-            return true;
-        }
-    } else if (platform_type_equal (X312P)) {
-        if ((module >= 1) && (module <= 2)) {
-            return true;
-        }
-    } else if (platform_type_equal (HC)) {
-        if ((module >= 1) && (module <= 2)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 bool is_internal_port_need_autonegotiate (
@@ -1663,4 +1615,61 @@ EXPORT int bf_pltfm_get_qsfp_ctx (struct
     return 0;
 }
 
+EXPORT int bf_pltfm_get_vqsfp_ctx (struct
+                                qsfp_ctx_t
+                                **qsfp_ctx)
+{
+    *qsfp_ctx = g_vqsfp_ctx;
+    return 0;
+}
+
+/* Panel QSFP28. */
+EXPORT int bf_pltfm_qsfp_lookup_by_module (
+    IN  int module,
+    OUT uint32_t *conn_id
+)
+{
+    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
+    if (bf_pltfm_get_qsfp_ctx (&qsfp_ctx)) {
+        return -1;
+    }
+
+    qsfp = &qsfp_ctx[(module - 1) %
+        bf_qsfp_get_max_qsfp_ports()];
+    *conn_id = qsfp->conn_id;
+
+    return 0;
+}
+
+/* vQSFP: GHC channel. */
+EXPORT int bf_pltfm_vqsfp_lookup_by_module (
+    IN  int module,
+    OUT uint32_t *conn_id
+)
+{
+    int base = 0;
+    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
+    if (bf_pltfm_get_vqsfp_ctx (&qsfp_ctx)) {
+        return -1;
+    }
+
+    if (platform_type_equal (X308P)) {
+        base = 8;
+    } else if (platform_type_equal (X312P)) {
+        base = 12;
+    } else if (platform_type_equal (HC)) {
+        base = 24;
+    } else {
+        //LOG_ERROR (
+        //    "Current platform has no vQSFP %2d, exiting ...", module);
+        return -1;
+    }
+
+    qsfp = &qsfp_ctx[(module - base - 1) %
+        max_vqsfp];
+    *conn_id = qsfp->conn_id;
+
+    max_vsfp = max_vsfp;
+    return 0;
+}
 

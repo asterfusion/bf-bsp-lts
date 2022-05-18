@@ -20,11 +20,9 @@
 #include <signal.h>
 #include <dvm/bf_dma_types.h>
 #include <dvm/bf_drv_intf.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include "bf_pltfm.h"
 #include "bf_pltfm_mgr/pltfm_mgr_handlers.h"
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 
 #if 0
 static ucli_node_t *ucli_node;

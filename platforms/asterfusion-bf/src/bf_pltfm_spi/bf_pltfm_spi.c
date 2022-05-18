@@ -10,13 +10,12 @@
 #include <stdlib.h>
 
 #include <bf_types/bf_types.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include <dvm/bf_drv_intf.h>
 #include <lld/lld_spi_if.h>
 #include <bf_pltfm_spi.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 
+#if 0
 #define SPI_DEBUG 0 /* Make this 1 for debugging */
 
 #define LOG_ERROR printf
@@ -230,3 +229,4 @@ int bf_pltfm_spi_init (void *arg)
     (void)arg;
     return 0;
 }
+#endif

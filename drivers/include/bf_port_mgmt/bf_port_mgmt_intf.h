@@ -14,7 +14,6 @@
 #include <dvm/bf_drv_intf.h>
 #include <port_mgr/bf_port_if.h>
 #include <port_mgr/bf_serdes_if.h>
-#include <bfutils/uCli/ucli.h>
 
 bf_pltfm_status_t bf_pltfm_pm_init (
     bf_dev_init_mode_t);

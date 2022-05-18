@@ -50,7 +50,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <math.h>
 #include <string.h>
-#include <bfsys/bf_sal/bf_sys_sem.h>
+#include <bf_types/bf_types.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>

@@ -7,7 +7,6 @@
  ******************************************************************************/
 #ifndef _BF_PLTFM_SLAVE_I2C_H
 #define _BF_PLTFM_SLAVE_I2C_H
-#include <bfutils/uCli/ucli.h>
 
 /* Allow the use in C++ code. */
 #ifdef __cplusplus

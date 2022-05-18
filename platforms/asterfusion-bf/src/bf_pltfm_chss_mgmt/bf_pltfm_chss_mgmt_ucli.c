@@ -25,9 +25,6 @@
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <dvm/bf_dma_types.h>
 #include <dvm/bf_drv_intf.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_pltfm_bmc_tty.h>
@@ -235,7 +232,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__ (
     if (bf_pltfm_chss_mgmt_fan_data_get (
             &fdata) != BF_PLTFM_SUCCESS) {
         aim_printf (&uc->pvs,
-                    "Error in reading temperature \n");
+                    "Error in reading fan info \n");
         return -1;
     }
 
@@ -271,13 +268,13 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_speed_set__
     UCLI_COMMAND_INFO (uc,
                        "fan_speed_set",
                        2,
-                       " Set <Fan Num> speed in <%(0...100)> of max speed");
+                       " Set <Fan Num> speed level");
     bf_pltfm_fan_info_t fdata;
 
-    fdata.fan_num = atoi (uc->pargs->args[0]);
-    fdata.percent = atoi (uc->pargs->args[1]);
+    fdata.fan_num     = atoi (uc->pargs->args[0]);
+    fdata.speed_level = atoi (uc->pargs->args[1]);
     fdata.front_speed = 0;
-    fdata.rear_speed = 0;
+    fdata.rear_speed  = 0;
 
     if (fdata.fan_num >
         (bf_pltfm_mgr_ctx()->fan_group_count *

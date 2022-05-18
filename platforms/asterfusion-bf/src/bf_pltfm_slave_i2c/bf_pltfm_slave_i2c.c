@@ -8,14 +8,12 @@
 
 #include <string.h>
 #include <bf_types/bf_types.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include <dvm/bf_drv_intf.h>
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_mav_qsfp_i2c_lock.h>
 #include <bf_pltfm_slave_i2c.h>
 #include <bf_pltfm_spi.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 
 static bf_pltfm_cp2112_device_ctx_t
 *tfn_slv_i2c_hdl;

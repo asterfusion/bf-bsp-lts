@@ -16,8 +16,6 @@
 #include <bf_pltfm_ext_phy.h>
 
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_sem.h>
-#include <bfsys/bf_sal/bf_sys_timer.h>
 
 #include <tofino/bf_pal/bf_pal_pltfm_porting.h>
 #include <bf_pm/bf_pm_intf.h>

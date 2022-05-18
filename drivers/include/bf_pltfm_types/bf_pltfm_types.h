@@ -9,7 +9,108 @@
 #define _BF_PLTFM_TYPES_H
 
 #include <stdbool.h>
+#include <stdint.h>
+
+#ifndef EQ
+#define EQ(a, b) (!(((a) > (b)) - ((a) < (b))))
+#endif
+#ifndef GT
+#define GT(a, b) ((a) > (b))
+#endif
+#ifndef LT
+#define LT(a, b) ((a) < (b))
+#endif
+
+/* Mainline SDE version used by bsp, set 9.5.0 as default.
+ * Valid value in [891,900,910,930,950,970,990,...].
+ * A sub version start from a given mainline is valid too, such as 931,952,971, etc. */
+#define SDE_VERSION 950
+#define SDE_VERSION_EQ(key) \
+        EQ(SDE_VERSION, (key))
+
+#define SDE_VERSION_GT(key) \
+        GT(SDE_VERSION, (key))
+
+#define SDE_VERSION_LT(key) \
+        LT(SDE_VERSION, (key))
+
+/* Mainline OS version, <= 9 or > 9. Valid value in [8,9,10,11]. */
+#define OS_VERSION 9
+#define OS_VERSION_EQ(key) \
+        EQ(OS_VERSION, (key))
+
+#define OS_VERSION_GT(key) \
+        GT(OS_VERSION, (key))
+
+#define OS_VERSION_LT(key) \
+        LT(OS_VERSION, (key))
+
+#if SDE_VERSION_LT(930)
+#define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((dev), (phdl), (dp));
+#else
+#define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((phdl), &(dev), (dp));
+#endif
+
+#define sub_devid 0
+#if SDE_VERSION_LT(980)
+#define bfn_io_set_mode_i2c(devid,sub_devid,pin) bf_io_set_mode_i2c((devid),(pin))
+#define bfn_i2c_set_clk(devid,sub_devid,pin,clk) bf_i2c_set_clk((devid),(pin),(clk))
+#define bfn_i2c_set_submode(devid,sub_devid,pin,mode) bf_i2c_set_submode((devid),(pin),(mode))
+#define bfn_i2c_reset(devid,sub_devid,pin) bf_i2c_reset((devid),(pin))
+#define bfn_i2c_get_completion_status(devid,sub_devid,pin,is_complete)\
+    bf_i2c_get_completion_status((devid),(pin),(is_complete))
+#define bfn_i2c_rd_reg_blocking(devid,sub_devid,pin,i2caddr,regaddr,naddrbytes,buf,ndatabytes)\
+    bf_i2c_rd_reg_blocking((devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
+#define bfn_i2c_wr_reg_blocking(devid,sub_devid,pin,i2caddr,regaddr,naddrbytes,buf,ndatabytes)\
+    bf_i2c_wr_reg_blocking((devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
+#define bfn_i2c_issue_stateout(devid,sub_devid,pin,i2caddr,regaddr,naddrbytes,buf,ndatabytes)\
+    bf_i2c_issue_stateout((devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
+#define bfn_write_stateout_buf(devid,sub_devid,pin,offset,buf,ndatabytes) \
+    bf_write_stateout_buf((devid),(pin),(offset),(buf),(ndatabytes))
+#else
+#define bfn_io_set_mode_i2c(devid,sub_devid,pin) bf_io_set_mode_i2c((devid),(sub_devid),(pin))
+#define bfn_i2c_set_clk(devid,sub_devid,pin,clk) bf_i2c_set_clk((devid),(sub_devid),(pin),(clk))
+#define bfn_i2c_set_submode(devid,sub_devid,pin,mode) bf_i2c_set_submode((devid),(sub_devid),(pin),(mode))
+#define bfn_i2c_reset(devid, sub_devid, pin) bf_i2c_reset((devid),(sub_devid),(pin))
+#define bfn_i2c_get_completion_status(devid,sub_devid,pin,is_complete)\
+    bf_i2c_get_completion_status((devid),(sub_devid),(pin),(is_complete))
+#define bfn_i2c_rd_reg_blocking(devid,sub_devid,pin,i2caddr,regaddr,naddrbytes,buf,ndatabytes)\
+    bf_i2c_rd_reg_blocking((devid),(sub_devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
+#define bfn_i2c_wr_reg_blocking(devid,sub_devid,pin,i2caddr,regaddr,naddrbytes,buf,ndatabytes)\
+    bf_i2c_wr_reg_blocking((devid),(sub_devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
+#define bfn_i2c_issue_stateout(devid,sub_devid,pin,i2caddr,regaddr,naddrbytes,buf,ndatabytes)\
+    bf_i2c_issue_stateout((devid),(sub_devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
+#define bfn_write_stateout_buf(devid,sub_devid,pin,offset,buf,ndatabytes) \
+        bf_write_stateout_buf((devid),(sub_devid),(pin),(offset),(buf),(ndatabytes))
+#endif
+
+
+#if SDE_VERSION_LT(900)
+#define bf_pm_intf_is_device_family_tofino((dev)) (true)
+#endif
+
+
+#if SDE_VERSION_LT(980)
+#ifdef INC_PLTFM_UCLI
+#include <bfutils/uCli/ucli.h>
+#include <bfutils/uCli/ucli_argparse.h>
+#include <bfutils/uCli/ucli_handler_macros.h>
+#include <bfutils/map/map.h>
+#endif
 #include <bfsys/bf_sal/bf_sys_intf.h>
+#include <bfsys/bf_sal/bf_sys_timer.h>
+#include <bfsys/bf_sal/bf_sys_sem.h>
+#else
+#ifdef INC_PLTFM_UCLI
+#include <target-utils/uCli/ucli.h>
+#include <target-utils/uCli/ucli_argparse.h>
+#include <target-utils/uCli/ucli_handler_macros.h>
+#include <target-utils/map/map.h>
+#endif
+#include <target-sys/bf_sal/bf_sys_intf.h>
+#include <target-sys/bf_sal/bf_sys_timer.h>
+#include <target-sys/bf_sal/bf_sys_sem.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -145,47 +246,6 @@ struct st_ctx_t {
     uint8_t off_b;   /* bit offset in off */
 };
 
-#ifndef EQ
-#define EQ(a, b) (!(((a) > (b)) - ((a) < (b))))
-#endif
-#ifndef GT
-#define GT(a, b) ((a) > (b))
-#endif
-#ifndef LT
-#define LT(a, b) ((a) < (b))
-#endif
-
-#define SDE_VERSION 932
-#define SDE_VERSION_EQ(key) \
-        EQ(SDE_VERSION, (key))
-
-#define SDE_VERSION_GT(key) \
-        GT(SDE_VERSION, (key))
-
-#define SDE_VERSION_LT(key) \
-        LT(SDE_VERSION, (key))
-
-#if SDE_VERSION_LT(930)
-#define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((dev), (phdl), (dp));
-#else
-#define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((phdl), &(dev), (dp));
-#endif
-
-#if SDE_VERSION_LT(900)
-#define bf_pm_intf_is_device_family_tofino((dev)) (true)
-#endif
-
-
-/* for those OS <= debian 9 and > debian 9. */
-#define OS_VERSION 9
-#define OS_VERSION_EQ(key) \
-        EQ(OS_VERSION, (key))
-
-#define OS_VERSION_GT(key) \
-        GT(OS_VERSION, (key))
-
-#define OS_VERSION_LT(key) \
-        LT(OS_VERSION, (key))
 
 #ifdef __cplusplus
 }

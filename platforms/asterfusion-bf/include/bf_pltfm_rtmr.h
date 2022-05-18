@@ -23,7 +23,6 @@
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_port_mgmt/bf_port_mgmt_porting.h>
-#include <bfutils/uCli/ucli.h>
 /* Local header includes */
 
 /* Allow the use in C++ code. */

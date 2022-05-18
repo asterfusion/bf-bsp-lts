@@ -299,10 +299,10 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     /* FAN ID (fan num) is 1 based, and FAN DATA in fan_data.F is 0 based.
      * This must keep same for all X-T platforms.
      * By tsihang, 2022-04/14. */
-    _return.fan_num = fan_data.F[fan_num - 1].fan_num;
+    _return.fan_num   = fan_data.F[fan_num - 1].fan_num;
     _return.front_rpm = fan_data.F[fan_num - 1].front_speed;
-    _return.rear_rpm = fan_data.F[fan_num - 1].rear_speed;
-    _return.percent = fan_data.F[fan_num - 1].percent;
+    _return.rear_rpm  = fan_data.F[fan_num - 1].rear_speed;
+    _return.percent   = fan_data.F[fan_num - 1].percent;
   }
 
   pltfm_mgr_max_port_t pltfm_mgr_sfp_get_max_port(void) {
@@ -310,11 +310,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
   }
 
   bool pltfm_mgr_sfp_presence_get(const int port_num) {
-    bool mod_present;
-
-    mod_present = bf_sfp_is_present (port_num);
-
-    return mod_present;
+    return bf_sfp_is_present (port_num);
   }
 
   void pltfm_mgr_sfp_info_get(std::string &_return, const int port_num) {
@@ -358,18 +354,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
   }
 
   bool pltfm_mgr_qsfp_presence_get(const int port_num) {
-    bf_pltfm_status_t sts = BF_SUCCESS;
-    bool mod_present;
-    uint32_t lower_ports, upper_ports, cpu_ports;
-
-    sts = bf_qsfp_detect_transceiver(port_num, &mod_present);
-    if (sts != BF_SUCCESS) {
-      InvalidPltfmMgrOperation iop;
-      iop.code = sts;
-      throw iop;
-    }
-
-    return mod_present;
+    return bf_qsfp_is_present (port_num);
   }
 
   void pltfm_mgr_qsfp_info_get(std::string &_return, const int port_num) {
@@ -377,6 +362,12 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     uint8_t buf[384] = {0};
     uint32_t i;
     char str[1024] = {0};
+
+    if (!bf_qsfp_is_present (port_num)) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+    }
 
     sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE0_LOWER, buf);
     if (sts != BF_SUCCESS) {

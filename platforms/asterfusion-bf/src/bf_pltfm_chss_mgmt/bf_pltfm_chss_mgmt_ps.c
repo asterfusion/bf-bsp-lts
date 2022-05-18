@@ -39,8 +39,7 @@
 #define MAX_PSU_COUNT		2
 
 static bf_pltfm_pwr_supply_info_t
-bmc_psu_data[MAX_PSU_COUNT] = {0};
-
+bmc_psu_data[MAX_PSU_COUNT];
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
@@ -732,7 +731,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
     bf_pltfm_pwr_supply_info_t *info)
 {
     bf_pltfm_pwr_supply_info_t
-    tmp_psu_data[MAX_PSU_COUNT] = {0};
+    tmp_psu_data[MAX_PSU_COUNT];
     int err = BF_PLTFM_COMM_FAILED;
 
     if ((pwr != POWER_SUPPLY1 &&
@@ -742,6 +741,8 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
     }
 
     memset (info, 0, sizeof (
+                bf_pltfm_pwr_supply_info_t));
+    memset (&tmp_psu_data[pwr - 1], 0, sizeof (
                 bf_pltfm_pwr_supply_info_t));
 
     if (platform_type_equal (X532P)) {
@@ -826,8 +827,10 @@ bf_pltfm_chss_mgmt_pwr_init()
     fprintf (stdout,
              "\n\n================== PWRs INIT ==================\n");
 
-    memset (&info, 0, sizeof (info));
     pwr = POWER_SUPPLY1;
+    memset (&info, 0, sizeof (info));
+    memset (&bmc_psu_data[pwr - 1], 0,
+            sizeof (bf_pltfm_pwr_supply_info_t));
     if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
         (pwr, &present,
          &info) != BF_PLTFM_SUCCESS) {
@@ -862,9 +865,11 @@ bf_pltfm_chss_mgmt_pwr_init()
                      info.pwr_out);
         }
     }
-
-    memset (&info, 0, sizeof (info));
+    
     pwr = POWER_SUPPLY2;
+    memset (&info, 0, sizeof (info));
+    memset (&bmc_psu_data[pwr - 1], 0,
+            sizeof (bf_pltfm_pwr_supply_info_t));
     if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
         (pwr, &present,
          &info) != BF_PLTFM_SUCCESS) {

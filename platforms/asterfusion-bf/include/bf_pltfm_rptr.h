@@ -23,7 +23,6 @@
 #include <bf_types/bf_types.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
-#include <bfutils/uCli/ucli.h>
 /* Local header includes */
 
 /* Allow the use in C++ code. */

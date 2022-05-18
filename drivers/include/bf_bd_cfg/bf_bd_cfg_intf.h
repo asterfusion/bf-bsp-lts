@@ -10,9 +10,6 @@
 #define BF_PLTFM_BD_CFG_INTF_H_INCLUDED
 
 #include <bf_pltfm_types/bf_pltfm_types.h>
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
 
 /* Allow the use in C++ code.  */
 #ifdef __cplusplus

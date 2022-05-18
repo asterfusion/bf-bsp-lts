@@ -12,7 +12,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
-#include <bfsys/bf_sal/bf_sys_timer.h>
 #include <dvm/bf_drv_intf.h>
 #include <lld/lld_gpio_if.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
@@ -23,9 +22,6 @@
 #include <bf_led/bf_led.h>
 #include <bf_pltfm_bd_cfg.h>
 #include <bf_pltfm_led.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_pltfm.h>
 #include <bf_pltfm_sfp.h>
@@ -418,114 +414,114 @@ static struct led_ctx_t led_ctx_hc[] = {
 };
 
 static struct led_ctx_t led_ctx_x312p[] = {
-    {"C1", 30, 0, PIN01, (0x71 << 8) | 0x90, 0, 0xff},              //C1
-    {"C1", 30, 1, PIN01, (0x71 << 8) | 0x90, 1, 0xff},              //C1
-    {"C1", 30, 2, PIN01, (0x71 << 8) | 0x90, 2, 0xff},              //C1
-    {"C1", 30, 3, PIN01, (0x71 << 8) | 0x90, 3, 0xff},              //C1
+    {"C1",  1, 0, PIN01, (0x71 << 8) | 0x90, 0, 0xff},              //C1
+    {"C1",  1, 1, PIN01, (0x71 << 8) | 0x90, 1, 0xff},              //C1
+    {"C1",  1, 2, PIN01, (0x71 << 8) | 0x90, 2, 0xff},              //C1
+    {"C1",  1, 3, PIN01, (0x71 << 8) | 0x90, 3, 0xff},              //C1
 
-    {"C2", 32, 0, PIN01, (0x71 << 8) | 0x90, 4, 0xff},              //C2
-    {"C2", 32, 1, PIN01, (0x71 << 8) | 0x90, 5, 0xff},              //C2
-    {"C2", 32, 2, PIN01, (0x71 << 8) | 0x90, 6, 0xff},              //C2
-    {"C2", 32, 3, PIN01, (0x71 << 8) | 0x90, 7, 0xff},              //C2
+    {"C2",  2, 0, PIN01, (0x71 << 8) | 0x90, 4, 0xff},              //C2
+    {"C2",  2, 1, PIN01, (0x71 << 8) | 0x90, 5, 0xff},              //C2
+    {"C2",  2, 2, PIN01, (0x71 << 8) | 0x90, 6, 0xff},              //C2
+    {"C2",  2, 3, PIN01, (0x71 << 8) | 0x90, 7, 0xff},              //C2
 
-    {"C3",  6, 0, PIN01, (0x81 << 8) | 0xA0, 0, 0xff},              //C3
-    {"C3",  6, 1, PIN01, (0x81 << 8) | 0xA0, 1, 0xff},              //C3
-    {"C3",  6, 2, PIN01, (0x81 << 8) | 0xA0, 2, 0xff},              //C3
-    {"C3",  6, 3, PIN01, (0x81 << 8) | 0xA0, 3, 0xff},              //C3
+    {"C3",  3, 0, PIN01, (0x81 << 8) | 0xA0, 0, 0xff},              //C3
+    {"C3",  3, 1, PIN01, (0x81 << 8) | 0xA0, 1, 0xff},              //C3
+    {"C3",  3, 2, PIN01, (0x81 << 8) | 0xA0, 2, 0xff},              //C3
+    {"C3",  3, 3, PIN01, (0x81 << 8) | 0xA0, 3, 0xff},              //C3
 
-    {"C4",  2, 0, PIN01, (0x81 << 8) | 0xA0, 4, 0xff},              //C4
-    {"C4",  2, 1, PIN01, (0x81 << 8) | 0xA0, 5, 0xff},              //C4
-    {"C4",  2, 2, PIN01, (0x81 << 8) | 0xA0, 6, 0xff},              //C4
-    {"C4",  2, 3, PIN01, (0x81 << 8) | 0xA0, 7, 0xff},              //C4
+    {"C4",  4, 0, PIN01, (0x81 << 8) | 0xA0, 4, 0xff},              //C4
+    {"C4",  4, 1, PIN01, (0x81 << 8) | 0xA0, 5, 0xff},              //C4
+    {"C4",  4, 2, PIN01, (0x81 << 8) | 0xA0, 6, 0xff},              //C4
+    {"C4",  4, 3, PIN01, (0x81 << 8) | 0xA0, 7, 0xff},              //C4
 
-    {"C5",  4, 0, PIN01, (0x91 << 8) | 0xB0, 0, 0xff},              //C5
-    {"C5",  4, 1, PIN01, (0x91 << 8) | 0xB0, 1, 0xff},              //C5
-    {"C5",  4, 2, PIN01, (0x91 << 8) | 0xB0, 2, 0xff},              //C5
-    {"C5",  4, 3, PIN01, (0x91 << 8) | 0xB0, 3, 0xff},              //C5
+    {"C5",  5, 0, PIN01, (0x91 << 8) | 0xB0, 0, 0xff},              //C5
+    {"C5",  5, 1, PIN01, (0x91 << 8) | 0xB0, 1, 0xff},              //C5
+    {"C5",  5, 2, PIN01, (0x91 << 8) | 0xB0, 2, 0xff},              //C5
+    {"C5",  5, 3, PIN01, (0x91 << 8) | 0xB0, 3, 0xff},              //C5
 
-    {"C6",  5, 0, PIN01, (0x91 << 8) | 0xB0, 4, 0xff},              //C6
-    {"C6",  5, 1, PIN01, (0x91 << 8) | 0xB0, 5, 0xff},              //C6
-    {"C6",  5, 2, PIN01, (0x91 << 8) | 0xB0, 6, 0xff},              //C6
-    {"C6",  5, 3, PIN01, (0x91 << 8) | 0xB0, 7, 0xff},              //C6
+    {"C6",  6, 0, PIN01, (0x91 << 8) | 0xB0, 4, 0xff},              //C6
+    {"C6",  6, 1, PIN01, (0x91 << 8) | 0xB0, 5, 0xff},              //C6
+    {"C6",  6, 2, PIN01, (0x91 << 8) | 0xB0, 6, 0xff},              //C6
+    {"C6",  6, 3, PIN01, (0x91 << 8) | 0xB0, 7, 0xff},              //C6
 
-    {"C7",  3, 0, PIN01, (0xA1 << 8) | 0xC0, 0, 0xff},              //C7
-    {"C7",  3, 1, PIN01, (0xA1 << 8) | 0xC0, 1, 0xff},              //C7
-    {"C7",  3, 2, PIN01, (0xA1 << 8) | 0xC0, 2, 0xff},              //C7
-    {"C7",  3, 3, PIN01, (0xA1 << 8) | 0xC0, 3, 0xff},              //C7
+    {"C7",  7, 0, PIN01, (0xA1 << 8) | 0xC0, 0, 0xff},              //C7
+    {"C7",  7, 1, PIN01, (0xA1 << 8) | 0xC0, 1, 0xff},              //C7
+    {"C7",  7, 2, PIN01, (0xA1 << 8) | 0xC0, 2, 0xff},              //C7
+    {"C7",  7, 3, PIN01, (0xA1 << 8) | 0xC0, 3, 0xff},              //C7
 
-    {"C8",  1, 0, PIN01, (0xA1 << 8) | 0xC0, 4, 0xff},              //C8
-    {"C8",  1, 1, PIN01, (0xA1 << 8) | 0xC0, 5, 0xff},              //C8
-    {"C8",  1, 2, PIN01, (0xA1 << 8) | 0xC0, 6, 0xff},              //C8
-    {"C8",  1, 3, PIN01, (0xA1 << 8) | 0xC0, 7, 0xff},              //C8
+    {"C8",  8, 0, PIN01, (0xA1 << 8) | 0xC0, 4, 0xff},              //C8
+    {"C8",  8, 1, PIN01, (0xA1 << 8) | 0xC0, 5, 0xff},              //C8
+    {"C8",  8, 2, PIN01, (0xA1 << 8) | 0xC0, 6, 0xff},              //C8
+    {"C8",  8, 3, PIN01, (0xA1 << 8) | 0xC0, 7, 0xff},              //C8
 
-    {"C9", 31, 0, PIN01, (0xB1 << 8) | 0xD0, 0, 0xff},              //C9
-    {"C9", 31, 1, PIN01, (0xB1 << 8) | 0xD0, 1, 0xff},              //C9
-    {"C9", 31, 2, PIN01, (0xB1 << 8) | 0xD0, 2, 0xff},              //C9
-    {"C9", 31, 3, PIN01, (0xB1 << 8) | 0xD0, 3, 0xff},              //C9
+    {"C9",  9, 0, PIN01, (0xB1 << 8) | 0xD0, 0, 0xff},              //C9
+    {"C9",  9, 1, PIN01, (0xB1 << 8) | 0xD0, 1, 0xff},              //C9
+    {"C9",  9, 2, PIN01, (0xB1 << 8) | 0xD0, 2, 0xff},              //C9
+    {"C9",  9, 3, PIN01, (0xB1 << 8) | 0xD0, 3, 0xff},              //C9
 
-    {"C10", 29, 0, PIN01, (0xB1 << 8) | 0xD0, 4, 0xff},             //C10
-    {"C10", 29, 1, PIN01, (0xB1 << 8) | 0xD0, 5, 0xff},             //C10
-    {"C10", 29, 2, PIN01, (0xB1 << 8) | 0xD0, 6, 0xff},             //C10
-    {"C10", 29, 3, PIN01, (0xB1 << 8) | 0xD0, 7, 0xff},             //C10
+    {"C10", 10, 0, PIN01, (0xB1 << 8) | 0xD0, 4, 0xff},             //C10
+    {"C10", 10, 1, PIN01, (0xB1 << 8) | 0xD0, 5, 0xff},             //C10
+    {"C10", 10, 2, PIN01, (0xB1 << 8) | 0xD0, 6, 0xff},             //C10
+    {"C10", 10, 3, PIN01, (0xB1 << 8) | 0xD0, 7, 0xff},             //C10
 
-    {"C11", 27, 0, PIN01, (0xC1 << 8) | 0xE0, 0, 0xff},             //C11
-    {"C11", 27, 1, PIN01, (0xC1 << 8) | 0xE0, 1, 0xff},             //C11
-    {"C11", 27, 2, PIN01, (0xC1 << 8) | 0xE0, 2, 0xff},             //C11
-    {"C11", 27, 3, PIN01, (0xC1 << 8) | 0xE0, 3, 0xff},             //C11
+    {"C11", 11, 0, PIN01, (0xC1 << 8) | 0xE0, 0, 0xff},             //C11
+    {"C11", 11, 1, PIN01, (0xC1 << 8) | 0xE0, 1, 0xff},             //C11
+    {"C11", 11, 2, PIN01, (0xC1 << 8) | 0xE0, 2, 0xff},             //C11
+    {"C11", 11, 3, PIN01, (0xC1 << 8) | 0xE0, 3, 0xff},             //C11
 
-    {"C12", 28, 0, PIN01, (0xC1 << 8) | 0xE0, 4, 0xff},             //C12
-    {"C12", 28, 1, PIN01, (0xC1 << 8) | 0xE0, 5, 0xff},             //C12
-    {"C12", 28, 2, PIN01, (0xC1 << 8) | 0xE0, 6, 0xff},             //C12
-    {"C12", 28, 3, PIN01, (0xC1 << 8) | 0xE0, 7, 0xff},             //C12
+    {"C12", 12, 0, PIN01, (0xC1 << 8) | 0xE0, 4, 0xff},             //C12
+    {"C12", 12, 1, PIN01, (0xC1 << 8) | 0xE0, 5, 0xff},             //C12
+    {"C12", 12, 2, PIN01, (0xC1 << 8) | 0xE0, 6, 0xff},             //C12
+    {"C12", 12, 3, PIN01, (0xC1 << 8) | 0xE0, 7, 0xff},             //C12
 
-    { "Y1", 21, 3, PIN01, (0xF0 << 8) | 0x20, 0, 0xff},             //Y01
-    { "Y2", 21, 2, PIN01, (0xF0 << 8) | 0x20, 1, 0xff},             //Y02
-    { "Y3", 20, 3, PIN01, (0xF0 << 8) | 0x20, 2, 0xff},             //Y03
-    { "Y4", 21, 1, PIN01, (0xF0 << 8) | 0x20, 3, 0xff},             //Y04
-    { "Y5", 21, 0, PIN01, (0xF0 << 8) | 0x20, 4, 0xff},             //Y05
-    { "Y6", 20, 2, PIN01, (0xF0 << 8) | 0x20, 5, 0xff},             //Y06
-    { "Y7", 19, 3, PIN01, (0xF0 << 8) | 0x20, 6, 0xff},             //Y07
-    { "Y8", 19, 2, PIN01, (0xF0 << 8) | 0x20, 7, 0xff},             //Y08
-    { "Y9", 20, 1, PIN01, (0x11 << 8) | 0x30, 0, 0xff},             //Y09
-    {"Y10", 19, 1, PIN01, (0x11 << 8) | 0x30, 1, 0xff},             //Y10
-    {"Y11", 19, 0, PIN01, (0x11 << 8) | 0x30, 2, 0xff},             //Y11
-    {"Y12", 20, 0, PIN01, (0x11 << 8) | 0x30, 3, 0xff},             //Y12
-    {"Y13", 17, 3, PIN01, (0x11 << 8) | 0x30, 4, 0xff},             //Y13
-    {"Y14", 17, 2, PIN01, (0x11 << 8) | 0x30, 5, 0xff},             //Y14
-    {"Y15", 15, 3, PIN01, (0x11 << 8) | 0x30, 6, 0xff},             //Y15
-    {"Y16", 17, 1, PIN01, (0x11 << 8) | 0x30, 7, 0xff},             //Y16
-    {"Y17", 17, 0, PIN01, (0x21 << 8) | 0x40, 0, 0xff},             //Y17
-    {"Y18", 15, 2, PIN01, (0x21 << 8) | 0x40, 1, 0xff},             //Y18
-    {"Y19", 13, 3, PIN01, (0x21 << 8) | 0x40, 2, 0xff},             //Y19
-    {"Y20", 13, 2, PIN01, (0x21 << 8) | 0x40, 3, 0xff},             //Y20
-    {"Y21", 15, 1, PIN01, (0x21 << 8) | 0x40, 4, 0xff},             //Y21
-    {"Y22", 13, 1, PIN01, (0x21 << 8) | 0x40, 5, 0xff},             //Y22
-    {"Y23", 13, 0, PIN01, (0x21 << 8) | 0x40, 6, 0xff},             //Y23
-    {"Y24", 15, 0, PIN01, (0x21 << 8) | 0x40, 7, 0xff},             //Y24
-    {"Y25", 11, 3, PIN01, (0x31 << 8) | 0x50, 0, 0xff},             //Y25
-    {"Y26", 11, 2, PIN01, (0x31 << 8) | 0x50, 1, 0xff},             //Y26
-    {"Y27", 12, 3, PIN01, (0x31 << 8) | 0x50, 2, 0xff},             //Y27
-    {"Y28", 11, 1, PIN01, (0x31 << 8) | 0x50, 3, 0xff},             //Y28
-    {"Y29", 11, 0, PIN01, (0x31 << 8) | 0x50, 4, 0xff},             //Y29
-    {"Y30", 12, 2, PIN01, (0x31 << 8) | 0x50, 5, 0xff},             //Y30
-    {"Y31", 10, 3, PIN01, (0x31 << 8) | 0x50, 6, 0xff},             //Y31
-    {"Y32", 10, 2, PIN01, (0x31 << 8) | 0x50, 7, 0xff},             //Y32
-    {"Y33", 12, 1, PIN01, (0x41 << 8) | 0x60, 0, 0xff},             //Y33
-    {"Y34", 10, 1, PIN01, (0x41 << 8) | 0x60, 1, 0xff},             //Y34
-    {"Y35", 10, 0, PIN01, (0x41 << 8) | 0x60, 2, 0xff},             //Y35
-    {"Y36", 12, 0, PIN01, (0x41 << 8) | 0x60, 3, 0xff},             //Y36
-    {"Y37",  8, 3, PIN01, (0x41 << 8) | 0x60, 4, 0xff},             //Y37
-    {"Y38",  8, 2, PIN01, (0x41 << 8) | 0x60, 5, 0xff},             //Y38
-    {"Y39",  9, 3, PIN01, (0x41 << 8) | 0x60, 6, 0xff},             //Y39
-    {"Y40",  8, 1, PIN01, (0x41 << 8) | 0x60, 7, 0xff},             //Y40
-    {"Y41",  8, 0, PIN01, (0x51 << 8) | 0x70, 0, 0xff},             //Y41
-    {"Y42",  9, 2, PIN01, (0x51 << 8) | 0x70, 1, 0xff},             //Y42
-    {"Y43",  7, 3, PIN01, (0x51 << 8) | 0x70, 2, 0xff},             //Y43
-    {"Y44",  7, 2, PIN01, (0x51 << 8) | 0x70, 3, 0xff},             //Y44
-    {"Y45",  9, 1, PIN01, (0x51 << 8) | 0x70, 4, 0xff},             //Y45
-    {"Y46",  7, 1, PIN01, (0x51 << 8) | 0x70, 5, 0xff},             //Y46
-    {"Y47",  7, 0, PIN01, (0x51 << 8) | 0x70, 6, 0xff},             //Y47
-    {"Y48",  9, 0, PIN01, (0x51 << 8) | 0x70, 7, 0xff},             //Y48
+    { "Y1", 13, 0, PIN01, (0xF0 << 8) | 0x20, 0, 0xff},             //Y01
+    { "Y2", 13, 1, PIN01, (0xF0 << 8) | 0x20, 1, 0xff},             //Y02
+    { "Y3", 15, 0, PIN01, (0xF0 << 8) | 0x20, 2, 0xff},             //Y03
+    { "Y4", 13, 2, PIN01, (0xF0 << 8) | 0x20, 3, 0xff},             //Y04
+    { "Y5", 13, 3, PIN01, (0xF0 << 8) | 0x20, 4, 0xff},             //Y05
+    { "Y6", 15, 1, PIN01, (0xF0 << 8) | 0x20, 5, 0xff},             //Y06
+    { "Y7", 14, 0, PIN01, (0xF0 << 8) | 0x20, 6, 0xff},             //Y07
+    { "Y8", 14, 1, PIN01, (0xF0 << 8) | 0x20, 7, 0xff},             //Y08
+    { "Y9", 15, 2, PIN01, (0x11 << 8) | 0x30, 0, 0xff},             //Y09
+    {"Y10", 14, 2, PIN01, (0x11 << 8) | 0x30, 1, 0xff},             //Y10
+    {"Y11", 14, 3, PIN01, (0x11 << 8) | 0x30, 2, 0xff},             //Y11
+    {"Y12", 15, 3, PIN01, (0x11 << 8) | 0x30, 3, 0xff},             //Y12
+    {"Y13", 16, 0, PIN01, (0x11 << 8) | 0x30, 4, 0xff},             //Y13
+    {"Y14", 16, 1, PIN01, (0x11 << 8) | 0x30, 5, 0xff},             //Y14
+    {"Y15", 18, 0, PIN01, (0x11 << 8) | 0x30, 6, 0xff},             //Y15
+    {"Y16", 16, 2, PIN01, (0x11 << 8) | 0x30, 7, 0xff},             //Y16
+    {"Y17", 16, 3, PIN01, (0x21 << 8) | 0x40, 0, 0xff},             //Y17
+    {"Y18", 18, 1, PIN01, (0x21 << 8) | 0x40, 1, 0xff},             //Y18
+    {"Y19", 17, 0, PIN01, (0x21 << 8) | 0x40, 2, 0xff},             //Y19
+    {"Y20", 17, 1, PIN01, (0x21 << 8) | 0x40, 3, 0xff},             //Y20
+    {"Y21", 18, 2, PIN01, (0x21 << 8) | 0x40, 4, 0xff},             //Y21
+    {"Y22", 17, 2, PIN01, (0x21 << 8) | 0x40, 5, 0xff},             //Y22
+    {"Y23", 17, 3, PIN01, (0x21 << 8) | 0x40, 6, 0xff},             //Y23
+    {"Y24", 18, 3, PIN01, (0x21 << 8) | 0x40, 7, 0xff},             //Y24
+    {"Y25", 19, 0, PIN01, (0x31 << 8) | 0x50, 0, 0xff},             //Y25
+    {"Y26", 19, 1, PIN01, (0x31 << 8) | 0x50, 1, 0xff},             //Y26
+    {"Y27", 21, 0, PIN01, (0x31 << 8) | 0x50, 2, 0xff},             //Y27
+    {"Y28", 19, 2, PIN01, (0x31 << 8) | 0x50, 3, 0xff},             //Y28
+    {"Y29", 19, 3, PIN01, (0x31 << 8) | 0x50, 4, 0xff},             //Y29
+    {"Y30", 21, 1, PIN01, (0x31 << 8) | 0x50, 5, 0xff},             //Y30
+    {"Y31", 20, 0, PIN01, (0x31 << 8) | 0x50, 6, 0xff},             //Y31
+    {"Y32", 20, 1, PIN01, (0x31 << 8) | 0x50, 7, 0xff},             //Y32
+    {"Y33", 21, 2, PIN01, (0x41 << 8) | 0x60, 0, 0xff},             //Y33
+    {"Y34", 20, 2, PIN01, (0x41 << 8) | 0x60, 1, 0xff},             //Y34
+    {"Y35", 20, 3, PIN01, (0x41 << 8) | 0x60, 2, 0xff},             //Y35
+    {"Y36", 21, 3, PIN01, (0x41 << 8) | 0x60, 3, 0xff},             //Y36
+    {"Y37", 22, 0, PIN01, (0x41 << 8) | 0x60, 4, 0xff},             //Y37
+    {"Y38", 22, 1, PIN01, (0x41 << 8) | 0x60, 5, 0xff},             //Y38
+    {"Y39", 24, 0, PIN01, (0x41 << 8) | 0x60, 6, 0xff},             //Y39
+    {"Y40", 22, 2, PIN01, (0x41 << 8) | 0x60, 7, 0xff},             //Y40
+    {"Y41", 22, 3, PIN01, (0x51 << 8) | 0x70, 0, 0xff},             //Y41
+    {"Y42", 24, 1, PIN01, (0x51 << 8) | 0x70, 1, 0xff},             //Y42
+    {"Y43", 23, 0, PIN01, (0x51 << 8) | 0x70, 2, 0xff},             //Y43
+    {"Y44", 23, 1, PIN01, (0x51 << 8) | 0x70, 3, 0xff},             //Y44
+    {"Y45", 24, 2, PIN01, (0x51 << 8) | 0x70, 4, 0xff},             //Y45
+    {"Y46", 23, 2, PIN01, (0x51 << 8) | 0x70, 5, 0xff},             //Y46
+    {"Y47", 23, 3, PIN01, (0x51 << 8) | 0x70, 6, 0xff},             //Y47
+    {"Y48", 24, 3, PIN01, (0x51 << 8) | 0x70, 7, 0xff},             //Y48
     {"Y49", 33, 0, PIN01, (0x61 << 8) | 0x80, 1, 0xff},             //Y49
     {"Y50", 33, 1, PIN01, (0x61 << 8) | 0x80, 0, 0xff},             //Y50
 };
@@ -613,8 +609,8 @@ static bf_pltfm_status_t bf_pltfm_tf_cpld_write (
     bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
     static const bf_dev_id_t dev = 0;
 
-    err |= bf_i2c_wr_reg_blocking (
-               dev, idx, i2c_addr, offset, 1, &val, 1);
+    err |= bfn_i2c_wr_reg_blocking (
+               dev, sub_devid, idx, i2c_addr, offset, 1, &val, 1);
 
     if (err != BF_PLTFM_SUCCESS) {
         LOG_ERROR (
@@ -628,7 +624,7 @@ static bf_pltfm_status_t bf_pltfm_tf_cpld_write (
         /* Reset i2c in case i2c is locked on error
          * could block for upto approxomately 100ms.
          * - by tsihang, 4 Nov. 2019 */
-        err |= bf_i2c_reset (dev, idx);
+        err |= bfn_i2c_reset (dev, sub_devid, idx);
         bf_sys_usleep (100000);
     }
 
@@ -644,8 +640,8 @@ static bf_pltfm_status_t bf_pltfm_tf_cpld_read (
     bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
     static const bf_dev_id_t dev = 0;
 
-    err |= bf_i2c_rd_reg_blocking (
-               dev, idx, i2c_addr, offset, 1, rd_buf, 1);
+    err |= bfn_i2c_rd_reg_blocking (
+               dev, sub_devid, idx, i2c_addr, offset, 1, rd_buf, 1);
 
     if (err != BF_PLTFM_SUCCESS) {
         LOG_ERROR (
@@ -656,7 +652,7 @@ static bf_pltfm_status_t bf_pltfm_tf_cpld_read (
             offset);
         /* Reset i2c in case i2c is locked on error
          * could block for upto approxomately 100ms.*/
-        err |= bf_i2c_reset (dev, idx);
+        err |= bfn_i2c_reset (dev, sub_devid, idx);
         bf_sys_usleep (100000);
     }
 
@@ -672,12 +668,12 @@ static int bf_pltfm_tf_i2c_init (int chip_id,
         return -1;
     }
     /* configure the gpio_pin_pair as i2c pins */
-    bf_io_set_mode_i2c (chip_id, idx);
+    bfn_io_set_mode_i2c (chip_id, sub_devid, idx);
     /* set the i2c clk to TIMEOUT_100MS Khz (clk  period = 10000 nsec) */
-    bf_i2c_set_clk (chip_id, idx,
+    bfn_i2c_set_clk (chip_id, sub_devid, idx,
                     PERIOD_100KHZ_IN_10_NSEC);
     /* set i2c submode as REG (Different with Reference BSP) */
-    bf_i2c_set_submode (chip_id, idx,
+    bfn_i2c_set_submode (chip_id, sub_devid, idx,
                         BF_I2C_MODE_REG);
 
     return 0;

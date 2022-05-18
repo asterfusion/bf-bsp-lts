@@ -18,8 +18,8 @@
 #include <unistd.h>     //write
 #include <errno.h>
 
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <lld/lld_reg_if.h>
 #include <dru_sim/dru_sim.h>
 
@@ -255,7 +255,7 @@ static void tcl_server_exit_cleanup (void *arg)
         close (socket_desc);
         socket_desc = 0;
     }
-    bf_sys_usleep (
+    usleep (
         10000); /* give sockets a chance to close */
 }
 

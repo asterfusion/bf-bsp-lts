@@ -10,9 +10,7 @@
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_pltfm_si5342.h>
 #include <bf_types/bf_types.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 #include <dvm/bf_drv_intf.h>
 #include <string.h>
 

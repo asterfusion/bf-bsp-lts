@@ -13,7 +13,6 @@
 #include <port_mgr/bf_port_if.h>
 #include <port_mgr/bf_serdes_if.h>
 #include <port_mgr/port_mgr_intf.h>
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <lld/lld_reg_if.h>
 #include <bf_pltfm.h>
 
@@ -244,6 +243,7 @@ typedef struct bf_pltfm_fan_info_t {
     uint32_t percent;     /* Percentage of Max speed
                          * at which both fans are
                          * running */
+    uint32_t speed_level;
 } bf_pltfm_fan_info_t;
 
 typedef struct bf_pltfm_fan_data_t {

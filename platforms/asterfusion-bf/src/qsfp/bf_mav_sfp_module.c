@@ -31,9 +31,6 @@
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_pltfm_sfp.h>
 #include <bf_pltfm_qsfp.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_pltfm.h>
@@ -241,7 +238,7 @@ static struct sfp_ctx_st_t sfp_st_hc[] = {
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t sfp_ctx_hc[] = {
+static struct sfp_ctx_t sfp28_ctx_hc36y24c[] = {
     {{"Y1",  32, 0, (1 << 0), (0x77 << 1)}, (void **) &sfp_st_hc[0] },
     {{"Y2",  32, 1, (1 << 1), (0x77 << 1)}, (void **) &sfp_st_hc[1] },
     {{"Y3",  33, 3, (1 << 3), (0x76 << 1)}, (void **) &sfp_st_hc[2] },
@@ -283,19 +280,19 @@ static struct sfp_ctx_t sfp_ctx_hc[] = {
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t sfp_ctx_x532p[] = {
+static struct sfp_ctx_t sfp28_ctx_x532p[] = {
     {{"Y1", 33, 0, 0x10, 1}, (void *) &sfp_st_x532p[0]},
     {{"Y2", 33, 1, 0x20, 2}, (void *) &sfp_st_x532p[1]}
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t sfp_ctx_x564p[] = {
+static struct sfp_ctx_t sfp28_ctx_x564p[] = {
     {{"Y1", 65, 0, 0x10, 1}, (void *) &sfp_st_x564p[0]},
     {{"Y2", 65, 1, 0x20, 2}, (void *) &sfp_st_x564p[1]}
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t sfp_ctx_x308p[] = {
+static struct sfp_ctx_t sfp28_ctx_x308p[] = {
     {{"Y1",   9, 0, 0x70, 0}, (void *) &sfp_st_x308p[0]},
     {{"Y2",   9, 1, 0x70, 1}, (void *) &sfp_st_x308p[1]},
     {{"Y3",   9, 2, 0x70, 2}, (void *) &sfp_st_x308p[2]},
@@ -370,79 +367,83 @@ static struct sfp_ctx_t sfp_ctx_x308p[] = {
  */
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t sfp_ctx_x312p[] = {
-    {{"Y1",  21, 3, (2 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[0]},
-    {{"Y2",  21, 2, (2 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[1]},
-    {{"Y3",  20, 3, (2 << 4) | 2, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[2]},
-    {{"Y4",  21, 1, (2 << 4) | 3, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[3]},
-    {{"Y5",  21, 0, (2 << 4) | 4, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[4]},
-    {{"Y6",  20, 2, (2 << 4) | 5, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[5]},
-    {{"Y7",  19, 3, (2 << 4) | 6, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[6]},
-    {{"Y8",  19, 2, (2 << 4) | 7, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[7]},
+static struct sfp_ctx_t sfp28_ctx_x312p[] = {
+    {{"Y1",  13, 0, (2 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[0]},
+    {{"Y2",  13, 1, (2 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[1]},
+    {{"Y3",  15, 0, (2 << 4) | 2, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[2]},
+    {{"Y4",  13, 2, (2 << 4) | 3, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[3]},
+    {{"Y5",  13, 3, (2 << 4) | 4, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[4]},
+    {{"Y6",  15, 1, (2 << 4) | 5, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[5]},
+    {{"Y7",  14, 0, (2 << 4) | 6, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[6]},
+    {{"Y8",  14, 1, (2 << 4) | 7, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[7]},
+    {{"Y9",  15, 2, (2 << 4) | 0, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[8]},
+    {{"Y10", 14, 2, (2 << 4) | 1, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[9]},
+    {{"Y11", 14, 3, (2 << 4) | 2, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[10]},
+    {{"Y12", 15, 3, (2 << 4) | 3, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[11]},
 
-    {{"Y9",  20, 1, (2 << 4) | 0, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[8]},
-    {{"Y10", 19, 1, (2 << 4) | 1, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[9]},
-    {{"Y11", 19, 0, (2 << 4) | 2, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[10]},
-    {{"Y12", 20, 0, (2 << 4) | 3, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[11]},
-    {{"Y13", 17, 3, (2 << 4) | 4, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[12]},
-    {{"Y14", 17, 2, (2 << 4) | 5, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[13]},
-    {{"Y15", 15, 3, (2 << 4) | 6, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[14]},
-    {{"Y16", 17, 1, (2 << 4) | 7, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[15]},
+    {{"Y13", 16, 0, (2 << 4) | 4, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[12]},
+    {{"Y14", 16, 1, (2 << 4) | 5, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[13]},
+    {{"Y15", 18, 0, (2 << 4) | 6, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[14]},
+    {{"Y16", 16, 2, (2 << 4) | 7, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[15]},
+    {{"Y17", 16, 3, (3 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[16]},
+    {{"Y18", 18, 1, (3 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[17]},
+    {{"Y19", 17, 0, (3 << 4) | 2, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[18]},
+    {{"Y20", 17, 1, (3 << 4) | 3, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[19]},
+    {{"Y21", 18, 2, (3 << 4) | 4, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[20]},
+    {{"Y22", 17, 2, (3 << 4) | 5, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[21]},
+    {{"Y23", 17, 3, (3 << 4) | 6, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[22]},
+    {{"Y24", 18, 3, (3 << 4) | 7, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[23]},
 
-    {{"Y17", 17, 0, (3 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[16]},
-    {{"Y18", 15, 2, (3 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[17]},
-    {{"Y19", 13, 3, (3 << 4) | 2, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[18]},
-    {{"Y20", 13, 2, (3 << 4) | 3, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[19]},
-    {{"Y21", 15, 1, (3 << 4) | 4, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[20]},
-    {{"Y22", 13, 1, (3 << 4) | 5, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[21]},
-    {{"Y23", 13, 0, (3 << 4) | 6, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[22]},
-    {{"Y24", 15, 0, (3 << 4) | 7, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[23]},
+    {{"Y25", 19, 0, (3 << 4) | 0, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[24]},
+    {{"Y26", 19, 1, (3 << 4) | 1, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[25]},
+    {{"Y27", 21, 0, (3 << 4) | 2, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[26]},
+    {{"Y28", 19, 2, (3 << 4) | 3, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[27]},
+    {{"Y29", 19, 3, (3 << 4) | 4, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[28]},
+    {{"Y30", 21, 1, (3 << 4) | 5, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[29]},
+    {{"Y31", 20, 0, (3 << 4) | 6, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[30]},
+    {{"Y32", 20, 1, (3 << 4) | 7, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[31]},
+    {{"Y33", 21, 2, (4 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[32]},
+    {{"Y34", 20, 2, (4 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[33]},
+    {{"Y35", 20, 3, (4 << 4) | 2, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[34]},
+    {{"Y36", 21, 3, (4 << 4) | 3, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[35]},
 
-    {{"Y25", 11, 3, (3 << 4) | 0, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[24]},
-    {{"Y26", 11, 2, (3 << 4) | 1, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[25]},
-    {{"Y27", 12, 3, (3 << 4) | 2, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[26]},
-    {{"Y28", 11, 1, (3 << 4) | 3, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[27]},
-    {{"Y29", 11, 0, (3 << 4) | 4, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[28]},
-    {{"Y30", 12, 2, (3 << 4) | 5, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[29]},
-    {{"Y31", 10, 3, (3 << 4) | 6, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[30]},
-    {{"Y32", 10, 2, (3 << 4) | 7, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[31]},
-
-    {{"Y33", 12, 1, (4 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[32]},
-    {{"Y34", 10, 1, (4 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[33]},
-    {{"Y35", 10, 0, (4 << 4) | 2, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[34]},
-    {{"Y36", 12, 0, (4 << 4) | 3, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[35]},
-    {{"Y37",  8, 3, (4 << 4) | 4, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[36]},
-    {{"Y38",  8, 2, (4 << 4) | 5, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[37]},
-    {{"Y39",  9, 3, (4 << 4) | 6, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[38]},
-    {{"Y40",  8, 1, (4 << 4) | 7, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[39]},
-
-    {{"Y41",  8, 0, (4 << 4) | 0, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[40]},
-    {{"Y42",  9, 2, (4 << 4) | 1, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[41]},
-    {{"Y43",  7, 3, (4 << 4) | 2, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[42]},
-    {{"Y44",  7, 2, (4 << 4) | 3, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[43]},
-    {{"Y45",  9, 1, (4 << 4) | 4, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[44]},
-    {{"Y46",  7, 1, (4 << 4) | 5, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[45]},
-    {{"Y47",  7, 0, (4 << 4) | 6, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[46]},
-    {{"Y48",  9, 0, (4 << 4) | 7, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[47]},
+    {{"Y37", 22, 0, (4 << 4) | 4, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[36]},
+    {{"Y38", 22, 1, (4 << 4) | 5, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[37]},
+    {{"Y39", 24, 0, (4 << 4) | 6, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[38]},
+    {{"Y40", 22, 2, (4 << 4) | 7, (X312P_PCA9548_L2_0x72 << 8) | X312P_PCA9548_L2_0x73 }, (void *) &sfp_st_x312p[39]},
+    {{"Y41", 22, 3, (4 << 4) | 0, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[40]},
+    {{"Y42", 24, 1, (4 << 4) | 1, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[41]},
+    {{"Y43", 23, 0, (4 << 4) | 2, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[42]},
+    {{"Y44", 23, 1, (4 << 4) | 3, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[43]},
+    {{"Y45", 24, 2, (4 << 4) | 4, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[44]},
+    {{"Y46", 23, 2, (4 << 4) | 5, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[45]},
+    {{"Y47", 23, 3, (4 << 4) | 6, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[46]},
+    {{"Y48", 24, 3, (4 << 4) | 7, (X312P_PCA9548_L2_0x73 << 8) | X312P_PCA9548_L2_0x72 }, (void *) &sfp_st_x312p[47]},
 
     {{"Y49", 33, 0, (5 << 4) | 1, (X312P_PCA9548_L2_0x72 << 8) | 0x0 }, (void *) &sfp_st_x312p[48]},
     {{"Y50", 33, 1, (5 << 4) | 0, (X312P_PCA9548_L2_0x72 << 8) | 0x0 }, (void *) &sfp_st_x312p[49]}
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t cpu_ctx_x564p[] = {
+static struct sfp_ctx_t xsfp_ctx_x564p[] = {
     {{"X1", 65, 2, 0, 0}, NULL},
     {{"X2", 65, 3, 0, 0}, NULL}
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t cpu_ctx_x532p[] = {
+static struct sfp_ctx_t xsfp_ctx_x532p[] = {
     {{"X1", 33, 2, 0, 0}, NULL},
     {{"X2", 33, 3, 0, 0}, NULL}
 };
 
 /* Following panel order and 0 based index */
-static struct sfp_ctx_t cpu_ctx_x312p[] = {
+static struct sfp_ctx_t xsfp_ctx_x312p[] = {
+    {{"X1", 33, 2, 0, 0}, NULL},
+    {{"X2", 33, 3, 0, 0}, NULL}
+};
+
+/* Following panel order and 0 based index */
+static struct sfp_ctx_t xsfp_ctx_x308p[] = {
     {{"X1", 33, 2, 0, 0}, NULL},
     {{"X2", 33, 3, 0, 0}, NULL}
 };
@@ -469,6 +470,7 @@ struct opt_ctx_t {
 };
 
 struct opt_ctx_t *sfp_opt;
+static struct sfp_ctx_t *xsfp_ctx;
 
 static void hex_dump (uint8_t *buf, uint32_t len)
 {
@@ -626,7 +628,7 @@ static int sfp_select_x3 (uint32_t module)
             rc = -2;
             break;
         }
-        // get address from sfp_ctx_x312p
+        // get address from sfp28_ctx_x312p
         l1_ch = (sfp->info.i2c_chnl_addr & 0xF0) >> 4;
         l2_ch = (sfp->info.i2c_chnl_addr & 0x0F);
         l1_addr = X312P_PCA9548_L1_0X71;
@@ -709,7 +711,7 @@ static int sfp_unselect_x3 (uint32_t module)
             rc = -2;
             break;
         }
-        // get address from sfp_ctx_x312p
+        // get address from sfp28_ctx_x312p
         l1_addr = X312P_PCA9548_L1_0X71;
         l2_addr = (sfp->info.rev >> 8) & 0xFF;
         l2_addr_unconcerned = sfp->info.rev & 0xFF;
@@ -2508,11 +2510,21 @@ EXPORT bool bf_pltfm_detect_sfp (uint32_t module)
 EXPORT int bf_pltfm_get_sfp_ctx (struct sfp_ctx_t
                                  **sfp_ctx)
 {
-    *sfp_ctx = sfp_opt->sfp_ctx;
+    sfp_fetch_ctx ((void **)sfp_ctx);
     return 0;
 }
 
-struct opt_ctx_t x532p_opt = {
+EXPORT int bf_pltfm_get_xsfp_ctx (struct sfp_ctx_t
+                              **sfp_ctx)
+{
+    if (!xsfp_ctx)
+        return -1;
+
+    *sfp_ctx = xsfp_ctx;
+    return 0;
+}
+
+struct opt_ctx_t sfp28_opt_x532p = {
     .read = sfp_read_sub_module_x5,
     .write = sfp_write_sub_module_x5,
     .txdis = sfp_module_tx_disable_x5,
@@ -2522,10 +2534,10 @@ struct opt_ctx_t x532p_opt = {
     .unlock = do_unlock,
     .select = sfp_select_x5,
     .unselect = sfp_unselect_x5,
-    .sfp_ctx = &sfp_ctx_x532p,
+    .sfp_ctx = &sfp28_ctx_x532p,
 };
 
-struct opt_ctx_t x564p_opt = {
+struct opt_ctx_t sfp28_opt_x564p = {
     .read = sfp_read_sub_module_x5,
     .write = sfp_write_sub_module_x5,
     .txdis = sfp_module_tx_disable_x5,
@@ -2535,10 +2547,10 @@ struct opt_ctx_t x564p_opt = {
     .unlock = do_unlock,
     .select = sfp_select_x5,
     .unselect = sfp_unselect_x5,
-    .sfp_ctx = &sfp_ctx_x564p,
+    .sfp_ctx = &sfp28_ctx_x564p,
 };
 
-struct opt_ctx_t x308p_opt = {
+struct opt_ctx_t sfp28_opt_x308p = {
     .read = sfp_read_sub_module_x308p,
     .write = sfp_write_sub_module_x308p,
     .txdis = sfp_module_tx_disable_x308p,
@@ -2548,10 +2560,10 @@ struct opt_ctx_t x308p_opt = {
     .unlock = do_unlock_x308p,
     .select = sfp_select_x308p,
     .unselect = sfp_unselect_x308p,
-    .sfp_ctx = &sfp_ctx_x308p,
+    .sfp_ctx = &sfp28_ctx_x308p,
 };
 
-struct opt_ctx_t x312p_opt = {
+struct opt_ctx_t sfp28_opt_x312p = {
     .read = sfp_read_sub_module_x3,
     .write = sfp_write_sub_module_x3,
     .txdis = sfp_module_tx_disable_x3,
@@ -2561,10 +2573,10 @@ struct opt_ctx_t x312p_opt = {
     .unlock = do_unlock_x3,
     .select = sfp_select_x3,
     .unselect = sfp_unselect_x3,
-    .sfp_ctx = &sfp_ctx_x312p,
+    .sfp_ctx = &sfp28_ctx_x312p,
 };
 
-struct opt_ctx_t hc_opt = {
+struct opt_ctx_t sfp28_opt_hc36y24c = {
     .read = sfp_read_sub_module_hc,
     .write = sfp_write_sub_module_hc,
     .txdis = sfp_module_tx_disable_hc,
@@ -2574,7 +2586,7 @@ struct opt_ctx_t hc_opt = {
     .unlock = do_unlock_hc,
     .select = sfp_select_hc,
     .unselect = sfp_unselect_hc,
-    .sfp_ctx = &sfp_ctx_hc,
+    .sfp_ctx = &sfp28_ctx_hc36y24c,
 };
 
 int bf_pltfm_sfp_init (void *arg)
@@ -2586,20 +2598,25 @@ int bf_pltfm_sfp_init (void *arg)
              "\n\n================== SFPs INIT ==================\n");
 
     if (platform_type_equal (X532P)) {
-        sfp_opt = &x532p_opt;
-        bf_sfp_set_num (ARRAY_LENGTH (sfp_ctx_x532p));
+        xsfp_ctx = &xsfp_ctx_x532p[0];
+        sfp_opt = &sfp28_opt_x532p;
+        bf_sfp_set_num (ARRAY_LENGTH (sfp28_ctx_x532p));
     } else if (platform_type_equal (X564P)) {
-        sfp_opt = &x564p_opt;
-        bf_sfp_set_num (ARRAY_LENGTH (sfp_ctx_x564p));
+        xsfp_ctx = &xsfp_ctx_x564p[0];
+        sfp_opt = &sfp28_opt_x564p;
+        bf_sfp_set_num (ARRAY_LENGTH (sfp28_ctx_x564p));
     } else if (platform_type_equal (X308P)) {
-        sfp_opt = &x308p_opt;
-        bf_sfp_set_num (ARRAY_LENGTH (sfp_ctx_x308p));
+        xsfp_ctx = &xsfp_ctx_x308p[0];
+        sfp_opt = &sfp28_opt_x308p;
+        bf_sfp_set_num (ARRAY_LENGTH (sfp28_ctx_x308p));
     } else if (platform_type_equal (X312P)) {
-        sfp_opt = &x312p_opt;
-        bf_sfp_set_num (ARRAY_LENGTH (sfp_ctx_x312p));
+        xsfp_ctx = &xsfp_ctx_x312p[0];
+        sfp_opt = &sfp28_opt_x312p;
+        bf_sfp_set_num (ARRAY_LENGTH (sfp28_ctx_x312p));
     } else if (platform_type_equal (HC)) {
-        sfp_opt = &hc_opt;
-        bf_sfp_set_num (ARRAY_LENGTH (sfp_ctx_hc));
+        xsfp_ctx = NULL;
+        sfp_opt = &sfp28_opt_hc36y24c;
+        bf_sfp_set_num (ARRAY_LENGTH (sfp28_ctx_hc36y24c));
     }
     BUG_ON (sfp_opt == NULL);
 
@@ -2637,69 +2654,177 @@ int bf_pltfm_sfp_init (void *arg)
     return 0;
 }
 
-bf_dev_port_t bf_get_dev_port_by_interface_name (
-    char *name)
+/* NOT finished yet. is_panel_sfp is a commonly used API.
+ * by tsihang, 2021-07-18. */
+EXPORT bool is_panel_qsfp_module (
+    IN unsigned int module)
+{
+    if (platform_type_equal (X532P)) {
+        if ((module >= 1) && (module <= 32)) {
+            return true;
+        }
+    } else if (platform_type_equal (X564P)) {
+        if ((module >= 1) && (module <= 64)) {
+            return true;
+        }
+    } else if (platform_type_equal (X308P)) {
+        if ((module >= 1) && (module <= 8)) {
+            return true;
+        }
+    } else if (platform_type_equal (X312P)) {
+        if ((module >= 1) && (module <= 12)) {
+            return true;
+        }
+    } else if (platform_type_equal (HC)) {
+        if ((module >= 1) && (module <= 24)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Panel <-> ASIC. */
+EXPORT bool is_panel_sfp_module (
+    IN unsigned int module)
+{
+    if (platform_type_equal (X532P)) {
+        if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (X564P)) {
+        if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (X308P)) {
+        if ((module >= 1) && (module <= 48)) {
+            return true;
+        }
+    } else if (platform_type_equal (X312P)) {
+        if ((module >= 1) && (module <= 50)) {
+            return true;
+        }
+    } else if (platform_type_equal (HC)) {
+        if ((module >= 1) && (module <= 38)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* COMe <-> ASIC : X1, X2 */
+EXPORT bool is_xsfp_module (
+    IN unsigned int module)
+{
+    if (platform_type_equal (X532P)) {
+        if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (X564P)) {
+        if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (X312P)) {
+        if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (HC)) {
+        if ((module >= 1) && (module <= 2)) {
+            return true;
+        }
+    } else if (platform_type_equal (X308P)) {
+        /* X308P-T has no this module. */
+    }
+    return false;
+}
+
+/* COMe channel, always be 2x 10G. */
+EXPORT int bf_pltfm_xsfp_lookup_by_module (
+    IN  int module,
+    OUT uint32_t *conn_id,
+    OUT uint32_t *chnl_id
+)
+{
+    struct sfp_ctx_t *sfp, *sfp_ctx;
+    if (bf_pltfm_get_xsfp_ctx (&sfp_ctx)) {
+        LOG_ERROR (
+            "Current platform has no xSFP %2d, exiting ...", module);
+        return -1;
+    }
+
+    sfp = &sfp_ctx[(module - 1) %
+        2];
+
+    *conn_id = sfp->info.conn;
+    *chnl_id = sfp->info.chnl;
+
+    return 0;
+}
+
+/* The interface only export to caller, such as stratum, etc.
+ * and the @name as input param is readable and comes from panel.
+ * by tsihang, 2022-05-11. */
+EXPORT bf_dev_port_t bf_get_dev_port_by_interface_name (
+    IN char *name)
 {
     /* safety check */
     if (!name) {
         return -1;
     }
     bf_dev_id_t dev_id = 0;
-    int module;
+    bf_dev_port_t d_p = 0;
+    int module, err = 0;
     bf_pal_front_port_handle_t port_hdl;
-    bf_dev_port_t d_p;
 
     module = atoi (&name[1]);
     if (module == 0) {
         return -1;
     }
+
     if (name[0] == 'C') {
+        port_hdl.chnl_id = 0;
         if (is_panel_qsfp_module (module)) {
-            port_hdl.conn_id = module;
-            port_hdl.chnl_id = 0;
-            /* Converto, please help to fixme. */
-            if (platform_type_equal (X312P)) {
-                port_hdl.conn_id = 0;
+            err = bf_pltfm_qsfp_lookup_by_module (module,
+                                            &port_hdl.conn_id);
+            if (err) {
+                return -1;
             }
-            FP2DP (dev_id, &port_hdl, &d_p);
-            return d_p;
+            goto fetch_dp;
         } else {
-            return -1;
+            /* GHC channel ? */
+            err = bf_pltfm_vqsfp_lookup_by_module (module,
+                                                &port_hdl.conn_id);
+            if (err) {
+                return -1;
+            }
         }
     } else if (name[0] == 'Y') {
         if (is_panel_sfp_module (module)) {
-            bf_pltfm_sfp_lookup_by_module (module,
-                                           &port_hdl.conn_id, &port_hdl.chnl_id);
-            FP2DP (dev_id, &port_hdl, &d_p);
-            return d_p;
+            err = bf_pltfm_sfp_lookup_by_module (module,
+                                                &port_hdl.conn_id, &port_hdl.chnl_id);
+            if (err) {
+                return -1;
+            }
+            goto fetch_dp;
         } else {
             return -1;
         }
     } else if (name[0] == 'X') {
-        if (is_panel_cpu_module (module)) {
-            if (platform_type_equal (X532P)) {
-                port_hdl.conn_id = cpu_ctx_x532p[module -
-                                                        1].info.conn;
-                port_hdl.chnl_id = cpu_ctx_x532p[module -
-                                                        1].info.chnl;
-            } else if (platform_type_equal (X564P)) {
-                port_hdl.conn_id = cpu_ctx_x564p[module -
-                                                        1].info.conn;
-                port_hdl.chnl_id = cpu_ctx_x564p[module -
-                                                        1].info.chnl;
-            } else if (platform_type_equal (X312P)) {
-                port_hdl.conn_id = cpu_ctx_x312p[module -
-                                                        1].info.conn;
-                port_hdl.chnl_id = cpu_ctx_x312p[module -
-                                                        1].info.chnl;
+        if (is_xsfp_module (module)) {
+            err = bf_pltfm_xsfp_lookup_by_module (module,
+                                                &port_hdl.conn_id, &port_hdl.chnl_id);
+            if (err) {
+                return -1;
             }
-            FP2DP (dev_id, &port_hdl, &d_p);
-            return d_p;
+            goto fetch_dp;
         } else {
             return -1;
         }
     } else {
         return -1;
     }
+
+fetch_dp:
+    FP2DP (dev_id, &port_hdl, &d_p);
+    return d_p;
 }
 

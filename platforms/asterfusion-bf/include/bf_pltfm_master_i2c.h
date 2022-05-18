@@ -8,7 +8,6 @@
 
 #ifndef _BF_PLTFM_MASTER_I2C_H
 #define _BF_PLTFM_MASTER_I2C_H
-#include <bfutils/uCli/ucli.h>
 
 #if OS_VERSION_LT(10)
 /* Debian 9/8/... */

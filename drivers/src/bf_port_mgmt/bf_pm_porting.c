@@ -1025,7 +1025,7 @@ bf_status_t bf_pm_prbs_cfg_set (
                ||
                (port_cfg->speed_cfg == BF_SPEED_50G) ||
                (port_cfg->speed_cfg == BF_SPEED_100G) ||
-               (port_cfg->speed_cfg == BF_SPEED_40G_NB)) {
+               1/*(port_cfg->speed_cfg == BF_SPEED_40G_NB)*/) {
         speed = BF_SPEED_25G;
     } else {
         LOG_ERROR ("Failed to configure retimer for prbs. Unsupported speed: %d.",

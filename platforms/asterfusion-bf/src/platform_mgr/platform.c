@@ -16,7 +16,6 @@
 #include <sys/types.h>
 #include <pwd.h>
 
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
@@ -44,10 +43,6 @@
 #include <bf_pltfm_sfp.h>
 #include <bf_pltfm_rtmr.h>
 #include <bf_pltfm_bd_cfg.h>
-
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 
 #include "version.h"
 #include "pltfm_types.h"
@@ -482,6 +477,7 @@ void bf_pltfm_platform_exit (void *arg)
         /* To avoid two 'bf_pltfm' nodes in bfshell.
          * by tsihang, 2022-04-21. */
         bf_drv_shell_unregister_ucli (bf_pltfm_ucli_node);
+        //ucli_node_destroy (bf_pltfm_ucli_node);
     }
 
     bf_sys_rmutex_del (&mav_i2c_lock);

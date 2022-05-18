@@ -14,9 +14,6 @@
 #include <bf_bd_cfg/bf_bd_cfg.h>
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_pltfm_sfp.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 
 extern int bf_pltfm_get_sfp_ctx (struct sfp_ctx_t
@@ -613,23 +610,29 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
                              *uc)
 {
-    int module;
-    struct sfp_ctx_t *sfp_ctx;
-    struct sfp_ctx_info_t *sfp;
+    int module, err;
+    uint32_t conn_id, chnl_id = 0;
+    char alias[8] = {0}, connc[8] = {0};
 
     UCLI_COMMAND_INFO (uc, "map", 0,
                        "Display SFP map.");
 
-    if (!bf_pltfm_get_sfp_ctx (&sfp_ctx)) {
-        /* Dump the map of SFP <-> QSFP/CH. */
-        for (int i = 0; i < bf_sfp_get_max_sfp_ports();
-             i ++) {
-            module = (i + 1);
-            sfp = &sfp_ctx[i].info;
-            aim_printf (&uc->pvs, "Y%02d   <->   %02d/%d : %s\n",
-                        module, sfp->conn, sfp->chnl, bf_sfp_is_present (module) ? "present" : "not present");
+    /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
+    aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
+            "MODULE", "ALIAS", "PORT", "PRESENT");
+
+    for (int i = 0; i < bf_sfp_get_max_sfp_ports();
+         i ++) {
+        module = (i + 1);
+        err = bf_pltfm_sfp_lookup_by_module (module, &conn_id, &chnl_id);
+        if (!err) {
+            sprintf(alias, "Y%d", module);
+            sprintf(connc, "%2d/%d", conn_id, chnl_id);
+            aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
+                        module, alias, connc, bf_sfp_is_present (module) ? "true" : "false");
         }
     }
+
     return BF_PLTFM_SUCCESS;
 }
 

@@ -8,7 +8,7 @@
 
 #ifndef _BF_PLTFM_SPI_H
 #define _BF_PLTFM_SPI_H
-#include <bfutils/uCli/ucli.h>
+
 /* Allow the use in C++ code. */
 #ifdef __cplusplus
 extern "C" {

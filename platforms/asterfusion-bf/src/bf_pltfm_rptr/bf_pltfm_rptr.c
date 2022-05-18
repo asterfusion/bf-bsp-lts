@@ -20,7 +20,6 @@
 #include <bf_pltfm_rptr.h>
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <bf_mav_qsfp_i2c_lock.h>
 
 /* Local header includes */

@@ -17,9 +17,6 @@
 #include <bf_bd_cfg/bf_bd_cfg.h>
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_qsfp.h>
-#include <bfutils/uCli/ucli.h>
-#include <bfutils/uCli/ucli_argparse.h>
-#include <bfutils/uCli/ucli_handler_macros.h>
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 
 static ucli_status_t
@@ -1745,22 +1742,45 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
                               *uc)
 {
-    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
+    int module, err;
+    uint32_t conn_id, chnl_id = 0;
+    char alias[8] = {0}, connc[8] = {0};
 
     UCLI_COMMAND_INFO (uc, "map", 0,
-                       "Display QSFP map.");
+                    "Display QSFP map.");
 
-    if (!bf_pltfm_get_qsfp_ctx (&qsfp_ctx)) {
-        /* Dump the map of QSFP <-> QSFP. */
-        for (int i = 0;
-             i < bf_qsfp_get_max_qsfp_ports(); i ++) {
-            qsfp = &qsfp_ctx[i];
-            if (strcmp(qsfp->desc, "EMPTY")) {
-                aim_printf (&uc->pvs, "%-3s   <->   %02d : %s\n",
-                            qsfp->desc, qsfp->conn_id, bf_qsfp_is_present (qsfp->conn_id) ? "present" : "not present");
-            }
+    /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
+    aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
+            "MODULE", "ALIAS", "PORT", "PRESENT");
+
+    /* QSFP */
+    for (int i = 0; i < bf_qsfp_get_max_qsfp_ports();
+        i ++) {
+        module = (i + 1);
+        err = bf_pltfm_qsfp_lookup_by_module (module, &conn_id);
+        if (!err) {
+            sprintf(alias, "C%d", module);
+            sprintf(connc, "%2d/%d", conn_id, chnl_id);
+            aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
+                     module, alias, connc, bf_qsfp_is_present (module) ? "true" : "false");
         }
     }
+
+    /* vQSFP, always true. */
+    aim_printf (&uc->pvs, "%12s\n",
+            "===vQSFP===");
+    for (int i = bf_qsfp_get_max_qsfp_ports();
+        i < bf_qsfp_get_max_qsfp_ports() + 4; i ++) {
+        module = (i + 1);
+        err = bf_pltfm_vqsfp_lookup_by_module (module, &conn_id);
+        if (!err) {
+            sprintf(alias, "C%d", module);
+            sprintf(connc, "%2d/%d", conn_id, chnl_id);
+            aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
+                     module, alias, connc, "true");
+        }
+    }
+
     return BF_PLTFM_SUCCESS;
 }
 

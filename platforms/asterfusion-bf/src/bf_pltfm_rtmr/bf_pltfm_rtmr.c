@@ -29,7 +29,6 @@
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <bf_types/bf_types.h>
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 #include <lld/lld_gpio_if.h>
@@ -522,18 +521,18 @@ bf_pltfm_rtmr_tf_raw_reg_read (
     buf[3] = 0;
 
     if (!tf_i2c_init) {
-        res |= bf_io_set_mode_i2c (0, TOFINO_PIN_PAIR);
-        res |= bf_i2c_set_clk (0, TOFINO_PIN_PAIR,
+        res |= bfn_io_set_mode_i2c (0, sub_devid, TOFINO_PIN_PAIR);
+        res |= bfn_i2c_set_clk (0, sub_devid, TOFINO_PIN_PAIR,
                                TOFINO_I2C_PERIOD);
-        res |= bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+        res |= bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                    BF_I2C_MODE_REG);
         tf_i2c_init = 1;
     }
 
     n_offset = RTMR_SWAP_BYTE (offset);
 
-    res |= bf_i2c_rd_reg_blocking (
-               0, TOFINO_PIN_PAIR, (rtmr_i2c_addr >> 1),
+    res |= bfn_i2c_rd_reg_blocking (
+               0, sub_devid, TOFINO_PIN_PAIR, (rtmr_i2c_addr >> 1),
                n_offset, 2, buf, 2);
 
     if (res != BF_PLTFM_SUCCESS) {
@@ -543,7 +542,7 @@ bf_pltfm_rtmr_tf_raw_reg_read (
             rtmr_i2c_addr,
             offset);
         /* Reset i2c in case i2c is locked on error */
-        res |= bf_i2c_reset (0, TOFINO_PIN_PAIR);
+        res |= bfn_i2c_reset (0, sub_devid, TOFINO_PIN_PAIR);
     }
 
     ptr[1] = buf[0];
@@ -701,15 +700,15 @@ bf_pltfm_rtmr_tf_raw_reg_write (uint8_t
     n_offset = RTMR_SWAP_BYTE (offset);
 
     if (!tf_i2c_init) {
-        res |= bf_io_set_mode_i2c (0, TOFINO_PIN_PAIR);
-        res |= bf_i2c_set_clk (0, TOFINO_PIN_PAIR,
+        res |= bfn_io_set_mode_i2c (0, sub_devid, TOFINO_PIN_PAIR);
+        res |= bfn_i2c_set_clk (0, sub_devid, TOFINO_PIN_PAIR,
                                TOFINO_I2C_PERIOD);
-        res |= bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+        res |= bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                    BF_I2C_MODE_REG);
         tf_i2c_init = 1;
     }
 
-    res |= bf_i2c_wr_reg_blocking (0,
+    res |= bfn_i2c_wr_reg_blocking (0, sub_devid,
                                    TOFINO_PIN_PAIR,
                                    (rtmr_i2c_addr >> 1),
                                    n_offset,
@@ -726,7 +725,7 @@ bf_pltfm_rtmr_tf_raw_reg_write (uint8_t
             rtmr_i2c_addr,
             offset,
             data);
-        res |= bf_i2c_reset (0, TOFINO_PIN_PAIR);
+        res |= bfn_i2c_reset (0, sub_devid, TOFINO_PIN_PAIR);
     }
 
     return res;
@@ -750,22 +749,22 @@ bf_pltfm_rtmr_tf_stream_wr (uint8_t rtmr_i2c_addr,
     n_offset = RTMR_SWAP_BYTE (offset);
 
     if (!tf_i2c_init) {
-        res |= bf_io_set_mode_i2c (0, TOFINO_PIN_PAIR);
-        res |= bf_i2c_set_clk (0, TOFINO_PIN_PAIR,
+        res |= bfn_io_set_mode_i2c (0, sub_devid, TOFINO_PIN_PAIR);
+        res |= bfn_i2c_set_clk (0, sub_devid, TOFINO_PIN_PAIR,
                                TOFINO_I2C_PERIOD);
         tf_i2c_init = 1;
     }
-    res |= bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+    res |= bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                BF_I2C_MODE_STATEOUT);
 
-    res |= bf_write_stateout_buf (0, TOFINO_PIN_PAIR,
+    res |= bfn_write_stateout_buf (0, sub_devid, TOFINO_PIN_PAIR,
                                   0, buf, buf_size);
 
-    if (res |= bf_i2c_issue_stateout (
-                   0, TOFINO_PIN_PAIR, (rtmr_i2c_addr >> 1),
+    if (res |= bfn_i2c_issue_stateout (
+                   0, sub_devid, TOFINO_PIN_PAIR, (rtmr_i2c_addr >> 1),
                    n_offset, 2, 0, buf_size)) {
-        res |= bf_i2c_reset (0, TOFINO_PIN_PAIR);
-        res |= bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+        res |= bfn_i2c_reset (0, sub_devid, TOFINO_PIN_PAIR);
+        res |= bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                    BF_I2C_MODE_REG);
         return res;
     }
@@ -775,25 +774,25 @@ bf_pltfm_rtmr_tf_stream_wr (uint8_t rtmr_i2c_addr,
     while (wait_cnt++ < 50) {
         /* sleep for 2 byte i2c wire delay */
         bf_sys_usleep (10);
-        status = bf_i2c_get_completion_status (0,
+        status = bfn_i2c_get_completion_status (0, sub_devid,
                                                TOFINO_PIN_PAIR, &complete);
         if (status != BF_SUCCESS) {
             /* Restore GPIO to i2c register mode */
-            bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+            bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                 BF_I2C_MODE_REG);
-            bf_i2c_reset (0, TOFINO_PIN_PAIR);
+            bfn_i2c_reset (0, sub_devid, TOFINO_PIN_PAIR);
             return status;
         }
         if (!complete) {
             /* Restore GPIO to i2c register mode */
-            bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+            bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                 BF_I2C_MODE_REG);
             return BF_SUCCESS;
         }
     }
 
     /* Restore GPIO to i2c register mode */
-    res |= bf_i2c_set_submode (0, TOFINO_PIN_PAIR,
+    res |= bfn_i2c_set_submode (0, sub_devid, TOFINO_PIN_PAIR,
                                BF_I2C_MODE_REG);
     return res;
 }
@@ -1944,7 +1943,7 @@ bf_pltfm_status_t bf_pltfm_ext_phy_set_mode (
     } else if ((speed == BF_SPEED_25G) ||
                (speed == BF_SPEED_50G) ||
                (speed == BF_SPEED_100G) ||
-               (speed == BF_SPEED_40G_NB)) {
+               /*(speed == BF_SPEED_40G_NB)*/1) {
         mode = 2;
     } else if ((speed == BF_SPEED_10G) ||
                (speed == BF_SPEED_40G)) {

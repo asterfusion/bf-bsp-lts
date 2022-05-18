@@ -8,9 +8,6 @@
 
 #ifndef _BF_MAV_LED_H
 #define _BF_MAV_LED_H
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
 
 /* Allow the use in C++ code. */
 #ifdef __cplusplus

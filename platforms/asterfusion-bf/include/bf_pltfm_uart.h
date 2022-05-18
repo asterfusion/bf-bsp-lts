@@ -8,10 +8,6 @@
 #ifndef _BF_PLTFM_UART_H
 #define _BF_PLTFM_UART_H
 
-#ifdef INC_PLTFM_UCLI
-#include <bfutils/uCli/ucli.h>
-#endif
-
 /* Allow the use in C++ code. */
 #ifdef __cplusplus
 extern "C" {

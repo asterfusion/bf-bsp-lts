@@ -9,7 +9,6 @@
 #include <math.h>
 
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_sem.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_qsfp/bf_qsfp.h>

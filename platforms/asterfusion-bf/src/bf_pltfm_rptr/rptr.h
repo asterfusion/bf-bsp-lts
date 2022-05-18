@@ -15,7 +15,6 @@
 #ifndef _RPTR_H
 #define _RPTR_H
 
-#include <bfsys/bf_sal/bf_sys_intf.h>
 
 /* typedef for repeater i2c address mapping */
 typedef struct bf_pltfm_rptr_i2c_addr_t {

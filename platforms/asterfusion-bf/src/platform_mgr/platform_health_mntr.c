@@ -11,7 +11,6 @@
 /* Module includes */
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_types/bf_types.h>
-#include <bfsys/bf_sal/bf_sys_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_pltfm_mgr/pltfm_mgr_handlers.h>
 #include <bf_switchd/bf_switchd.h>
@@ -495,9 +494,6 @@ static void check_module()
 
     for (i = 1; i <= max_qsfp_modules; i ++) {
         qsfp = &qsfp_ctx[i - 1];
-        if (strcmp (qsfp->desc, "EMPTY") == 0) {
-            continue;
-        }
         module = atoi (&qsfp->desc[1]);
 
         if (module >= 33) {
