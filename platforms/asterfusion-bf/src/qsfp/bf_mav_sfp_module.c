@@ -492,7 +492,7 @@ static void do_lock()
      * competition with such application, here we lock it up
      * before using it.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MASTER_I2C_LOCK;
 }
@@ -504,7 +504,7 @@ static void do_unlock()
      * competition with such application, here we lock it up
      * before using it.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MASTER_I2C_UNLOCK;
 }
@@ -515,7 +515,7 @@ static void do_lock_x308p()
      * there's no resource competition with other application,
      * here we still hold the lock in case of risk.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MAV_SFP_LOCK;
 }
@@ -526,7 +526,7 @@ static void do_unlock_x308p()
      * there's no resource competition with other application,
      * here we still hold the lock in case of risk.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MAV_SFP_UNLOCK;
 }
@@ -537,7 +537,7 @@ static void do_lock_x3()
      * there's no resource competition with other application,
      * here we still hold the lock in case of risk.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MASTER_I2C_LOCK;
 }
@@ -548,7 +548,7 @@ static void do_unlock_x3()
      * there's no resource competition with other application,
      * here we still hold the lock in case of risk.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MASTER_I2C_UNLOCK;
 }
@@ -559,7 +559,7 @@ static void do_lock_hc()
      * there's no resource competition with other application,
      * here we still hold the lock in case of risk.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MAV_SFP_LOCK;
 }
@@ -570,7 +570,7 @@ static void do_unlock_hc()
      * resource competition with other application.
      * So, here we make a stub.
      *
-     * by tishang, 2021-07-16.
+     * by tsihang, 2021-07-16.
      */
     MAV_SFP_UNLOCK;
 }

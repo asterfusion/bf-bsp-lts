@@ -130,6 +130,8 @@ extern "C" {
             (type *)((char *)__mptr - offsetof(type,member));})
 #endif
 
+/* Considering mounting LOG_DIR_PREFIX to ramfs or tmpfs.
+ * by tsihang, 2022-06-02. */
 #define LOG_DIR_PREFIX  "/var/asterfusion"
 
 #define BOLD        "\e[1m"

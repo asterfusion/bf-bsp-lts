@@ -37,6 +37,8 @@
 #include "lq.h"
 static bool async_led_debug_on = false;
 #endif
+/* For x312p-t, bus Competition is heavy. */
+volatile uint64_t g_rt_async_led_q_length = 0;
 
 /**** MAVERICKS LED holding buffer organization ******
  * sysCPLD proxies as the LED driver. Each sysCPLD has got 64  8bit
@@ -146,6 +148,12 @@ struct led_ctx_t {
     uint8_t val;    /* cached led value. */
 };
 #define NOT_USED            0
+
+struct led_init_t {
+    bf_io_pin_pair_t idx;
+    uint8_t cpld_offset;
+    uint8_t val;
+};
 
 static struct led_ctx_t *
 connID_chnlID_to_led_ctx_index[BF_PLAT_MAX_QSFP +
@@ -414,116 +422,145 @@ static struct led_ctx_t led_ctx_hc[] = {
 };
 
 static struct led_ctx_t led_ctx_x312p[] = {
-    {"C1",  1, 0, PIN01, (0x71 << 8) | 0x90, 0, 0xff},              //C1
-    {"C1",  1, 1, PIN01, (0x71 << 8) | 0x90, 1, 0xff},              //C1
-    {"C1",  1, 2, PIN01, (0x71 << 8) | 0x90, 2, 0xff},              //C1
-    {"C1",  1, 3, PIN01, (0x71 << 8) | 0x90, 3, 0xff},              //C1
+    {"C1",  1, 0, PIN01, (0x71 << 8) | 0x90, 0, 0x00},              //C1
+    {"C1",  1, 1, PIN01, (0x71 << 8) | 0x90, 1, 0x00},              //C1
+    {"C1",  1, 2, PIN01, (0x71 << 8) | 0x90, 2, 0x00},              //C1
+    {"C1",  1, 3, PIN01, (0x71 << 8) | 0x90, 3, 0x00},              //C1
 
-    {"C2",  2, 0, PIN01, (0x71 << 8) | 0x90, 4, 0xff},              //C2
-    {"C2",  2, 1, PIN01, (0x71 << 8) | 0x90, 5, 0xff},              //C2
-    {"C2",  2, 2, PIN01, (0x71 << 8) | 0x90, 6, 0xff},              //C2
-    {"C2",  2, 3, PIN01, (0x71 << 8) | 0x90, 7, 0xff},              //C2
+    {"C2",  2, 0, PIN01, (0x71 << 8) | 0x90, 4, 0x00},              //C2
+    {"C2",  2, 1, PIN01, (0x71 << 8) | 0x90, 5, 0x00},              //C2
+    {"C2",  2, 2, PIN01, (0x71 << 8) | 0x90, 6, 0x00},              //C2
+    {"C2",  2, 3, PIN01, (0x71 << 8) | 0x90, 7, 0x00},              //C2
 
-    {"C3",  3, 0, PIN01, (0x81 << 8) | 0xA0, 0, 0xff},              //C3
-    {"C3",  3, 1, PIN01, (0x81 << 8) | 0xA0, 1, 0xff},              //C3
-    {"C3",  3, 2, PIN01, (0x81 << 8) | 0xA0, 2, 0xff},              //C3
-    {"C3",  3, 3, PIN01, (0x81 << 8) | 0xA0, 3, 0xff},              //C3
+    {"C3",  3, 0, PIN01, (0x81 << 8) | 0xA0, 0, 0x00},              //C3
+    {"C3",  3, 1, PIN01, (0x81 << 8) | 0xA0, 1, 0x00},              //C3
+    {"C3",  3, 2, PIN01, (0x81 << 8) | 0xA0, 2, 0x00},              //C3
+    {"C3",  3, 3, PIN01, (0x81 << 8) | 0xA0, 3, 0x00},              //C3
 
-    {"C4",  4, 0, PIN01, (0x81 << 8) | 0xA0, 4, 0xff},              //C4
-    {"C4",  4, 1, PIN01, (0x81 << 8) | 0xA0, 5, 0xff},              //C4
-    {"C4",  4, 2, PIN01, (0x81 << 8) | 0xA0, 6, 0xff},              //C4
-    {"C4",  4, 3, PIN01, (0x81 << 8) | 0xA0, 7, 0xff},              //C4
+    {"C4",  4, 0, PIN01, (0x81 << 8) | 0xA0, 4, 0x00},              //C4
+    {"C4",  4, 1, PIN01, (0x81 << 8) | 0xA0, 5, 0x00},              //C4
+    {"C4",  4, 2, PIN01, (0x81 << 8) | 0xA0, 6, 0x00},              //C4
+    {"C4",  4, 3, PIN01, (0x81 << 8) | 0xA0, 7, 0x00},              //C4
 
-    {"C5",  5, 0, PIN01, (0x91 << 8) | 0xB0, 0, 0xff},              //C5
-    {"C5",  5, 1, PIN01, (0x91 << 8) | 0xB0, 1, 0xff},              //C5
-    {"C5",  5, 2, PIN01, (0x91 << 8) | 0xB0, 2, 0xff},              //C5
-    {"C5",  5, 3, PIN01, (0x91 << 8) | 0xB0, 3, 0xff},              //C5
+    {"C5",  5, 0, PIN01, (0x91 << 8) | 0xB0, 0, 0x00},              //C5
+    {"C5",  5, 1, PIN01, (0x91 << 8) | 0xB0, 1, 0x00},              //C5
+    {"C5",  5, 2, PIN01, (0x91 << 8) | 0xB0, 2, 0x00},              //C5
+    {"C5",  5, 3, PIN01, (0x91 << 8) | 0xB0, 3, 0x00},              //C5
 
-    {"C6",  6, 0, PIN01, (0x91 << 8) | 0xB0, 4, 0xff},              //C6
-    {"C6",  6, 1, PIN01, (0x91 << 8) | 0xB0, 5, 0xff},              //C6
-    {"C6",  6, 2, PIN01, (0x91 << 8) | 0xB0, 6, 0xff},              //C6
-    {"C6",  6, 3, PIN01, (0x91 << 8) | 0xB0, 7, 0xff},              //C6
+    {"C6",  6, 0, PIN01, (0x91 << 8) | 0xB0, 4, 0x00},              //C6
+    {"C6",  6, 1, PIN01, (0x91 << 8) | 0xB0, 5, 0x00},              //C6
+    {"C6",  6, 2, PIN01, (0x91 << 8) | 0xB0, 6, 0x00},              //C6
+    {"C6",  6, 3, PIN01, (0x91 << 8) | 0xB0, 7, 0x00},              //C6
 
-    {"C7",  7, 0, PIN01, (0xA1 << 8) | 0xC0, 0, 0xff},              //C7
-    {"C7",  7, 1, PIN01, (0xA1 << 8) | 0xC0, 1, 0xff},              //C7
-    {"C7",  7, 2, PIN01, (0xA1 << 8) | 0xC0, 2, 0xff},              //C7
-    {"C7",  7, 3, PIN01, (0xA1 << 8) | 0xC0, 3, 0xff},              //C7
+    {"C7",  7, 0, PIN01, (0xA1 << 8) | 0xC0, 0, 0x00},              //C7
+    {"C7",  7, 1, PIN01, (0xA1 << 8) | 0xC0, 1, 0x00},              //C7
+    {"C7",  7, 2, PIN01, (0xA1 << 8) | 0xC0, 2, 0x00},              //C7
+    {"C7",  7, 3, PIN01, (0xA1 << 8) | 0xC0, 3, 0x00},              //C7
 
-    {"C8",  8, 0, PIN01, (0xA1 << 8) | 0xC0, 4, 0xff},              //C8
-    {"C8",  8, 1, PIN01, (0xA1 << 8) | 0xC0, 5, 0xff},              //C8
-    {"C8",  8, 2, PIN01, (0xA1 << 8) | 0xC0, 6, 0xff},              //C8
-    {"C8",  8, 3, PIN01, (0xA1 << 8) | 0xC0, 7, 0xff},              //C8
+    {"C8",  8, 0, PIN01, (0xA1 << 8) | 0xC0, 4, 0x00},              //C8
+    {"C8",  8, 1, PIN01, (0xA1 << 8) | 0xC0, 5, 0x00},              //C8
+    {"C8",  8, 2, PIN01, (0xA1 << 8) | 0xC0, 6, 0x00},              //C8
+    {"C8",  8, 3, PIN01, (0xA1 << 8) | 0xC0, 7, 0x00},              //C8
 
-    {"C9",  9, 0, PIN01, (0xB1 << 8) | 0xD0, 0, 0xff},              //C9
-    {"C9",  9, 1, PIN01, (0xB1 << 8) | 0xD0, 1, 0xff},              //C9
-    {"C9",  9, 2, PIN01, (0xB1 << 8) | 0xD0, 2, 0xff},              //C9
-    {"C9",  9, 3, PIN01, (0xB1 << 8) | 0xD0, 3, 0xff},              //C9
+    {"C9",  9, 0, PIN01, (0xB1 << 8) | 0xD0, 0, 0x00},              //C9
+    {"C9",  9, 1, PIN01, (0xB1 << 8) | 0xD0, 1, 0x00},              //C9
+    {"C9",  9, 2, PIN01, (0xB1 << 8) | 0xD0, 2, 0x00},              //C9
+    {"C9",  9, 3, PIN01, (0xB1 << 8) | 0xD0, 3, 0x00},              //C9
 
-    {"C10", 10, 0, PIN01, (0xB1 << 8) | 0xD0, 4, 0xff},             //C10
-    {"C10", 10, 1, PIN01, (0xB1 << 8) | 0xD0, 5, 0xff},             //C10
-    {"C10", 10, 2, PIN01, (0xB1 << 8) | 0xD0, 6, 0xff},             //C10
-    {"C10", 10, 3, PIN01, (0xB1 << 8) | 0xD0, 7, 0xff},             //C10
+    {"C10", 10, 0, PIN01, (0xB1 << 8) | 0xD0, 4, 0x00},             //C10
+    {"C10", 10, 1, PIN01, (0xB1 << 8) | 0xD0, 5, 0x00},             //C10
+    {"C10", 10, 2, PIN01, (0xB1 << 8) | 0xD0, 6, 0x00},             //C10
+    {"C10", 10, 3, PIN01, (0xB1 << 8) | 0xD0, 7, 0x00},             //C10
 
-    {"C11", 11, 0, PIN01, (0xC1 << 8) | 0xE0, 0, 0xff},             //C11
-    {"C11", 11, 1, PIN01, (0xC1 << 8) | 0xE0, 1, 0xff},             //C11
-    {"C11", 11, 2, PIN01, (0xC1 << 8) | 0xE0, 2, 0xff},             //C11
-    {"C11", 11, 3, PIN01, (0xC1 << 8) | 0xE0, 3, 0xff},             //C11
+    {"C11", 11, 0, PIN01, (0xC1 << 8) | 0xE0, 0, 0x00},             //C11
+    {"C11", 11, 1, PIN01, (0xC1 << 8) | 0xE0, 1, 0x00},             //C11
+    {"C11", 11, 2, PIN01, (0xC1 << 8) | 0xE0, 2, 0x00},             //C11
+    {"C11", 11, 3, PIN01, (0xC1 << 8) | 0xE0, 3, 0x00},             //C11
 
-    {"C12", 12, 0, PIN01, (0xC1 << 8) | 0xE0, 4, 0xff},             //C12
-    {"C12", 12, 1, PIN01, (0xC1 << 8) | 0xE0, 5, 0xff},             //C12
-    {"C12", 12, 2, PIN01, (0xC1 << 8) | 0xE0, 6, 0xff},             //C12
-    {"C12", 12, 3, PIN01, (0xC1 << 8) | 0xE0, 7, 0xff},             //C12
+    {"C12", 12, 0, PIN01, (0xC1 << 8) | 0xE0, 4, 0x00},             //C12
+    {"C12", 12, 1, PIN01, (0xC1 << 8) | 0xE0, 5, 0x00},             //C12
+    {"C12", 12, 2, PIN01, (0xC1 << 8) | 0xE0, 6, 0x00},             //C12
+    {"C12", 12, 3, PIN01, (0xC1 << 8) | 0xE0, 7, 0x00},             //C12
 
-    { "Y1", 13, 0, PIN01, (0xF0 << 8) | 0x20, 0, 0xff},             //Y01
-    { "Y2", 13, 1, PIN01, (0xF0 << 8) | 0x20, 1, 0xff},             //Y02
-    { "Y3", 15, 0, PIN01, (0xF0 << 8) | 0x20, 2, 0xff},             //Y03
-    { "Y4", 13, 2, PIN01, (0xF0 << 8) | 0x20, 3, 0xff},             //Y04
-    { "Y5", 13, 3, PIN01, (0xF0 << 8) | 0x20, 4, 0xff},             //Y05
-    { "Y6", 15, 1, PIN01, (0xF0 << 8) | 0x20, 5, 0xff},             //Y06
-    { "Y7", 14, 0, PIN01, (0xF0 << 8) | 0x20, 6, 0xff},             //Y07
-    { "Y8", 14, 1, PIN01, (0xF0 << 8) | 0x20, 7, 0xff},             //Y08
-    { "Y9", 15, 2, PIN01, (0x11 << 8) | 0x30, 0, 0xff},             //Y09
-    {"Y10", 14, 2, PIN01, (0x11 << 8) | 0x30, 1, 0xff},             //Y10
-    {"Y11", 14, 3, PIN01, (0x11 << 8) | 0x30, 2, 0xff},             //Y11
-    {"Y12", 15, 3, PIN01, (0x11 << 8) | 0x30, 3, 0xff},             //Y12
-    {"Y13", 16, 0, PIN01, (0x11 << 8) | 0x30, 4, 0xff},             //Y13
-    {"Y14", 16, 1, PIN01, (0x11 << 8) | 0x30, 5, 0xff},             //Y14
-    {"Y15", 18, 0, PIN01, (0x11 << 8) | 0x30, 6, 0xff},             //Y15
-    {"Y16", 16, 2, PIN01, (0x11 << 8) | 0x30, 7, 0xff},             //Y16
-    {"Y17", 16, 3, PIN01, (0x21 << 8) | 0x40, 0, 0xff},             //Y17
-    {"Y18", 18, 1, PIN01, (0x21 << 8) | 0x40, 1, 0xff},             //Y18
-    {"Y19", 17, 0, PIN01, (0x21 << 8) | 0x40, 2, 0xff},             //Y19
-    {"Y20", 17, 1, PIN01, (0x21 << 8) | 0x40, 3, 0xff},             //Y20
-    {"Y21", 18, 2, PIN01, (0x21 << 8) | 0x40, 4, 0xff},             //Y21
-    {"Y22", 17, 2, PIN01, (0x21 << 8) | 0x40, 5, 0xff},             //Y22
-    {"Y23", 17, 3, PIN01, (0x21 << 8) | 0x40, 6, 0xff},             //Y23
-    {"Y24", 18, 3, PIN01, (0x21 << 8) | 0x40, 7, 0xff},             //Y24
-    {"Y25", 19, 0, PIN01, (0x31 << 8) | 0x50, 0, 0xff},             //Y25
-    {"Y26", 19, 1, PIN01, (0x31 << 8) | 0x50, 1, 0xff},             //Y26
-    {"Y27", 21, 0, PIN01, (0x31 << 8) | 0x50, 2, 0xff},             //Y27
-    {"Y28", 19, 2, PIN01, (0x31 << 8) | 0x50, 3, 0xff},             //Y28
-    {"Y29", 19, 3, PIN01, (0x31 << 8) | 0x50, 4, 0xff},             //Y29
-    {"Y30", 21, 1, PIN01, (0x31 << 8) | 0x50, 5, 0xff},             //Y30
-    {"Y31", 20, 0, PIN01, (0x31 << 8) | 0x50, 6, 0xff},             //Y31
-    {"Y32", 20, 1, PIN01, (0x31 << 8) | 0x50, 7, 0xff},             //Y32
-    {"Y33", 21, 2, PIN01, (0x41 << 8) | 0x60, 0, 0xff},             //Y33
-    {"Y34", 20, 2, PIN01, (0x41 << 8) | 0x60, 1, 0xff},             //Y34
-    {"Y35", 20, 3, PIN01, (0x41 << 8) | 0x60, 2, 0xff},             //Y35
-    {"Y36", 21, 3, PIN01, (0x41 << 8) | 0x60, 3, 0xff},             //Y36
-    {"Y37", 22, 0, PIN01, (0x41 << 8) | 0x60, 4, 0xff},             //Y37
-    {"Y38", 22, 1, PIN01, (0x41 << 8) | 0x60, 5, 0xff},             //Y38
-    {"Y39", 24, 0, PIN01, (0x41 << 8) | 0x60, 6, 0xff},             //Y39
-    {"Y40", 22, 2, PIN01, (0x41 << 8) | 0x60, 7, 0xff},             //Y40
-    {"Y41", 22, 3, PIN01, (0x51 << 8) | 0x70, 0, 0xff},             //Y41
-    {"Y42", 24, 1, PIN01, (0x51 << 8) | 0x70, 1, 0xff},             //Y42
-    {"Y43", 23, 0, PIN01, (0x51 << 8) | 0x70, 2, 0xff},             //Y43
-    {"Y44", 23, 1, PIN01, (0x51 << 8) | 0x70, 3, 0xff},             //Y44
-    {"Y45", 24, 2, PIN01, (0x51 << 8) | 0x70, 4, 0xff},             //Y45
-    {"Y46", 23, 2, PIN01, (0x51 << 8) | 0x70, 5, 0xff},             //Y46
-    {"Y47", 23, 3, PIN01, (0x51 << 8) | 0x70, 6, 0xff},             //Y47
-    {"Y48", 24, 3, PIN01, (0x51 << 8) | 0x70, 7, 0xff},             //Y48
-    {"Y49", 33, 0, PIN01, (0x61 << 8) | 0x80, 1, 0xff},             //Y49
-    {"Y50", 33, 1, PIN01, (0x61 << 8) | 0x80, 0, 0xff},             //Y50
+    { "Y1", 13, 0, PIN01, (0xF0 << 8) | 0x20, 0, 0x00},             //Y01
+    { "Y2", 13, 1, PIN01, (0xF0 << 8) | 0x20, 1, 0x00},             //Y02
+    { "Y3", 15, 0, PIN01, (0xF0 << 8) | 0x20, 2, 0x00},             //Y03
+    { "Y4", 13, 2, PIN01, (0xF0 << 8) | 0x20, 3, 0x00},             //Y04
+    { "Y5", 13, 3, PIN01, (0xF0 << 8) | 0x20, 4, 0x00},             //Y05
+    { "Y6", 15, 1, PIN01, (0xF0 << 8) | 0x20, 5, 0x00},             //Y06
+    { "Y7", 14, 0, PIN01, (0xF0 << 8) | 0x20, 6, 0x00},             //Y07
+    { "Y8", 14, 1, PIN01, (0xF0 << 8) | 0x20, 7, 0x00},             //Y08
+    { "Y9", 15, 2, PIN01, (0x11 << 8) | 0x30, 0, 0x00},             //Y09
+    {"Y10", 14, 2, PIN01, (0x11 << 8) | 0x30, 1, 0x00},             //Y10
+    {"Y11", 14, 3, PIN01, (0x11 << 8) | 0x30, 2, 0x00},             //Y11
+    {"Y12", 15, 3, PIN01, (0x11 << 8) | 0x30, 3, 0x00},             //Y12
+    {"Y13", 16, 0, PIN01, (0x11 << 8) | 0x30, 4, 0x00},             //Y13
+    {"Y14", 16, 1, PIN01, (0x11 << 8) | 0x30, 5, 0x00},             //Y14
+    {"Y15", 18, 0, PIN01, (0x11 << 8) | 0x30, 6, 0x00},             //Y15
+    {"Y16", 16, 2, PIN01, (0x11 << 8) | 0x30, 7, 0x00},             //Y16
+    {"Y17", 16, 3, PIN01, (0x21 << 8) | 0x40, 0, 0x00},             //Y17
+    {"Y18", 18, 1, PIN01, (0x21 << 8) | 0x40, 1, 0x00},             //Y18
+    {"Y19", 17, 0, PIN01, (0x21 << 8) | 0x40, 2, 0x00},             //Y19
+    {"Y20", 17, 1, PIN01, (0x21 << 8) | 0x40, 3, 0x00},             //Y20
+    {"Y21", 18, 2, PIN01, (0x21 << 8) | 0x40, 4, 0x00},             //Y21
+    {"Y22", 17, 2, PIN01, (0x21 << 8) | 0x40, 5, 0x00},             //Y22
+    {"Y23", 17, 3, PIN01, (0x21 << 8) | 0x40, 6, 0x00},             //Y23
+    {"Y24", 18, 3, PIN01, (0x21 << 8) | 0x40, 7, 0x00},             //Y24
+    {"Y25", 19, 0, PIN01, (0x31 << 8) | 0x50, 0, 0x00},             //Y25
+    {"Y26", 19, 1, PIN01, (0x31 << 8) | 0x50, 1, 0x00},             //Y26
+    {"Y27", 21, 0, PIN01, (0x31 << 8) | 0x50, 2, 0x00},             //Y27
+    {"Y28", 19, 2, PIN01, (0x31 << 8) | 0x50, 3, 0x00},             //Y28
+    {"Y29", 19, 3, PIN01, (0x31 << 8) | 0x50, 4, 0x00},             //Y29
+    {"Y30", 21, 1, PIN01, (0x31 << 8) | 0x50, 5, 0x00},             //Y30
+    {"Y31", 20, 0, PIN01, (0x31 << 8) | 0x50, 6, 0x00},             //Y31
+    {"Y32", 20, 1, PIN01, (0x31 << 8) | 0x50, 7, 0x00},             //Y32
+    {"Y33", 21, 2, PIN01, (0x41 << 8) | 0x60, 0, 0x00},             //Y33
+    {"Y34", 20, 2, PIN01, (0x41 << 8) | 0x60, 1, 0x00},             //Y34
+    {"Y35", 20, 3, PIN01, (0x41 << 8) | 0x60, 2, 0x00},             //Y35
+    {"Y36", 21, 3, PIN01, (0x41 << 8) | 0x60, 3, 0x00},             //Y36
+    {"Y37", 22, 0, PIN01, (0x41 << 8) | 0x60, 4, 0x00},             //Y37
+    {"Y38", 22, 1, PIN01, (0x41 << 8) | 0x60, 5, 0x00},             //Y38
+    {"Y39", 24, 0, PIN01, (0x41 << 8) | 0x60, 6, 0x00},             //Y39
+    {"Y40", 22, 2, PIN01, (0x41 << 8) | 0x60, 7, 0x00},             //Y40
+    {"Y41", 22, 3, PIN01, (0x51 << 8) | 0x70, 0, 0x00},             //Y41
+    {"Y42", 24, 1, PIN01, (0x51 << 8) | 0x70, 1, 0x00},             //Y42
+    {"Y43", 23, 0, PIN01, (0x51 << 8) | 0x70, 2, 0x00},             //Y43
+    {"Y44", 23, 1, PIN01, (0x51 << 8) | 0x70, 3, 0x00},             //Y44
+    {"Y45", 24, 2, PIN01, (0x51 << 8) | 0x70, 4, 0x00},             //Y45
+    {"Y46", 23, 2, PIN01, (0x51 << 8) | 0x70, 5, 0x00},             //Y46
+    {"Y47", 23, 3, PIN01, (0x51 << 8) | 0x70, 6, 0x00},             //Y47
+    {"Y48", 24, 3, PIN01, (0x51 << 8) | 0x70, 7, 0x00},             //Y48
+    {"Y49", 33, 0, PIN01, (0x61 << 8) | 0x80, 1, 0x00},             //Y49
+    {"Y50", 33, 1, PIN01, (0x61 << 8) | 0x80, 0, 0x00},             //Y50
+};
+
+static struct led_init_t led_init_x312p[] = {
+    {PIN01, 0x20, 0xff},
+    {PIN01, 0x30, 0xff},
+    {PIN01, 0x40, 0xff},
+    {PIN01, 0x50, 0xff},
+    {PIN01, 0x60, 0xff},
+    {PIN01, 0x70, 0xff},
+    {PIN01, 0x80, 0xff},
+    {PIN01, 0x90, 0xff},
+    {PIN01, 0xA0, 0xff},
+    {PIN01, 0xB0, 0xff},
+    {PIN01, 0xC0, 0xff},
+    {PIN01, 0xD0, 0xff},
+    {PIN01, 0xE0, 0xff},
+    {PIN01, 0xF0, 0xff},
+    {PIN01, 0x11, 0xff},
+    {PIN01, 0x21, 0xff},
+    {PIN01, 0x31, 0xff},
+    {PIN01, 0x41, 0xff},
+    {PIN01, 0x51, 0xff},
+    {PIN01, 0x61, 0xff},
+    {PIN01, 0x71, 0xff},
+    {PIN01, 0x81, 0xff},
+    {PIN01, 0x91, 0xff},
+    {PIN01, 0xA1, 0xff},
+    {PIN01, 0xB1, 0xff},
+    {PIN01, 0xC1, 0xff},
 };
 
 static struct led_ctx_t *g_led_ctx = NULL;
@@ -1164,8 +1201,10 @@ void *led_async_func (void *arg)
     bf_pltfm_led_initialized = 1;
 
     FOREVER {
-        while ((lqe = oryx_lq_dequeue (async_led_q)) != NULL)
-        {
+        while ((lqe = oryx_lq_dequeue (async_led_q)) != NULL) {
+            if (platform_type_equal (X312P)) {
+                g_rt_async_led_q_length = oryx_lq_length (async_led_q);
+            }
             port_info.conn_id = lqe->module;
             port_info.chnl_id = lqe->chnl_id;
             led_col           = lqe->led_col;
@@ -1736,27 +1775,29 @@ int bf_pltfm_port_led_set (int chip_id,
                            bf_pltfm_port_info_t *port_info,
                            bf_led_condition_t led_cond)
 {
-    uint8_t led_col = 0;
+    uint8_t led_col = BF_MAV_PORT_LED_OFF;
 
     switch (led_cond) {
         case BF_LED_POST_PORT_DIS:
-            //led_col = BF_MAV_PORT_LED_RED | BF_MAV_PORT_LED_GREEN;
-            led_col = 0;
+            //if (platform_type_equal(X532P) ||
+            //    platform_type_equal(X564P)) {
+            //    led_col = BF_MAV_PORT_LED_RED |
+            //              BF_MAV_PORT_LED_GREEN;
+            //}
             break;
         case BF_LED_PRE_PORT_EN:
-            if (platform_type_equal (X312P)) {
-                return 0;
+            if (platform_type_equal(X532P) ||
+                platform_type_equal(X564P)) {
+                led_col = BF_MAV_PORT_LED_RED |
+                          BF_MAV_PORT_LED_GREEN;
             }
-            led_col = BF_MAV_PORT_LED_RED |
-                      BF_MAV_PORT_LED_GREEN;
             break;
         case BF_LED_PORT_LINK_DOWN:
-            if (platform_type_equal (X312P)) {
-                led_col = BF_MAV_PORT_LED_OFF;
-                break;
+            if (platform_type_equal(X532P) ||
+                platform_type_equal(X564P)) {
+                led_col = BF_MAV_PORT_LED_RED |
+                          BF_MAV_PORT_LED_GREEN;
             }
-            led_col = BF_MAV_PORT_LED_RED |
-                      BF_MAV_PORT_LED_GREEN;
             break;
         case BF_LED_PORT_LINK_UP:
             led_col = BF_MAV_PORT_LED_GREEN;
@@ -1900,22 +1941,30 @@ int bf_pltfm_led_init (int chip_id)
     while (!bf_pltfm_led_initialized);
 #endif
 
-    bf_pltfm_port_info_t port_info;
-    foreach_element (0, g_max_led_ctx) {
-        err = 0;
-        port_info.conn_id =
-            g_led_ctx[each_element].conn_id;
-        port_info.chnl_id =
-            g_led_ctx[each_element].chnl_id;
-        if (port_info.chnl_id == UINT8_MAX) {
-            port_info.chnl_id = 0;
+    if (platform_type_equal (X312P)) {
+        foreach_element (0, ARRAY_LENGTH (led_init_x312p)) {
+            bf_pltfm_cpld_write_byte(BF_MON_SYSCPLD1_I2C_ADDR,
+                                     led_init_x312p[each_element].cpld_offset,
+                                     led_init_x312p[each_element].val);
         }
-        err = bf_pltfm_port_led_set (chip_id, &port_info,
-                                     BF_LED_POST_PORT_DEL);
-        if (err) {
-            LOG_ERROR ("Unable to reset LED on port %d/%d",
-                       port_info.conn_id,
-                       port_info.chnl_id);
+    } else {
+        bf_pltfm_port_info_t port_info;
+        foreach_element (0, g_max_led_ctx) {
+            err = 0;
+            port_info.conn_id =
+                g_led_ctx[each_element].conn_id;
+            port_info.chnl_id =
+                g_led_ctx[each_element].chnl_id;
+            if (port_info.chnl_id == UINT8_MAX) {
+                port_info.chnl_id = 0;
+            }
+            err = bf_pltfm_port_led_set (chip_id, &port_info,
+                                        BF_LED_POST_PORT_DEL);
+            if (err) {
+                LOG_ERROR ("Unable to reset LED on port %d/%d",
+                        port_info.conn_id,
+                        port_info.chnl_id);
+            }
         }
     }
 
@@ -1967,21 +2016,29 @@ int bf_pltfm_led_de_init ()
         return BF_PLTFM_SUCCESS;
     }
 
-    foreach_element (0, g_max_led_ctx) {
-        err = 0;
-        port_info.conn_id =
-            g_led_ctx[each_element].conn_id;
-        port_info.chnl_id =
-            g_led_ctx[each_element].chnl_id;
-        if (port_info.chnl_id == UINT8_MAX) {
-            port_info.chnl_id = 0;
+    if (platform_type_equal (X312P)) {
+        foreach_element (0, ARRAY_LENGTH (led_init_x312p)) {
+            bf_pltfm_cpld_write_byte(BF_MON_SYSCPLD1_I2C_ADDR,
+                                     led_init_x312p[each_element].cpld_offset,
+                                     led_init_x312p[each_element].val);
         }
-        err = bf_pltfm_port_led_set (chip_id, &port_info,
-                                     BF_LED_POST_PORT_DEL);
-        if (err) {
-            LOG_ERROR ("Unable to reset LED on port %d/%d",
-                       port_info.conn_id,
-                       port_info.chnl_id);
+    } else {
+        foreach_element (0, g_max_led_ctx) {
+            err = 0;
+            port_info.conn_id =
+                g_led_ctx[each_element].conn_id;
+            port_info.chnl_id =
+                g_led_ctx[each_element].chnl_id;
+            if (port_info.chnl_id == UINT8_MAX) {
+                port_info.chnl_id = 0;
+            }
+            err = bf_pltfm_port_led_set (chip_id, &port_info,
+                                         BF_LED_POST_PORT_DEL);
+            if (err) {
+                LOG_ERROR ("Unable to reset LED on port %d/%d",
+                           port_info.conn_id,
+                           port_info.chnl_id);
+            }
         }
     }
 

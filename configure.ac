@@ -159,16 +159,17 @@ AC_CONFIG_FILES([Makefile
 		 platforms/Makefile
 		 platforms/include/Makefile
 		 platforms/asterfusion-bf/Makefile
-		 platforms/asterfusion-bf/tcl_server/Makefile
 		 platforms/asterfusion-bf/include/Makefile
 		 platforms/asterfusion-bf/src/Makefile
 		 platforms/asterfusion-bf/cp2112_util/Makefile
-		 platforms/asterfusion-bf/tofino_spi_util/Makefile
-		 platforms/asterfusion-bf/diags/Makefile
-		 platforms/asterfusion-bf/diags/mavericks/Makefile
-		 platforms/asterfusion-bf/diags/mavericks/targets/Makefile
-		 platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf
+		 platforms/asterfusion-bf/uart_util/Makefile
 		 platforms/asterfusion-bf/thrift/Makefile])
+		 #platforms/asterfusion-bf/tcl_server/Makefile
+		 #platforms/asterfusion-bf/tofino_spi_util/Makefile
+		 #platforms/asterfusion-bf/diags/Makefile
+		 #platforms/asterfusion-bf/diags/mavericks/Makefile
+		 #platforms/asterfusion-bf/diags/mavericks/targets/Makefile
+		 #platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf
 		 #platforms/newport/Makefile
 		 #platforms/newport/include/Makefile
 		 #platforms/newport/kdrv/Makefile

@@ -26,6 +26,8 @@
 
 
 void *health_mntr_init (void *arg);
+void *onlp_mntr_init (void *arg);
+
 
 void pltfm_mgr_register_ucli_node();
 

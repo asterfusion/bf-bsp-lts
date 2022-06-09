@@ -64,6 +64,8 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__ (
     aim_printf (&uc->pvs, "Presence        %s \n",
                 (info.presence ? "true" : "false"));
     if (info.presence) {
+        aim_printf (&uc->pvs, "Power ok        %s \n",
+                    (info.power ? "true" : "false"));
         aim_printf (&uc->pvs,
                     "Vin             %3d.%2d V\n", info.vin >> 8,
                     (info.vin & 0x00FF));
@@ -80,6 +82,10 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__ (
                     info.pwr_in);
         aim_printf (&uc->pvs, "Pout            %4d W\n",
                     info.pwr_out);
+        if (info.fvalid & PSU_INFO_VALID_SERIAL) {
+            aim_printf (&uc->pvs, "SN              %s\n",
+                        info.serial);
+        }
     }
 
     return 0;
@@ -129,12 +135,42 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                        " Show all temperature sensors reading");
 
     bf_pltfm_temperature_info_t t;
+    FILE *fp = NULL;
+    char path_type[128] = {0};
+    char path_temp[128] = {0};
+    char entry[128] = {0};
 
     if (bf_pltfm_chss_mgmt_temperature_get (
             &t) != BF_PLTFM_SUCCESS) {
         aim_printf (&uc->pvs,
                     "Error in reading temperature \n");
         return -1;
+    }
+
+    for (int i = 0; i < 8; i ++) {
+        sprintf (path_type, "/sys/class/thermal/thermal_zone%d/type", i);
+        sprintf (path_temp, "/sys/class/thermal/thermal_zone%d/temp", i);
+        fp = fopen (path_type, "r");
+        if (!fp) {
+            continue;
+        } else {
+            fgets (entry, 128, fp);
+            fclose(fp);
+
+            if (strncmp (entry, "x86_pkg_temp", 12) == 0) {
+                fp = fopen (path_temp, "r");
+                if (!fp) {
+                    break;
+                } else {
+                    fgets (entry, 128, fp);
+                    fclose(fp);
+
+                    float cpu_temp = atoi (entry)/1000.0;
+                    aim_printf (&uc->pvs, "CPU     %.1f C\n",
+                                cpu_temp);
+                }
+            }
+        }
     }
 
     /* The number of the sensor may vary in different platform.

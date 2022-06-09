@@ -150,6 +150,13 @@ typedef enum bf_pltfm_pwr_supply_e {
     POWER_SUPPLY2 = 2
 } bf_pltfm_pwr_supply_t;
 
+#define PSU_INFO_VALID_FSPEED       (1 << 0)
+#define PSU_INFO_VALID_FFAULT       (1 << 1)
+#define PSU_INFO_VALID_LOAD_SHARING (1 << 2)
+#define PSU_INFO_VALID_MODEL        (1 << 3)
+#define PSU_INFO_VALID_SERIAL       (1 << 4)
+#define PSU_INFO_VALID_REV          (1 << 5)
+
 typedef struct bf_pltfm_pwr_supply_info_t {
     uint32_t vin;      /* Input voltage in Volts */
     uint32_t vout;     /* Output voltage in Volts */
@@ -158,8 +165,10 @@ typedef struct bf_pltfm_pwr_supply_info_t {
     uint32_t pwr_out;  /* Output power in milli watts */
     uint32_t pwr_in;
     bool presence;     /* Power supply present or not */
+    bool power;        /* Is there power to PSU */
 
     /* Not supported, by tsihang, 2022-03-28. */
+    uint8_t fvalid;    /* Valid flags for the following units */
     uint32_t fspeed;   /* Fan speed in RPM */
     bool ffault;       /* Fan fault TRUE/FALSE */
     bool load_sharing; /* load sharing TRUE/FALSE */
@@ -176,7 +185,7 @@ bf_pltfm_chss_mgmt_pwr_supply_get (
 
 bf_pltfm_status_t
 bf_pltfm_chss_mgmt_pwr_supply_prsnc_get (
-    bf_pltfm_pwr_supply_t pwr, bool *info);
+    bf_pltfm_pwr_supply_t pwr, bool *present);
 
 /* Temperature sensors */
 typedef struct bf_pltfm_temperature_info_t {
@@ -282,10 +291,6 @@ bf_pltfm_status_t pltfm_mgr_sensor_out_get (
     const char *options,
     char *info,
     size_t info_size);
-
-bf_pltfm_status_t bf_pltfm_temperature_get (
-    bf_pltfm_temperature_info_t *tmp,
-    bf_pltfm_temperature_info_t *peak_tmp);
 
 struct bf_pltfm_board_ctx_t {
     bf_pltfm_board_id_t id;

@@ -820,7 +820,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     char cmd = 0x01;
     int i;
     int err;
-    int usec;
+    int usec_delay;
     size_t l = 0, offset = 0;
     struct tlv_t *tlv;
 
@@ -836,15 +836,14 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
         memset (rd_buf, 0, 128);
 
         // Must give bmc more time to prepare data
-        usec = (tlv->code == 0x21) ?
-               BMC_COMM_INTERVAL_US * 5 : BMC_COMM_INTERVAL_US;
-
         if (g_access_bmc_through_uart) {
+            usec_delay = BMC_COMM_INTERVAL_US;
             err = bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                                2, rd_buf, 128 - 1, usec);
+                                                2, rd_buf, 128 - 1, usec_delay);
         } else {
+            usec_delay = BMC_COMM_INTERVAL_US/25;
             err = bf_pltfm_bmc_write_read (bmc_i2c_addr, cmd,
-                                           wr_buf, 2, 0xFF, rd_buf, usec);
+                                           wr_buf, 2, 0xFF, rd_buf, usec_delay);
         }
 
         if (err != -1) {

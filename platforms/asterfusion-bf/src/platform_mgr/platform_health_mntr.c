@@ -18,7 +18,7 @@
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_qsfp.h>
-
+#include <bf_pltfm_sfp.h>
 #include <pltfm_types.h>
 
 /* Local header includes */
@@ -136,6 +136,18 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "pout");
     sprintf (value, "%d", psu->pwr_out);
     onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "power");
+    sprintf (value, "%d", psu->power);
+    onlp_save (fonlp, value, strlen (value));
+
+    if (psu->fvalid & PSU_INFO_VALID_SERIAL) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "sn");
+        sprintf (value, "%s", psu->serial);
+        onlp_save (fonlp, value, strlen (value));
+    }
 }
 
 static void bf_pltfm_chss_mgmt_onlp_temp (int id,

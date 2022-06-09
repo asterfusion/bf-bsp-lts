@@ -281,7 +281,7 @@ static int bf_sfp_set_idprom (int port)
     if (!se->identified) {
         LOG_ERROR (" SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>",
                    port, rc);
-        return rc;
+        //return rc;
     }
 
     id = bf_sfp_info_arr[port].idprom[0];
@@ -291,7 +291,7 @@ static int bf_sfp_set_idprom (int port)
             MMFORMAT_SFF8472;
     }
 
-    // chagne dirty
+    // change dirty
     bf_sfp_info_arr[port].cache_dirty = false;
 
     return 0;
@@ -392,12 +392,10 @@ int bf_sfp_update_cache (int port)
 
     // first, figure out memory map format.
     if (bf_sfp_set_idprom (port)) {
-#if 0
-        if (!bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_ERROR ("Error setting idprom for qsfp %d\n",
+        //if (!bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
+            LOG_ERROR ("Error setting idprom for sfp %d\n",
                        port);
-        }
-#endif
+        //}
         return -1;
     }
 
@@ -427,6 +425,8 @@ int bf_sfp_update_cache (int port)
         if (bf_pltfm_sfp_read_module (port,
                                       MAX_SFP_PAGE_SIZE, MAX_SFP_PAGE_SIZE,
                                       bf_sfp_info_arr[port].a2h)) {
+            LOG_ERROR ("Error reading dom for sfp %d\n",
+                       port);
             return -1;
         }
     }
@@ -467,13 +467,18 @@ int bf_sfp_update_cache (int port)
 
 }
 
-int bf_sfp_get_cached_info (int port, int page,
-                             uint8_t *buf)
-{
-    uint8_t *cptr;
+/** get sfp info ptr
+ * @param port
+ *  front panel port
+ * @return
+ * bf_sfp_info_t ptr if sfp present and readable
+ * NULL for other conditions
+ */
 
+bf_sfp_info_t *bf_sfp_get_info (int port)
+{
     if (port > bf_plt_max_sfp) {
-        return -1;
+        return NULL;
     }
 
     if (bf_sfp_info_arr[port].cache_dirty &&
@@ -482,15 +487,31 @@ int bf_sfp_get_cached_info (int port, int page,
         bf_sfp_update_cache (port);
     }
 
+    if (bf_sfp_info_arr[port].cache_dirty) {
+        // if still dirty
+        return NULL;
+    }
+    return &bf_sfp_info_arr[port];
+}
+
+int bf_sfp_get_cached_info (int port, int page,
+                             uint8_t *buf)
+{
+    bf_sfp_info_t *sfp;
+    uint8_t *cptr;
+
+    sfp = bf_sfp_get_info (port);
+    if (!sfp) {
+        return -1;
+    }
+
     /* param 'page' is unused at this moment. */
     if (page == 0) {
-        cptr = &bf_sfp_info_arr[port].idprom[0];
-        memcpy (buf, cptr, MAX_SFP_PAGE_SIZE);
-
+        cptr = &sfp->idprom[0];
     } else {
-        cptr = &bf_sfp_info_arr[port].a2h[0];
-        memcpy (buf, cptr, MAX_SFP_PAGE_SIZE);
+        cptr = &sfp->a2h[0];
     }
+    memcpy (buf, cptr, MAX_SFP_PAGE_SIZE);
 
     return 0;
 }
@@ -507,6 +528,7 @@ int bf_sfp_detect_transceiver (int port,
     if (port < 0 || port > bf_plt_max_sfp) {
         return -1;
     }
+    int err;
     bool st = bf_pltfm_detect_sfp (port);
     // Just overwrite presence bit
     if (bf_sfp_soft_removal_get (port) && st) {
@@ -515,34 +537,37 @@ int bf_sfp_detect_transceiver (int port,
 
     if (st != bf_sfp_info_arr[port].present ||
         bf_sfp_info_arr[port].cache_dirty) {
-#if 0
         /* closed by tsihang. */
-        if (!bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_DEBUG ("QSFP    %2d : %s", port,
-                       st ? "PRESENT" : "REMOVED");
-        }
-#endif
+        //if (!bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
+            LOG_DEBUG (" SFP    %2d : %s",
+                port, st ? "PRESENT" : "REMOVED");
+        //}
         bf_sfp_set_present (port, st);
         *is_present = st;
         if (st) {
-            if (bf_sfp_update_cache (port)) {
-#if 0
+            err = bf_sfp_update_cache (port);
+            if (err) {
                 /* NOTE, we do not clear IDPROM data here so that we can read
                  * whatever data it returned.
                  */
-                bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs
-                    = true;
+                //bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs
+                //    = true;
+                LOG_ERROR ("Error<%d>: "
+                           "Update data for SFP %2d\n", err, port);
                 return -1;
-#endif
             }
-#if 0
-            bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs
-                = false;
+            //bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs
+            //    = false;
             // bf_qsfp_set_pwr_ctrl(port);  don't power up the module here, do it in
             // the module FSM
-#endif
         }
     } else {
+        LOG_DEBUG (
+            "(%s:%d) "
+            "SFP: %2d : %s\n",
+            __func__, __LINE__,
+            port, st ? "PRESENT" : "REMOVED");
+
         *is_present = st;
     }
     return 0;
@@ -774,33 +799,6 @@ int bf_sfp_set_transceiver_lpmode (int port,
                                    bool lpmode)
 {
     return (bf_pltfm_sfp_set_lpmode (port, lpmode));
-}
-
-/** get sfp info ptr
- * @param port
- *  front panel port
- * @return
- * bf_sfp_info_t ptr if sfp present and readable
- * NULL for other conditions
- */
-
-bf_sfp_info_t *bf_sfp_get_info (int port)
-{
-    if (port > bf_plt_max_sfp) {
-        return NULL;
-    }
-
-    if (bf_sfp_info_arr[port].cache_dirty &&
-        bf_sfp_info_arr[port].present) {
-        // just update it
-        bf_sfp_update_cache (port);
-    }
-
-    if (bf_sfp_info_arr[port].cache_dirty) {
-        // if still dirty
-        return NULL;
-    }
-    return &bf_sfp_info_arr[port];
 }
 
 int check_sfp_module_vendor (uint32_t conn_id,

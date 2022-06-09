@@ -17823,8 +17823,14 @@ fi
 fi
 
 # Generate makefiles
-ac_config_files="$ac_config_files Makefile drivers/Makefile drivers/include/Makefile drivers/src/Makefile platforms/Makefile platforms/include/Makefile platforms/asterfusion-bf/Makefile platforms/asterfusion-bf/tcl_server/Makefile platforms/asterfusion-bf/include/Makefile platforms/asterfusion-bf/src/Makefile platforms/asterfusion-bf/cp2112_util/Makefile platforms/asterfusion-bf/tofino_spi_util/Makefile platforms/asterfusion-bf/diags/Makefile platforms/asterfusion-bf/diags/mavericks/Makefile platforms/asterfusion-bf/diags/mavericks/targets/Makefile platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf platforms/asterfusion-bf/thrift/Makefile"
+ac_config_files="$ac_config_files Makefile drivers/Makefile drivers/include/Makefile drivers/src/Makefile platforms/Makefile platforms/include/Makefile platforms/asterfusion-bf/Makefile platforms/asterfusion-bf/include/Makefile platforms/asterfusion-bf/src/Makefile platforms/asterfusion-bf/cp2112_util/Makefile platforms/asterfusion-bf/uart_util/Makefile platforms/asterfusion-bf/thrift/Makefile"
 
+		 #platforms/asterfusion-bf/tcl_server/Makefile
+		 #platforms/asterfusion-bf/tofino_spi_util/Makefile
+		 #platforms/asterfusion-bf/diags/Makefile
+		 #platforms/asterfusion-bf/diags/mavericks/Makefile
+		 #platforms/asterfusion-bf/diags/mavericks/targets/Makefile
+		 #platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf
 		 #platforms/newport/Makefile
 		 #platforms/newport/include/Makefile
 		 #platforms/newport/kdrv/Makefile
@@ -18985,15 +18991,10 @@ do
     "platforms/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/Makefile" ;;
     "platforms/include/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/include/Makefile" ;;
     "platforms/asterfusion-bf/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/Makefile" ;;
-    "platforms/asterfusion-bf/tcl_server/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/tcl_server/Makefile" ;;
     "platforms/asterfusion-bf/include/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/include/Makefile" ;;
     "platforms/asterfusion-bf/src/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/src/Makefile" ;;
     "platforms/asterfusion-bf/cp2112_util/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/cp2112_util/Makefile" ;;
-    "platforms/asterfusion-bf/tofino_spi_util/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/tofino_spi_util/Makefile" ;;
-    "platforms/asterfusion-bf/diags/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/diags/Makefile" ;;
-    "platforms/asterfusion-bf/diags/mavericks/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/diags/mavericks/Makefile" ;;
-    "platforms/asterfusion-bf/diags/mavericks/targets/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/diags/mavericks/targets/Makefile" ;;
-    "platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf" ;;
+    "platforms/asterfusion-bf/uart_util/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/uart_util/Makefile" ;;
     "platforms/asterfusion-bf/thrift/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/thrift/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

@@ -70,6 +70,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
                            false : true;
         info[1].presence = (rd_buf[6] == 1) ?
                            false : true;
+        info[0].power = (rd_buf[1] == 1) ?
+                           true : false;
+        info[1].power = (rd_buf[4] == 1) ?
+                           true : false;
         err = BF_PLTFM_SUCCESS;
     }
 
@@ -148,6 +152,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
                            false : true;
         info[1].presence = (rd_buf[6] == 1) ?
                            false : true;
+        info[0].power = (rd_buf[1] == 1) ?
+                           true : false;
+        info[1].power = (rd_buf[4] == 1) ?
+                           true : false;
         err = BF_PLTFM_SUCCESS;
     }
 
@@ -222,6 +230,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
                            false : true;
         info[1].presence = (rd_buf[6] == 1) ?
                            false : true;
+        info[0].power = (rd_buf[1] == 1) ?
+                           true : false;
+        info[1].power = (rd_buf[4] == 1) ?
+                           true : false;
         err = BF_PLTFM_SUCCESS;
     }
 
@@ -446,6 +458,11 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                         info->pwr_out);
             }
         }
+        // power
+        if (((info->vin >> 8) > 10) && ((info->vout >> 8) > 10)) {
+            info->power = true;
+        }
+
         // sn
         buf[0] = 0x05;
         buf[1] = (pwr == POWER_SUPPLY1) ? 0x58 : 0x59;
@@ -458,6 +475,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             if (debug_print) {
                 fprintf (stdout, "sn is %s\n", info->serial);
             }
+            info->fvalid |= PSU_INFO_VALID_SERIAL;
         }
     }
 
@@ -656,6 +674,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             }
         }
 
+        if (((info->vin >> 8) > 10) && ((info->vout >> 8) > 10)) {
+            info->power = true;
+        }
+
         /*PSU sn 00: 0a 09 <1> <2> <3> <4> <5> <6> <7> <8> <9> */
         buf[2] = 0x9e;
         buf[3] = 0xa;
@@ -664,11 +686,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             LOG_ERROR("Read psu sn error\n");
             return BF_PLTFM_COMM_FAILED;
         } else {
-            memcpy (info->serial, &psu_sn_data[1], 10);
+            memcpy (info->serial, &psu_sn_data[2], 9);
             if (debug_print) {
                 fprintf (stdout, "sn is %s\n",
                         info->serial);
             }
+            info->fvalid |= PSU_INFO_VALID_SERIAL;
         }
 
 //        /*PSU warn 00: 02 <psu low> <psu high>*/
@@ -845,6 +868,8 @@ bf_pltfm_chss_mgmt_pwr_init()
 
             fprintf (stdout, "  Presence        %s \n",
                      (info.presence ? "true" : "false"));
+            fprintf (stdout, "  Power ok        %s \n",
+                     (info.power ? "true" : "false"));
             fprintf (stdout,
                      "  Vin             %3d.%2d V\n", info.vin >> 8,
                      (info.vin & 0x00FF));
@@ -863,6 +888,11 @@ bf_pltfm_chss_mgmt_pwr_init()
             fprintf (stdout,
                      "  Pout            %4d W\n",
                      info.pwr_out);
+            if (info.fvalid & PSU_INFO_VALID_SERIAL) {
+                fprintf (stdout,
+                         "  SN              %s\n",
+                         info.serial);
+            }
         }
     }
     
@@ -882,8 +912,10 @@ bf_pltfm_chss_mgmt_pwr_init()
             fprintf (stdout, "PWR%d\n",
                      pwr);
 
-            fprintf (stdout, "Presence        %s \n",
+            fprintf (stdout, "  Presence        %s \n",
                      (info.presence ? "true" : "false"));
+            fprintf (stdout, "  Power ok        %s \n",
+                     (info.power ? "true" : "false"));
             fprintf (stdout,
                      "  Vin             %3d.%2d V\n", info.vin >> 8,
                      (info.vin & 0x00FF));
@@ -902,6 +934,11 @@ bf_pltfm_chss_mgmt_pwr_init()
             fprintf (stdout,
                      "  Pout            %4d W\n",
                      info.pwr_out);
+            if (info.fvalid & PSU_INFO_VALID_SERIAL) {
+                fprintf (stdout,
+                         "  SN              %s\n",
+                         info.serial);
+            }
         }
     }
 

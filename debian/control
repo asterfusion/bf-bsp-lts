@@ -1,0 +1,12 @@
+Source: bsp-8.9.x
+Section: libs
+Priority: standard
+Standards-Version: 8.9.1
+Maintainer: tsihang <tsihang@asterfusion.com>
+Build-Depends: dh-exec (>=0.3), debhelper (>= 9), autotools-dev
+Homepage: http://www.asterfusion.com
+
+Package: bsp-8.9.x
+Architecture: amd64
+Description: Board Support Package for TOFINO based Switch Powered by Asterfusion (maintained by Asterfusion)
+

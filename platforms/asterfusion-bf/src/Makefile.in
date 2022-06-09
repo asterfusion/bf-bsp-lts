@@ -91,6 +91,8 @@ build_triplet = @build@
 host_triplet = @host@
 @IS_THRIFT_ENABLED_TRUE@am__append_1 = -DTHRIFT_ENABLED
 @TCL_ONLY_TRUE@am__append_2 = -DTCL_ONLY
+
+#libasterfusionbf_driver_la_LIBADD += $(builddir)/../tcl_server/libtcl_server.la
 @IS_THRIFT_ENABLED_TRUE@@TCL_ONLY_FALSE@am__append_3 = $(builddir)/../thrift/libplatform_thrift.la
 subdir = platforms/asterfusion-bf/src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -195,13 +197,9 @@ libasterfusionbf_cpld_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 @TCL_ONLY_FALSE@	libasterfusionbf_cp2112.la \
 @TCL_ONLY_FALSE@	libasterfusionbf_chss_mgmt.la \
 @TCL_ONLY_FALSE@	libasterfusionbf_qsfp.la \
-@TCL_ONLY_FALSE@	libasterfusionbf_cpld.la \
-@TCL_ONLY_FALSE@	$(builddir)/../tcl_server/libtcl_server.la \
-@TCL_ONLY_FALSE@	$(am__append_3)
+@TCL_ONLY_FALSE@	libasterfusionbf_cpld.la $(am__append_3)
 @TCL_ONLY_TRUE@libasterfusionbf_driver_la_DEPENDENCIES =  \
-@TCL_ONLY_TRUE@	libasterfusionbf_platform.la \
-@TCL_ONLY_TRUE@	$(builddir)/../tcl_server/libtcl_server.la \
-@TCL_ONLY_TRUE@	$(am__append_3)
+@TCL_ONLY_TRUE@	libasterfusionbf_platform.la $(am__append_3)
 am_libasterfusionbf_driver_la_OBJECTS =
 libasterfusionbf_driver_la_OBJECTS =  \
 	$(am_libasterfusionbf_driver_la_OBJECTS)
@@ -557,19 +555,19 @@ libasterfusionbf_driver_la_SOURCES =
 @TCL_ONLY_FALSE@	libasterfusionbf_cp2112.la \
 @TCL_ONLY_FALSE@	libasterfusionbf_chss_mgmt.la \
 @TCL_ONLY_FALSE@	libasterfusionbf_qsfp.la \
-@TCL_ONLY_FALSE@	libasterfusionbf_cpld.la \
-@TCL_ONLY_FALSE@	$(builddir)/../tcl_server/libtcl_server.la \
-@TCL_ONLY_FALSE@	$(am__append_3)
+@TCL_ONLY_FALSE@	libasterfusionbf_cpld.la $(am__append_3)
 @TCL_ONLY_TRUE@libasterfusionbf_driver_la_LIBADD =  \
-@TCL_ONLY_TRUE@	libasterfusionbf_platform.la \
-@TCL_ONLY_TRUE@	$(builddir)/../tcl_server/libtcl_server.la \
-@TCL_ONLY_TRUE@	$(am__append_3)
+@TCL_ONLY_TRUE@	libasterfusionbf_platform.la $(am__append_3)
 bin_SCRIPTS = \
 ../utils/tofino_i2c_rd.sh \
 ../utils/tofino_i2c_wr.sh \
 ../utils/tofino_i2c_rd_local.sh \
 ../utils/tofino_i2c_wr_local.sh \
 ../utils/tofino_pci_bringup.sh \
+../utils/xt-cfgen.sh \
+../utils/xt-diags.sh \
+../utils/xt-clean.sh \
+../utils/xt-setup.sh \
 ../utils/credo_firmware.bin
 
 all: all-am

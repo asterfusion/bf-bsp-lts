@@ -510,7 +510,7 @@ int check_funcs (int file, int size, int pec)
     return 0;
 }
 
-static int bf_pltfm_master_i2c_select(uint8_t read_write_slave)
+static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
 {
     if (platform_type_equal (X308P)) {
         i2c_ctx.fd = i2c_ctx.fd_suio;
@@ -518,7 +518,7 @@ static int bf_pltfm_master_i2c_select(uint8_t read_write_slave)
         if (platform_subtype_equal(v1dot2)) {
             i2c_ctx.fd = i2c_ctx.fd_cp2112;
         } else if (platform_subtype_equal(v1dot3)) {
-            switch (read_write_slave)
+            switch (slave_addr)
             {
                 case 0x60:          //X312P_CPLD1_ADDR
                 case 0x62:          //X312P_CPLD3_ADDR

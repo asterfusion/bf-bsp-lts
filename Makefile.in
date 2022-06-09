@@ -115,7 +115,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf
+CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -239,10 +239,9 @@ ETAGS = etags
 CTAGS = ctags
 CSCOPE = cscope
 DIST_SUBDIRS = platforms drivers
-am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(top_srcdir)/platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf.in \
-	README compile config.guess config.sub depcomp install-sh \
-	ltmain.sh missing py-compile
+am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in README \
+	compile config.guess config.sub depcomp install-sh ltmain.sh \
+	missing py-compile
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -493,8 +492,6 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf: $(top_builddir)/config.status $(top_srcdir)/platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf.in
-	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 install-libLTLIBRARIES: $(lib_LTLIBRARIES)
 	@$(NORMAL_INSTALL)

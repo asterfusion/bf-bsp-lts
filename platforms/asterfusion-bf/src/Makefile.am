@@ -106,7 +106,7 @@ libasterfusionbf_qsfp.la \
 libasterfusionbf_cpld.la
 endif
 
-libasterfusionbf_driver_la_LIBADD += $(builddir)/../tcl_server/libtcl_server.la
+#libasterfusionbf_driver_la_LIBADD += $(builddir)/../tcl_server/libtcl_server.la
 if !TCL_ONLY
 if IS_THRIFT_ENABLED
 libasterfusionbf_driver_la_LIBADD += $(builddir)/../thrift/libplatform_thrift.la
@@ -119,4 +119,8 @@ bin_SCRIPTS = \
 ../utils/tofino_i2c_rd_local.sh \
 ../utils/tofino_i2c_wr_local.sh \
 ../utils/tofino_pci_bringup.sh \
+../utils/xt-cfgen.sh \
+../utils/xt-diags.sh \
+../utils/xt-clean.sh \
+../utils/xt-setup.sh \
 ../utils/credo_firmware.bin

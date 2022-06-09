@@ -157,7 +157,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
     fprintf (stdout,
              "COME : %s : I2C : %2d (%s)\n",
              cme_desc[global_come_type], bmc_i2c_bus,
-             is_CG15XX() ? "out of duty" : "on duty");
+             (uart_ctx.flags & AF_PLAT_UART_ENABLE) ? "out of duty" : "on duty");
 
     if (bf_pltfm_master_i2c_init()) {
         LOG_ERROR ("pltfm_mgr: Error in master-i2c init \n");

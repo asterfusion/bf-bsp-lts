@@ -136,7 +136,7 @@ set_opt (int fd, int nSpeed, int nBits,
         return -1;
     }
 
-    bzero (&newtio, sizeof (newtio));//对结构体清零
+    bzero (&newtio, sizeof (newtio));
     newtio.c_cflag |= CLOCAL | CREAD;
     newtio.c_cflag &= ~CSIZE;
 

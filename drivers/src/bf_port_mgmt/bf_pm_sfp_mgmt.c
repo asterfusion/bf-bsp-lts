@@ -629,7 +629,7 @@ void sfp_fsm_notify_ready (bf_dev_id_t dev_id,
                                     true);
     /* I have no idea where the QSFP FSM call bringup API.
      * I have to call it here to bring the port up.
-     * by tishang, 2021-07-30. */
+     * by tsihang, 2021-07-30. */
     bf_pal_pm_front_port_ready_for_bringup (
         dev_id, &port_hdl, true);
 

@@ -22,6 +22,9 @@ typedef struct pltfm_mgr_info_s {
     const char
     *np_name;    /* The name of health monitor thread. */
     pthread_t health_mntr_t_id;
+    const char
+    *np_onlp_mntr_name;
+    pthread_t onlp_mntr_t_id;
 
 #define AF_PLAT_MNTR_POWER  (1 << 0)
 #define AF_PLAT_MNTR_FAN    (1 << 1)
