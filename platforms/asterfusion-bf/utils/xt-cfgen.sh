@@ -33,20 +33,78 @@ echo $uart_util
 
 # Detect X308P-T first.
 if [ "$default_cme"x = "CME3000"x ];then
-    xt_platform=$(uart_util /dev/ttyS1 0x1 0x21 0xaa)
+    bmc_version_10hex=$(uart_util /dev/ttyS1 0xd 0xaa 0xaa)
     if [ $? -eq 0 ]; then
         if [ "$bmc_version_10hex"x = "read failed"x ];then
             echo "Maybe not x308p-t."
         else
             # Maybe x308p-t.
+            echo "Maybe x308p-t."
+            # uart is used for x308pp-t with newer BMC version.
+            bmc_version_10hex=${bmc_version_10hex:2}
+
+            # echo $bmc_version_10hex
+            var1=`echo "$bmc_version_10hex"|awk -F ' ' '{print $1}'`
+            var2=`echo "$bmc_version_10hex"|awk -F ' ' '{print $2}'`
+            var3=`echo "$bmc_version_10hex"|awk -F ' ' '{print $3}'`
+
+            #change 16hex to 10hex
+            var1=$((16#$var1))
+            var2=$((16#$var2))
+            var3=$((16#$var3))
+
+            echo "bmc_version is "$var1.$var2.$var3
+            sleep 1
+            xt_platform=$(uart_util /dev/ttyS1 0x1 0x21 0xaa)
             echo $xt_platform
             enable_uart=1
         fi
     fi
 fi
 
+# Detect X564P-T and X532P-T.
+if [ "$default_cme"x = "CG1508"x ] || [ "$default_cme"x = "CG1527"x ]; then
+    # Maybe x532p-t or x564p-t.
+    echo "Maybe x532p-t or x564p-t."
+    bmc_version_10hex=$(uart_util /dev/ttyS1 0xd 0xaa 0xaa)
+    if [ $? -eq 0 ]; then
+        if [ "$bmc_version_10hex"x = "read failed"x ];then
+            # At this moment, cgosdrv is only used for X5-T with an earlier BMC version.
+            cgosi2c 0x3e 0x01 0x21 0xaa
+            sleep 1
+            xt_platform=`cgosi2c 0x3e`
+        else
+            # uart is used for x532p-t and x564p-t with newer BMC version.
+            bmc_version_10hex=${bmc_version_10hex:2}
+
+            # echo $bmc_version_10hex
+            var1=`echo "$bmc_version_10hex"|awk -F ' ' '{print $1}'`
+            var2=`echo "$bmc_version_10hex"|awk -F ' ' '{print $2}'`
+            var3=`echo "$bmc_version_10hex"|awk -F ' ' '{print $3}'`
+
+            #change 16hex to 10hex
+            var1=$((16#$var1))
+            var2=$((16#$var2))
+            var3=$((16#$var3))
+
+            echo "bmc_version is "$var1.$var2.$var3
+            sleep 1
+            xt_platform=$(uart_util /dev/ttyS1 0x1 0x21 0xaa)
+            echo $xt_platform
+            enable_uart=1
+        fi
+    else
+        # At this moment, cgosdrv is only used for X5-T with an earlier BMC version.
+        cgosi2c 0x3e 0x01 0x21 0xaa
+        sleep 1
+        xt_platform=`cgosi2c 0x3e`
+    fi
+fi
+
+# Detect X312P-T
 if [ "$default_cme"x = "CME3000"x ] && [ $enable_uart = 0 ];then
     # Maybe x312p-t
+    echo "Maybe x312p-t."
     default_i2c=`i2cdetect -l | grep sio_smbus | awk '{print $1}'`
     if [ ! $default_i2c ]; then
         # CP2112 is used for access BMC by x312p-t v2.0.
@@ -87,41 +145,15 @@ if [ "$default_cme"x = "CME3000"x ] && [ $enable_uart = 0 ];then
             fi
         fi
     fi
-else
-    # Maybe x532p-t or x564p-t.
-    bmc_version_10hex=$(uart_util /dev/ttyS1 0xd 0xaa 0xaa)
-    if [ $? -eq 0 ]; then
-        if [ "$bmc_version_10hex"x = "read failed"x ];then
-            # At this moment, cgosdrv is only used for X5-T with an earlier BMC version.
-            cgosi2c 0x3e 0x01 0x21 0xaa
-            sleep 1
-            xt_platform=`cgosi2c 0x3e`
-        else
-            # uart is used for x532p-t and x564p-t with newer BMC version.
-            bmc_version_10hex=${bmc_version_10hex:2}
-
-            # echo $bmc_version_10hex
-            var1=`echo "$bmc_version_10hex"|awk -F ' ' '{print $1}'`
-            var2=`echo "$bmc_version_10hex"|awk -F ' ' '{print $2}'`
-            var3=`echo "$bmc_version_10hex"|awk -F ' ' '{print $3}'`
-
-            #change 16hex to 10hex
-            var1=$((16#$var1))
-            var2=$((16#$var2))
-            var3=$((16#$var3))
-
-            echo "bmc_version is "$var1.$var2.$var3
-            sleep 1
-            xt_platform=$(uart_util /dev/ttyS1 0x1 0x21 0xaa)
-			enable_uart=1
-        fi
-    else
-        # At this moment, cgosdrv is only used for X5-T with an earlier BMC version.
-        cgosi2c 0x3e 0x01 0x21 0xaa
-        sleep 1
-        xt_platform=`cgosi2c 0x3e`
-    fi
 fi
+
+
+echo ""
+echo ""
+echo ""
+echo ""
+
+echo "========================== Generate /etc/platform.conf ========================== "
 
 # Clear existing /etc/platform.conf
 echo "" > $cfgfile
@@ -146,10 +178,17 @@ echo "i2c-"${default_i2c:4:1}
 echo "i2c:"${default_i2c:4:1} >> $cfgfile
 echo "" >> $cfgfile
 
-if [ $enable_uart = 1 ];then
 echo "# Default uart to access BMC." >> $cfgfile
 echo "# If a given uart set, BSP will access BMC through it, otherwise, using I2C instead." >> $cfgfile
 echo "# Only works on CG15xx and need a new BMC version." >> $cfgfile
 echo "# by tsihang, 2021-07-05" >> $cfgfile
-echo "uart:/dev/ttyS1" >> $cfgfile
+if [ $enable_uart = 1 ];then
+    echo "uart enabled"
+    echo "uart:/dev/ttyS1" >> $cfgfile
+else
+    echo "uart disabled"
+    echo "#uart:/dev/ttyS1" >> $cfgfile
 fi
+
+echo "==========================            Done             ========================== "
+

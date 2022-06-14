@@ -312,24 +312,28 @@ int bf_pltfm_cpld_write_byte (
 static int bf_pltfm_syscpld_reset_x312p()
 {
     int rc = 0;
-    uint8_t val, val0;
+    uint8_t val, val0, val1;
     uint8_t offset;
 
     // reset CPLD
     offset = 0x0C;
     val = 0x5f;
+
     rc |= bf_pltfm_cpld_read_byte (
               BF_MON_SYSCPLD1_I2C_ADDR, offset, &val0);
-    bf_sys_usleep (500);
+    bf_sys_usleep (2 * 1000 * 1000);
     rc |= bf_pltfm_cpld_write_byte (
               BF_MON_SYSCPLD1_I2C_ADDR, offset, val);
-    // sleep 0.2 s
-    bf_sys_usleep (0.2 * 1000 * 1000);
+    // CPLD3,CPLD4,CPLD5 reset timing=1000ms
+    bf_sys_usleep (2 * 1000 * 1000);
+    rc |= bf_pltfm_cpld_read_byte (
+              BF_MON_SYSCPLD1_I2C_ADDR, offset, &val1);
+
     fprintf (stdout,
-             "CPLD3-5  RST(auto de-reset) : (0x%02x -> 0x%02x)\n",
-             val0, val);
-    LOG_DEBUG ("CPLD3-5 RST(auto de-reset) : (0x%02x -> 0x%02x)",
-               val0, val);
+             "CPLD3-5  RST(auto de-reset) : (0x%02x -> 0x%02x =? 0x%02x) : %s\n",
+             val0, val, val1, rc ? "failed" : "success");
+    LOG_DEBUG ("CPLD3-5 RST(auto de-reset) : (0x%02x -> 0x%02x =? 0x%02x) : %s",
+               val0, val, val1, rc ? "failed" : "success");
 
     return rc;
 }
@@ -675,15 +679,23 @@ end:
 int bf_pltfm_pca9548_reset_x312p()
 {
     int rc = 0;
+    uint8_t ret_value;
+
     // select to level1 pca9548 ch1, and unselect sub pca9548
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L1_0X71, 0x0, 1 << 1);
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x73, 0x0, &ret_value);
+    fprintf(stdout, "L1[1]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x74, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x74, 0x0, &ret_value);
+    fprintf(stdout, "L1[1]: L2_0x74: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch2, and unselect sub pca9548
@@ -692,9 +704,15 @@ int bf_pltfm_pca9548_reset_x312p()
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x72, 0x0, &ret_value);
+    fprintf(stdout, "L1[2]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x73, 0x0, &ret_value);
+    fprintf(stdout, "L1[2]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch3, and unselect sub pca9548
@@ -703,9 +721,15 @@ int bf_pltfm_pca9548_reset_x312p()
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x72, 0x0, &ret_value);
+    fprintf(stdout, "L1[3]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x73, 0x0, &ret_value);
+    fprintf(stdout, "L1[3]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch4, and unselect sub pca9548
@@ -714,9 +738,15 @@ int bf_pltfm_pca9548_reset_x312p()
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x72, 0x0, &ret_value);
+    fprintf(stdout, "L1[4]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x73, 0x0, &ret_value);
+    fprintf(stdout, "L1[4]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch5, and unselect sub pca9548
@@ -725,6 +755,9 @@ int bf_pltfm_pca9548_reset_x312p()
     bf_sys_usleep (500);
     rc |= bf_pltfm_cpld_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
+    rc |= bf_pltfm_cpld_read_byte (
+              X312P_PCA9548_L2_0x72, 0x0, &ret_value);
+    fprintf(stdout, "L1[5]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // unselect level1 pca9548
@@ -732,13 +765,10 @@ int bf_pltfm_pca9548_reset_x312p()
               X312P_PCA9548_L1_0X71, 0x0, 0x0);
     bf_sys_usleep (500);
 
-    if (rc) {
-        fprintf (stdout,
-                 "unselect all PCA9548 failed!\n");
-    } else {
-        fprintf (stdout,
-                 "unselect all PCA9548 success!\n");
-    }
+    fprintf (stdout,
+             "Reset all PCA9548 : %s!\n", rc ? "failed" : "success");
+    LOG_DEBUG ("Reset all PCA9548 : %s!",
+               rc ? "failed" : "success");
 
     return rc;
 }
