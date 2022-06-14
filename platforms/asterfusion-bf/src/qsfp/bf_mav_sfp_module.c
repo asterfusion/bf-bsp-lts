@@ -670,25 +670,51 @@ static int sfp_select_x3 (uint32_t module)
                 break;
             }
         } else { 
-            // select L1
+            /* X312 V3 dev use suio to set cpld qsfp/sfp status, and cp2112 read module info,
+             * so need to read once to ensure that the value is written correctly, otherwise
+             * reading and writing qsfp/sfp module information will report an error, because it
+             * may not be really written.
+             */
+            uint8_t ret_value = 0;
+            ret_value = ret_value;
+
+            // select L1. wirte level_1 PCA9548.
             if (bf_pltfm_master_i2c_write_byte (l1_addr, 0x0,
                                                 1 << l1_ch)) {
                 rc = -3;
                 break;
+            } else {
+                //nothing to do.
             }
-            // unselect L2_unconcerned
+
+            // unselect L2_unconcerned. wirte level_2 unconcerned PCA9548
             if (l2_addr_unconcerned) {
                 if (bf_pltfm_master_i2c_write_byte (
                         l2_addr_unconcerned, 0x0, 0x0)) {
                     rc = -4;
                     break;
+                } else {
+                    rc = bf_pltfm_master_i2c_read_byte(l2_addr_unconcerned, 0x0, &ret_value);
+                    if (rc || (ret_value != 0x0)) {
+                        LOG_ERROR("%s:%d >>> Get SFP : %2d , PCA9548 : 0x%02x , value : 0x%02x, Try again ...\n",
+                                    __func__, __LINE__, module, l2_addr_unconcerned, ret_value);
+                        rc = bf_pltfm_master_i2c_read_byte(l2_addr_unconcerned, 0x0, &ret_value);
+                        if (rc || (ret_value != 0x0)) {
+                            LOG_ERROR("%s:%d >>> Get SFP : %2d , PCA9548 : 0x%02x , value : 0x%02x, exit ...\n",
+                                    __func__, __LINE__, module, l2_addr_unconcerned, ret_value);
+                            rc = -400;
+                            break;
+                        }
+                    }
                 }
             }
-            // select L2
+            // select L2. wirte level_2 PCA9548.
             if (bf_pltfm_master_i2c_write_byte (l2_addr, 0x0,
                                                 1 << l2_ch)) {
                 rc = -5;
                 break;
+            } else {
+                //nothing to do.
             }
         }
     } while (0);
@@ -2304,25 +2330,36 @@ EXPORT int bf_pltfm_sfp_read_module (
     MAV_SFP_PAGE_LOCK;
     sfp_opt->lock();
 
-    if (sfp_opt->select (module)) {
+    err = sfp_opt->select (module);
+    if (err) {
         LOG_ERROR (
             "%s[%d], "
-            "sfp.select(%02d : %s)"
+            "sfp.select(%02d : %s : %d)"
             "\n",
             __FILE__, __LINE__, module,
-            "Failed to select SFP");
+            "Failed to select SFP", err);
         goto end;
     }
 
-    sfp_opt->read (module, offset, len, buf);
-
-    if (sfp_opt->unselect (module)) {
+    err = sfp_opt->read (module, offset, len, buf);
+    if (err) {
+        /* Must de-select even error occured while reading. */
         LOG_ERROR (
             "%s[%d], "
-            "sfp.unselect(%02d : %s)"
+            "sfp.read(%02d : %s : %d)"
             "\n",
             __FILE__, __LINE__, module,
-            "Failed to dis-select SFP");
+            "Failed to read SFP", err);
+    }
+
+    err = sfp_opt->unselect (module);
+    if (err) {
+        LOG_ERROR (
+            "%s[%d], "
+            "sfp.unselect(%02d : %s : %d)"
+            "\n",
+            __FILE__, __LINE__, module,
+            "Failed to dis-select SFP", err);
         goto end;
     }
 
@@ -2348,25 +2385,36 @@ EXPORT int bf_pltfm_sfp_write_module (
     MAV_SFP_PAGE_LOCK;
     sfp_opt->lock();
 
-    if (sfp_opt->select (module)) {
+    err = sfp_opt->select (module);
+    if (err) {
         LOG_ERROR (
             "%s[%d], "
-            "sfp.select(%02d : %s)"
+            "sfp.select(%02d : %s : %d)"
             "\n",
             __FILE__, __LINE__, module,
-            "Failed to select SFP");
+            "Failed to select SFP", err);
         goto end;
     }
 
-    sfp_opt->write (module, offset, len, buf);
-
-    if (sfp_opt->unselect (module)) {
+    err = sfp_opt->write (module, offset, len, buf);
+    if (err) {
+        /* Must de-select even error occured while writing. */
         LOG_ERROR (
             "%s[%d], "
-            "sfp.unselect(%02d : %s)"
+            "sfp.write(%02d : %s : %d)"
             "\n",
             __FILE__, __LINE__, module,
-            "Failed to dis-select SFP");
+            "Failed to write SFP", err);
+    }
+
+    err = sfp_opt->unselect (module);
+    if (err) {
+        LOG_ERROR (
+            "%s[%d], "
+            "sfp.unselect(%02d : %s : %d)"
+            "\n",
+            __FILE__, __LINE__, module,
+            "Failed to dis-select SFP", err);
         goto end;
     }
 

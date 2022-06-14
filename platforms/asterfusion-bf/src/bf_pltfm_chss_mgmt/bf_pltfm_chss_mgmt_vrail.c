@@ -172,6 +172,8 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
     bf_pltfm_pwr_rails_info_t *pwr_rails)
 {
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
+
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
         /* Not supported in v2. */
@@ -186,7 +188,7 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
         buf[1] = 0x66;
         buf[2] = 0xd4;
         buf[3] = 0x02;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, 10000);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;

@@ -220,6 +220,8 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
     bf_pltfm_fan_data_t *fdata)
 {
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
+
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
         uint8_t buf[2] = {0};
@@ -267,12 +269,55 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         int rdlen = 0;
         uint8_t num = 0;
 
+        // fan status
+        buf[0] = 0x03;
+        buf[1] = 0x32;
+        buf[2] = 0x02;
+        buf[3] = 0x01;
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+        if (rdlen != 3) {
+            LOG_ERROR("read fan status from bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+        fdata->F[0].present = (data[2] & 0x01) ? 0 : 1;
+        fdata->F[1].present = fdata->F[0].present;
+        fdata->F[2].present = (data[2] & 0x02) ? 0 : 1;
+        fdata->F[3].present = fdata->F[2].present;
+        fdata->F[4].present = (data[2] & 0x04) ? 0 : 1;
+        fdata->F[5].present = fdata->F[4].present;
+        fdata->F[6].present = (data[2] & 0x08) ? 0 : 1;
+        fdata->F[7].present = fdata->F[6].present;
+        fdata->F[8].present = (data[2] & 0x10) ? 0 : 1;
+        fdata->F[9].present = fdata->F[8].present;
+
+        // fan direction
+        buf[0] = 0x03;
+        buf[1] = 0x32;
+        buf[2] = 0x03;
+        buf[3] = 0x01;
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+        if (rdlen != 3) {
+            LOG_ERROR("read fan direction from bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+        fdata->F[0].direction = (data[2] & 0x01) ? 2 : 1;
+        fdata->F[1].direction = fdata->F[0].direction;
+        fdata->F[2].direction = (data[2] & 0x02) ? 2 : 1;
+        fdata->F[3].direction = fdata->F[2].direction;
+        fdata->F[4].direction = (data[2] & 0x04) ? 2 : 1;
+        fdata->F[5].direction = fdata->F[4].direction;
+        fdata->F[6].direction = (data[2] & 0x08) ? 2 : 1;
+        fdata->F[7].direction = fdata->F[6].direction;
+        fdata->F[8].direction = (data[2] & 0x10) ? 2 : 1;
+        fdata->F[9].direction = fdata->F[8].direction;
+
+        // fan speed
         buf[0] = 0x1;
         buf[1] = 0x32;
         buf[3] = 0x1;
         for (i = 0; i < 10; i++) {
             buf[2] = i;
-            rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+            rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
             if (rdlen != 3) {
                 LOG_ERROR("read fan speed from bmc error!\n");
                 return BF_PLTFM_COMM_FAILED;
@@ -379,6 +424,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
     bf_pltfm_fan_info_t *fdata)
 {
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
     fdata = fdata;
 
     /* Example code for a subversion in a given platform. */
@@ -406,7 +452,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[2] = 0x4a;
         buf[3] = 0x01;
         buf[4] = 0x22;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, 10000);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -417,7 +463,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[2] = 0x4c;
         buf[3] = 0x01;
         buf[4] = fdata->speed_level;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, 10000);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;

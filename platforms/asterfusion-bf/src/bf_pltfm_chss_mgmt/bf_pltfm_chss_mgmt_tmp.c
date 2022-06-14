@@ -166,6 +166,8 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
     bf_pltfm_temperature_info_t *tmp)
 {
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
+
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
         uint8_t buf[5];
@@ -193,7 +195,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4a;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data1, 10000);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data1, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -204,7 +206,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4c;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data2, 10000);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data2, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -215,7 +217,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4c;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data3, 10000);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data3, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;

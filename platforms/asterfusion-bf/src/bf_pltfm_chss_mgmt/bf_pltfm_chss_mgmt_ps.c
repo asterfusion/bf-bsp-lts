@@ -294,6 +294,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
     int32_t n;
     float y;
     bool debug_print = false;
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
 
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
@@ -506,7 +507,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             /*psu present 00: 01 <pin high/low>*/
             pre_buf[0] = 0xc;
             pre_buf[1] = 0xc;
-            ret = bf_pltfm_bmc_write_read(0x3e, 0x20, pre_buf, 2, 0xff, psu_present_data, 10000);
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x20, pre_buf, 2, 0xff, psu_present_data, usec_delay);
             if (ret == -1) {
                 LOG_ERROR("Read psu present error\n");
                 return BF_PLTFM_COMM_FAILED;
@@ -524,7 +525,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             /*psu present 00: 01 <pin high/low>*/
             pre_buf[0] = 0xd;
             pre_buf[1] = 0xc;
-            ret = bf_pltfm_bmc_write_read(0x3e, 0x20, pre_buf, 2, 0xff, psu_present_data, 10000);
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x20, pre_buf, 2, 0xff, psu_present_data, usec_delay);
             if (ret == -1) {
                 LOG_ERROR("Read psu present error\n");
                 return BF_PLTFM_COMM_FAILED;
@@ -548,7 +549,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU Pout 00: 02 <psu low> <psu high>*/
         buf[2] = 0x96;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu pout error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -567,7 +568,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU Pin 00: 02 <psu low> <psu high>*/
         buf[2] = 0x97;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pin_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pin_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu pin error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -586,7 +587,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU Vout_mode 00: 02 <Voutmode> <XX>*/
         buf[2] = 0x20;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_mode, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_mode, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu vout_mode error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -598,7 +599,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU Vout 00: 02 <psu low> <psu high>*/
         buf[2] = 0x8b;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu vout error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -616,7 +617,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU Vin 00: 02 <psu low> <psu high>*/
         buf[2] = 0x88;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vin_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vin_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu vin error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -636,7 +637,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU iout 00: 02 <psu low> <psu high>*/
         buf[2] = 0x8c;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iout_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iout_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu iout error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -656,7 +657,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         /*PSU iin 00: 02 <psu low> <psu high>*/
         buf[2] = 0x89;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iin_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iin_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu iin error\n");
             return BF_PLTFM_COMM_FAILED;
@@ -681,7 +682,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         /*PSU sn 00: 0a 09 <1> <2> <3> <4> <5> <6> <7> <8> <9> */
         buf[2] = 0x9e;
         buf[3] = 0xa;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_sn_data, 10000);
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_sn_data, usec_delay);
         if (ret == -1) {
             LOG_ERROR("Read psu sn error\n");
             return BF_PLTFM_COMM_FAILED;
