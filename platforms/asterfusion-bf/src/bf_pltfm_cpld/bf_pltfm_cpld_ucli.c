@@ -13,9 +13,14 @@
 #include <bf_switchd/bf_switchd.h>
 #include <bf_pltfm.h>
 
+#include <pltfm_types.h>
+
 #define DEFAULT_TIMEOUT_MS 500
 
-int bf_pltfm_max_cplds = 2;
+/* Maximum accessiable syscplds of a platform. */
+static int bf_pltfm_max_cplds = 2;
+/* For YH and S02 CME. */
+static bf_pltfm_cp2112_device_ctx_t *g_cpld_cp2112_hndl;
 
 static void hex_dump (ucli_context_t *uc,
                       uint8_t *buf, uint32_t len)
@@ -29,41 +34,133 @@ static void hex_dump (ucli_context_t *uc,
         aim_printf (&uc->pvs, "%02x ", buf[byte]);
     }
     aim_printf (&uc->pvs, "\n");
-
 }
 
+/** read bytes from slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to read
+*  @param val
+*   value to read into
+*  @return
+*   0 on success and otherwise in error
+*/
+int bf_pltfm_cp2112_reg_read_block (
+  uint8_t addr,
+  uint8_t reg,
+  uint8_t *read_buf,
+  uint32_t read_buf_size)
+{
+  uint8_t wr_val;
 
-int select_cpld (int cpld)
+  wr_val = reg;
+  return (bf_pltfm_cp2112_write_read_unsafe (g_cpld_cp2112_hndl,
+                      addr << 1, &wr_val, read_buf, 1, read_buf_size, 100));
+}
+
+/** write a byte to slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to write
+*  @param val
+*   value to write
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cp2112_reg_write_byte (
+  uint8_t addr,
+  uint8_t reg,
+  uint8_t val)
+{
+  uint8_t wr_val[2] = {0};
+
+  wr_val[0] = reg;
+  wr_val[1] = val;
+  return (bf_pltfm_cp2112_write (g_cpld_cp2112_hndl,
+                      addr << 1, wr_val, 2, 100));
+}
+
+/** write bytes to slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to write
+*  @param val
+*   value to write
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cp2112_reg_write_block (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t *write_buf,
+    uint32_t write_buf_size)
+{
+    uint32_t tx_len = write_buf_size % 256;
+    uint8_t wr_val[256] = {0};
+
+    wr_val[0] = reg;
+    //wr_val[1] = val;
+    memcpy (wr_val + 1, write_buf, tx_len);
+    return (bf_pltfm_cp2112_write (g_cpld_cp2112_hndl,
+                        addr << 1, wr_val, tx_len, 100));
+}
+
+/** write PCA9548 to select channel which connects to syscpld
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @return
+*   0 on success otherwise in error
+*/
+int select_cpld (uint8_t cpld_index)
 {
     /* for X312P and X308P, there's no need to select CPLD */
     if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
         return 0;
     }
 
-    int rc;
+    int rc = -1;
     int chnl = 0;
 
-    if ((cpld <= 0) || (cpld > bf_pltfm_max_cplds)) {
-        return -1;
+    if ((cpld_index <= 0) || (cpld_index > bf_pltfm_max_cplds)) {
+        return -2;
     }
 
-    chnl = cpld - 1;
+    chnl = cpld_index - 1;
 
-    /* Switch channel */
-    rc = bf_pltfm_master_i2c_write_byte (
-             BF_MAV_MASTER_PCA9548_ADDR, 0x00, 1 << chnl);
+    if (is_ADV15XX ||
+        is_S02XXX) {
+        rc = bf_pltfm_cp2112_reg_write_byte (
+                BF_MAV_MASTER_PCA9548_ADDR, 0x00, 1 << chnl);
+    } else {
+        /* Switch channel */
+        rc = bf_pltfm_master_i2c_write_byte (
+                BF_MAV_MASTER_PCA9548_ADDR, 0x00, 1 << chnl);
+    }
+
     if (rc) {
         LOG_ERROR (
             "%s[%d], "
-            "i2c_write(%d : %s)"
+            "select cpld(%d : %s : %d)"
             "\n",
-            __FILE__, __LINE__, cpld,
-            "Failed to write PCA9548");
-        return -1;
+            __FILE__, __LINE__, cpld_index,
+            "Failed to write PCA9548", rc);
     }
-    return 0;
+
+    return rc;
 }
 
+/** write PCA9548 back to zero to de-select syscpld
+*
+*  @return
+*   0 on success otherwise in error
+*/
 int unselect_cpld()
 {
     /* for X312P and X308P, there's no need to select CPLD */
@@ -71,293 +168,268 @@ int unselect_cpld()
         return 0;
     }
 
-    int rc;
+    int rc = -1;
 
-    /* disable all channel */
-    rc = bf_pltfm_master_i2c_write_byte (
-             BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0);
+    /* for X5-T and HC */
+    if (is_ADV15XX ||
+        is_S02XXX) {
+        rc = bf_pltfm_cp2112_reg_write_byte (
+                BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0);
+    } else {
+        /* disable all channel */
+        rc = bf_pltfm_master_i2c_write_byte (
+                BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0);
+    }
+
     if (rc) {
         LOG_ERROR (
             "%s[%d], "
-            "i2c_write(%s)"
+            "de-select cpld(%s : %d)"
             "\n",
-            __FILE__, __LINE__, "Failed to write PCA9548");
-        return -1;
-    }
-    return 0;
-}
-
-int bf_pltfm_cpld_read_bytes_x3 (
-    int cpld_index,
-    uint8_t *buf,
-    uint8_t rdlen)
-{
-    cpld_index = cpld_index;
-    buf = buf;
-    rdlen = rdlen;
-    return 0;
-}
-
-int bf_pltfm_cpld_read_byte_x3 (
-    int i2c_addr,
-    uint8_t offset,
-    uint8_t *buf)
-{
-    int rc = 0;
-    //uint8_t addr = ((uint8_t)i2c_addr) << 1;
-    //bf_pltfm_cp2112_device_ctx_t *hndl = bf_pltfm_cp2112_get_handle(CP2112_ID_1);
-
-    MASTER_I2C_LOCK;
-    rc = bf_pltfm_master_i2c_read_byte (i2c_addr,
-                                        offset, buf);
-    if (rc) {
-        goto end;
+            __FILE__, __LINE__, "Failed to write PCA9548", rc);
     }
 
-    //rc = bf_pltfm_cp2112_write_byte(hndl, addr, offset, DEFAULT_TIMEOUT_MS);
-    //if (rc) {
-    //    goto end;
-    //}
-
-    //rc = bf_pltfm_cp2112_read(hndl, addr, buf, 1, DEFAULT_TIMEOUT_MS);
-    //if (rc) {
-    //    goto end;
-    //}
-
-end:
-    MASTER_I2C_UNLOCK;
     return rc;
 }
 
-static int bf_pltfm_cpld_write_bytes_x3 (
-    int i2c_addr,
-    uint8_t offset,
-    uint8_t *buf,
-    uint8_t wrlen)
-{
-    i2c_addr = i2c_addr;
-    offset = offset;
-    buf = buf;
-    wrlen = wrlen;
-    return 0;
-}
-
-static int bf_pltfm_cpld_write_byte_x3 (
-    int i2c_addr,
-    uint8_t offset,
-    uint8_t val)
-{
-    int rc = 0;
-    //uint8_t addr = ((uint8_t)cpld_index) << 1;
-    //uint8_t tmp[2];
-    //bf_pltfm_cp2112_device_ctx_t *hndl = bf_pltfm_cp2112_get_handle(CP2112_ID_1);
-    //tmp[0] = offset;
-    //tmp[1] = val;
-
-    MASTER_I2C_LOCK;
-    //rc = bf_pltfm_cp2112_write(hndl, addr, tmp, 2, DEFAULT_TIMEOUT_MS);
-    rc = bf_pltfm_master_i2c_write_byte (i2c_addr,
-                                         offset, val);
-    if (rc) {
-        goto end;
-    }
-
-end:
-    MASTER_I2C_UNLOCK;
-    return rc;
-}
-
-int bf_pltfm_cpld_read_bytes (
-    int cpld_index,
-    uint8_t *buf,
-    uint8_t rdlen)
-{
-    if (platform_type_equal (X312P)) {
-        return bf_pltfm_cpld_read_bytes_x3 (cpld_index,
-                                            buf, rdlen);
-    }
-    int rv = -1;
-    int i = 0;
-
-    /* It is quite dangerous to access CPLD though Master PCA9548
-     * in different thread without protection.
-     * Added by tsihang, 20210616. */
-
-    MASTER_I2C_LOCK;
-    if (!select_cpld (cpld_index)) {
-
-        for (i = 0; i < rdlen; i ++) {
-            if (!bf_pltfm_master_i2c_read_byte (0x40, i,
-                                                &buf[i])) {
-                continue;
-            }
-        }
-
-        if (i == rdlen) {
-            rv = 0;
-        }
-
-        unselect_cpld();
-    }
-    MASTER_I2C_UNLOCK;
-
-    /* If the channel selected error, return false immediately. */
-    return rv;
-}
-
-
+/** read a byte from syscpld register
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @param offset
+*   syscpld register to read
+*  @param buf
+*   buffer to read to
+*  @return
+*   0 on success otherwise in error
+*/
 int bf_pltfm_cpld_read_byte (
-    int cpld_index,
+    uint8_t cpld_index,
     uint8_t offset,
     uint8_t *buf)
 {
-    if (platform_type_equal (X312P)) {
-        return bf_pltfm_cpld_read_byte_x3 (cpld_index,
-                                           offset, buf);
-    }
-
-    int rv = -1;
-    int i = 0;
+    int rc = -1;
+    uint8_t addr = 0;
 
     /* It is quite dangerous to access CPLD though Master PCA9548
      * in different thread without protection.
      * Added by tsihang, 20210616. */
 
-    MASTER_I2C_LOCK;
-    if (!select_cpld (cpld_index)) {
-
-        if (!bf_pltfm_master_i2c_read_byte (0x40, offset,
-                                            &buf[i])) {
-            rv = 0;
-        }
-
-        unselect_cpld();
-    }
-    MASTER_I2C_UNLOCK;
-
-    /* If the channel selected error, return false immediately. */
-    return rv;
-}
-
-int bf_pltfm_cpld_write_bytes (
-    int cpld_index,
-    uint8_t offset,
-    uint8_t *buf,
-    uint8_t wrlen)
-{
     if (platform_type_equal (X312P)) {
-        return bf_pltfm_cpld_write_bytes_x3 (cpld_index,
-                                             offset, buf, wrlen);
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X312P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X312P_SYSCPLD2_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD3:
+                addr = X312P_SYSCPLD3_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD4:
+                addr = X312P_SYSCPLD4_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD5:
+                addr = X312P_SYSCPLD5_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X308P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X308P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X308P_SYSCPLD2_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X564P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X564P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X564P_SYSCPLD2_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD3:
+                addr = X564P_SYSCPLD3_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X532P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X532P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X532P_SYSCPLD2_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (HC)) {
+        /* TBD */
     }
-    int rv = -1;
-    int i = 0;
-
-    /* It is quite dangerous to access CPLD though Master PCA9548
-     * in different thread without protection.
-     * Added by tsihang, 20210616. */
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
-
-        for (i = 0; i < wrlen; i ++) {
-            if (!bf_pltfm_master_i2c_write_byte (0x40, i,
-                                                 buf[i])) {
-                continue;
-            }
+        if (is_ADV15XX ||
+            is_S02XXX) {
+            rc = bf_pltfm_cp2112_reg_read_block (
+                                            addr, offset, buf, 1);
+        } else {
+            rc = bf_pltfm_master_i2c_read_byte (addr,
+                                            offset, buf);
         }
-
-        if (i == wrlen) {
-            rv = 0;
-        }
-
         unselect_cpld();
     }
     MASTER_I2C_UNLOCK;
-
-    /* If the channel selected error, return false immediately. */
-    return rv;
-}
-
-int bf_pltfm_cpld_write_byte (
-    int cpld_index,
-    uint8_t offset,
-    uint8_t val)
-{
-    if (platform_type_equal (X312P)) {
-        return bf_pltfm_cpld_write_byte_x3 (cpld_index,
-                                            offset, val);
-    }
-    int rv = -1;
-
-    /* It is quite dangerous to access CPLD though Master PCA9548
-     * in different thread without protection.
-     * Added by tsihang, 20210616. */
-
-    MASTER_I2C_LOCK;
-    if (!select_cpld (cpld_index)) {
-
-        if (!bf_pltfm_master_i2c_write_byte (0x40, offset,
-                                             val)) {
-            rv = 0;
-        }
-
-        unselect_cpld();
-    }
-    MASTER_I2C_UNLOCK;
-
-    /* If the channel selected error, return false immediately. */
-    return rv;
-}
-
-static int bf_pltfm_syscpld_reset_x312p()
-{
-    int rc = 0;
-    uint8_t val, val0, val1;
-    uint8_t offset;
-
-    // reset CPLD
-    offset = 0x0C;
-    val = 0x5f;
-
-    rc |= bf_pltfm_cpld_read_byte (
-              BF_MON_SYSCPLD1_I2C_ADDR, offset, &val0);
-    bf_sys_usleep (2 * 1000 * 1000);
-    rc |= bf_pltfm_cpld_write_byte (
-              BF_MON_SYSCPLD1_I2C_ADDR, offset, val);
-    // CPLD3,CPLD4,CPLD5 reset timing=1000ms
-    bf_sys_usleep (2 * 1000 * 1000);
-    rc |= bf_pltfm_cpld_read_byte (
-              BF_MON_SYSCPLD1_I2C_ADDR, offset, &val1);
-
-    fprintf (stdout,
-             "CPLD3-5  RST(auto de-reset) : (0x%02x -> 0x%02x =? 0x%02x) : %s\n",
-             val0, val, val1, rc ? "failed" : "success");
-    LOG_DEBUG ("CPLD3-5 RST(auto de-reset) : (0x%02x -> 0x%02x =? 0x%02x) : %s",
-               val0, val, val1, rc ? "failed" : "success");
 
     return rc;
 }
 
-/* Reset CPLD2 for QSFP/SFP control.
- * offset = 2, and
- * bit[2] reset cpld2
- * by tsihang, 2020-05-25 */
+/** write a byte to syscpld register
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @param offset
+*   syscpld register to read
+*  @param buf
+*   buffer to write from
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cpld_write_byte (
+    uint8_t cpld_index,
+    uint8_t offset,
+    uint8_t val)
+{
+    int rc = -1;
+    uint8_t addr = 0;
+
+    /* It is quite dangerous to access CPLD though Master PCA9548
+     * in different thread without protection.
+     * Added by tsihang, 20210616. */
+
+    if (platform_type_equal (X312P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X312P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X312P_SYSCPLD2_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD3:
+                addr = X312P_SYSCPLD3_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD4:
+                addr = X312P_SYSCPLD4_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD5:
+                addr = X312P_SYSCPLD5_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X308P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X308P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X308P_SYSCPLD2_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X564P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X564P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X564P_SYSCPLD2_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD3:
+                addr = X564P_SYSCPLD3_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X532P)) {
+        /* cpld_index to cpld_addr */
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                addr = X532P_SYSCPLD1_I2C_ADDR;
+                break;
+            case BF_MAV_SYSCPLD2:
+                addr = X532P_SYSCPLD2_I2C_ADDR;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (HC)) {
+        /* TBD */
+    }
+
+    MASTER_I2C_LOCK;
+    if (!select_cpld (cpld_index)) {
+        if (is_ADV15XX ||
+            is_S02XXX) {
+            rc = bf_pltfm_cp2112_reg_write_byte (
+                                    addr, offset, val);
+        } else {
+            rc = bf_pltfm_master_i2c_write_byte (
+                                    addr, offset, val);
+        }
+        unselect_cpld();
+    }
+    MASTER_I2C_UNLOCK;
+
+    return rc;
+}
+
+/** reset syscpld for a given platform
+*
+*  @param none
+*  @return
+*   0 on success otherwise in error
+*/
 int bf_pltfm_syscpld_reset()
 {
     int rc = 0;
     uint8_t val = 0, val0 = 0, val1 = 0;
     uint8_t offset = 0x2;
-    int usec = 500;
+    int usec = 2 * 1000 * 1000;
 
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
+    rc = bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD1,
+                    offset, &val0);
+    if (rc) {
+        goto end;
+    }
+    bf_sys_usleep (usec);
 
     val = val0;
     if (platform_type_equal (X532P)) {
+        /* offset = 2 and bit[2] to reset cpld2.
+         * by tsihang, 2020-05-25 */
         offset = 0x2;
         /* reset cpld2 */
         val |= (1 << 2);
     } else if (platform_type_equal (X564P)) {
+        /* offset = 2 and bit[4], bit[5] to reset cpld2 and cpld3.
+         * by tsihang, 2020-05-25 */
         offset = 0x2;
         /* reset cpld2 */
         val |= (1 << 4);
@@ -365,29 +437,48 @@ int bf_pltfm_syscpld_reset()
         val |= (1 << 5);
 
     } else if (platform_type_equal (HC)) {
+        /* offset = 3 and bit[3], bit[4] to reset cpld2 and cpld3.
+         * by tsihang, 2020-05-25 */
         offset = 0x3;
         /* reset cpld2 */
         val |= (1 << 3);
         /* reset cpld3 */
         val |= (1 << 4);
+    } else if (platform_type_equal (X312P)) {
+        offset = 0x0C;
+        val = 0x5f;
+        // CPLD3,CPLD4,CPLD5 reset timing=1000ms
     }
 
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, offset, val);
+    rc = bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD1,
+                    offset, val);
+    if (rc) {
+        goto end;
+    }
     bf_sys_usleep (usec);
 
-    /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, offset, &val1);
-    if (rc != 0) {
+    /* read back for check and log. */
+    rc = bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD1,
+                    offset, &val1);
+    if (rc) {
         goto end;
+    }
+
+    /* there's no need to check for X312P as it will auto de-assert after 1000ms, so return here. */
+    if (platform_type_equal (X312P)) {
+        fprintf (stdout,
+                 "CPLD3-5  RST(auto de-reset) : (0x%02x -> 0x%02x =? 0x%02x) : %s\n",
+                 val0, val, val1, rc ? "failed" : "success");
+        LOG_DEBUG ("CPLD3-5 RST(auto de-reset) : (0x%02x -> 0x%02x =? 0x%02x) : %s",
+                   val0, val, val1, rc ? "failed" : "success");
+
+        return 0;
     }
 
     fprintf (stdout,
              "CPLD  +RST : (0x%02x -> 0x%02x)\n", val0, val1);
     LOG_DEBUG ("CPLD +RST : (0x%02x -> 0x%02x)", val0,
                val1);
-
 
     val = val1;
     if (platform_type_equal (X532P)) {
@@ -405,13 +496,17 @@ int bf_pltfm_syscpld_reset()
         val &= ~ (1 << 4);
     } else { }
 
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, offset, val);
+    rc = bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD1,
+                    offset, val);
+    if (rc) {
+        goto end;
+    }
+
     bf_sys_usleep (usec);
 
-    /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, offset, &val0);
+    /* read back for check and log. */
+    rc = bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD1,
+                    offset, &val0);
     if (rc) {
         goto end;
     }
@@ -420,71 +515,6 @@ int bf_pltfm_syscpld_reset()
              "CPLD  -RST : (0x%02x -> 0x%02x)\n", val1, val0);
     LOG_DEBUG ("CPLD -RST : (0x%02x -> 0x%02x)", val1,
                val0);
-
-end:
-    return rc;
-}
-
-/* Reset CP2112 for QSFP/SFP control.
- * offset = 2, and
- * bit[3] reset CP2112
- * by tsihang, 2020-05-25 */
-int bf_pltfm_cp2112_reset()
-{
-    int rc = 0;
-    uint8_t val = 0, val0 = 0, val1 = 0;
-    int usec = 500;
-
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
-
-    val = val0;
-    if (platform_type_equal (X532P)) {
-        val |= (1 << 3);
-    } else if (platform_type_equal (X564P)) {
-        val |= (1 << 6);
-    } else { }
-
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, val);
-    bf_sys_usleep (usec);
-
-    /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val1);
-    if (rc != 0) {
-        goto end;
-    }
-
-    fprintf (stdout,
-             "CP2112  +RST : (0x%02x -> 0x%02x)\n", val0,
-             val1);
-    LOG_DEBUG ("CP2112 +RST : (0x%02x -> 0x%02x)",
-               val0, val1);
-
-    val = val1;
-    if (platform_type_equal (X532P)) {
-        val &= ~ (1 << 3);
-    } else if (platform_type_equal (X564P)) {
-        val &= ~ (1 << 6);
-    } else { }
-
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, val);
-    bf_sys_usleep (usec);
-
-    /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
-    if (rc) {
-        goto end;
-    }
-
-    fprintf (stdout,
-             "CP2112  -RST : (0x%02x -> 0x%02x)\n", val1,
-             val0);
-    LOG_DEBUG ("CP2112 -RST : (0x%02x -> 0x%02x)",
-               val1, val0);
 
 end:
     return rc;
@@ -503,21 +533,21 @@ int bf_pltfm_pca9548_reset_03()
     uint8_t val = 0, val0 = 0, val1 = 0;
     int usec = 500;
 
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 14, &val0);
-
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                14, &val0);
     val = val0;
     val |= (1 << 0);
     val |= (1 << 1);
     val |= (1 << 2);
     val |= (1 << 3);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 14, val);
+
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD2,
+                14, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 14, &val1);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                14, &val1);
     if (rc != 0) {
         goto end;
     }
@@ -533,13 +563,14 @@ int bf_pltfm_pca9548_reset_03()
     val &= ~ (1 << 1);
     val &= ~ (1 << 2);
     val &= ~ (1 << 3);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 14, val);
+
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD2,
+                14, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 14, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                14, &val0);
     if (rc) {
         goto end;
     }
@@ -567,21 +598,21 @@ int bf_pltfm_pca9548_reset_47()
     uint8_t val = 0, val0 = 0, val1 = 0;
     int usec = 500;
 
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                2, &val0);
 
     val = val0;
     val |= (1 << 0);
     val |= (1 << 1);
     val |= (1 << 2);
     val |= (1 << 3);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, val);
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD2,
+                2, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, &val1);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                2, &val1);
     if (rc != 0) {
         goto end;
     }
@@ -597,13 +628,13 @@ int bf_pltfm_pca9548_reset_47()
     val &= ~ (1 << 1);
     val &= ~ (1 << 2);
     val &= ~ (1 << 3);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, val);
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD2,
+                2, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                2, &val0);
     if (rc) {
         goto end;
     }
@@ -629,19 +660,19 @@ int bf_pltfm_pca9548_reset_x308p()
     uint8_t val = 0, val0 = 0, val1 = 0;
     int usec = 500;
 
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD1,
+                2, &val0);
 
     val = val0;
     val |= (1 << 1);
     val |= (1 << 2);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, val);
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD1,
+                2, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val1);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD1,
+                2, &val1);
     if (rc != 0) {
         goto end;
     }
@@ -655,13 +686,13 @@ int bf_pltfm_pca9548_reset_x308p()
     val = val1;
     val &= ~ (1 << 1);
     val &= ~ (1 << 2);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, val);
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD1,
+                2, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 2, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD1,
+                2, &val0);
     if (rc) {
         goto end;
     }
@@ -682,87 +713,87 @@ int bf_pltfm_pca9548_reset_x312p()
     uint8_t ret_value;
 
     // select to level1 pca9548 ch1, and unselect sub pca9548
-    rc |= bf_pltfm_cpld_write_byte (
-              X312P_PCA9548_L1_0X71, 0x0, 1 << 1);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              X312P_PCA9548_L1_0x71, 0x0, 1 << 1);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x73, 0x0, &ret_value);
     fprintf(stdout, "L1[1]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x74, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x74, 0x0, &ret_value);
     fprintf(stdout, "L1[1]: L2_0x74: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch2, and unselect sub pca9548
-    rc |= bf_pltfm_cpld_write_byte (
-              X312P_PCA9548_L1_0X71, 0x0, 1 << 2);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              X312P_PCA9548_L1_0x71, 0x0, 1 << 2);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x72, 0x0, &ret_value);
     fprintf(stdout, "L1[2]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x73, 0x0, &ret_value);
     fprintf(stdout, "L1[2]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch3, and unselect sub pca9548
-    rc |= bf_pltfm_cpld_write_byte (
-              X312P_PCA9548_L1_0X71, 0x0, 1 << 3);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              X312P_PCA9548_L1_0x71, 0x0, 1 << 3);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x72, 0x0, &ret_value);
     fprintf(stdout, "L1[3]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x73, 0x0, &ret_value);
     fprintf(stdout, "L1[3]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch4, and unselect sub pca9548
-    rc |= bf_pltfm_cpld_write_byte (
-              X312P_PCA9548_L1_0X71, 0x0, 1 << 4);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              X312P_PCA9548_L1_0x71, 0x0, 1 << 4);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x72, 0x0, &ret_value);
     fprintf(stdout, "L1[4]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x73, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x73, 0x0, &ret_value);
     fprintf(stdout, "L1[4]: L2_0x73: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // select to level1 pca9548 ch5, and unselect sub pca9548
-    rc |= bf_pltfm_cpld_write_byte (
-              X312P_PCA9548_L1_0X71, 0x0, 1 << 5);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              X312P_PCA9548_L1_0x71, 0x0, 1 << 5);
     bf_sys_usleep (500);
-    rc |= bf_pltfm_cpld_write_byte (
+    rc |= bf_pltfm_master_i2c_write_byte (
               X312P_PCA9548_L2_0x72, 0x0, 0x0);
-    rc |= bf_pltfm_cpld_read_byte (
+    rc |= bf_pltfm_master_i2c_read_byte (
               X312P_PCA9548_L2_0x72, 0x0, &ret_value);
     fprintf(stdout, "L1[5]: L2_0x72: %02x\n", ret_value);
     bf_sys_usleep (500);
 
     // unselect level1 pca9548
-    rc |= bf_pltfm_cpld_write_byte (
-              X312P_PCA9548_L1_0X71, 0x0, 0x0);
+    rc |= bf_pltfm_master_i2c_write_byte (
+              X312P_PCA9548_L1_0x71, 0x0, 0x0);
     bf_sys_usleep (500);
 
     fprintf (stdout,
@@ -782,8 +813,8 @@ int bf_pltfm_pca9548_reset_hc()
     uint8_t val = 0, val0 = 0, val1 = 0;
     int usec = 500;
 
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                2, &val0);
 
     val = val0;
     val |= (1 << 0);
@@ -794,13 +825,14 @@ int bf_pltfm_pca9548_reset_hc()
     val |= (1 << 5);
     val |= (1 << 6);
     val |= (1 << 7);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, val);
+
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD2,
+                2, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, &val1);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                2, &val1);
     if (rc != 0) {
         goto end;
     }
@@ -820,13 +852,13 @@ int bf_pltfm_pca9548_reset_hc()
     val &= ~ (1 << 5);
     val &= ~ (1 << 6);
     val &= ~ (1 << 7);
-    rc |= bf_pltfm_master_i2c_write_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, val);
+    rc |= bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD2,
+                2, val);
     bf_sys_usleep (usec);
 
     /* read back for log. */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD2_I2C_ADDR, 2, &val0);
+    rc |= bf_pltfm_cpld_read_byte (BF_MAV_SYSCPLD2,
+                2, &val0);
     if (rc) {
         goto end;
     }
@@ -841,118 +873,49 @@ end:
     return rc;
 }
 
-int bf_pltfm_syscpld_init_x564p()
-{
-    int rc;
-    MASTER_I2C_LOCK;
-    if (((rc = select_cpld (1)) != 0)) {
-        goto end;
-    } else {
-        bf_pltfm_syscpld_reset();
-        /* Never try to reset CP2112. */
-        //bf_pltfm_cp2112_reset();
-        if (platform_type_equal (X564P)) {
-            bf_pltfm_pca9548_reset_47();
-        }
-    }
-    if (((rc = select_cpld (2)) != 0)) {
-        goto end;
-    } else {
-        bf_pltfm_pca9548_reset_03();
-    }
-end:
-    MASTER_I2C_UNLOCK;
-    return rc;
-}
-
-int bf_pltfm_syscpld_init_x532p()
-{
-    int rc;
-    MASTER_I2C_LOCK;
-    if (((rc = select_cpld (1)) != 0)) {
-        goto end;
-    } else {
-        bf_pltfm_syscpld_reset();
-        /* Never try to reset CP2112. */
-        //bf_pltfm_cp2112_reset();
-    }
-    if (((rc = select_cpld (2)) != 0)) {
-        goto end;
-    } else {
-        bf_pltfm_pca9548_reset_03();
-    }
-end:
-    MASTER_I2C_UNLOCK;
-    return rc;
-}
-
-int bf_pltfm_syscpld_init_x308p()
-{
-//    int rc;
-    MASTER_I2C_LOCK;
-
-    /* only one cpld, no need to reset cpld */
-//    bf_pltfm_syscpld_reset_x308p();
-    /* reset PCA9548 */
-    bf_pltfm_pca9548_reset_x308p();
-
-    MASTER_I2C_UNLOCK;
-    return 0;
-}
-
-int bf_pltfm_syscpld_init_hc()
-{
-    int rc;
-    MASTER_I2C_LOCK;
-
-    do {
-        if (((rc = select_cpld (1)) != 0)) {
-            break;
-        } else {
-            bf_pltfm_syscpld_reset();
-            /* Never try to reset CP2112. */
-            //bf_pltfm_cp2112_reset();
-            /* reset PCA9548 */
-            bf_pltfm_pca9548_reset_hc();
-        }
-    } while (0);
-
-    MASTER_I2C_UNLOCK;
-    return rc;
-}
-
-int bf_pltfm_syscpld_init_x312p()
-{
-    MASTER_I2C_LOCK;
-
-    /* reset cpld */
-    bf_pltfm_syscpld_reset_x312p();
-    /* reset PCA9548 */
-    bf_pltfm_pca9548_reset_x312p();
-
-    MASTER_I2C_UNLOCK;
-
-    return 0;
-}
-
 int bf_pltfm_syscpld_init()
 {
+    fprintf (stdout,
+             "\n\n================== CPLDs INIT ==================\n");
+
+     if (is_ADV15XX ||
+         is_S02XXX) {
+         /* get cp2112 handler. */
+         g_cpld_cp2112_hndl =
+             bf_pltfm_cp2112_get_handle (CP2112_ID_2);
+         BUG_ON (g_cpld_cp2112_hndl == NULL);
+         fprintf (stdout, "The USB dev dev %p.\n",
+                    (void *)g_cpld_cp2112_hndl->usb_device);
+         fprintf (stdout, "The USB dev contex %p.\n",
+                    (void *)g_cpld_cp2112_hndl->usb_context);
+         fprintf (stdout, "The USB dev handle %p.\n",
+                    (void *)g_cpld_cp2112_hndl->usb_device_handle);
+     }
+
     if (platform_type_equal (X564P)) {
         bf_pltfm_max_cplds = 3;
-        return bf_pltfm_syscpld_init_x564p();
+        bf_pltfm_syscpld_reset();
+        bf_pltfm_pca9548_reset_47();
+        bf_pltfm_pca9548_reset_03();
     } else if (platform_type_equal (X532P)) {
         bf_pltfm_max_cplds = 2;
-        return bf_pltfm_syscpld_init_x532p();
+        bf_pltfm_syscpld_reset();
+        bf_pltfm_pca9548_reset_03();
     } else if (platform_type_equal (X308P)) {
         bf_pltfm_max_cplds = 2;
-        return bf_pltfm_syscpld_init_x308p();
+        bf_pltfm_pca9548_reset_x308p();
     } else if (platform_type_equal (HC)) {
         bf_pltfm_max_cplds = 3;
-        return bf_pltfm_syscpld_init_hc();
+        bf_pltfm_syscpld_reset();
+        bf_pltfm_pca9548_reset_hc();
     } else if (platform_type_equal (X312P)) {
         bf_pltfm_max_cplds = 5;
-        return bf_pltfm_syscpld_init_x312p();
+        /* reset cpld */
+        bf_pltfm_syscpld_reset();
+        /* reset PCA9548 */
+        bf_pltfm_pca9548_reset_x312p();
     }
+
     return 0;
 }
 
@@ -960,6 +923,7 @@ static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__read_cpld (
     ucli_context_t *uc)
 {
+    int i = 0;
     uint8_t buf[BUFSIZ];
     int cpld_index;
     uint8_t cpld_page_size = 128;
@@ -977,15 +941,19 @@ bf_pltfm_cpld_ucli_ucli__read_cpld (
         return -1;
     }
 
-    if (bf_pltfm_cpld_read_bytes (cpld_index, buf,
-                                  cpld_page_size)) {
-        return -1;
+    for (i = 0; i < cpld_page_size; i ++) {
+        if (bf_pltfm_cpld_read_byte (cpld_index, i,
+                                        &buf[i])) {
+            break;
+        }
     }
+    /* Check total */
+    if (i == cpld_page_size) {
+        aim_printf (&uc->pvs, "\ncpld %d:\n",
+                    cpld_index);
+        hex_dump (uc, buf, cpld_page_size);
 
-    aim_printf (&uc->pvs, "\ncpld %d:\n",
-                cpld_index);
-    hex_dump (uc, buf, cpld_page_size);
-
+    }
     return 0;
 }
 

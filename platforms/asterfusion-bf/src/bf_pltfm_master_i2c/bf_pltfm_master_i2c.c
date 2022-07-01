@@ -43,23 +43,23 @@ struct adap_type {
 static struct adap_type adap_types[5] = {
     {
         .funcs	= "dummy",
-        .algo		= "Dummy bus",
+        .algo	= "Dummy bus",
     },
     {
         .funcs	= "isa",
-        .algo		= "ISA bus",
+        .algo	= "ISA bus",
     },
     {
         .funcs	= "i2c",
-        .algo		= "I2C adapter",
+        .algo	= "I2C adapter",
     },
     {
         .funcs	= "smbus",
-        .algo		= "SMBus adapter",
+        .algo	= "SMBus adapter",
     },
     {
         .funcs	= "unknown",
-        .algo		= "N/A",
+        .algo	= "N/A",
     },
 };
 
@@ -71,13 +71,13 @@ struct i2c_adap {
 };
 
 struct i2c_ctx_t {
-    int fd;
     int fd_suio;
     int fd_cp2112;
+    int fd_cp2112_1;
 } i2c_ctx = {
-    .fd = -1,
-    .fd_suio = -1,
-    .fd_cp2112 = -1,
+    .fd_suio     = -1,
+    .fd_cp2112   = -1,
+    .fd_cp2112_1 = -1,
 };
 
 #define Enter fprintf(stdout, "%s:%d\n", __func__, __LINE__);
@@ -512,29 +512,43 @@ int check_funcs (int file, int size, int pec)
 
 static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
 {
+    int fd;
+
+    /* Before reading eeprom, we have no ideal which is the master i2c for x312p-t. */
+    fd = i2c_ctx.fd_suio > 0 ? i2c_ctx.fd_suio : i2c_ctx.fd_cp2112;
+
+    /* if we have known the platform, it's much easier to select the good one. */
     if (platform_type_equal (X308P)) {
-        i2c_ctx.fd = i2c_ctx.fd_suio;
+        /* BMC  <- uart     */
+        /* CPLD <- nct6679d */
+        /* QSFP <- cp2112   */
+        fd = i2c_ctx.fd_suio;
     } else if (platform_type_equal (X312P)) {
         if (platform_subtype_equal(v1dot2)) {
-            i2c_ctx.fd = i2c_ctx.fd_cp2112;
+            /* BMC  <- cp2112 */
+            /* CPLD <- cp2112  */
+            /* QSFP <- cp2112 */
+            fd = i2c_ctx.fd_cp2112;
         } else if (platform_subtype_equal(v1dot3)) {
-            switch (slave_addr)
-            {
+            /* BMC  <- nc76779d */
+            /* CPLD <- nc76779d */
+            /* QSFP <- cp2112   */
+            switch (slave_addr) {
                 case 0x60:          //X312P_CPLD1_ADDR
                 case 0x62:          //X312P_CPLD3_ADDR
                 case 0x64:          //X312P_CPLD4_ADDR
                 case 0x66:          //X312P_CPLD5_ADDR
                 case 0x3E:          //X312P_BMC_ADDR
-                    i2c_ctx.fd = i2c_ctx.fd_suio;
+                    fd = i2c_ctx.fd_suio;
                     break;
                 default:
-                    i2c_ctx.fd = i2c_ctx.fd_cp2112;
+                    fd = i2c_ctx.fd_cp2112;
                     break;
             }
         }
-    }
-
-    return 0;
+    } 
+    BUG_ON(fd <= 0);
+    return fd;
 }
 
 int bf_pltfm_master_i2c_read_byte (
@@ -543,38 +557,37 @@ int bf_pltfm_master_i2c_read_byte (
     uint8_t *value)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX()) {
+    if (is_CG15XX) {
         return bf_cgos_i2c_read_byte (slave, offset,
                                       value);
     }
     int force = 0;
     int err;
-    int32_t val = 0;
-    struct i2c_ctx_t *i2c = &i2c_ctx;
+    int fd = -1;
 
-    bf_pltfm_master_i2c_select(slave);
+    fd = bf_pltfm_master_i2c_select(slave);
 
     /* With force, let the user read from/write to the registers
        even when a driver is also running */
-    err = ioctl (i2c->fd,
+    err = ioctl (fd,
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x: %s",
-            slave, strerror (errno));
+            "Error: Could not set address to 0x%02x : %s : %d",
+            slave, strerror (errno), fd);
         return -1;
     }
 
-    val = i2c_smbus_read_byte_data (i2c->fd, offset);
+    int32_t val = i2c_smbus_read_byte_data (fd, offset);
     if (val < 0) {
         LOG_ERROR (
-            "Error: Could not read offset 0x%02x: %s",
-            offset, strerror (errno));
+            "Error: Could not read offset 0x%02x : %s : %d",
+            offset, strerror (errno), fd);
         return -3;
     }
     *value = val;
 
-    return 0;
+    return BF_PLTFM_SUCCESS;
 }
 
 int bf_pltfm_master_i2c_read_block (
@@ -584,24 +597,24 @@ int bf_pltfm_master_i2c_read_block (
     uint8_t  rdlen)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX()) {
+    if (is_CG15XX) {
         return bf_cgos_i2c_read_block (slave, offset,
                                        rdbuf, rdlen);
     }
     int force = 0;
     int err;
-    struct i2c_ctx_t *i2c = &i2c_ctx;
+    int fd = -1;
 
-    bf_pltfm_master_i2c_select(slave);
+    fd = bf_pltfm_master_i2c_select(slave);
 
     /* With force, let the user read from/write to the registers
        even when a driver is also running */
-    err = ioctl (i2c->fd,
+    err = ioctl (fd,
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x: %s",
-            slave, strerror (errno));
+            "Error: Could not set address to 0x%02x : %s : %d",
+            slave, strerror (errno), fd);
         return -1;
     }
 
@@ -612,11 +625,11 @@ int bf_pltfm_master_i2c_read_block (
     int32_t val = 0;
     for (off = offset; off < (int) (offset + rdlen);
          off ++) {
-        val = i2c_smbus_read_byte_data (i2c->fd, off);
+        val = i2c_smbus_read_byte_data (fd, off);
         if (val < 0) {
             LOG_ERROR (
-                "Error: Could not read offset 0x%02x: %s",
-                off, strerror (errno));
+                "Error: Could not read offset 0x%02x: %s : %d",
+                off, strerror (errno), fd);
             return -3;
         }
         rdbuf[i ++] = val;
@@ -635,9 +648,8 @@ int bf_pltfm_master_i2c_read_block (
     }
 #endif
 
-    return 0;
+    return BF_PLTFM_SUCCESS;
 }
-
 
 int bf_pltfm_master_i2c_write_byte (
     uint8_t slave,
@@ -645,37 +657,37 @@ int bf_pltfm_master_i2c_write_byte (
     uint8_t value)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX()) {
+    if (is_CG15XX) {
         return bf_cgos_i2c_write_byte (slave, offset,
                                        value);
     }
     int force = 0;
     int err;
-    struct i2c_ctx_t *i2c = &i2c_ctx;
+    int fd = -1;
 
-    bf_pltfm_master_i2c_select(slave);
+    fd = bf_pltfm_master_i2c_select(slave);
 
     /* With force, let the user read from/write to the registers
        even when a driver is also running */
-    err = ioctl (i2c->fd,
+    err = ioctl (fd,
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x: %s",
-            slave, strerror (errno));
+            "Error: Could not set address to 0x%02x : %s : %d",
+            slave, strerror (errno), fd);
         return -1;
     }
 
-    err = i2c_smbus_write_byte_data (i2c->fd, offset,
+    err = i2c_smbus_write_byte_data (fd, offset,
                                      value);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not select offset to 0x%02x : 0x%02x: %s",
-            slave, offset, strerror (errno));
+            "Error: Could not write offset 0x%02x : %s : %d",
+            offset, strerror (errno), fd);
         return -2;
     }
 
-    return 0;
+    return BF_PLTFM_SUCCESS;
 }
 
 int bf_pltfm_master_i2c_write_block (
@@ -685,24 +697,24 @@ int bf_pltfm_master_i2c_write_block (
     uint8_t  wrlen)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX()) {
+    if (is_CG15XX) {
         return bf_cgos_i2c_write_block (slave, offset,
                                         wrbuf, wrlen);
     }
     int force = 0;
     int err;
-    struct i2c_ctx_t *i2c = &i2c_ctx;
+    int fd = -1;
 
-    bf_pltfm_master_i2c_select(slave);
+    fd = bf_pltfm_master_i2c_select(slave);
 
     /* With force, let the user read from/write to the registers
        even when a driver is also running */
-    err = ioctl (i2c->fd,
+    err = ioctl (fd,
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x: %s",
-            slave, strerror (errno));
+            "Error: Could not set address to 0x%02x : %s : %d",
+            slave, strerror (errno), fd);
         return -1;
     }
 
@@ -711,145 +723,141 @@ int bf_pltfm_master_i2c_write_block (
 
     for (off = offset; off < (int) (offset + wrlen);
          off ++) {
-        err = i2c_smbus_write_byte_data (i2c->fd, off,
+        err = i2c_smbus_write_byte_data (fd, off,
                                          wrbuf[i ++]);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not select offset to 0x%02x : 0x%02x: %s",
-                slave, offset, strerror (errno));
+                "Error: Could not write offset 0x%02x : %s : %d",
+                offset, strerror (errno), fd);
             return -2;
         }
         usleep (1000);
     }
 
-    return 0;
+    return BF_PLTFM_SUCCESS;
 }
 
 // this func returns read_len if read success, -1 when fail
 int bf_pltfm_bmc_write_read (
-    uint8_t read_write_slave,
-    uint8_t write_offset,
-    uint8_t *write_buf,
-    uint8_t write_len,
-    uint8_t read_offset,
-    uint8_t *read_buf,
+    uint8_t slave,
+    uint8_t wr_off,
+    uint8_t *wr_buf,
+    uint8_t wr_len,
+    uint8_t rd_off,
+    uint8_t *rd_buf,
     int usec)
 {
-
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX()) {
-        return bf_cgos_i2c_bmc_read (read_write_slave,
-                                     write_offset, write_buf, write_len, read_buf,
+    if (is_CG15XX) {
+        return bf_cgos_i2c_bmc_read (slave,
+                                     wr_off, wr_buf, wr_len, rd_buf,
                                      usec);
     }
+    int force = 0;
+    int err = BF_PLTFM_SUCCESS;
+    int fd = -1;
 
-    int err;
-    struct i2c_ctx_t *i2c = &i2c_ctx;
-
-    MASTER_I2C_LOCK;
-
-    bf_pltfm_master_i2c_select(read_write_slave);
-
-    /* With force, let the user read from/write to the registers
-       even when a driver is also running */
-    err = ioctl (i2c->fd, I2C_SLAVE,
-                 read_write_slave);
-    if (err < 0) {
-        MASTER_I2C_UNLOCK;
-        LOG_ERROR (
-            "Error: Could not set address to 0x%02x: %s",
-            read_write_slave, strerror (errno));
-        return -1;
-    }
-
-    err = i2c_smbus_write_block_data (i2c->fd,
-                                      write_offset, write_len, write_buf);
-    if (err < 0) {
-        MASTER_I2C_UNLOCK;
-        LOG_ERROR (
-            "Error: Could not write address to 0x%02x: %s",
-            read_write_slave, strerror (errno));
-        return -1;
-    }
-
-    usleep (usec);
-
-    err = i2c_smbus_read_block_data (i2c->fd,
-                                     read_offset, read_buf);
-    if (err < 0) {
-        MASTER_I2C_UNLOCK;
-        LOG_ERROR (
-            "Error: Could not read address to 0x%02x: %s",
-            read_write_slave, strerror (errno));
-        return -1;
-    }
-
-    MASTER_I2C_UNLOCK;
-    return err;
-}
-
-int bf_pltfm_bmc_write (
-    uint8_t read_write_slave,
-    uint8_t write_offset,
-    uint8_t *write_buf,
-    uint8_t write_len)
-{
-
-    /* sp for COM-e: CG15XX */
-    if (is_CG15XX()) {
-        return bf_cgos_i2c_bmc_write (read_write_slave,
-                                      write_offset, write_buf, write_len);
-    }
-
-    int err;
-    struct i2c_ctx_t *i2c = &i2c_ctx;
+    fd = bf_pltfm_master_i2c_select(slave);
 
     MASTER_I2C_LOCK;
 
-    bf_pltfm_master_i2c_select(read_write_slave);
-
     /* With force, let the user read from/write to the registers
        even when a driver is also running */
-    err = ioctl (i2c->fd, I2C_SLAVE,
-                 read_write_slave);
+    err = ioctl (fd,
+                 force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
-        MASTER_I2C_UNLOCK;
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x: %s",
-            read_write_slave, strerror (errno));
-        return -1;
+            "Error: Could not set address to 0x%02x : %s : %d",
+            slave, strerror (errno), fd);
+        err = -100;
+        goto end;
     }
 
-    err = i2c_smbus_write_block_data (i2c->fd,
-                                      write_offset, write_len, write_buf);
-    if (err < 0) {
-        MASTER_I2C_UNLOCK;
-        LOG_ERROR (
-            "Error: Could not write address to 0x%02x: %s",
-            read_write_slave, strerror (errno));
-        return -1;
+    /* Is the data ready to write ? */
+    if (wr_buf || wr_len) {
+        err = i2c_smbus_write_block_data (fd,
+                                          wr_off, wr_len, wr_buf);
+        if (err < 0) {
+            LOG_ERROR (
+                "Error: Could not write offset x%02x : %s : %d",
+                wr_off, strerror (errno), fd);
+            err = -101;
+            goto end;
+        }
+
+        usleep (usec);
     }
 
+    /* Is the buffer ready to read ? */
+    if (rd_buf) {
+        err = i2c_smbus_read_block_data (fd,
+                                         rd_off, rd_buf);
+        if (err < 0) {
+            LOG_ERROR (
+                "Error: Could not read offset 0x%02x : %s : %d",
+                rd_off, strerror (errno), fd);
+            err = -102;
+            goto end;
+        }
+    }
+
+end:
     MASTER_I2C_UNLOCK;
     return err;
 }
 
 int bf_pltfm_master_i2c_init()
 {
+    bool cp2112_i2c = false;
     char filename[20] = {0};
     struct i2c_ctx_t *i2c = &i2c_ctx;
     int i2cbus;
+    int fd;
+
     /* Error of "I2C bus name doesn't match any bus present!" occured
      * when find CP2112 during second launching of switchd.
      * The reason why this happen is that libusb would try to detach to kernel
      * at every launch and we couldn't see by 'i2cdetect -l' after detach successfully.
      * At this moment I don't see any negative effects with such an error/warnning.
      * by tsihang, 2022-04-20. */
-    const char *i2c_bus_name[] = {
+    char i2c_bus_name[5][256] = {
         "CP2112 SMBus Bridge on hidraw0",
+        "CP2112 SMBus Bridge on hidraw1",
         "CP2112 SMBus Bridge on hiddev0",
         "sio_smbus"
     };
+
+    if (platform_type_equal(UNKNOWM_PLATFORM)) {
+        /* During first init, only super IO have chance.
+         * this works for X308P-T and X312P-T. */
+        memset(&i2c_bus_name[1][0], '0', 255);
+        memset(&i2c_bus_name[2][0], '0', 255);
+    } else {
+        /* Yeah, we have know the platform, then deal it case by case. */
+        /* Make sure do NOT open SuperIO twice. */
+        memset(&i2c_bus_name[3][0], '0', 255);
+        /* Specail case for X312P-T and all its subversion. */
+        if (platform_type_equal (X312P)) {
+            if (platform_subtype_equal (v1dot2)) {
+                fprintf (stdout, "v2\n");
+                return 0;
+            } else if (platform_subtype_equal (v1dot3)) {
+                /* Keep both super io and cp2112 i2c open. */
+                fprintf (stdout, "v3\n");
+                return 0;
+            }
+         } else {
+            /* Specail case for X308P-T and all its subversion. */
+            if (platform_type_equal (X308P)) {
+                fprintf (stdout, "Closing i2c : %d : %s\n", i2c->fd_cp2112, i2c_bus_name[0]);
+                if (i2c->fd_cp2112 > 0) {
+                    close (i2c->fd_cp2112);
+                    i2c->fd_cp2112 = -1;
+                }
+            }
+            return 0;
+         }
+    }
 
     if (bf_sys_rmutex_init (&master_i2c_lock) != 0) {
         LOG_ERROR ("pltfm_mgr: i2c lock init failed\n");
@@ -860,71 +868,75 @@ int bf_pltfm_master_i2c_init()
         fprintf (stdout, "X86 Come type unspecified.\n");
         exit (1);
     } else {
-        if (is_CG15XX()) {
+        fprintf (stdout,
+                 "\n\n================== %s ==================\n", "IIC INIT");
+        /* X564P-T/X532P-T. */
+        if (is_CG15XX) {
             if (bf_cgos_init()) {
-                fprintf (stdout, "Error in cgos init \n");
+                fprintf (stdout, "Error in cgos init\n");
                 exit (1);
+            } else {
+                fprintf (stdout, "cgoslx init done\n");
+                return 0;
             }
         } else {
-#if 0
-            /* At the very beginnig we don't know which i2c-channel is used
-             * to read eeprom to get hw version. So MAKE SURE that a correct
-             * i2c channel is given by /etc/platform.conf under cme3000/cme7000.
-             * by tsihang, 2022-04-19. */
-            i2c->fd = open_i2c_dev (bmc_i2c_bus, filename,
-                                    sizeof (filename), 0);
-            if (i2c->fd < 0) {
-                exit (1);
+            if (is_ADV15XX ||
+                is_S02XXX ||
+                (bmc_i2c_addr == 0x7F)) {
+                fprintf (stdout, "Skip ...\n");
+                return 0;
             }
-#else
+
             for (int i = 0; i < (int)ARRAY_LENGTH (i2c_bus_name); i ++) {
+                cp2112_i2c = false;
+                //fprintf(stdout, "-> %s\n", i2c_bus_name[i]);
                 i2cbus = lookup_i2c_bus(i2c_bus_name[i]);
-                if (i2cbus >= 0) {
-                    if (strstr(i2c_bus_name[i], "CP2112")) {
-                        i2c->fd_cp2112 = open_i2c_dev (i2cbus, filename,
-                                    sizeof (filename), 0);
-                        if (i2c->fd_cp2112 < 0) {
-                            exit (1);
-                        }
-                        if (i2cbus == bmc_i2c_bus) {
-                            /* At the very beginnig we don't know which i2c-channel is selected
-                             * to read eeprom to get correct hw version. So MAKE SURE that a correct
-                             * i2c channel is given by /etc/platform.conf under cme3000/cme7000.
-                             * by tsihang, 2022-04-19. */
-                            i2c->fd = i2c->fd_cp2112;
-                        }
-                    } else if (strstr(i2c_bus_name[i], "sio")) {
-                        i2c->fd_suio = open_i2c_dev (i2cbus, filename,
-                                    sizeof (filename), 0);
-                        if (i2c->fd_suio < 0) {
-                            exit (1);
-                        }
-                        if (i2cbus == bmc_i2c_bus) {
-                            /* At the very beginnig we don't know which i2c-channel is selected
-                             * to read eeprom to get correct hw version. So MAKE SURE that a correct
-                             * i2c channel is given by /etc/platform.conf under cme3000/cme7000.
-                             * by tsihang, 2022-04-19. */
-                            i2c->fd = i2c->fd_suio;
-                        }
+                if ((i2c_bus_name[i][0] == '0') ||
+                    (i2cbus < 0)) {
+                    continue;
+                }
+                if (strstr (i2c_bus_name[i], "CP2112")) {
+                    cp2112_i2c = true;
+                }
+                /* At the very beginnig we don't know which i2c-channel is selected
+                 * to read eeprom to get correct hw version. So MAKE SURE that a correct
+                 * i2c channel is given by /etc/platform.conf under cme3000/cme7000.
+                 * by tsihang, 2022-04-19. */
+                /* For x312p-t v2. */
+                fd = open_i2c_dev (i2cbus, filename,
+                            sizeof (filename), 0);
+                if (fd < 0) {
+                    exit (1);
+                }
+                fprintf (stdout,
+                        "Openning i2c-%d : %d : %s\n", i2cbus, fd, i2c_bus_name[i]);
+
+                if (cp2112_i2c) {
+                    i2c->fd_cp2112 = fd;
+                    if (i2cbus == bmc_i2c_bus) {
+                        /* For x312p-t v2. Map cp2112 i2c to master i2c. */
+                        i2c->fd_suio = fd;
+                        fprintf (stdout,
+                            "Master i2c changed to i2c-%d : %s\n", i2cbus, i2c_bus_name[i]);
+                    }
+                } else {
+                    if (i2cbus != bmc_i2c_bus) {
+                        fprintf (stdout, "Closing i2c-%d : %d : %s\n", i2cbus, fd, i2c_bus_name[i]);
+                        close (fd);
+                    } else {
+                        /* For x312p-t v1 and v3. */
+                        i2c->fd_suio = fd;
+                        fprintf (stdout,
+                            "Master i2c changed to i2c-%d : %s\n", i2cbus, i2c_bus_name[i]);
                     }
                 }
             }
-            //i2c->fd = i2c->fd_cp2112;
-#endif
-#if 0
-            check_funcs (i2c->fd, I2C_SMBUS_QUICK, 1);
-            check_funcs (i2c->fd, I2C_SMBUS_BYTE, 1);
-            check_funcs (i2c->fd, I2C_SMBUS_BYTE_DATA, 1);
-            check_funcs (i2c->fd, I2C_SMBUS_WORD_DATA, 1);
-            check_funcs (i2c->fd, I2C_SMBUS_BLOCK_DATA, 1);
-            check_funcs (i2c->fd, I2C_SMBUS_I2C_BLOCK_DATA,
-                         1);
-#endif
-            fprintf (stdout, "Master i2c-%d init done !\n",
-                     bmc_i2c_bus);
-            LOG_DEBUG ("Master i2c-%d init done !",
-                       bmc_i2c_bus);
         }
+
+        fprintf (stdout, "Master i2c-%d init done !\n",
+                 bmc_i2c_bus);
+        LOG_DEBUG ("Master i2c-%d init done !",
+                   bmc_i2c_bus);
     }
 
     return 0;
@@ -938,22 +950,29 @@ int bf_pltfm_master_i2c_de_init()
         __func__);
 
     if (global_come_type == COME_UNKNOWN) {
-        return 0;
+        fprintf (stdout, "Skip ...\n");
+        goto finish;
     } else {
-        if (is_CG15XX()) {
+        if (is_CG15XX) {
             if (bf_cgos_de_init ()) {
                 fprintf (stdout, "Deinit Master i2c\n");
+                goto finish;
             }
         } else {
             if (i2c->fd_suio > 0) {
+                fprintf (stdout, "Deinit Master I2C ...\n");
                 close (i2c->fd_suio);
+                i2c->fd_suio = -1;
             }
             if (i2c->fd_cp2112 > 0) {
                 close (i2c->fd_cp2112);
+                fprintf (stdout, "Deinit CP2112 I2C ...\n");
+                i2c->fd_cp2112 = -1;
             }
         }
     }
 
+finish:
     bf_sys_rmutex_del (&master_i2c_lock);
     fprintf(stdout, "================== Deinit done %48s ================== \n",
         __func__);

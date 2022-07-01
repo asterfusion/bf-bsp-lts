@@ -63,13 +63,13 @@ extern "C" {
  * Identifies the CP2112 chip on the board
  */
 typedef enum bf_pltfm_cp2112_id_e {
-    /* upper board cp2112 for mavericks the only cp2112 for montara */
-    /* Make sure that the cp2112 hndl in CP2112_ID_1
-     * for those platforms which has two CP2112 but only one on duty.
+    /* Make sure that the cp2112 hndl in CP2112_ID_1 for those platforms
+     * which has two CP2112 but only one on duty to access QSFP.
      * See differentiate_cp2112_devices for reference.
      * by tsihang, 2021-07-14. */
     CP2112_ID_1 = 0,
-    /* lower board cp2112 for mavericks */
+    /* It could used to access CPLD/SFP for a part of CME.
+     * by tsihang, 2022-06-23. */
     CP2112_ID_2 = 1,
     CP2112_ID_MAX = 2,
     CP2112_ID_INVALID = -1

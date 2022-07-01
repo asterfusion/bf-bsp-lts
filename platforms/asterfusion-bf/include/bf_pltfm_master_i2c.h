@@ -55,19 +55,13 @@ int bf_pltfm_master_i2c_write_block (
     uint8_t *wrbuf,
     uint8_t  wrlen);
 
-int bf_pltfm_bmc_write (
-    uint8_t read_write_slave,
-    uint8_t write_offset,
-    uint8_t *write_buf,
-    uint8_t write_len);
-
 int bf_pltfm_bmc_write_read (
-    uint8_t read_write_slave,
-    uint8_t write_offset,
-    uint8_t *write_buf,
-    uint8_t write_len,
-    uint8_t read_offset,
-    uint8_t *read_buf,
+    uint8_t slave,
+    uint8_t wr_off,
+    uint8_t *wr_buf,
+    uint8_t wr_len,
+    uint8_t rd_off,
+    uint8_t *rd_buf,
     int usec);
 
 int bf_pltfm_master_i2c_init();

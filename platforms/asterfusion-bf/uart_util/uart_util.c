@@ -188,6 +188,15 @@ int main (int argc, char **argv)
     unsigned char Buffer[2048];
     char *dev = (char *)argv[1];
 
+    /* Test cmd. */
+    if (argc == 2) {
+        if (!strcmp (argv[1], "help")) {
+            fprintf (stdout, "Good\n");
+            return 0;
+        }
+        exit (0);
+    }
+
     if ((fd = open (dev,
                     O_RDWR | O_NOCTTY | O_NONBLOCK)) <
         0) { //open serial

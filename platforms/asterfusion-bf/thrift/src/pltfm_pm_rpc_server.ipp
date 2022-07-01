@@ -38,26 +38,41 @@ class pltfm_pm_rpcHandler : virtual public pltfm_pm_rpcIf {
     bf_pltfm_chss_mgmt_bd_type_get(&bd_id);
     
     switch (bd_id) {
-      case BF_PLTFM_BD_ID_MAVERICKS_P0A:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MAVERICKS_P0A;
+      case BF_PLTFM_BD_ID_X308PT_V1DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X308PT_V1DOT0;
         break;
-      case BF_PLTFM_BD_ID_MAVERICKS_P0B:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MAVERICKS_P0B;
+      case BF_PLTFM_BD_ID_X312PT_V1DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT0;
         break;
-      case BF_PLTFM_BD_ID_MAVERICKS_P0C:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MAVERICKS_P0C;
+      case BF_PLTFM_BD_ID_X312PT_V1DOT1:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT1;
         break;
-      case BF_PLTFM_BD_ID_MONTARA_P0A:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MONTARA_P0A;
+      case BF_PLTFM_BD_ID_X312PT_V1DOT2:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT2;
         break;
-      case BF_PLTFM_BD_ID_MONTARA_P0B:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MONTARA_P0B;
+      case BF_PLTFM_BD_ID_X312PT_V1DOT3:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT3;
         break;
-      case BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU;
+      case BF_PLTFM_BD_ID_X532PT_V1DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V1DOT0;
         break;
-      case BF_PLTFM_BD_ID_MONTARA_P0C:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_MONTARA_P0C;
+      case BF_PLTFM_BD_ID_X532PT_V1DOT1:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V1DOT1;
+        break;
+      case BF_PLTFM_BD_ID_X564PT_V1DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V1DOT0;
+        break;
+      case BF_PLTFM_BD_ID_X564PT_V1DOT1:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V1DOT1;
+        break;
+      case BF_PLTFM_BD_ID_X564PT_V1DOT2:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V1DOT2;
+        break;
+      case BF_PLTFM_BD_ID_HC36Y24C_V1DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_HC36Y24C_V1DOT0;
+        break;
+      case BF_PLTFM_BD_ID_HC36Y24C_V1DOT1:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_HC36Y24C_V1DOT1;
         break;
       case BF_PLTFM_BD_ID_UNKNOWN:
       default:

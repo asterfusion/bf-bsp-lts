@@ -23,6 +23,8 @@ extern "C" {
  */
 int bf_pltfm_led_init (int chip_id);
 
+int bf_pltfm_led_de_init ();
+
 /* set the LED
  * led_col can be suitably interpreted by the platforms specifics.
  * But, the bf-platform/drivers layer would call this function
@@ -34,7 +36,6 @@ int bf_pltfm_led_init (int chip_id);
 int bf_pltfm_port_led_set (int chip_id,
                            bf_pltfm_port_info_t *port_info,
                            bf_led_condition_t led_cond);
-
 #ifdef __cplusplus
 }
 #endif /* C++ */

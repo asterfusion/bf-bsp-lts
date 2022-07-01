@@ -526,6 +526,8 @@ void *onlp_mntr_init (void *arg)
             UPDATE_UNLOCK;
         }
     }
+    printf ("====== ONLP monitor cancelled ======\n");
+
     return NULL;
 }
 
@@ -768,11 +770,7 @@ static bf_pltfm_status_t check_pwr_rails (void)
         /* This happened ONLY when hardware or communication error. */
         return BF_PLTFM_COMM_FAILED;
     } else {
-#if defined(HAVE_ONLP)
-        // save pwr_rails for onlp
-        bf_pltfm_chss_mgmt_onlp_pwr_rails (
-            pwr_rails.vrail1);
-#endif
+        /* Nothing to do. */
     }
     return err;
 }
@@ -856,6 +854,6 @@ void *health_mntr_init (void *arg)
         ul_update_flags = update_flags;
         UPDATE_UNLOCK;
     }
-
+    printf ("====== Health monitor cancelled ======\n");
     return NULL;
 }

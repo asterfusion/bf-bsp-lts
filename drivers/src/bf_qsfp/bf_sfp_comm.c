@@ -278,12 +278,17 @@ static int bf_sfp_set_idprom (int port)
     memset (se, 0, sizeof (sff_eeprom_t));
     rc = sff_eeprom_parse (se,
                            bf_sfp_info_arr[port].idprom);
+    /* sff_eeprom_parse is quite an importand API for most sfp.
+     * but it is still not ready for all kind of sfps.
+     * so override the failure here and keep tracking.
+     * by tsihang, 2022-06-17. */
+#if 0
     if (!se->identified) {
         LOG_ERROR (" SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>",
                    port, rc);
-        //return rc;
+        return rc;
     }
-
+#endif
     id = bf_sfp_info_arr[port].idprom[0];
     if ((id == SFP) || (id == SFP_PLUS) ||
         (id == SFP_28)) {
@@ -564,7 +569,7 @@ int bf_sfp_detect_transceiver (int port,
     } else {
         LOG_DEBUG (
             "(%s:%d) "
-            "SFP: %2d : %s\n",
+            " SFP    %2d : %s\n",
             __func__, __LINE__,
             port, st ? "PRESENT" : "REMOVED");
 

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Legacy tool, by tsihang, 2022-06-24.
+echo "Run xt-cfgen.sh instead"
+exit 0
+
 hugepages=`cat /proc/meminfo  | grep HugePages_Total | awk '{print $2}'`
 if [ $hugepages -ne 128 ]; then
    echo "Running through $SDE_INSTALL/bin/dma_setup.sh"

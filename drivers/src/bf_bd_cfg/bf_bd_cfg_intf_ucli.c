@@ -522,7 +522,7 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_bd_type_get__ (
     char name[128];
     UCLI_COMMAND_INFO (uc, "bd_type_get", 0, "");
     platform_name_get_str (name, sizeof (name));
-    aim_printf (&uc->pvs, "%s\n", name);
+    aim_printf (&uc->pvs, "Board type: %s\n", name);
     return 0;
 }
 

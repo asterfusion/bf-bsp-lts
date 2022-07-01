@@ -363,8 +363,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x532p__ (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
     } else {
-        err = bf_pltfm_bmc_write (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2);
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -387,8 +387,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x564p__ (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
     } else {
-        err = bf_pltfm_bmc_write (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2);
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -411,8 +411,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x308p__ (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
     } else {
-        err = bf_pltfm_bmc_write (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2);
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */

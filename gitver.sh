@@ -12,8 +12,8 @@ fi
  
 VER_FILE=$INC_DIR/$FILENAME
  
-DATE=`date +"built: %Y-%m-%d %k:%M:%S"`
- 
+DATE=`TZ=UTC date +"built: %H:%M:%S UTC %Y-%m-%d"`
+
 if [ -d .git ]; then
 	GITLOCALVER=`git rev-list HEAD | wc -l | awk '{print $1}'`
 	echo "Git Local version:" $GITLOCALVER

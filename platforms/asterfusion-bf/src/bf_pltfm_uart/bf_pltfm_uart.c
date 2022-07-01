@@ -27,6 +27,7 @@ static bf_sys_rmutex_t uart_lock;
     bf_sys_rmutex_unlock(&uart_lock)
 
 static bool uart_debug = true;
+/* Access BMC through UART or IIC. */
 bool g_access_bmc_through_uart = false;
 
 struct bf_pltfm_uart_ctx_t uart_ctx = {
@@ -100,31 +101,15 @@ rx_crc (unsigned char *rx_buf, int rx_len)
 }
 
 static void
-tx_crc (unsigned char *tx_buf,
-        OUT size_t *tx_len)
+uart_close (void)
 {
-    char crc[10] = "\0";
-    unsigned short tx_crc = CRC16 (tx_buf, *tx_len);
+    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
-    *tx_len += sprintf (crc, "_%x%x#",
-                        (tx_crc & 0xff00) >> 8, tx_crc & 0xff);
-    strcat ((char *)&tx_buf[0], crc);
-}
-
-static void
-hex_dump (uint8_t *buf, uint32_t len)
-{
-    uint8_t byte;
-
-    for (byte = 0; byte < len; byte++) {
-        if ((byte % 16) == 0) {
-            fprintf (stdout, "\n%3d : ", byte);
-        }
-        fprintf (stdout, "%02x ", buf[byte]);
+    if (ctx->fd > 0) {
+        close (ctx->fd);
     }
-    fprintf (stdout,  "\n");
+    ctx->fd = -1;
 }
-
 
 static int
 set_opt (int fd, int nSpeed, int nBits,
@@ -216,6 +201,32 @@ set_opt (int fd, int nSpeed, int nBits,
     return 0;
 }
 
+static void
+hex_dump (uint8_t *buf, uint32_t len)
+{
+    uint8_t byte;
+
+    for (byte = 0; byte < len; byte++) {
+        if ((byte % 16) == 0) {
+            fprintf (stdout, "\n%3d : ", byte);
+        }
+        fprintf (stdout, "%02x ", buf[byte]);
+    }
+    fprintf (stdout,  "\n");
+}
+
+static void
+tx_crc (unsigned char *tx_buf,
+        OUT size_t *tx_len)
+{
+    char crc[10] = "\0";
+    unsigned short tx_crc = CRC16 (tx_buf, *tx_len);
+
+    *tx_len += sprintf (crc, "_%x%x#",
+                        (tx_crc & 0xff00) >> 8, tx_crc & 0xff);
+    strcat ((char *)&tx_buf[0], crc);
+}
+
 static int
 xmit (unsigned char *tx_buf, size_t tx_len)
 {
@@ -250,14 +261,16 @@ recv (unsigned char *rx_buf, size_t rx_len)
     struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
     rc = read (ctx->fd, (void *)rx_buf, rx_len);
+    tcflush (ctx->fd, TCIOFLUSH);
     if (rc >= 0) {
         /* Success. */
     } else if (rc == -1) {
         LOG_ERROR (
             "%s[%d], "
-            "read(%s)"
+            "read(%s) : %d : %d"
             "\n",
-            __FILE__, __LINE__, oryx_safe_strerror (errno));
+            __FILE__, __LINE__, oryx_safe_strerror (errno),
+            ctx->fd, rx_len);
     }
 
     return (int)rc;
@@ -270,7 +283,9 @@ uart_open (void)
     char *dev = (char *)&ctx->dev[0];
 
     if (ctx->fd > 0) {
-        return 0;
+        fprintf(stdout, "=========== Opened : %d\n", ctx->fd);
+        uart_close ();
+        //return 0;
     }
 
     if ((ctx->fd = open (dev,
@@ -285,17 +300,6 @@ uart_open (void)
     }
 
     return set_opt (ctx->fd, ctx->rate, 8, 'N', 1);
-}
-
-static void
-uart_close (void)
-{
-    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
-
-    if (ctx->fd > 0) {
-        close (ctx->fd);
-    }
-    ctx->fd = -1;
 }
 
 static int
@@ -358,7 +362,7 @@ uart_recv (
     int rc = 0;
 
     rc = recv (rx_buf, rx_len);
-    if (rc > 0) {
+    if (rc >= 0) {
         int cc = rx_crc (rx_buf, rc);
         if (cc) {
             rc = -1;
@@ -389,6 +393,7 @@ no_return_cmd (unsigned char cmd)
     return false;
 }
 
+
 /*
  * READ:
  * Upon successful completion, the function shall return a non-negative
@@ -412,6 +417,7 @@ int bf_pltfm_bmc_uart_write_read (
     UART_LOCK;
 
     if (uart_open()) {
+        rc = -2;
         goto end;
     }
 
@@ -428,7 +434,7 @@ int bf_pltfm_bmc_uart_write_read (
     }
 
 end:
-    //usleep (5000);
+    usleep (5000);
     uart_close();
     UART_UNLOCK;
 
@@ -440,8 +446,11 @@ int bf_pltfm_uart_init ()
     /* Should we keep openning /dev/ttySx ? */
     struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
+    fprintf (stdout,
+             "\n\n================== %s ==================\n", "UART INIT");
     if (unlikely (! (ctx->flags &
                      AF_PLAT_UART_ENABLE))) {
+        fprintf (stdout, "Skip ...\n");
         return 0;
     } else {
         fprintf (stdout, "Using UART : %s\n",

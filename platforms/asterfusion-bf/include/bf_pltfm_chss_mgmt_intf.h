@@ -313,19 +313,41 @@ typedef enum COME_type {
     CME3000,
     CME7000,
     CG1508,
-    CG1527
+    CG1527,
+    ADV1508,
+    ADV1527,
+    S021508,
+    S021527,
 } COME_type;
 
+struct x86_carrier_board_t {
+    const char *desc;
+    COME_type type;
+};
 
 extern COME_type global_come_type;
 extern char bmc_i2c_bus;
 extern unsigned char bmc_i2c_addr;
 
-static inline bool is_CG15XX()
-{
-    return (global_come_type == CG1508 ||
-            global_come_type == CG1527);
-}
+/* Porting CMEXXX, by tsihang, 2019-09-18. */
+#define is_CMEXXX (\
+    (global_come_type == CME3000) ||\
+    (global_come_type == CME7000))
+
+/* Porting CGT15XX, by tsihang, 2020-02-18. */
+#define is_CG15XX (\
+    (global_come_type == CG1508) ||\
+    (global_come_type == CG1527))
+
+/* Porting YH15XX. by tsihang, 2022-06-22. */
+#define is_ADV15XX (\
+    (global_come_type == ADV1508) ||\
+    (global_come_type == ADV1527))
+
+/* Porting S02XX. by tsihang, 2022-06-22. */
+#define is_S02XXX (\
+    (global_come_type == S021508) ||\
+    (global_come_type == S021527))
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_pltfm_chss_mgmt_ucli_node_create (

@@ -145,7 +145,7 @@ bf_status_t bf_pm_post_port_add_cfg_set (
             port_info.conn_id, port_info.chnl_id)) {
         fprintf(stdout,
             "%2d/%d : %s\n",
-            (port_hdl)->conn_id, (port_hdl)->chnl_id, "Bringup");
+            (port_hdl)->conn_id, (port_hdl)->chnl_id, "Force bringup : AN may be required");
         bf_pal_pm_front_port_ready_for_bringup (dev_id,
                                                 port_hdl, true);
     }
@@ -310,7 +310,7 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
                 bf_pltfm_err_str (sts),
                 sts);
         }
-        LOG_DEBUG ("QSFP: %2d : ch[%d] : dev_port=%3d : is %s",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
                    port_info.conn_id,
                    port_info.chnl_id,
                    dev_port,
@@ -541,6 +541,10 @@ bf_status_t bf_pm_port_link_up_actions (
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
         // nothing todo
+        fprintf(stdout, "\n");
+        fprintf(stdout,
+            "%2d/%d : %s\n",
+            (port_hdl)->conn_id, (port_hdl)->chnl_id, "up");
         return BF_SUCCESS;
     }
 
@@ -604,6 +608,10 @@ bf_status_t bf_pm_port_link_down_actions (
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
         // nothing todo
+        fprintf(stdout, "\n");
+        fprintf(stdout,
+            "%2d/%d : %s\n",
+            (port_hdl)->conn_id, (port_hdl)->chnl_id, "down");
         return BF_SUCCESS;
     }
 
@@ -713,7 +721,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         bf_sfp_get_port (port_info.conn_id,
                          port_info.chnl_id, &module);
         is_optical = bf_sfp_is_optical (module);
-        LOG_DEBUG (" SFP: %2d : [%02d/%d] : dev_port=%3d : is %s",
+        LOG_DEBUG ("  SFP    %2d : [%02d/%d] : dev_port=%3d : is %s",
                    module,
                    port_info.conn_id,
                    port_info.chnl_id,
@@ -725,7 +733,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         
         is_optical = bf_qsfp_is_optic (qsfp_type);
         
-        LOG_DEBUG ("QSFP: %2d : ch[%d] : dev_port=%3d : is %s",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
                    port_info.conn_id,
                    port_info.chnl_id,
                    dev_port,
@@ -760,7 +768,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         return BF_INVALID_ARG;
     }
     for (lane = 0; lane < num_lanes; lane++) {
-        LOG_DEBUG ("QSFP: %2d : ch[%d] Enable (dev_port=%d, ln=%d)",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%d, ln=%d)",
                    port_hdl.conn_id,
                    port_hdl.chnl_id + lane,
                    dev_port,
@@ -812,7 +820,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
 
     is_optical = bf_qsfp_is_optic (qsfp_type);
 
-    LOG_DEBUG ("QSFP: %2d : ch[%d] : dev_port=%3d : is %s",
+    LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
                port_info.conn_id,
                port_info.chnl_id,
                dev_port,
@@ -846,7 +854,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
         return BF_INVALID_ARG;
     }
     for (lane = 0; lane < num_lanes; lane++) {
-        LOG_DEBUG ("QSFP: %2d : ch[%d] Enable (dev_port=%d, ln=%d)",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%d, ln=%d)",
                    port_hdl.conn_id,
                    port_hdl.chnl_id + lane,
                    dev_port,

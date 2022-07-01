@@ -223,12 +223,7 @@ int tofino_porting_spi_init (int dev_id,
     uint8_t board_id = (uint8_t)strtol ((char *)arg,
                                         NULL, 0);
     bf_pltfm_board_id_t bd_id =
-        BF_PLTFM_BD_ID_MAVERICKS_P0B;
-    if (board_id == 0) {
-        bd_id = BF_PLTFM_BD_ID_MONTARA_P0B;
-    } else if (board_id == 1) {
-        bd_id = BF_PLTFM_BD_ID_MAVERICKS_P0B;
-    }
+        BF_PLTFM_BD_ID_UNKNOWN;
 
     sts = bf_pltfm_cp2112_util_init (bd_id);
     if (sts != BF_PLTFM_SUCCESS) {

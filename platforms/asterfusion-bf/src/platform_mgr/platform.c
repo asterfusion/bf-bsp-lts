@@ -408,19 +408,25 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                            *uc)
 {
+    char bd[128];
+
     UCLI_COMMAND_INFO (
         uc, "bsp", 0, " Show BSP version.");
+
+    platform_name_get_str (bd, sizeof (bd));
 
     aim_printf (&uc->pvs, "Ver    %s\n",
                 VERSION_NUMBER);
 
-    aim_printf (&uc->pvs, "Platform : %s\n",
+    aim_printf (&uc->pvs, "Platform  : %s\n",
                 platform_type_equal (X532P) ? "X532P-T"  :
                 platform_type_equal (X564P) ? "X564P-T"  :
                 platform_type_equal (X308P) ? "X308P-T"  :
                 platform_type_equal (X312P) ? "X312P-T"  :
                 platform_type_equal (HC)    ? "HC36Y24C" :
                 "Unknown");
+    aim_printf (&uc->pvs, "BD ID     : %s\n",
+                bd);
     aim_printf (&uc->pvs, "Max FANs  : %2d\n",
                 bf_pltfm_mgr_ctx()->fan_group_count *
                 bf_pltfm_mgr_ctx()->fan_per_group);
@@ -603,12 +609,6 @@ bf_status_t bf_pltfm_platform_init (
         return -1;
     }
 
-    err = bf_pltfm_syscpld_init();
-    if (err) {
-        LOG_ERROR ("pltfm_mgr: Error in syscpld init \n");
-        return BF_PLTFM_COMM_FAILED;
-    }
-
     /* Make it very clear for those platforms which need cp2112 init by doing below operations.
      * Because we cann't and shouldn't assume platforms which are NOT X312P-T could init cp2112.
      * by tsihang, 2022-04-27. */
@@ -621,6 +621,12 @@ bf_status_t bf_pltfm_platform_init (
             LOG_ERROR ("pltfm_mgr: Error in cp2112 init \n");
             return BF_PLTFM_COMM_FAILED;
         }
+    }
+
+    err = bf_pltfm_syscpld_init();
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: Error in syscpld init \n");
+        return BF_PLTFM_COMM_FAILED;
     }
 
     /* Register qsfp module */

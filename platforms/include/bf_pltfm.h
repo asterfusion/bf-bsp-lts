@@ -16,8 +16,6 @@
 extern "C" {
 #endif
 
-typedef enum  {X564P = 1, X532P, X308P, X312P, HC, UNKNOWM_PLATFORM} bf_pltfm_type;
-
 typedef struct pltfm_mgr_info_s {
     const char
     *np_name;    /* The name of health monitor thread. */

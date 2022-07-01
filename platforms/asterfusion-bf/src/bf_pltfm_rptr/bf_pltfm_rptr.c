@@ -810,9 +810,10 @@ bf_pltfm_status_t bf_pltfm_rptr_init (void)
 {
     bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
 
-    if ((bd_id == BF_PLTFM_BD_ID_MONTARA_P0B) ||
-        (bd_id == BF_PLTFM_BD_ID_MONTARA_P0C) ||
-        (bd_id == BF_PLTFM_BD_ID_MONTARA_P0A)) {
+    if ((bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT1) ||
+        (bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT2) ||
+        (bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT3)) {
         // No repeaters on board, so simply return success
         return BF_PLTFM_SUCCESS;
     }
@@ -831,8 +832,13 @@ bf_pltfm_status_t bf_pltfm_rptr_config_set (
     bool has_rptr;
     uint32_t chnl;
 
-    if ((bd_id != BF_PLTFM_BD_ID_MAVERICKS_P0B) &&
-        (bd_id != BF_PLTFM_BD_ID_MAVERICKS_P0A)) {
+    if ((bd_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
+        (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
+        (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
+        (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
         /* No Repeaters Present, hence simply return */
         return BF_PLTFM_SUCCESS;
     }
