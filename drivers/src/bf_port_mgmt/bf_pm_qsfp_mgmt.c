@@ -1143,7 +1143,7 @@ static void qsfp_fsm_poll_los (bf_dev_id_t dev_id,
         if (bf_status == BF_SUCCESS) {
             if ((rx_los_now & (1 << ch)) ^ (rx_los_before &
                                             (1 << ch))) {
-                LOG_DEBUG ("QSFP    %2d : dev_port=%d : LOS=%d",
+                LOG_DEBUG ("QSFP    %2d : dev_port=%3d : LOS=%d",
                            conn_id, dev_port, los);
             }
         }
@@ -1924,7 +1924,7 @@ bf_pltfm_status_t qsfp_fsm (bf_dev_id_t dev_id)
             if (!qsfp_fsm_is_optical (conn_id)) {
                 //fprintf (stdout, "QSFP %2d  is not optical\n",
                 //         conn_id);
-                //continue;
+                continue;
             }
 
             for (ch = 0; ch < 4; ch++) {

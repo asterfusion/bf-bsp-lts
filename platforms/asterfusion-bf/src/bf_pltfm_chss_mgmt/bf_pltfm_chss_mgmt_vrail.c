@@ -197,6 +197,34 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
         pwr_rails->vrail1 = ((vrail_data[2] << 8) + vrail_data[1])
                             * 1000 / 512;
                             /* For SONIC, 1 pwr_rails needed. */
+
+        /*00: 02 <byte low> <byte high>>*/
+        buf[0] = 0x07;
+        buf[1] = 0x65;
+        buf[2] = 0xd4;
+        buf[3] = 0x02;
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, usec_delay);
+        if (err < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+        pwr_rails->vrail6 = ((vrail_data[2] << 8) + vrail_data[1])
+                            * 1000 / 512;
+                            /* For SONIC, 1 pwr_rails needed. */
+
+        /*00: 02 <byte low> <byte high>>*/
+        buf[0] = 0x07;
+        buf[1] = 0x64;
+        buf[2] = 0xd4;
+        buf[3] = 0x02;
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, usec_delay);
+        if (err < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+        pwr_rails->vrail2 = ((vrail_data[2] << 8) + vrail_data[1])
+                            * 1000 / 512;
+                            /* For SONIC, 1 pwr_rails needed. */
     }
     return BF_PLTFM_SUCCESS;
 }
@@ -278,24 +306,36 @@ bf_pltfm_chss_mgmt_pwr_rails_init()
                  "Error in reading rails voltages\n");
         return -1;
     }
-
-    fprintf (stdout,
-             "Barefoot_Core       %5d mV\n", t.vrail1);
-    fprintf (stdout,
-             "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
-    fprintf (stdout,
-             "Payload_12V         %5d mV\n", t.vrail3);
-    fprintf (stdout,
-             "Payload_3_3V        %5d mV\n", t.vrail4);
-    fprintf (stdout,
-             "Payload_5V          %5d mV\n", t.vrail5);
-    fprintf (stdout,
-             "Payload_2_5V        %5d mV\n", t.vrail6);
-    fprintf (stdout,
-             "88E6131_1_9V        %5d mV\n", t.vrail7);
-    fprintf (stdout,
-             "88E6131_1_2V        %5d mV\n", t.vrail8);
-
+    if (platform_type_equal (X312P)) {
+        if (platform_subtype_equal (v1dot2)) {
+            /* Not supported. */
+        } else {
+            /* V3 and later. */
+            fprintf (stdout,
+                     "Barefoot_Core       %5d mV\n", t.vrail1);
+            fprintf (stdout,
+                     "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+            fprintf (stdout,
+                     "Payload_2_5V        %5d mV\n", t.vrail6);
+        }
+    } else {
+        fprintf (stdout,
+                 "Barefoot_Core       %5d mV\n", t.vrail1);
+        fprintf (stdout,
+                 "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+        fprintf (stdout,
+                 "Payload_12V         %5d mV\n", t.vrail3);
+        fprintf (stdout,
+                 "Payload_3_3V        %5d mV\n", t.vrail4);
+        fprintf (stdout,
+                 "Payload_5V          %5d mV\n", t.vrail5);
+        fprintf (stdout,
+                 "Payload_2_5V        %5d mV\n", t.vrail6);
+        fprintf (stdout,
+                 "88E6131_1_9V        %5d mV\n", t.vrail7);
+        fprintf (stdout,
+                 "88E6131_1_2V        %5d mV\n", t.vrail8);
+    }
     fprintf (stdout, "\n\n");
     return BF_PLTFM_SUCCESS;
 }

@@ -134,8 +134,7 @@ int select_cpld (uint8_t cpld_index)
 
     chnl = cpld_index - 1;
 
-    if (is_ADV15XX ||
-        is_S02XXX) {
+    if (g_access_cpld_through_cp2112) {
         rc = bf_pltfm_cp2112_reg_write_byte (
                 BF_MAV_MASTER_PCA9548_ADDR, 0x00, 1 << chnl);
     } else {
@@ -171,8 +170,7 @@ int unselect_cpld()
     int rc = -1;
 
     /* for X5-T and HC */
-    if (is_ADV15XX ||
-        is_S02XXX) {
+    if (g_access_cpld_through_cp2112) {
         rc = bf_pltfm_cp2112_reg_write_byte (
                 BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0);
     } else {
@@ -281,8 +279,7 @@ int bf_pltfm_cpld_read_byte (
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
-        if (is_ADV15XX ||
-            is_S02XXX) {
+        if (g_access_cpld_through_cp2112) {
             rc = bf_pltfm_cp2112_reg_read_block (
                                             addr, offset, buf, 1);
         } else {
@@ -385,8 +382,7 @@ int bf_pltfm_cpld_write_byte (
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
-        if (is_ADV15XX ||
-            is_S02XXX) {
+        if (g_access_cpld_through_cp2112) {
             rc = bf_pltfm_cp2112_reg_write_byte (
                                     addr, offset, val);
         } else {
@@ -878,19 +874,18 @@ int bf_pltfm_syscpld_init()
     fprintf (stdout,
              "\n\n================== CPLDs INIT ==================\n");
 
-     if (is_ADV15XX ||
-         is_S02XXX) {
-         /* get cp2112 handler. */
-         g_cpld_cp2112_hndl =
-             bf_pltfm_cp2112_get_handle (CP2112_ID_2);
-         BUG_ON (g_cpld_cp2112_hndl == NULL);
-         fprintf (stdout, "The USB dev dev %p.\n",
-                    (void *)g_cpld_cp2112_hndl->usb_device);
-         fprintf (stdout, "The USB dev contex %p.\n",
-                    (void *)g_cpld_cp2112_hndl->usb_context);
-         fprintf (stdout, "The USB dev handle %p.\n",
-                    (void *)g_cpld_cp2112_hndl->usb_device_handle);
-     }
+    if (g_access_cpld_through_cp2112) {
+        /* get cp2112 handler. */
+        g_cpld_cp2112_hndl =
+         bf_pltfm_cp2112_get_handle (CP2112_ID_2);
+        BUG_ON (g_cpld_cp2112_hndl == NULL);
+        fprintf (stdout, "The USB dev dev %p.\n",
+                (void *)g_cpld_cp2112_hndl->usb_device);
+        fprintf (stdout, "The USB dev contex %p.\n",
+                (void *)g_cpld_cp2112_hndl->usb_context);
+        fprintf (stdout, "The USB dev handle %p.\n",
+                (void *)g_cpld_cp2112_hndl->usb_device_handle);
+    }
 
     if (platform_type_equal (X564P)) {
         bf_pltfm_max_cplds = 3;

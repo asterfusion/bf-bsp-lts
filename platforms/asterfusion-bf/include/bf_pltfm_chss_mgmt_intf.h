@@ -150,12 +150,16 @@ typedef enum bf_pltfm_pwr_supply_e {
     POWER_SUPPLY2 = 2
 } bf_pltfm_pwr_supply_t;
 
-#define PSU_INFO_VALID_FSPEED       (1 << 0)
+#define PSU_INFO_VALID_RESV         (1 << 0)
 #define PSU_INFO_VALID_FFAULT       (1 << 1)
 #define PSU_INFO_VALID_LOAD_SHARING (1 << 2)
 #define PSU_INFO_VALID_MODEL        (1 << 3)
 #define PSU_INFO_VALID_SERIAL       (1 << 4)
 #define PSU_INFO_VALID_REV          (1 << 5)
+/* Has PSU fan, so fan rota is valid. */
+#define PSU_INFO_VALID_FAN_ROTA     (1 << 6)
+/* AC or DC, if not AC so DC. */
+#define PSU_INFO_AC                 (1 << 7)
 
 typedef struct bf_pltfm_pwr_supply_info_t {
     uint32_t vin;      /* Input voltage in Volts */
@@ -167,7 +171,6 @@ typedef struct bf_pltfm_pwr_supply_info_t {
     bool presence;     /* Power supply present or not */
     bool power;        /* Is there power to PSU */
 
-    /* Not supported, by tsihang, 2022-03-28. */
     uint8_t fvalid;    /* Valid flags for the following units */
     uint32_t fspeed;   /* Fan speed in RPM */
     bool ffault;       /* Fan fault TRUE/FALSE */
@@ -219,14 +222,24 @@ bf_pltfm_chss_mgmt_switch_temperature_get (
 
 /* Power Rails */
 typedef struct bf_pltfm_pwr_rails_info_t {
+    /* Barefoot_Core */
     uint32_t vrail1;  /* Voltage of rail 1 in mV */
+    /* Barefoot_AVDD_0_9V */
     uint32_t vrail2;  /* Voltage of rail 2 in mV */
+    /* Payload_12V */
     uint32_t vrail3;  /* Voltage of rail 3 in mV */
+    /* Payload_3_3V */
     uint32_t vrail4;  /* Voltage of rail 4 in mV */
+    /* Payload_5V */
     uint32_t vrail5;  /* Voltage of rail 5 in mV */
+    /* Payload_2_5V */
     uint32_t vrail6;  /* Voltage of rail 6 in mV */
+    /* 88E6131_1_9V */
     uint32_t vrail7;  /* Voltage of rail 7 in mV */
+    /* 88E6131_1_2V */
     uint32_t vrail8;  /* Voltage of rail 8 in mV */
+
+    /* Not defined. */
     uint32_t vrail9;  /* Voltage of rail 9 in mV */
     uint32_t vrail10; /* Voltage of rail 10 in mV */
     uint32_t vrail11; /* Voltage of rail 11 in mV */
@@ -253,6 +266,11 @@ typedef struct bf_pltfm_fan_info_t {
                          * at which both fans are
                          * running */
     uint32_t speed_level;
+
+    /* 1 based group and keep the maximum group to bf_pltfm_mgr_ctx()->fan_group_count.
+     * left->right at rear.
+     * added by tsihang, 2022-07-08. */
+    uint8_t group;
 } bf_pltfm_fan_info_t;
 
 typedef struct bf_pltfm_fan_data_t {
@@ -296,7 +314,7 @@ struct bf_pltfm_board_ctx_t {
     bf_pltfm_board_id_t id;
     const char *desc;
     bf_pltfm_type type;
-    enum {v1dot0, v1dot1, v1dot2, v1dot3, v1dot4} subtype;
+    enum {v1dot0 = 0x10, v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14, v2dot0 = 0x20, v2dot1 = 0x21} subtype;
 };
 
 bf_pltfm_status_t
@@ -348,6 +366,10 @@ extern unsigned char bmc_i2c_addr;
 #define is_S02XXX (\
     (global_come_type == S021508) ||\
     (global_come_type == S021527))
+
+#define g_access_cpld_through_cp2112 \
+    ((is_ADV15XX || is_S02XXX) || \
+     (platform_type_equal (X532P) && platform_subtype_equal (v2dot0)))
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_pltfm_chss_mgmt_ucli_node_create (

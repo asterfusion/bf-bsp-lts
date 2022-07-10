@@ -125,6 +125,11 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "pwrgood");
+    sprintf (value, "%d", psu->power);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "vin");
     sprintf (value, "%d", psu->vin);
     onlp_save (fonlp, value, strlen (value));
@@ -165,6 +170,37 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
         sprintf (value, "%s", psu->serial);
         onlp_save (fonlp, value, strlen (value));
     }
+
+    if (psu->fvalid & PSU_INFO_VALID_MODEL) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "model");
+        sprintf (value, "%s", psu->model);
+        onlp_save (fonlp, value, strlen (value));
+    }
+
+    if (psu->fvalid & PSU_INFO_VALID_REV) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "rev");
+        sprintf (value, "%s", psu->rev);
+        onlp_save (fonlp, value, strlen (value));
+    }
+
+    if (psu->fvalid & PSU_INFO_VALID_FAN_ROTA) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "rota");
+        sprintf (value, "%d", psu->fspeed);
+        onlp_save (fonlp, value, strlen (value));
+    }
+
+    bool psu_type = 1;  /* default AC */
+    if (!(psu->fvalid & PSU_INFO_AC)) {
+        psu_type = 0;
+    }
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+        "supptype");
+    sprintf (value, "%d", psu_type);
+    onlp_save (fonlp, value, strlen (value));
+
 }
 
 static void bf_pltfm_chss_mgmt_onlp_temp (int id,

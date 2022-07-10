@@ -230,11 +230,11 @@ EXPORT int bf_pltfm_sfp_los_read (
     IN uint32_t module,
     OUT bool *los)
 {
-    int rc = 1;
+    int rc = 0;
     struct sfp_ctx_t *sfp;
 
     if (!sfp_lookup1 (module, &sfp)) {
-        return 1;
+        return -1;
     }
 
     g_sfp_opt->lock();

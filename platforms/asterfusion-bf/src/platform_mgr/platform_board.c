@@ -51,6 +51,11 @@ pltfm_bd_map_t pltfm_board_maps[] = {
         ROWS (mavericks_P0B_bd_map_x532p)
     },
     {
+        BF_PLTFM_BD_ID_X532PT_V2DOT0,
+        mavericks_P0B_bd_map_x532p,
+        ROWS (mavericks_P0B_bd_map_x532p)
+    },
+    {
         BF_PLTFM_BD_ID_X308PT_V1DOT0,
         mavericks_P0B_bd_map_x308p,
         ROWS (mavericks_P0B_bd_map_x308p)
@@ -144,6 +149,10 @@ int platform_name_get_str (char *name,
         case BF_PLTFM_BD_ID_X532PT_V1DOT1:
             snprintf (name, name_size,
                       "BF_PLTFM_BD_ID_X532PT_V1DOT1");
+            break;
+        case BF_PLTFM_BD_ID_X532PT_V2DOT0:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X532PT_V2DOT0");
             break;
         case BF_PLTFM_BD_ID_X564PT_V1DOT0:
             snprintf (name, name_size,

@@ -89,8 +89,7 @@ sfp_select_x5 (uint32_t module)
     struct sfp_ctx_t *sfp = NULL;
 
     if (sfp_lookup1 (module, &sfp)) {
-        if (is_ADV15XX ||
-            is_S02XXX) {
+        if (g_access_cpld_through_cp2112) {
             rc = bf_pltfm_cp2112_reg_write_byte (
                     BF_MAV_MASTER_PCA9548_ADDR, 0x00, sfp->info.i2c_chnl_addr);
         } else {
@@ -119,8 +118,7 @@ sfp_unselect_x5 (uint32_t module)
 {
     int rc = -1;
 
-    if (is_ADV15XX ||
-        is_S02XXX) {
+    if (g_access_cpld_through_cp2112) {
         rc = bf_pltfm_cp2112_reg_write_byte (
                 BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00);
     } else {
@@ -164,8 +162,7 @@ sfp_read_sub_module_x5 (
         offset -= MAX_SFP_PAGE_SIZE;
     }
 
-    if (is_ADV15XX ||
-        is_S02XXX) {
+    if (g_access_cpld_through_cp2112) {
         err = bf_pltfm_cp2112_reg_read_block (
                     addr >> 1, offset, buf, len);
     } else {
@@ -198,8 +195,7 @@ sfp_write_sub_module_x5 (
         offset -= MAX_SFP_PAGE_SIZE;
     }
 
-    if (is_ADV15XX ||
-        is_S02XXX) {
+    if (g_access_cpld_through_cp2112) {
         err = bf_pltfm_cp2112_reg_write_block (
                     addr >> 1, offset, buf, len);
     } else {

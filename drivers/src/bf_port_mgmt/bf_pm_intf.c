@@ -174,11 +174,6 @@ static void qsfp_detection_actions (
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
 
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
-
     qsfp_all_info_read (conn_id);
 
     bf_pltfm_platform_ext_phy_config_set (
@@ -239,11 +234,6 @@ static void qsfp_removal_actions (bf_dev_id_t
     bf_pal_front_port_handle_t port_hdl;
 
     qsfp_info_clear (conn_id);
-
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
 
     port_hdl.conn_id = conn_id;
     for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
@@ -554,18 +544,14 @@ void qsfp_fsm_timer_cb (struct bf_sys_timer_s
     bf_pltfm_status_t sts;
     bf_dev_id_t dev_id = (bf_dev_id_t) (intptr_t)data;
 
-    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
-        // Process QSFP start-up actions (if necessary)
-        sts = qsfp_fsm (dev_id);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error %s: in qsfp fsm at %s:%d\n",
-                       bf_pltfm_err_str (sts),
-                       __func__,
-                       __LINE__);
-        }
-    } else {
-        qsfp_fsm (dev_id);
-        //bf_pm_interface_fsm();
+    // Process QSFP start-up actions (if necessary)
+    sts = qsfp_fsm (dev_id);
+    //bf_pm_interface_fsm();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: in qsfp fsm at %s:%d\n",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
     }
 
     (void)timer;
@@ -695,11 +681,6 @@ static void sfp_removal_actions (bf_dev_id_t
 
     sfp_info_clear (module);
 
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
-
     /* get conn_id and chnl_id by module. */
     bf_sfp_get_conn (module, &port_hdl.conn_id,
                      &port_hdl.chnl_id);
@@ -747,7 +728,7 @@ void sfp_scan_removed (bf_dev_id_t dev_id,
     sfp_fsm_removed (module);
 }
 
-static void sfp_present_actions (int module)
+void sfp_present_actions (int module)
 {
     if (module > bf_sfp_get_max_sfp_ports()) {
         LOG_ERROR (" SFP    %2d : Invalid. Max supported = %2d",
@@ -776,11 +757,6 @@ static void sfp_detection_actions (
     bf_status_t sts;
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
-
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
 
     sfp_all_info_read (module);
 
@@ -1004,10 +980,6 @@ handle_removal:
         if (is_present == true) {
             // kick off the module FSM
             if (!bf_pltfm_pm_is_ha_mode()) {
-                if (!bf_pm_intf_is_device_family_tofino (
-                        dev_id)) {
-                    sfp_present_actions (module);
-                }
                 sfp_fsm_inserted (module);
             } else {
                 //sfp_state_ha_config_set (dev_id, conn_id);
@@ -1139,18 +1111,14 @@ void sfp_fsm_timer_cb (struct bf_sys_timer_s
     bf_pltfm_status_t sts;
     bf_dev_id_t dev_id = (bf_dev_id_t) (intptr_t)data;
 
-    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
-        /* Process SFP start-up actions (if necessart) */
-        sts = sfp_fsm (dev_id);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error %s: in sfp FSM at %s:%d\n",
-                       bf_pltfm_err_str (sts),
-                       __func__,
-                       __LINE__);
-        }
-    } else {
-        sfp_fsm (dev_id);
-        //bf_pm_interface_fsm();
+    /* Process SFP start-up actions (if necessart) */
+    sts = sfp_fsm (dev_id);
+    //bf_pm_interface_fsm();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: in sfp FSM at %s:%d\n",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
     }
 
     (void)timer;
@@ -1707,13 +1675,7 @@ bf_pltfm_status_t bf_pltfm_pm_ha_mode_clear()
 
 bool bf_pltfm_pm_is_ha_mode()
 {
-    if (!bf_pm_intf_is_device_family_tofino (0)) {
-        /* Warm init on newport is not yet supported. */
-        /* TOFINO2 TODO */
-        return false;
-    } else {
-        return bf_pltfm_pm_ha_mode;
-    }
+    return bf_pltfm_pm_ha_mode;
 }
 
 bf_pm_qsfp_info_t *bf_pltfm_get_pm_qsfp_info_ptr (

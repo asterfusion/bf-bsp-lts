@@ -927,8 +927,16 @@ static int differentiate_cp2112_devices (
 
     /* We can select correct channel by a detecting method for CGT CM, while we can not do that when ADV15xx installed.
      * So here we have to point it case by case. */
-    if (platform_type_equal (X532P) ||
-        platform_type_equal (X564P)) {
+    if (g_access_cpld_through_cp2112) {
+        cp2112_id_map[CP2112_ID_1] = 1;
+        cp2112_id_map[CP2112_ID_2] = 0;
+    }
+#if 0
+/* We can select correct channel by a detecting method for CGT COMe, while we can not do that when ADV15xx installed.
+ * So here we have to point it case by case. */
+if (platform_type_equal (X532P)) {
+    if (platform_subtype_equal (v1dot0) ||
+        platform_subtype_equal (v1dot1)) {
         if (is_CG15XX) {
             /* Do nothing. */
         } else if (is_ADV15XX ||
@@ -936,8 +944,25 @@ static int differentiate_cp2112_devices (
             cp2112_id_map[CP2112_ID_1] = 1;
             cp2112_id_map[CP2112_ID_2] = 0;
         }
+    } else if (platform_subtype_equal (v2dot0)) {
+        if (is_CG15XX  ||
+            is_ADV15XX ||
+            is_S02XXX) {
+            /* Do nothing. */
+        }
+        cp2112_id_map[CP2112_ID_1] = 1;
+        cp2112_id_map[CP2112_ID_2] = 0;
     }
-
+} else if (platform_type_equal (X564P)) {
+    if (is_CG15XX) {
+        /* Do nothing. */
+    } else if (is_ADV15XX ||
+               is_S02XXX) {
+        cp2112_id_map[CP2112_ID_1] = 1;
+        cp2112_id_map[CP2112_ID_2] = 0;
+    }
+}
+#endif
     fprintf(stdout, "cp2112_id_map[CP2112_ID_1] ... %d\n", cp2112_id_map[CP2112_ID_1]);
     fprintf(stdout, "cp2112_id_map[CP2112_ID_2] ... %d\n", cp2112_id_map[CP2112_ID_2]);
 
@@ -1448,6 +1473,7 @@ bf_pltfm_cp2112_device_ctx_t
         return &cp2112_dev_arr[cp2112_id_map[cp2112_id]];
     } else if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
+        (bd_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||

@@ -85,11 +85,6 @@
 #endif
 
 
-#if SDE_VERSION_LT(900)
-#define bf_pm_intf_is_device_family_tofino((dev)) (true)
-#endif
-
-
 #if SDE_VERSION_LT(980)
 #ifdef INC_PLTFM_UCLI
 #include <bfutils/uCli/ucli.h>
@@ -170,7 +165,8 @@ typedef enum bf_pltfm_board_id_e {
     /* X532P-T and its subtype. */
     BF_PLTFM_BD_ID_X532PT_V1DOT0 = 0x5320,
     BF_PLTFM_BD_ID_X532PT_V1DOT1 = 0x5321,
-    /* X308-T and its subtype. */
+    BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5323,
+    /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     /* X312P-T and its subtype. */
     BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,

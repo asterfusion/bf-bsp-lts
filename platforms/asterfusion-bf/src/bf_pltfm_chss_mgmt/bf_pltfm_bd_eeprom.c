@@ -118,10 +118,11 @@ static bf_pltfm_type bf_cur_pltfm_type = UNKNOWM_PLATFORM;
 static uint8_t bf_cur_pltfm_subtype = 0;
 
 /* New method of board_ctx_t decareled.
- * BF_PLTFM_BD_ID_X532PT_V1DOT1 means*/
+ * BF_PLTFM_BD_ID_X532PT_V1DOT1 means X532P-T subversion 1.1. */
 static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X532PT_V1DOT0, "APNS320T-A1-V1.0", X532P, v1dot0},  // X532P-T V1.0
     {BF_PLTFM_BD_ID_X532PT_V1DOT1, "APNS320T-A1-V1.1", X532P, v1dot1},  // X532P-T V1.1
+    {BF_PLTFM_BD_ID_X532PT_V2DOT0, "APNS320T-A1-V2.0", X532P, v2dot0},  // X532P-T V2.0
 
     {BF_PLTFM_BD_ID_X564PT_V1DOT0, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
     {BF_PLTFM_BD_ID_X564PT_V1DOT1, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
@@ -1006,8 +1007,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
         }
     } else if (platform_type_equal (X532P) ||
                platform_type_equal (X564P)) {
-        if (is_ADV15XX ||
-            is_S02XXX) {
+        if (g_access_cpld_through_cp2112) {
             /* Access CPLD through CP2112 */
             uint8_t rd_buf[128] = {0};
             uint8_t cmd = 0x0F;

@@ -412,8 +412,7 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
 {
     bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_pltfm_port_info_t port_info;
-    bool is_present = false, is_optic = false;
-    ;
+    bool is_present = false, is_optic = false, is_sfp;
     bf_pltfm_qsfp_type_t qsfp_type =
         BF_PLTFM_QSFP_UNKNOWN;
     int num_lanes, log_lane;
@@ -425,9 +424,23 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
 
     num_lanes = port_cfg->num_lanes;
 
+    is_sfp = is_panel_sfp (port_hdl->conn_id,
+                           port_hdl->chnl_id);
+
     // Turn OFF the QSFP lasers if present
     port_info.conn_id = port_hdl->conn_id;
     port_info.chnl_id = port_hdl->chnl_id;
+
+    if (is_sfp) {
+        int module = 0;
+        pltfm_pm_port_sfp_is_present (&port_info, &is_present);
+        bf_sfp_get_port (port_info.conn_id,
+                 port_info.chnl_id, &module);
+        sfp_fsm_st_disable (
+             0, module);
+        return BF_SUCCESS;
+    }
+
     pltfm_pm_port_qsfp_is_present (&port_info,
                                    &is_present);
     if (is_present) {
@@ -528,6 +541,7 @@ bf_status_t bf_pm_port_link_up_actions (
     bf_pltfm_port_info_t port_info;
     bf_dev_id_t dev_id = 0;
     bf_led_condition_t led_cond = BF_LED_PORT_LINK_UP;
+    bool is_present, is_sfp;
 
     // Safety Checks
     if (!port_hdl) {
@@ -563,10 +577,19 @@ bf_status_t bf_pm_port_link_up_actions (
         led_cond = BF_LED_PORT_LINKUP_100G;
     }
 
+    is_sfp = is_panel_sfp (port_hdl->conn_id,
+                           port_hdl->chnl_id);
+    if (is_sfp) {
+        pltfm_pm_port_sfp_is_present (&port_info, &is_present);
+    } else {
+        pltfm_pm_port_qsfp_is_present (&port_info,
+                                       &is_present);
+    }
+
     fprintf(stdout, "\n");
     fprintf(stdout,
-        "%2d/%d : %s\n",
-        (port_hdl)->conn_id, (port_hdl)->chnl_id, "up");
+        "%2d/%d : %s : is_present : %d\n",
+        (port_hdl)->conn_id, (port_hdl)->chnl_id, "up", is_present);
 
     sts = bf_port_led_set (dev_id, &port_info,
                            led_cond);
@@ -594,7 +617,7 @@ bf_status_t bf_pm_port_link_down_actions (
     bf_dev_id_t dev_id = 0;
     bf_led_condition_t led_cond =
         BF_LED_PORT_LINK_DOWN;
-    bool is_present;
+    bool is_present, is_sfp;
 
     // Safety Checks
     if (!port_hdl) {
@@ -615,13 +638,19 @@ bf_status_t bf_pm_port_link_down_actions (
         return BF_SUCCESS;
     }
 
-    /* Make sure the light off on the port which gonna to down without transceiver.
-     * This feature always present on the port in Tx mode.
-     * by tsihang, 2021-08-31. */
-    pltfm_pm_port_qsfp_is_present (&port_info,
-                                   &is_present);
-    if (!is_present) {
-        led_cond = BF_LED_POST_PORT_DEL;
+    is_sfp = is_panel_sfp (port_hdl->conn_id,
+                           port_hdl->chnl_id);
+    if (is_sfp) {
+        pltfm_pm_port_sfp_is_present (&port_info, &is_present);
+    } else {
+        /* Make sure the light off on the port which gonna down without transceiver.
+         * This feature always present on the port in Tx mode.
+         * by tsihang, 2021-08-31. */
+        pltfm_pm_port_qsfp_is_present (&port_info,
+                                       &is_present);
+        if (!is_present) {
+            led_cond = BF_LED_POST_PORT_DEL;
+        }
     }
 
     fprintf(stdout, "\n");
@@ -721,7 +750,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         bf_sfp_get_port (port_info.conn_id,
                          port_info.chnl_id, &module);
         is_optical = bf_sfp_is_optical (module);
-        LOG_DEBUG ("  SFP    %2d : [%02d/%d] : dev_port=%3d : is %s",
+        LOG_DEBUG (" SFP    %2d : [%02d/%d] : dev_port=%3d : is %s",
                    module,
                    port_info.conn_id,
                    port_info.chnl_id,
@@ -755,8 +784,12 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
     if (is_sfp) {
         /* by tsihang, 2022-04-11
          * kick off sfp_fsm. */
+        LOG_DEBUG (" SFP    %2d : [%02d/%d] : Enable dev_port=%3d",
+                   module,
+                   port_info.conn_id,
+                   port_info.chnl_id,
+                   dev_port);
         sfp_fsm_st_enable (dev_id, module);
-
         return BF_SUCCESS;
     }
 
@@ -768,7 +801,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         return BF_INVALID_ARG;
     }
     for (lane = 0; lane < num_lanes; lane++) {
-        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%d, ln=%d)",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%3d, ln=%d)",
                    port_hdl.conn_id,
                    port_hdl.chnl_id + lane,
                    dev_port,
@@ -854,7 +887,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
         return BF_INVALID_ARG;
     }
     for (lane = 0; lane < num_lanes; lane++) {
-        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%d, ln=%d)",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%3d, ln=%d)",
                    port_hdl.conn_id,
                    port_hdl.chnl_id + lane,
                    dev_port,

@@ -49,7 +49,8 @@ enum pltfm_pm_board_type_t {
     /* X532P-T and its subtype. */
     BF_PLTFM_BD_ID_X532PT_V1DOT0 = 0x5320,
     BF_PLTFM_BD_ID_X532PT_V1DOT1 = 0x5321,
-    /* X308-T and its subtype. */
+    BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5323,
+    /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     /* X312P-T and its subtype. */
     BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,

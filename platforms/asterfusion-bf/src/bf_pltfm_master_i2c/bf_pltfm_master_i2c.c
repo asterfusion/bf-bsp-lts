@@ -821,21 +821,24 @@ int bf_pltfm_master_i2c_init()
      * At this moment I don't see any negative effects with such an error/warnning.
      * by tsihang, 2022-04-20. */
     char i2c_bus_name[5][256] = {
+        /* hidraw0 or hiddev0 is the same thing in dfferent OS. */
         "CP2112 SMBus Bridge on hidraw0",
-        "CP2112 SMBus Bridge on hidraw1",
         "CP2112 SMBus Bridge on hiddev0",
+        /* hidraw1 or hiddev1 is the same thing in dfferent OS. */
+        "CP2112 SMBus Bridge on hidraw1",
+        "CP2112 SMBus Bridge on hiddev1",
         "sio_smbus"
     };
 
     if (platform_type_equal(UNKNOWM_PLATFORM)) {
         /* During first init, only super IO have chance.
          * this works for X308P-T and X312P-T. */
-        memset(&i2c_bus_name[1][0], '0', 255);
         memset(&i2c_bus_name[2][0], '0', 255);
+        memset(&i2c_bus_name[3][0], '0', 255);
     } else {
         /* Yeah, we have know the platform, then deal it case by case. */
         /* Make sure do NOT open SuperIO twice. */
-        memset(&i2c_bus_name[3][0], '0', 255);
+        memset(&i2c_bus_name[4][0], '0', 255);
         /* Specail case for X312P-T and all its subversion. */
         if (platform_type_equal (X312P)) {
             if (platform_subtype_equal (v1dot2)) {
@@ -880,8 +883,7 @@ int bf_pltfm_master_i2c_init()
                 return 0;
             }
         } else {
-            if (is_ADV15XX ||
-                is_S02XXX ||
+            if (g_access_cpld_through_cp2112 ||
                 (bmc_i2c_addr == 0x7F)) {
                 fprintf (stdout, "Skip ...\n");
                 return 0;
