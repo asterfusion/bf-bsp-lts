@@ -41,6 +41,46 @@
 static bf_pltfm_pwr_supply_info_t
 bmc_psu_data[MAX_PSU_COUNT];
 
+static inline void clr_psu_data(bf_pltfm_pwr_supply_info_t *info)
+{
+    info->presence = false;
+    /* clr psu data. */
+    info->vin      = 0;
+    info->vout     = 0;
+    info->iin      = 0;
+    info->iout     = 0;
+    info->fspeed   = 0;
+    info->pwr_in   = 0;
+    info->pwr_out  = 0;
+    info->power    = false;
+    info->fvalid   = 0;
+    info->ffault   = 0;
+    info->load_sharing  = 0;
+    memset ((char *)&info->model[0], 0, 32);
+    memset ((char *)&info->serial[0], 0, 32);
+    memset ((char *)&info->rev[0], 0, 32);
+}
+
+static inline void cpy_psu_data(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_supply_info_t *src)
+{
+    dst->presence = src->presence;
+    dst->vin      = src->vin;
+    dst->vout     = src->vout;
+    dst->iin      = src->iin;
+    dst->iout     = src->iout;
+    dst->fspeed   = src->fspeed;
+    dst->pwr_in   = src->pwr_in;
+    dst->pwr_out  = src->pwr_out;
+    dst->power    = src->power;
+    dst->fvalid   = src->fvalid;
+    dst->ffault   = src->ffault;
+    dst->load_sharing  = src->load_sharing;
+    memcpy ((char *)&dst->model[0], (char *)&src->model[0], 32 - 1);
+    memcpy ((char *)&dst->serial[0], (char *)&src->serial[0], 32 - 1);
+    memcpy ((char *)&dst->rev[0], (char *)&src->rev[0], 32 - 1);
+
+}
+
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
 (
@@ -85,7 +125,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
-        memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+        clr_psu_data(info);
         return BF_PLTFM_SUCCESS;
     }
 
@@ -173,7 +213,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
-        memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+        clr_psu_data(info);
         return BF_PLTFM_SUCCESS;
     }
 
@@ -257,7 +297,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
-        memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+        clr_psu_data(info);
         return BF_PLTFM_SUCCESS;
     }
 
@@ -352,7 +392,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         // if not present return
         if (! (*present)) {
-            memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+            clr_psu_data(info);
             return BF_PLTFM_SUCCESS;
         }
 
@@ -477,8 +517,11 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                         info->pwr_out);
             }
         }
-        // power
-        if (((info->vin >> 8) > 10) && ((info->vout >> 8) > 10)) {
+
+        /* Power good set as true if at least has one data. */
+        if ((info->vin) || (info->vout) ||
+            (info->iin) || (info->iout) ||
+            (info->pwr_in || (info->pwr_out))) {
             info->power = true;
         }
 
@@ -567,7 +610,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
         // if not present return
         if (! (*present)) {
-            memset(info, 0x00, sizeof(bf_pltfm_pwr_supply_info_t));
+            clr_psu_data(info);
             return BF_PLTFM_SUCCESS;
         }
 
@@ -699,7 +742,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             }
         }
 
-        if (((info->vin >> 8) > 10) && ((info->vout >> 8) > 10)) {
+        /* Power good set as true if at least has one data. */
+        if ((info->vin) || (info->vout) ||
+            (info->iin) || (info->iout) ||
+            (info->pwr_in || (info->pwr_out))) {
             info->power = true;
         }
 
@@ -831,43 +877,55 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
     bf_pltfm_pwr_supply_info_t *info)
 {
     int err = BF_PLTFM_COMM_FAILED;
+    bf_pltfm_pwr_supply_info_t
+    tmp_psu_data[MAX_PSU_COUNT], *p = NULL;
 
     if ((pwr != POWER_SUPPLY1 &&
-         pwr != POWER_SUPPLY2) || info == NULL) {
+         pwr != POWER_SUPPLY2) || info == NULL || present == NULL) {
         LOG_ERROR ("Invalid paramter NULL\n");
         return BF_PLTFM_INVALID_ARG;
     }
 
-    memset (info, 0, sizeof (
-                bf_pltfm_pwr_supply_info_t));
+    clr_psu_data (info);
+    clr_psu_data (&tmp_psu_data[POWER_SUPPLY1 - 1]);
+    clr_psu_data (&tmp_psu_data[POWER_SUPPLY2 - 1]);
+    *present = false;
 
     if (platform_type_equal (X532P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               info);
+               &tmp_psu_data[0]);
+        p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               info);
+               &tmp_psu_data[0]);
+        p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X308P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               info);
+               &tmp_psu_data[0]);
+        p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               info);
+               &tmp_psu_data[0]);
+        p = &tmp_psu_data[0];
     } else if (platform_type_equal (HC)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               info);
+               &tmp_psu_data[0]);
+        p = &tmp_psu_data[pwr - 1];
     }
 
-    if (!err) {
-        /* Write to cache. */
-        memcpy (&bmc_psu_data[pwr - 1],
-                info,
-                sizeof (bf_pltfm_pwr_supply_info_t));
+    if (err) {
+    } else {
+        if (p) {
+            /* Write to cache. */
+            cpy_psu_data (&bmc_psu_data[pwr - 1], p);
+            /* Read from cache. */
+            cpy_psu_data (info, &bmc_psu_data[pwr - 1]);
+        }
     }
 
     return err;
@@ -903,8 +961,7 @@ bf_pltfm_chss_mgmt_pwr_supply_get (
     }
 
     /* Read from cache. */
-    memcpy (info, &bmc_psu_data[pwr - 1],
-            sizeof (bf_pltfm_pwr_supply_info_t));
+    cpy_psu_data (info, &bmc_psu_data[pwr - 1]);
 
     return BF_PLTFM_SUCCESS;
 }
@@ -913,29 +970,24 @@ bf_pltfm_status_t
 bf_pltfm_chss_mgmt_pwr_init()
 {
     bf_pltfm_pwr_supply_t pwr;
-    bf_pltfm_pwr_supply_info_t infos[3], *info = NULL;
-    bool present[3] = {false};
+    bf_pltfm_pwr_supply_info_t infos, *info = NULL;
+    bool presence = false;
 
     fprintf (stdout,
              "\n\n================== PWRs INIT ==================\n");
 
-    for (pwr = POWER_SUPPLY1; pwr <= POWER_SUPPLY2; pwr ++) {
-        memset (&bmc_psu_data[pwr - 1], 0,
-                sizeof (bf_pltfm_pwr_supply_info_t));
-        memset (&infos[pwr], 0, sizeof (bf_pltfm_pwr_supply_info_t));
-        if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
-            (pwr, &present[pwr],
-             &infos[pwr]) != BF_PLTFM_SUCCESS) {
-            fprintf (stdout,
-                     "Error in reading power supply status : PWR%d\n",
-                     pwr);
-            continue;
-        }
-    }
+    clr_psu_data (&bmc_psu_data[POWER_SUPPLY1 - 1]);
+    clr_psu_data (&bmc_psu_data[POWER_SUPPLY2 - 1]);
 
-    for (pwr = POWER_SUPPLY1; pwr <= POWER_SUPPLY2; pwr ++) {
-        info = (bf_pltfm_pwr_supply_info_t *)&infos[pwr];
-        if (present[pwr]) {
+    pwr = POWER_SUPPLY1;
+    if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
+        (pwr, &presence, &infos) != BF_PLTFM_SUCCESS) {
+        fprintf (stdout,
+                 "Error in reading power supply status : PWR%d\n",
+                 pwr);
+    } else {
+        info = (bf_pltfm_pwr_supply_info_t *)&infos;
+        if (presence) {
             fprintf (stdout, "PWR%d : %s\n",
                      pwr, (info->fvalid & PSU_INFO_AC) ? "AC" : "DC");
 
@@ -983,6 +1035,64 @@ bf_pltfm_chss_mgmt_pwr_init()
             }
         }
     }
+
+    pwr = POWER_SUPPLY2;
+    if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
+         (pwr, &presence, &infos) != BF_PLTFM_SUCCESS) {
+        fprintf (stdout,
+              "Error in reading power supply status : PWR%d\n",
+              pwr);
+    } else {
+        info = (bf_pltfm_pwr_supply_info_t *)&infos;
+        if (presence) {
+            fprintf (stdout, "PWR%d : %s\n",
+                     pwr, (info->fvalid & PSU_INFO_AC) ? "AC" : "DC");
+
+            fprintf (stdout, "  Presence        %s \n",
+                     (info->presence ? "true" : "false"));
+            fprintf (stdout, "  Power ok        %s \n",
+                     (info->power ? "true" : "false"));
+            fprintf (stdout,
+                     "  Vin             %3d.%2d V\n", info->vin >> 8,
+                     (info->vin & 0x00FF));
+            fprintf (stdout,
+                     "  Vout            %3d.%2d V\n", info->vout >> 8,
+                     (info->vout & 0x00FF));
+            fprintf (stdout,
+                     "  Iin             %3d.%2d A\n", info->iin >> 8,
+                     (info->iin & 0x00FF));
+            fprintf (stdout,
+                     "  Iout            %3d.%2d A\n", info->iout >> 8,
+                     (info->iout & 0x00FF));
+            fprintf (stdout,
+                     "  Pin             %4d W\n",
+                     info->pwr_in);
+            fprintf (stdout,
+                     "  Pout            %4d W\n",
+                     info->pwr_out);
+            if (info->fvalid & PSU_INFO_VALID_SERIAL) {
+                fprintf (stdout,
+                         "  SN              %s\n",
+                         info->serial);
+            }
+            if (info->fvalid & PSU_INFO_VALID_MODEL) {
+                fprintf (stdout,
+                         "  Model           %s\n",
+                         info->model);
+            }
+            if (info->fvalid & PSU_INFO_VALID_REV) {
+                fprintf (stdout,
+                         "  Rev            %s\n",
+                         info->rev);
+            }
+            if (info->fvalid & PSU_INFO_VALID_FAN_ROTA) {
+                fprintf (stdout,
+                         "  Rota           %d\n",
+                         info->fspeed);
+            }
+        }
+    }
+
     fprintf (stdout, "\n\n");
     return BF_PLTFM_SUCCESS;
 }

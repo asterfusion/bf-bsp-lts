@@ -348,7 +348,7 @@ extern char bmc_i2c_bus;
 extern unsigned char bmc_i2c_addr;
 
 /* Porting CMEXXX, by tsihang, 2019-09-18. */
-#define is_CMEXXX (\
+#define is_HVXXX (\
     (global_come_type == CME3000) ||\
     (global_come_type == CME7000))
 
@@ -367,9 +367,7 @@ extern unsigned char bmc_i2c_addr;
     (global_come_type == S021508) ||\
     (global_come_type == S021527))
 
-#define g_access_cpld_through_cp2112 \
-    ((is_ADV15XX || is_S02XXX) || \
-     (platform_type_equal (X532P) && platform_subtype_equal (v2dot0)))
+extern bool g_access_cpld_through_cp2112;
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_pltfm_chss_mgmt_ucli_node_create (

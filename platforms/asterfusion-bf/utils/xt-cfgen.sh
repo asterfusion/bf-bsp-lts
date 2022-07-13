@@ -301,6 +301,10 @@ if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ]; then
             default_cme='S021508'
         fi
     fi
+    if [[ $xt_cme =~ "CME3000" ]]; then
+        # Detect X308P-T, X312P-T and X532P-T with S01
+        default_cme='CME3000'
+    fi
 fi
 
 # We have got the platform. Then try to get CME type by i2c.
@@ -344,12 +348,18 @@ fi
 # SFP  <- cp2112 or cogsdrv
 # QSFP <- cp2112
 if [[ $xt_platform =~ "532" ]]; then
-    if [[ $default_cmd =~ "CG" ]]; then
+    enable_iic=0
+    if [[ $default_cme =~ "CG" ]]; then
         # At least, cgosdrv is forced required to access cpld and sfp under CG15xx.
         install_cgosdrv
     fi
+    if [[ $default_cme =~ "CME3000" ]]; then
+        install_nct6779d
+        i2c=`i2cdetect -l | awk -F '[- ]' '/sio_smbus/{print $2}'`
+        default_i2c=${i2c:0:1}
+        enable_iic=1
+    fi
     echo -e "${YELLOW}${BLINK}It looks like x532p-t detected.${RES}${RES}"
-    enable_iic=0
 fi
 
 # Detect X564P-T. Two-way cp2112
@@ -358,12 +368,12 @@ fi
 # SFP  <- cp2112 or cogsdrv
 # QSFP <- cp2112
 if [[ $xt_platform =~ "564" ]]; then
-    if [[ $default_cmd =~ "CG" ]]; then
+    enable_iic=0
+    if [[ $default_cme =~ "CG" ]]; then
         # At least, cgosdrv is forced required to access cpld and sfp under CG15xx.
         install_cgosdrv
     fi
     echo -e "${YELLOW}${BLINK}It looks like x564p-t detected.${RES}${RES}"
-    enable_iic=0
 fi
 
 echo "COMe     : $default_cme"

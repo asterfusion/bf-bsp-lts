@@ -523,6 +523,11 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
         /* CPLD <- nct6679d */
         /* QSFP <- cp2112   */
         fd = i2c_ctx.fd_suio;
+    } else if (platform_type_equal(X532P)) {
+        if (is_HVXXX) {
+            /* When master i2c changed to super IO. */
+            fd = i2c_ctx.fd_suio;
+        }
     } else if (platform_type_equal (X312P)) {
         if (platform_subtype_equal(v1dot2)) {
             /* BMC  <- cp2112 */
@@ -856,6 +861,15 @@ int bf_pltfm_master_i2c_init()
                 if (i2c->fd_cp2112 > 0) {
                     close (i2c->fd_cp2112);
                     i2c->fd_cp2112 = -1;
+                }
+            }
+            if (platform_type_equal (X532P)) {
+                if (is_HVXXX) {
+                    fprintf (stdout, "Closing i2c : %d : %s\n", i2c->fd_cp2112, i2c_bus_name[0]);
+                    if (i2c->fd_cp2112 > 0) {
+                        close (i2c->fd_cp2112);
+                        i2c->fd_cp2112 = -1;
+                    }
                 }
             }
             return 0;

@@ -788,6 +788,35 @@ static void further_decode ()
     /* Further decode for other platform. */
 }
 
+static void access_cpld_through_cp2112()
+{
+    /* Access CPLD through CP2112 */
+    uint8_t rd_buf[128] = {0};
+    uint8_t cmd = 0x0F;
+    uint8_t wr_buf[2] = {0x01, 0xAA};
+    fprintf (stdout, "CPLD <- CP2112\n");
+    bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                              2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
+    g_access_cpld_through_cp2112 = true;
+}
+
+static void access_cpld_through_superio()
+{
+    /* Access CPLD through SIO */
+    uint8_t rd_buf[128] = {0};
+    uint8_t cmd = 0x0F;
+    uint8_t wr_buf[2] = {0x02, 0xAA};
+    /* An error occured while launching ASIC: bf_pltfm_uart/bf_pltfm_uart.c[260], read(Resource temporarily unavailable).
+     * Does the cmd <0x0F> need a return from BMC ? If not so, update func no_return_cmd (called by bf_pltfm_bmc_uart_write_read)
+     * to tell the caller there's no need to wait for the return status.
+     * Haven't see bad affect so far. Keep tracking.
+     * by tsihang, 2022-06-20. */
+    fprintf (stdout, "CPLD <- SuperIO\n");
+    bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                              2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
+    g_access_cpld_through_cp2112 = false;
+}
+
 /*
  * Example format of EEPROM returned by onie_syseeprom
  *
@@ -991,29 +1020,31 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
      * by tsihang, 2022-05-12. */
     further_decode ();
 
-    if (platform_type_equal (X308P)) {
-        if (is_CMEXXX) {
-            /* Access CPLD through SIO */
-            uint8_t rd_buf[128] = {0};
-            uint8_t cmd = 0x0F;
-            uint8_t wr_buf[2] = {0x02, 0xAA};
-            /* An error occured while launching ASIC: bf_pltfm_uart/bf_pltfm_uart.c[260], read(Resource temporarily unavailable).
-             * Does the cmd <0x0F> need a return from BMC ? If not so, update func no_return_cmd (called by bf_pltfm_bmc_uart_write_read)
-             * to tell the caller there's no need to wait for the return status.
-             * Haven't see bad affect so far. Keep tracking.
-             * by tsihang, 2022-06-20. */
-            bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                          2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
+    if (platform_type_equal (X312P)) {
+        if (platform_subtype_equal (v1dot2)) {
+            fprintf (stdout, "CPLD <- cp2112\n");
+        } else if (platform_subtype_equal (v1dot3)) {
+            fprintf (stdout, "CPLD <- super io\n");
         }
-    } else if (platform_type_equal (X532P) ||
-               platform_type_equal (X564P)) {
-        if (g_access_cpld_through_cp2112) {
-            /* Access CPLD through CP2112 */
-            uint8_t rd_buf[128] = {0};
-            uint8_t cmd = 0x0F;
-            uint8_t wr_buf[2] = {0x01, 0xAA};
-            bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US *2);
+    } else if (platform_type_equal (X308P)) {
+        if (is_HVXXX) {
+            access_cpld_through_superio();
+        }
+    } else if (platform_type_equal (X532P)) {
+        if (is_CG15XX) {
+            fprintf (stdout, "CPLD <- cgolx\n");
+        } else if (is_ADV15XX || is_S02XXX) {
+            access_cpld_through_cp2112();
+        } else if (is_HVXXX) {
+            access_cpld_through_superio();
+        }
+    } else if (platform_type_equal (X564P)) {
+        if (is_CG15XX) {
+            fprintf (stdout, "CPLD <- cgolx\n");
+        } else if (is_ADV15XX || is_S02XXX) {
+            access_cpld_through_cp2112();
+        } else if (is_HVXXX) {
+            access_cpld_through_superio();
         }
     }
 

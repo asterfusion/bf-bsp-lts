@@ -39,6 +39,7 @@
 #define lqe_valen  256
 
 COME_type global_come_type = COME_UNKNOWN;
+bool g_access_cpld_through_cp2112 = false;
 
 static struct x86_carrier_board_t x86_cb[] = {
     {"Unknown",  COME_UNKNOWN},
@@ -59,7 +60,7 @@ static void bf_pltfm_parse_i2c (const char *str,
                                 size_t l)
 {
     int i = 0;
-    char c = '0';
+    char *c = NULL;
 
     BUG_ON (str == NULL);
 
@@ -68,15 +69,17 @@ static void bf_pltfm_parse_i2c (const char *str,
             continue;
         }
         if (isdigit (str[i])) {
-            c = str[i];
+            c = (char *)&str[i];
             break;
         }
     }
-    /* I2C MUST be disabled or set to 127 for those platforms which are not used it in /etc/platform.conf. */
-    bmc_i2c_bus = c - '0';
-    if (bmc_i2c_bus != 0x7F)
-    fprintf (stdout,
-             "I2C  : %d (CPLD or BMC)\n", bmc_i2c_bus);
+    if (c) {
+        /* I2C MUST be disabled or set to 127 for those platforms which are not used it in /etc/platform.conf. */
+        bmc_i2c_bus = atoi(c);
+        if (bmc_i2c_bus != 0x7F)
+        fprintf (stdout,
+                 "I2C  : %d (CPLD or BMC)\n", bmc_i2c_bus);
+    }
 
 }
 
