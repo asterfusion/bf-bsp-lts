@@ -136,6 +136,7 @@ if [ ! -e $uart_util ]; then
     uart_util="/opt/bfn/install/bin/uart_util"
 fi
 
+echo -e "${YELLOW}$uart_util${RES}"
 install_bfnkdrv
 
 # 1st, Let us read eeprom ASAP.
@@ -164,7 +165,7 @@ install_bfnkdrv
 
 # For most part of X-T Programmable Bare Metal, we can get eeprom by uart.
 # The most smart thing we should do first is get the platform ASAP.
-bmc_version_10hex=$(uart_util /dev/ttyS1 0xd 0xaa 0xaa)
+bmc_version_10hex=$($uart_util /dev/ttyS1 0xd 0xaa 0xaa)
 if [ $? -ne 0 ]; then
     echo -e "${YELLOW}Warning: The reason why this error occured is either the environment is incorrect or the command is not recognized.${RES}"
     exit 0
@@ -175,7 +176,6 @@ else
         # 2. Get eeprom through I2C.
         enable_uart=0
     else
-        echo -e "${YELLOW}$uart_util${RES}"
         bmc_version_10hex=${bmc_version_10hex:2}
 
         # echo $bmc_version_10hex
@@ -190,7 +190,7 @@ else
         echo "bmc_version is "$var1.$var2.$var3
         sleep 1
 
-        xt_platform=$(uart_util /dev/ttyS1 0x1 0x21 0xaa)
+        xt_platform=$($uart_util /dev/ttyS1 0x1 0x21 0xaa)
         enable_uart=1
     fi
 fi
@@ -279,7 +279,7 @@ echo -e "Platform : $xt_platform"
 # We have got the platform. Then try to get CME type by uart.
 if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ]; then
     # Read eeprom offset of 0x32.
-    xt_cme=$(uart_util /dev/ttyS1 0x1 0x32 0xaa)
+    xt_cme=$($uart_util /dev/ttyS1 0x1 0x32 0xaa)
     if [[ $xt_cme =~ "CGT" ]]; then
         # Detect X564P-T and X532P-T with S02
         default_cme='CG1527'

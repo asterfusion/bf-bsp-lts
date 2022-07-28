@@ -640,8 +640,8 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
         module = (i + 1);
         err = bf_pltfm_sfp_lookup_by_module (module, &conn_id, &chnl_id);
         if (!err) {
-            sprintf(alias, "Y%d", module);
-            sprintf(connc, "%2d/%d", conn_id, chnl_id);
+            sprintf(alias, "Y%d", module % (BF_PLAT_MAX_QSFP * 4));
+            sprintf(connc, "%2d/%d", (conn_id % BF_PLAT_MAX_QSFP), (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         module, alias, connc, bf_sfp_is_present (module) ? "true" : "false");
         }

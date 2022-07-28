@@ -180,7 +180,7 @@ static void help()
  * by tsihang, 2022-05-26. */
 int main (int argc, char **argv)
 {
-    char uart_order[50];
+    char uart_order[50] = {0};
     //const char *tty = "/dev/ttyS1";
     int fd;
     int i;
@@ -205,8 +205,12 @@ int main (int argc, char **argv)
         return -1;
     }
     set_opt (fd, 9600, 8, 'N', 1);
-    memset (uart_order, 0, 50);
-    strncpy (uart_order, "uart_", 5);
+    //strncpy (uart_order, "uart_", 5);
+    uart_order[0] = 'u';
+    uart_order[1] = 'a';
+    uart_order[2] = 'r';
+    uart_order[3] = 't';
+    uart_order[4] = '_';
 
     if (argc == 3) {
         sprintf (&uart_order[5], "%s", argv[2]);

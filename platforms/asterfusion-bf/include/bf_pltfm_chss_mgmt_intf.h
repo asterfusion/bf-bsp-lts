@@ -37,13 +37,13 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init();
 #define BFN_EEPROM_F_ODM_PCBA_SERIAL 12
 #define BFN_EEPROM_F_PRODUCT_STATE 1
 #define BFN_EEPROM_F_PRODUCT_VERSION 1
-#define BFN_EEPROM_F_PRODUCT_SUBVERSION 1
+#define BFN_EEPROM_F_PRODUCT_SUBVERSION 8
 #define BFN_EEPROM_F_PRODUCT_SERIAL 12
 #define BFN_EEPROM_F_PRODUCT_ASSET 48
 #define BFN_EEPROM_F_SYSTEM_MANUFACTURER 12
 #define BFN_EEPROM_F_SYSTEM_MANUFACTURING_DATA 19
 #define BFN_EEPROM_F_SYSTEM_MANU_DATE 4
-#define BFN_EEPROM_F_PRODUCT_VENDOR 8
+#define BFN_EEPROM_F_PRODUCT_VENDOR 12
 #define BFN_EEPROM_F_ASSEMBLED 8
 #define BFN_EEPROM_F_LOCAL_MAC 12
 #define BFN_EEPROM_F_EXT_MAC_BASE 12
@@ -81,7 +81,7 @@ typedef struct bf_pltfm_eeprom_t {
     uint8_t bf_pltfm_product_version;
 
     /* Product Sub Version(0x27): X */
-    uint8_t bf_pltfm_product_subversion;
+    char bf_pltfm_product_subversion[BFN_EEPROM_F_PRODUCT_SUBVERSION + 1];
 
     /* Product platform arch(0x28): x86_64-asterfusion_x532p_t-r0 */
     char bf_pltfm_product_platform_arch[BFN_EEPROM_F_PRODUCT_ASSET

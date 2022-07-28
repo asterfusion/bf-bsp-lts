@@ -416,9 +416,10 @@ static int product_subversion (const char *index)
         i++;
     }
     str[j] = '\0';
-    eeprom.bf_pltfm_product_subversion = atoi (str);
+    strncpy (eeprom.bf_pltfm_product_subversion,
+        str, j);
 
-    LOG_DEBUG ("Product Sub-Version: %d \n",
+    LOG_DEBUG ("Product Sub-Version: %s \n",
                eeprom.bf_pltfm_product_subversion);
 
     return 0;

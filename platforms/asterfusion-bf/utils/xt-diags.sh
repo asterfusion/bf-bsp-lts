@@ -1,15 +1,30 @@
 #!/bin/bash
 
-log="/var/asterfusion/diagnose-report.log"
+LOG_DIR_PREFIX="/var/asterfusion"
+log="$LOG_DIR_PREFIX/diagnose-report.log"
 
 if [[ -f  $log ]];then
     rm -rf $log
 fi
 
+if [[ ! -d  $LOG_DIR_PREFIX ]];then
+    mkdir $LOG_DIR_PREFIX
+fi
+
 echo "==============================================================================================================================================" | tee -a $log
 echo "1. Platform OS" | tee -a $log
 echo ""  | tee -a $log
+
 uname -a  | tee -a $log
+disinfo=`fdisk -l | grep "Disk identifier"`
+echo $disinfo | tee -a $log
+disinfo=`fdisk -l | grep "Disk /dev/sda"`
+echo $disinfo | tee -a $log
+meminfo=`cat /proc/meminfo  | grep MemTotal`
+echo $meminfo | tee -a $log
+cpuinfo=`lscpu | grep "Model name:"`
+echo $cpuinfo | tee -a $log
+
 echo "" | tee -a $log
 
 echo "==============================================================================================================================================" | tee -a $log
@@ -33,7 +48,7 @@ echo "" | tee -a $log
 if [[ -f /etc/platform.conf ]];then
     echo "`awk '{if(!NF || /^#/){next}}1' /etc/platform.conf`" | tee -a $log
 else
-    echo "platform.conf not found!" | tee -a $log
+    echo "No /etc/platform.conf detected" | tee -a $log
 fi
 echo "" | tee -a $log
 
@@ -46,10 +61,12 @@ echo "" | tee -a $log
 echo "==============================================================================================================================================" | tee -a $log
 echo "5. eeprom" | tee -a $log
 echo "" | tee -a $log
-if [[ -f /var/asterfusion/eeprom ]];then
-    cat /var/asterfusion/eeprom | tee -a $log
+if [[ -f $LOG_DIR_PREFIX/eeprom ]];then
+    cat $LOG_DIR_PREFIX/eeprom | tee -a $log
 else
-    echo "eeprom file not found!" | tee -a $log
+    echo "No $LOG_DIR_PREFIX/eeprom detected" | tee -a $log
 fi
+
+
 echo "" | tee -a $log
 
