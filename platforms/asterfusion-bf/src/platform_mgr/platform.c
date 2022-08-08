@@ -47,6 +47,8 @@
 #include "version.h"
 #include "pltfm_types.h"
 
+static time_t g_tm_start, g_tm_end;
+
 //#define USE_I2C_ACCESS
 
 #ifdef THRIFT_ENABLED
@@ -93,6 +95,7 @@ static pltfm_mgr_info_t pltfm_mgr_info = {
     .sensor_count = 0,
     .fan_group_count = 0,
     .fan_per_group = 0,
+    .cpld_count = 0,
 };
 
 static ucli_node_t *bf_pltfm_ucli_node;
@@ -253,6 +256,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 6;
+            bf_pltfm_mgr_ctx()->cpld_count = 3;
         } else if (platform_type_equal (X532P)) {
             bf_pltfm_mgr_ctx()->flags = (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
@@ -263,6 +267,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 6;
+            bf_pltfm_mgr_ctx()->cpld_count = 2;
         } else if (platform_type_equal (X308P)) {
             bf_pltfm_mgr_ctx()->flags = (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
@@ -273,6 +278,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 10;
+            bf_pltfm_mgr_ctx()->cpld_count = 2;
         } else if (platform_type_equal (X312P)) {
             bf_pltfm_mgr_ctx()->flags = (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
@@ -282,10 +288,15 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_group_count = 5;
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
-            bf_pltfm_mgr_ctx()->sensor_count = 2;
-            if (platform_subtype_equal(v1dot3)) {
-                bf_pltfm_mgr_ctx()->sensor_count = 3;
+            /* LM75, LM63 and GHC(4) and Tofino(2).
+             * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
+            bf_pltfm_mgr_ctx()->sensor_count = 8;
+            if (platform_subtype_equal(v3dot0)) {
+            /* LM75, LM63, LM86 and GHC(4) and Tofino(2).
+             * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
+                bf_pltfm_mgr_ctx()->sensor_count = 9;
             }
+            bf_pltfm_mgr_ctx()->cpld_count = 5;
         } else if (platform_type_equal (HC)) {
             bf_pltfm_mgr_ctx()->flags = (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
@@ -296,14 +307,14 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_per_group = 0;
             bf_pltfm_mgr_ctx()->psu_count = 0;
             bf_pltfm_mgr_ctx()->sensor_count = 0;
-
+            bf_pltfm_mgr_ctx()->cpld_count = 3;
         }
         bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date = time (
                     NULL);
     }
 
-    fprintf (stdout, "BSP ver  : %s\n",
-             VERSION_NUMBER);
+    fprintf (stdout, "Platform : %02x(%02x)\n",
+             bf_pltfm_mgr_ctx()->pltfm_type, bf_pltfm_mgr_ctx()->pltfm_subtype);
     fprintf (stdout, "Max FANs : %2d\n",
              bf_pltfm_mgr_ctx()->fan_group_count *
              bf_pltfm_mgr_ctx()->fan_per_group);
@@ -312,6 +323,7 @@ static bf_pltfm_status_t chss_mgmt_init()
     fprintf (stdout, "Max SNRs : %2d\n",
              bf_pltfm_mgr_ctx()->sensor_count);
 
+    /* To accelerate 2nd launching for stratum. */
     if (g_switchd_init_mode != BF_DEV_INIT_COLD) {
         return BF_PLTFM_SUCCESS;
     }
@@ -409,6 +421,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                            *uc)
 {
     char bd[128];
+    double diff;
 
     UCLI_COMMAND_INFO (
         uc, "bsp", 0, " Show BSP version.");
@@ -438,6 +451,25 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                 bf_qsfp_get_max_qsfp_ports());
     aim_printf (&uc->pvs, "Max SFPs  : %2d\n",
                 bf_sfp_get_max_sfp_ports());
+    aim_printf (&uc->pvs, "Max CPLDs : %2d\n",
+                bf_pltfm_mgr_ctx()->cpld_count);
+    foreach_element (0, bf_pltfm_mgr_ctx()->cpld_count) {
+        char ver[8] = {0};
+        bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), &ver[0]);
+        aim_printf (&uc->pvs, "    CPLD%d : %s\n",
+                    (each_element + 1), ver);
+    }
+    aim_printf (&uc->pvs, "    BMC   : %s\n",
+                "TBD");
+
+    time(&g_tm_end);
+    diff = difftime(g_tm_end, g_tm_start);
+    uint32_t days  = (uint32_t)diff / (3600 * 24);
+    uint32_t hours = ((uint32_t)diff % (3600 * 24)) / 3600;
+    uint32_t min   = (((uint32_t)diff % (3600 * 24)) % 3600) / 60;
+    uint32_t sec   = (uint32_t)diff % 60;
+    aim_printf (&uc->pvs, "Uptime    : %u %u %u, %u sec(s)\n",
+                days, hours, min, sec);
 
     return 0;
 }
@@ -560,6 +592,8 @@ static void hostinfo()
         un = getpwuid (getuid())->pw_name;
     }
 
+    fprintf (stdout, "\r\nBSP ver  : %s\n",
+             VERSION_NUMBER);
     fprintf (stdout, "\r\nSystem Preview\n");
     fprintf (stdout, "%30s:%60s\n", "Login User",
              getlogin());
@@ -591,6 +625,7 @@ bf_status_t bf_pltfm_platform_init (
         (bf_switchd_context_t *)arg;
 
     g_switchd_init_mode = switchd_ctx->init_mode;
+    time(&g_tm_start);
 
     mkdir (LOG_DIR_PREFIX,
            S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);

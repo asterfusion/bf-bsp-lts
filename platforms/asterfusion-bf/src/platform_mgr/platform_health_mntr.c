@@ -375,42 +375,44 @@ static void bf_pltfm_onlp_mntr_tmp ()
             &t) != BF_PLTFM_SUCCESS) {
         LOG_ERROR ("Error in reading temperature from cache.\n");
     } else {
+        int id = 1;
         if (platform_type_equal (X532P)) {
-            bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
-            bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);
-            bf_pltfm_chss_mgmt_onlp_temp (3, (float)t.tmp3);
-            bf_pltfm_chss_mgmt_onlp_temp (4, (float)t.tmp4);
-            bf_pltfm_chss_mgmt_onlp_temp (5, (float)t.tmp5);
-            bf_pltfm_chss_mgmt_onlp_temp (6, (float)t.tmp6);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
         } else if (platform_type_equal (X564P)) {
-            bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
-            bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);
-            bf_pltfm_chss_mgmt_onlp_temp (3, (float)t.tmp3);
-            bf_pltfm_chss_mgmt_onlp_temp (4, (float)t.tmp4);
-            bf_pltfm_chss_mgmt_onlp_temp (5, (float)t.tmp5);
-            bf_pltfm_chss_mgmt_onlp_temp (6, (float)t.tmp6);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
         } else if (platform_type_equal (X308P)) {
-            bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
-            bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);
-            bf_pltfm_chss_mgmt_onlp_temp (3, (float)t.tmp3);
-            bf_pltfm_chss_mgmt_onlp_temp (4, (float)t.tmp4);
-            bf_pltfm_chss_mgmt_onlp_temp (5, (float)t.tmp5);
-            bf_pltfm_chss_mgmt_onlp_temp (6, (float)t.tmp6);
-            int i = 7;
-            if (t.tmp7 != -100.0) {
-                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp7);
-                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp8);
-            }
-            if (t.tmp9 != -100.0) {
-                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp9);
-                bf_pltfm_chss_mgmt_onlp_temp (i++, (float)t.tmp10);
-            }
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp7);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp8);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp9);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp10);
         } else if (platform_type_equal (X312P)) {
-            bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
-            bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);
-            if (platform_subtype_equal(v1dot3)) {
-                bf_pltfm_chss_mgmt_onlp_temp (3, (float)t.tmp3);
-            }
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp7);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp8);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp9);
+            /* Not Defined. */
+            //bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp10);
         }
     }
 }

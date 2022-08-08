@@ -175,10 +175,10 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
     int usec_delay = BMC_COMM_INTERVAL_US/25;
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v1dot2)) {
+    if (platform_subtype_equal(v2dot0)) {
         /* Not supported in v2. */
         pwr_rails = pwr_rails;
-    } else if (platform_subtype_equal(v1dot3)) {
+    } else if (platform_subtype_equal(v3dot0)) {
         uint8_t buf[4] = {0};
         int err;
         uint8_t vrail_data[3] = {0};
@@ -307,7 +307,7 @@ bf_pltfm_chss_mgmt_pwr_rails_init()
         return -1;
     }
     if (platform_type_equal (X312P)) {
-        if (platform_subtype_equal (v1dot2)) {
+        if (platform_subtype_equal (v2dot0)) {
             /* Not supported. */
         } else {
             /* V3 and later. */

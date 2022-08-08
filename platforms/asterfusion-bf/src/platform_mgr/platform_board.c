@@ -81,12 +81,12 @@ pltfm_bd_map_t pltfm_board_maps[] = {
         ROWS (montara_P0B_bd_map_x312p)
     },
     {
-        BF_PLTFM_BD_ID_X312PT_V1DOT2,
+        BF_PLTFM_BD_ID_X312PT_V2DOT0,
         montara_P0B_bd_map_x312p,
         ROWS (montara_P0B_bd_map_x312p)
     },
     {
-        BF_PLTFM_BD_ID_X312PT_V1DOT3,
+        BF_PLTFM_BD_ID_X312PT_V3DOT0,
         montara_P0B_bd_map_x312p,
         ROWS (montara_P0B_bd_map_x312p)
     },
@@ -174,17 +174,13 @@ int platform_name_get_str (char *name,
             snprintf (name, name_size,
                       "BF_PLTFM_BD_ID_X312PT_V1DOT0");
             break;
-        case BF_PLTFM_BD_ID_X312PT_V1DOT1:
+        case BF_PLTFM_BD_ID_X312PT_V2DOT0:
             snprintf (name, name_size,
-                      "BF_PLTFM_BD_ID_X312PT_V1DOT1");
+                      "BF_PLTFM_BD_ID_X312PT_V2DOT0");
             break;
-        case BF_PLTFM_BD_ID_X312PT_V1DOT2:
+        case BF_PLTFM_BD_ID_X312PT_V3DOT0:
             snprintf (name, name_size,
-                      "BF_PLTFM_BD_ID_X312PT_V1DOT2");
-            break;
-        case BF_PLTFM_BD_ID_X312PT_V1DOT3:
-            snprintf (name, name_size,
-                      "BF_PLTFM_BD_ID_X312PT_V1DOT3");
+                      "BF_PLTFM_BD_ID_X312PT_V3DOT0");
             break;
         default:
             snprintf (name, name_size, "Unknown");

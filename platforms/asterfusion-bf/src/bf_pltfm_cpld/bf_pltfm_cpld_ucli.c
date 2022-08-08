@@ -17,8 +17,6 @@
 
 #define DEFAULT_TIMEOUT_MS 500
 
-/* Maximum accessiable syscplds of a platform. */
-static int bf_pltfm_max_cplds = 2;
 /* For YH and S02 CME. */
 static bf_pltfm_cp2112_device_ctx_t *g_cpld_cp2112_hndl;
 
@@ -128,7 +126,8 @@ int select_cpld (uint8_t cpld_index)
     int rc = -1;
     int chnl = 0;
 
-    if ((cpld_index <= 0) || (cpld_index > bf_pltfm_max_cplds)) {
+    if ((cpld_index <= 0) ||
+        (cpld_index > bf_pltfm_mgr_ctx()->cpld_count)) {
         return -2;
     }
 
@@ -190,28 +189,9 @@ int unselect_cpld()
     return rc;
 }
 
-/** read a byte from syscpld register
-*
-*  @param cpld_index
-*   index of cpld for a given platform
-*  @param offset
-*   syscpld register to read
-*  @param buf
-*   buffer to read to
-*  @return
-*   0 on success otherwise in error
-*/
-int bf_pltfm_cpld_read_byte (
-    uint8_t cpld_index,
-    uint8_t offset,
-    uint8_t *buf)
+static inline int cpld2addr (uint8_t cpld_index, uint8_t *i2caddr)
 {
-    int rc = -1;
-    uint8_t addr = 0;
-
-    /* It is quite dangerous to access CPLD though Master PCA9548
-     * in different thread without protection.
-     * Added by tsihang, 20210616. */
+    uint8_t addr = 0xFF;
 
     if (platform_type_equal (X312P)) {
         /* cpld_index to cpld_addr */
@@ -275,7 +255,51 @@ int bf_pltfm_cpld_read_byte (
         }
     } else if (platform_type_equal (HC)) {
         /* TBD */
+        return -1;
     }
+    *i2caddr = addr;
+    return 0;
+}
+
+/** read a byte from syscpld register
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @param offset
+*   syscpld register to read
+*  @param buf
+*   buffer to read to
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cpld_read_byte (
+    uint8_t cpld_index,
+    uint8_t offset,
+    uint8_t *buf)
+{
+    int rc = -1;
+    uint8_t addr = 0;
+
+    rc = cpld2addr (cpld_index, &addr);
+    if (rc) {
+        LOG_ERROR (
+            "%s[%d], "
+            "cpld2addr(%d : %s : %d)"
+            "\n",
+            __FILE__, __LINE__, cpld_index,
+            "Failed to get cpld's i2caddr", rc);
+        return rc;
+    }
+
+    if (platform_type_equal (X312P) &&
+        cpld_index == BF_MAV_SYSCPLD2) {
+        *buf = 0x00;
+        return 0;
+    }
+
+    /* It is quite dangerous to access CPLD though Master PCA9548
+     * in different thread without protection.
+     * Added by tsihang, 20210616. */
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
@@ -312,73 +336,25 @@ int bf_pltfm_cpld_write_byte (
     int rc = -1;
     uint8_t addr = 0;
 
+    rc = cpld2addr (cpld_index, &addr);
+    if (rc) {
+        LOG_ERROR (
+            "%s[%d], "
+            "cpld2addr(%d : %s : %d)"
+            "\n",
+            __FILE__, __LINE__, cpld_index,
+            "Failed to get cpld's i2caddr", rc);
+        return rc;
+    }
+
+    if (platform_type_equal (X312P) &&
+        cpld_index == BF_MAV_SYSCPLD2) {
+        return 0;
+    }
+
     /* It is quite dangerous to access CPLD though Master PCA9548
      * in different thread without protection.
      * Added by tsihang, 20210616. */
-
-    if (platform_type_equal (X312P)) {
-        /* cpld_index to cpld_addr */
-        switch (cpld_index) {
-            case BF_MAV_SYSCPLD1:
-                addr = X312P_SYSCPLD1_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD2:
-                addr = X312P_SYSCPLD2_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD3:
-                addr = X312P_SYSCPLD3_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD4:
-                addr = X312P_SYSCPLD4_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD5:
-                addr = X312P_SYSCPLD5_I2C_ADDR;
-                break;
-            default:
-                return -1;
-        }
-    } else if (platform_type_equal (X308P)) {
-        /* cpld_index to cpld_addr */
-        switch (cpld_index) {
-            case BF_MAV_SYSCPLD1:
-                addr = X308P_SYSCPLD1_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD2:
-                addr = X308P_SYSCPLD2_I2C_ADDR;
-                break;
-            default:
-                return -1;
-        }
-    } else if (platform_type_equal (X564P)) {
-        /* cpld_index to cpld_addr */
-        switch (cpld_index) {
-            case BF_MAV_SYSCPLD1:
-                addr = X564P_SYSCPLD1_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD2:
-                addr = X564P_SYSCPLD2_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD3:
-                addr = X564P_SYSCPLD3_I2C_ADDR;
-                break;
-            default:
-                return -1;
-        }
-    } else if (platform_type_equal (X532P)) {
-        /* cpld_index to cpld_addr */
-        switch (cpld_index) {
-            case BF_MAV_SYSCPLD1:
-                addr = X532P_SYSCPLD1_I2C_ADDR;
-                break;
-            case BF_MAV_SYSCPLD2:
-                addr = X532P_SYSCPLD2_I2C_ADDR;
-                break;
-            default:
-                return -1;
-        }
-    } else if (platform_type_equal (HC)) {
-        /* TBD */
-    }
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
@@ -869,6 +845,68 @@ end:
     return rc;
 }
 
+int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version)
+{
+    int rc = -1;
+    /* 0xFF means invalid. */
+    uint8_t veroff = 0xFF;
+    uint8_t val = 0;
+
+    if (platform_type_equal (X312P)) {
+        switch (cpld_index) {
+            case BF_MAV_SYSCPLD1:
+                veroff = 0x13;
+                break;
+            case BF_MAV_SYSCPLD2:
+                /* We can not get CPLD2 from COMe, make the off invalid. */
+                veroff = 0xFF;
+                break;
+            case BF_MAV_SYSCPLD3:
+            case BF_MAV_SYSCPLD4:
+                veroff = 0x0E;
+                break;
+            case BF_MAV_SYSCPLD5:
+                veroff = 0x0A;
+                break;
+            default:
+                return -1;
+        }
+    } else if (platform_type_equal (X308P)) {
+        veroff = 0;
+    } else if (platform_type_equal (X532P)) {
+        veroff = 0;
+    } else if (platform_type_equal (X564P)) {
+        veroff = 0;
+    } else if (platform_type_equal (HC)) {
+        veroff = 0;
+    }
+
+    if (veroff == 0XFF) {
+        sprintf(version, "%s", "N/A");
+        return 0;
+    }
+    rc = bf_pltfm_cpld_read_byte (cpld_index, veroff, &val);
+    if (rc) {
+        sprintf(version, "N/A");
+    } else {
+        if (platform_type_equal (X312P)) {
+            sprintf(version, "%d.0", val);
+        } else if (platform_type_equal (X308P)) {
+            uint8_t ver = 0;
+            /* cpld1 : [3:0], cpld2 : [7:4] */
+            ver = (cpld_index == 1 ? (val & 0x0F) : ((val >> 4) & 0x0F));
+            sprintf(version, "%d.0", ver);
+        } else if (platform_type_equal (X532P)) {
+            sprintf(version, "%d.0", val);
+        } else if (platform_type_equal (X564P)) {
+            sprintf(version, "%d.0", val);
+        } else if (platform_type_equal (HC)) {
+            sprintf(version, "%d.0", val);
+        }
+    }
+    return 0;
+}
+
 int bf_pltfm_syscpld_init()
 {
     fprintf (stdout,
@@ -888,23 +926,18 @@ int bf_pltfm_syscpld_init()
     }
 
     if (platform_type_equal (X564P)) {
-        bf_pltfm_max_cplds = 3;
         bf_pltfm_syscpld_reset();
         bf_pltfm_pca9548_reset_47();
         bf_pltfm_pca9548_reset_03();
     } else if (platform_type_equal (X532P)) {
-        bf_pltfm_max_cplds = 2;
         bf_pltfm_syscpld_reset();
         bf_pltfm_pca9548_reset_03();
     } else if (platform_type_equal (X308P)) {
-        bf_pltfm_max_cplds = 2;
         bf_pltfm_pca9548_reset_x308p();
     } else if (platform_type_equal (HC)) {
-        bf_pltfm_max_cplds = 3;
         bf_pltfm_syscpld_reset();
         bf_pltfm_pca9548_reset_hc();
     } else if (platform_type_equal (X312P)) {
-        bf_pltfm_max_cplds = 5;
         /* reset cpld */
         bf_pltfm_syscpld_reset();
         /* reset PCA9548 */
@@ -920,7 +953,7 @@ bf_pltfm_cpld_ucli_ucli__read_cpld (
 {
     int i = 0;
     uint8_t buf[BUFSIZ];
-    int cpld_index;
+    uint8_t cpld_index;
     uint8_t cpld_page_size = 128;
 
     UCLI_COMMAND_INFO (uc, "read-cpld", 1,
@@ -929,10 +962,10 @@ bf_pltfm_cpld_ucli_ucli__read_cpld (
     cpld_index = strtol (uc->pargs->args[0], NULL, 0);
 
     if ((cpld_index <= 0) ||
-        (cpld_index > bf_pltfm_max_cplds)) {
+        (cpld_index > bf_pltfm_mgr_ctx()->cpld_count)) {
         aim_printf (&uc->pvs,
                     "invalid cpld_idx:%d, should be 1~%d\n",
-                    cpld_index, bf_pltfm_max_cplds);
+                    cpld_index, bf_pltfm_mgr_ctx()->cpld_count);
         return -1;
     }
 
@@ -956,7 +989,7 @@ static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__write_cpld (
     ucli_context_t *uc)
 {
-    int cpld_index;
+    uint8_t cpld_index;
     uint8_t offset;
     uint8_t val_wr, val_rd;
 
@@ -968,10 +1001,10 @@ bf_pltfm_cpld_ucli_ucli__write_cpld (
     val_wr     = strtol (uc->pargs->args[2], NULL, 0);
 
     if ((cpld_index <= 0) ||
-        (cpld_index > bf_pltfm_max_cplds)) {
+        (cpld_index > bf_pltfm_mgr_ctx()->cpld_count)) {
         aim_printf (&uc->pvs,
                     "invalid cpld_idx:%d, should be 1~%d\n",
-                    cpld_index, bf_pltfm_max_cplds);
+                    cpld_index, bf_pltfm_mgr_ctx()->cpld_count);
         return -1;
     }
 

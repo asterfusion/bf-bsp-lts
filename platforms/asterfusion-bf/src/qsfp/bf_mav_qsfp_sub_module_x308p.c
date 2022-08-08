@@ -37,9 +37,14 @@ static struct qsfp_ctx_t qsfp_ctx_x308p[] = {
     {"C8",   8, (0x76 << 1), 7, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (7)}, {BF_MAV_SYSCPLD1, 0x14, BIT (7)}},
 };
 
-/* Fixed me */
+/* TBD
+ * Facing to the panel port, the computing card on the right side is GHCx and the other one is GHCy.
+ * And as the vQSFP treated as QSFP by stratum, you can get the map by command bf-sde> qsfp map, or
+ * get the dev_port by bf_get_dev_port_by_interface_name.
+ * GHCx <- C15/C16, while another 3x 25G are unused.
+ * GHCy <- C13/C14, while another 3x 25G are unused.
+ * by tsihang, 2022/07/21. */
 static struct qsfp_ctx_t vqsfp_ctx_x308p[] = {
-    /* vQSFP treated as QSFP by stratum. */
     /* GHCx */
     {"C9",  21, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 21*/
     {"C10", 22, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 22*/

@@ -9,10 +9,10 @@
 cfgfile=/etc/platform.conf
 default_cme='CME3000'
 default_i2c="127"
-xt_platform=''
+hw_platform='N/A'
+hw_version="0"
 enable_uart=0
 enable_iic=1
-subver="1.0"
 
 BLINK='\033[05m'
 RED='\E[1;31m'
@@ -121,6 +121,10 @@ dump_eeprom()
     echo ""
 }
 
+echo -e "${YELLOW}Notice: Start detecting and make sure that the switchd is not running${RES}"
+sleep 1
+install_bfnkdrv
+
 # Find uart_util which created by bsp and installed to $SDE_INSTALL/bin.
 # When found return its absolute path.
 # For a given X-T with different OS (such as ubuntu), the working tty may differ from /dev/ttyS1 on Debian.
@@ -129,15 +133,13 @@ dump_eeprom()
 uart_util="$SDE_INSTALL/bin/uart_util"
 if [ ! -e $uart_util ]; then
     # For SONiC, uart_util is installed in /opt/bfn/install/bin
-    if [ ! -e "/opt/bfn/install/bin/uart_util" ]; then
-        echo -e "${RED}Critical: No uart_util detected, please install it first.${RES}"
-        friendly_exit
-    fi
     uart_util="/opt/bfn/install/bin/uart_util"
 fi
 
-echo -e "${YELLOW}$uart_util${RES}"
-install_bfnkdrv
+if [ ! -e $uart_util ]; then
+    echo -e "${RED}Critical: No uart_util detected, please install it first.${RES}"
+    friendly_exit
+fi
 
 # 1st, Let us read eeprom ASAP.
 # Standard EEPROM
@@ -162,6 +164,10 @@ install_bfnkdrv
 #0x32         COME Version:              CME5027-16GB-HV-CGT
 #0x33  GHC-0 Board Version:                                 
 #0x34  GHC-1 Board Version:                                 
+
+xt_platform=''
+xt_hwver=''
+xt_hwsubver=''
 
 # For most part of X-T Programmable Bare Metal, we can get eeprom by uart.
 # The most smart thing we should do first is get the platform ASAP.
@@ -192,6 +198,10 @@ else
 
         xt_platform=$($uart_util /dev/ttyS1 0x1 0x21 0xaa)
         enable_uart=1
+        # Read HW version
+        xt_hwver=$($uart_util /dev/ttyS1 0x1 0x31 0xaa)
+        hw_version=${xt_hwver: -3}
+        echo "hwver:"$hw_version
     fi
 fi
 
@@ -248,10 +258,20 @@ if [ $enable_uart = 0 ] && [ "$xt_platform"X = ""X ]; then
     if [[ $rc =~ "312" ]]; then
         # default x312p-t
         xt_platform="X312P-T"
+        # Read HW version
+        i2cset -y $default_i2c 0x3e 0x01 0x26 0xaa s
+        sleep 1
+        xt_hwver=`i2cdump -y $default_i2c 0x3e s 0xff`
+        i2cset -y $default_i2c 0x3e 0x01 0x27 0xaa s
+        sleep 1
+        xt_hwsubver=`i2cdump -y $default_i2c 0x3e s 0xff`
+        hw_version="${xt_hwver: -1}.${xt_hwsubver: -1}"
+        echo "hwver:"$hw_version
     fi
 fi
 
 # Unfortunately, we do not get platform so far. Try another way.
+# Almost not happen because only old X5 could reach here at this moment.
 if [ $enable_uart = 0 ] && [ "$xt_platform"X = ""X ]; then
     # Try to read platform with cgosdrv
     # cgosdrv may be used for X5-T with an earlier BMC access.
@@ -309,8 +329,13 @@ fi
 
 # We have got the platform. Then try to get CME type by i2c.
 # This may not happen because we only have X312P-T with CME3000 need this routine.
+# As well as some old hw such X532P-T v1.0 and X564P-T v1.1.
 if [ "$xt_platform"X != ""X ] && [ $enable_uart = 0 ]; then
     echo ""
+    # x532p-t
+    # x564p-t
+    # x312p-t
+    # TBD
 fi
 
 # Detect X308P-T.
@@ -318,10 +343,12 @@ fi
 # CPLD <- nct6779d
 # SFP  <- CP2112
 if [ "$default_cme"X = "CME3000"X ] && [[ $xt_platform =~ "308" ]]; then
-    echo -e "${YELLOW}${BLINK}It looks like x308p-t detected.${RES}${RES}"
     install_nct6779d
     i2c=`i2cdetect -l | awk -F '[- ]' '/sio_smbus/{print $2}'`
+    enable_iic=1
     default_i2c=${i2c:0:1}
+    hw_platform="X308P-T"
+    echo -e "${YELLOW}${BLINK}It looks like x308p-t detected.${RES}${RES}"
 fi
 
 # Detect X312P-T.
@@ -338,6 +365,8 @@ fi
     # CPLD <- nct6779d
     # SFP  <- cp2112
 if [ "$default_cme"X = "CME3000"X ] && [[ $xt_platform =~ "312" ]]; then
+    enable_iic=1
+    hw_platform="X312P-T"
     echo -e "${YELLOW}${BLINK}It looks like x312p-t detected.${RES}${RES}"
     # i2c has been detected during xt_platform detect routine, no need to detect it again.
 fi
@@ -359,6 +388,7 @@ if [[ $xt_platform =~ "532" ]]; then
         default_i2c=${i2c:0:1}
         enable_iic=1
     fi
+    hw_platform="X532P-T"
     echo -e "${YELLOW}${BLINK}It looks like x532p-t detected.${RES}${RES}"
 fi
 
@@ -373,6 +403,13 @@ if [[ $xt_platform =~ "564" ]]; then
         # At least, cgosdrv is forced required to access cpld and sfp under CG15xx.
         install_cgosdrv
     fi
+    if [[ $default_cme =~ "CME3000" ]]; then
+        install_nct6779d
+        i2c=`i2cdetect -l | awk -F '[- ]' '/sio_smbus/{print $2}'`
+        default_i2c=${i2c:0:1}
+        enable_iic=1
+    fi
+    hw_platform="X564P-T"
     echo -e "${YELLOW}${BLINK}It looks like x564p-t detected.${RES}${RES}"
 fi
 
@@ -400,6 +437,19 @@ echo "# /etc/platform.conf" >> $cfgfile
 echo "" >> $cfgfile
 echo "" >> $cfgfile
 
+echo "# X-T Bare Metal Hardware Platform." >> $cfgfile
+echo "# Currently supported X-T Bare Metal like below:" >> $cfgfile
+echo "#   1. X532P-T (Default)" >> $cfgfile
+echo "#   2. X564P-T"  >> $cfgfile
+echo "#   3. X308P-T" >> $cfgfile
+echo "#   4. X312P-T" >> $cfgfile
+echo $xt_platform $hw_platform
+echo "platform:"$hw_platform >> $cfgfile
+echo "" >> $cfgfile
+echo "hwver:"$hw_version >> $cfgfile
+echo "" >> $cfgfile
+
+
 echo "# If CG15xx,ADV15xx or S0215xx selected, 'i2c:X' will not make an impact." >> $cfgfile
 echo "# Currently supported CME like below:" >> $cfgfile
 echo "#   1. CG1508 (Default)" >> $cfgfile
@@ -410,7 +460,6 @@ echo "#   5. S021508" >> $cfgfile
 echo "#   6. S021527" >> $cfgfile
 echo "#   7. CME3000" >> $cfgfile
 echo "#   8. CME7000" >> $cfgfile
-
 echo $default_cme
 echo "com-e:"$default_cme >> $cfgfile
 echo "" >> $cfgfile

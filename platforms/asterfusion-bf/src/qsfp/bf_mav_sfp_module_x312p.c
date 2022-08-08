@@ -233,8 +233,7 @@ sfp_select_x312p (uint32_t module)
         l2_addr = (sfp->info.rev >> 8) & 0xFF;
         l2_addr_unconcerned = sfp->info.rev & 0xFF;
 
-        if (platform_subtype_equal (v1dot0) ||
-            platform_subtype_equal (v1dot1)) {
+        if (platform_subtype_equal (v1dot0)) {
 
             // get cp2112 hndl
             bf_pltfm_cp2112_device_ctx_t *hndl =
@@ -341,8 +340,7 @@ sfp_unselect_x312p (uint32_t module)
         l2_addr = (sfp->info.rev >> 8) & 0xFF;
         l2_addr_unconcerned = sfp->info.rev & 0xFF;
 
-        if (platform_subtype_equal (v1dot0) ||
-            platform_subtype_equal (v1dot1)) {
+        if (platform_subtype_equal (v1dot0)) {
 
             // get cp2112 hndl
             bf_pltfm_cp2112_device_ctx_t *hndl =
@@ -419,8 +417,7 @@ sfp_read_sub_module_x312p (
             addr = 0xa2;
             offset -= MAX_SFP_PAGE_SIZE;
         }
-        if (platform_subtype_equal (v1dot0) ||
-            platform_subtype_equal (v1dot1)) {
+        if (platform_subtype_equal (v1dot0)) {
             // get cp2112 hndl
             bf_pltfm_cp2112_device_ctx_t *hndl =
                 bf_pltfm_cp2112_get_handle (CP2112_ID_1);
@@ -483,8 +480,7 @@ sfp_write_sub_module_x312p (
             offset -= MAX_SFP_PAGE_SIZE;
         }
 
-        if (platform_subtype_equal (v1dot0) ||
-           platform_subtype_equal (v1dot1)) {
+        if (platform_subtype_equal (v1dot0)) {
             // get cp2112 hndl
             bf_pltfm_cp2112_device_ctx_t *hndl =
                 bf_pltfm_cp2112_get_handle (CP2112_ID_1);

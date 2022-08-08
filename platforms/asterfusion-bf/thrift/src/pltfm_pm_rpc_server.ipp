@@ -44,14 +44,11 @@ class pltfm_pm_rpcHandler : virtual public pltfm_pm_rpcIf {
       case BF_PLTFM_BD_ID_X312PT_V1DOT0:
         bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V1DOT1:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT1;
+      case BF_PLTFM_BD_ID_X312PT_V2DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V2DOT0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V1DOT2:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT2;
-        break;
-      case BF_PLTFM_BD_ID_X312PT_V1DOT3:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT3;
+      case BF_PLTFM_BD_ID_X312PT_V3DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V3DOT0;
         break;
       case BF_PLTFM_BD_ID_X532PT_V1DOT0:
         bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V1DOT0;

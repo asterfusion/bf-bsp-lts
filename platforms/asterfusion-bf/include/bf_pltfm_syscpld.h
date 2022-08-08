@@ -22,7 +22,7 @@ enum {
     BF_MAV_SYSCPLD3,
     BF_MAV_SYSCPLD4,
     BF_MAV_SYSCPLD5,
-    /* Add max syscpld enum for your platform and update bf_pltfm_max_cplds. */
+    /* Add max syscpld enum for your platform and update bf_pltfm_mgr_ctx()->cpld_count. */
 };
 
 typedef enum {
@@ -49,6 +49,7 @@ typedef enum {
 
 typedef enum {
     X312P_SYSCPLD1_I2C_ADDR = 0x60,
+    /* Only BMC can read 0x32. */
     X312P_SYSCPLD2_I2C_ADDR = 0x32,
     X312P_SYSCPLD3_I2C_ADDR = 0x62,
     X312P_SYSCPLD4_I2C_ADDR = 0x64,
@@ -230,6 +231,8 @@ int select_cpld (uint8_t cpld_index);
 */
 int unselect_cpld();
 
+int bf_pltfm_get_max_cplds ();
+int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version);
 int bf_pltfm_syscpld_init();
 
 #ifdef __cplusplus

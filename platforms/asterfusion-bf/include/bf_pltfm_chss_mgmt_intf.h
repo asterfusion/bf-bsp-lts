@@ -192,15 +192,55 @@ bf_pltfm_chss_mgmt_pwr_supply_prsnc_get (
 
 /* Temperature sensors */
 typedef struct bf_pltfm_temperature_info_t {
+    /* x312p-t -> LM75 */
+    /* x308p-t -> Far left of mainboard */
+    /* x532p-t -> Far left of mainboard */
+    /* x564p-t -> Far left of mainboard? */
     float tmp1;  /* tempearture of sensor 1 in C */
+    /* x312p-t -> LM63 */
+    /* x308p-t -> Far right of mainboard */
+    /* x532p-t -> Far right of mainboard */
+    /* x564p-t -> Far right of mainboard */
     float tmp2;  /* tempearture of sensor 2 in C */
+    /* x312p-t -> LM86 */
+    /* x308p-t -> FAN1 <Save temp of FAN2 to temp10. > */
+    /* x532p-t -> ASIC Ambient */
+    /* x564p-t -> ASIC Ambient */
     float tmp3;  /* tempearture of sensor 3 in C */
+    /* x312p-t -> GHC-1 Junction */
+    /* x308p-t -> GHC-1 Junction */
+    /* x532p-t -> ASIC Junction */
+    /* x564p-t -> ASIC Junction */
     float tmp4;  /* tempearture of sensor 4 in C */
+    /* x312p-t -> GHC-1 Ambient */
+    /* x308p-t -> GHC-1 Ambient */
+    /* x532p-t -> Fan 1 */
+    /* x564p-t -> Fan 1 */
     float tmp5;  /* tempearture of sensor 5 in C */
+    /* x312p-t -> GHC-2 Junction */
+    /* x308p-t -> GHC-2 Junction */
+    /* x532p-t -> Fan 2 */
+    /* x564p-t -> Fan 2 */
     float tmp6;  /* tempearture of sensor 6 in C */
+    /* x312p-t -> GHC-2 Ambient */
+    /* x308p-t -> GHC-2 Ambient */
+    /* x532p-t -> Not Defined */
+    /* x564p-t -> Not Defined */
     float tmp7;  /* tempearture of sensor 7 in C */
+    /* x312p-t -> BF Junction */
+    /* x308p-t -> BF Junction */
+    /* x532p-t -> Not Defined */
+    /* x564p-t -> Not Defined */
     float tmp8;  /* tempearture of sensor 8 in C */
+    /* x312p-t -> BF Ambient */
+    /* x308p-t -> BF Ambient */
+    /* x532p-t -> Not Defined */
+    /* x564p-t -> Not Defined */
     float tmp9;  /* tempearture of sensor 9 in C */
+    /* x312p-t -> Not Defined */
+    /* x308p-t -> Not Defined */
+    /* x532p-t -> Not Defined */
+    /* x564p-t -> Not Defined */
     float tmp10; /* tempearture of sensor 10 in C */
 } bf_pltfm_temperature_info_t;
 
@@ -309,13 +349,6 @@ bf_pltfm_status_t pltfm_mgr_sensor_out_get (
     const char *options,
     char *info,
     size_t info_size);
-
-struct bf_pltfm_board_ctx_t {
-    bf_pltfm_board_id_t id;
-    const char *desc;
-    bf_pltfm_type type;
-    enum {v1dot0 = 0x10, v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14, v2dot0 = 0x20, v2dot1 = 0x21} subtype;
-};
 
 bf_pltfm_status_t
 bf_pltfm_chss_mgmt_platform_type_get (

@@ -130,7 +130,23 @@ extern "C" {
 // are derived from internal-port. Keep it for backwardation
 #define BF_PLAT_MAX_QSFP 65
 
-typedef enum  {X564P = 1, X532P, X308P, X312P, HC, UNKNOWM_PLATFORM} bf_pltfm_type;
+typedef enum  {
+    INVALID_TYPE = 0xFF,
+    X564P = 1,
+    X532P,
+    X308P,
+    X312P,
+    HC
+} bf_pltfm_type;
+#define UNKNOWM_PLATFORM INVALID_TYPE
+
+#define mkver(a,b) (((a) & 0x0F) << 4 | ((b) & 0x0F))
+typedef enum {
+    INVALID_SUBTYPE = 0xFF,
+    v1dot0 = mkver(1,0), v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14,
+    v2dot0 = 0x20, v2dot1 = 0x21, v2dot2 = 0x22, v2dot3 = 0x23, v2dot4 = 0x24,
+    v3dot0 = 0x30, v3dot1 = 0x31, v3dot2 = 0x32, v3dot3 = 0x33, v3dot4 = 0x34,
+} bf_pltfm_subtype;
 
 /*
  * Identifies the type of the board
@@ -170,9 +186,11 @@ typedef enum bf_pltfm_board_id_e {
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     /* X312P-T and its subtype. */
     BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,
-    BF_PLTFM_BD_ID_X312PT_V1DOT1 = 0x3121,
+    BF_PLTFM_BD_ID_X312PT_V1DOT1 = 0x3120,
     BF_PLTFM_BD_ID_X312PT_V1DOT2 = 0x3122,
     BF_PLTFM_BD_ID_X312PT_V1DOT3 = 0x3123,
+    BF_PLTFM_BD_ID_X312PT_V2DOT0 = 0x3122,
+    BF_PLTFM_BD_ID_X312PT_V3DOT0 = 0x3123,
     /* HC36Y24C-T and its subtype. */
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT0 = 0x2400,
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT1 = 0x2401,
@@ -267,6 +285,12 @@ static inline const char *bf_pltfm_err_str (
         return bf_pltfm_err_strings[sts];
     }
 }
+struct bf_pltfm_board_ctx_t {
+    bf_pltfm_board_id_t id;
+    const char *desc;
+    bf_pltfm_type type;
+    bf_pltfm_subtype subtype;
+};
 
 /* State defined in CPLD. */
 struct st_ctx_t {

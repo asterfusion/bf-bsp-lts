@@ -42,6 +42,46 @@ static bf_pltfm_temperature_info_t bmc_tmp_data;
 static bf_pltfm_switch_temperature_info_t
 switch_tmp_data[MAX_SWITCH_SENSORS];
 
+static inline void clr_temp_info(bf_pltfm_temperature_info_t *dst)
+{
+    dst->tmp1   = 0;
+    dst->tmp2   = 0;
+    dst->tmp3   = 0;
+    dst->tmp4   = 0;
+    dst->tmp5   = 0;
+    dst->tmp6   = 0;
+    dst->tmp7   = 0;
+    dst->tmp8   = 0;
+    dst->tmp9   = 0;
+    dst->tmp10  = 0;
+}
+
+static inline void cpy_temp_info(bf_pltfm_temperature_info_t *dst, bf_pltfm_temperature_info_t *src)
+{
+    dst->tmp1   = src->tmp1;
+    dst->tmp2   = src->tmp2;
+    dst->tmp3   = src->tmp3;
+    dst->tmp4   = src->tmp4;
+    dst->tmp5   = src->tmp5;
+    dst->tmp6   = src->tmp6;
+    dst->tmp7   = src->tmp7;
+    dst->tmp8   = src->tmp8;
+    dst->tmp9   = src->tmp9;
+    dst->tmp10  = src->tmp10;
+}
+
+static inline void clr_stemp_info(bf_pltfm_switch_temperature_info_t *dst)
+{
+    dst->main_sensor   = 0;
+    dst->remote_sensor = 0;
+}
+
+static inline void cpy_stemp_info(bf_pltfm_switch_temperature_info_t *dst, bf_pltfm_switch_temperature_info_t *src)
+{
+    dst->main_sensor   = src->main_sensor;
+    dst->remote_sensor = src->remote_sensor;
+}
+
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_temperature_get_x532p__ (
     bf_pltfm_temperature_info_t *tmp)
@@ -123,6 +163,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x308p__ (
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
     int err = BF_PLTFM_COMM_FAILED, ret;
+    bf_pltfm_switch_temperature_info_t stemp = {0, 0};
 
     wr_buf[0] = 0xAA;
     wr_buf[1] = 0xAA;
@@ -137,24 +178,28 @@ __bf_pltfm_chss_mgmt_temperature_get_x308p__ (
             tmp->tmp1 = (float)rd_buf[1];
             tmp->tmp2 = (float)rd_buf[2];
             tmp->tmp3 = (float)rd_buf[3];
-            tmp->tmp4 = (float)rd_buf[4];
-            tmp->tmp5 = (float)rd_buf[5];
-            tmp->tmp6 = (float)rd_buf[6];
+            tmp->tmp10 = (float)rd_buf[4];
+
+            tmp->tmp9 = (float)rd_buf[5];
+            tmp->tmp8 = (float)rd_buf[6];
             if (rd_buf[7] == 0x9C) {
-                tmp->tmp7 = -100.0;
-                tmp->tmp8 = -100.0;
+                tmp->tmp5 = -100.0;
+                tmp->tmp4 = -100.0;
             } else {
-                tmp->tmp7 = (float)rd_buf[7];
-                tmp->tmp7 = (float)rd_buf[8];
+                tmp->tmp5 = (float)rd_buf[7];
+                tmp->tmp4 = (float)rd_buf[8];
             }
             if (rd_buf[9] == 0x9C) {
-                tmp->tmp9 = -100.0;
-                tmp->tmp10= -100.0;
+                tmp->tmp7 = -100.0;
+                tmp->tmp6 = -100.0;
             } else {
-                tmp->tmp9 = (float)rd_buf[9];
-                tmp->tmp10= (float)rd_buf[10];
+                tmp->tmp7 = (float)rd_buf[9];
+                tmp->tmp6= (float)rd_buf[10];
             }
 
+            bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
+            tmp->tmp8 = (float)(stemp.main_sensor / 1000);
+            tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
             err = BF_PLTFM_SUCCESS;
         }
     }
@@ -167,35 +212,104 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
     bf_pltfm_temperature_info_t *tmp)
 {
     int usec_delay = BMC_COMM_INTERVAL_US/25;
+    uint8_t buf[4] = {0};
+    uint8_t ghc1_temp[2][3] = {{0}};
+    uint8_t ghc2_temp[2][3] = {{0}};
+    uint8_t tmpdata[3] = {0};
+    uint8_t tmpbuff[4] = {0};
+    int err, rdlen1, rdlen2;
+    bf_pltfm_switch_temperature_info_t stemp = {0, 0};
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v1dot2)) {
-        uint8_t buf[5];
-        uint8_t res[I2C_SMBUS_BLOCK_MAX + 2];
-        int rdlen;
+    if (platform_subtype_equal(v2dot0)) {
+        uint8_t lm75_63[3] = {0};
 
-        // lm75 & lm63
+        /*00: 02 <LM75 temp> <LM63 temp>*/
         buf[0] = 0xaa;
         buf[1] = 0xaa;
-        rdlen = bf_pltfm_bmc_write_read (0x3e, 0x4, buf,
-                                        2, 0xff, res, 100000);
-        if (rdlen == 3) {
-            tmp->tmp1 = (float)res[1];      // LM75
-            tmp->tmp2 = (float)res[2];      // LM63
+        rdlen1 = bf_pltfm_bmc_write_read (0x3e, 0x4, buf,
+                                        2, 0xff, lm75_63, usec_delay);
+        if (rdlen1 < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
         }
-    } else if (platform_subtype_equal(v1dot3)) {
-        uint8_t buf[4] = {0};
-        int err;
-        uint8_t tmp_data1[3] = {0};
-        uint8_t tmp_data2[3] = {0};
-        uint8_t tmp_data3[3] = {0};
+
+        if (rdlen1 == 3) {
+            tmp->tmp1 = (float)lm75_63[1];      // LM75
+            tmp->tmp2 = (float)lm75_63[2];      // LM63
+        }
+
+        /* No LM86 in hw version 2. */
+        tmp->tmp3 = 0;
+
+        /*** GHC ***/
+        /* There's a bug during reading GHC's temp while actually the GHC is absent (return previous data).
+         * To avoid this, we have to read at least once to clear the sticky data. */
+        tmpbuff[0] = 0x03;
+        tmpbuff[1] = 0x32;
+        tmpbuff[2] = 0x2;
+        tmpbuff[3] = 0x1;
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        if (rdlen1 < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+
+        buf[0] = 0x03;
+        buf[1] = 0x18;
+        buf[2] = 0x0;
+        buf[3] = 0x1;
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[0][0], usec_delay);
+        if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc1_temp[0][2])) {
+            tmp->tmp5 = ghc1_temp[0][2];
+
+            buf[2] = 0x1;
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[1][0], usec_delay);
+            if (rdlen2 == 3) {
+                tmp->tmp4 = ghc1_temp[1][2];
+            }
+        }
+
+        tmpbuff[0] = 0x03;
+        tmpbuff[1] = 0x32;
+        tmpbuff[2] = 0x2;
+        tmpbuff[3] = 0x1;
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        if (rdlen1 < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+
+        buf[0] = 0x03;
+        buf[1] = 0x18;
+        buf[2] = 0x0;
+        buf[3] = 0x1;
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[0][0], usec_delay);
+        if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc2_temp[0][2])) {
+            tmp->tmp7 = ghc2_temp[0][2];
+
+            buf[2] = 0x1;
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[1][0], usec_delay);
+            if (rdlen2 == 3) {
+                tmp->tmp6 = ghc2_temp[1][2];
+            }
+        }
+
+        bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
+        tmp->tmp8 = (float)(stemp.main_sensor / 1000);
+        tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
+
+    } else if (platform_subtype_equal(v3dot0)) {
+        uint8_t lm75[3] = {0};
+        uint8_t lm63[3] = {0};
+        uint8_t lm86[3] = {0};
 
         /*00: 02 00 <LM75>*/
         buf[0] = 0x04;
         buf[1] = 0x4a;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data1, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm75, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -206,7 +320,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4c;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data2, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm63, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -217,14 +331,72 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4c;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, tmp_data3, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm86, usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
         }
-        tmp->tmp1 = (float)tmp_data1[2];
-        tmp->tmp2 = (float)tmp_data2[2];
-        tmp->tmp3 = (float)tmp_data3[2];
+
+        tmp->tmp1 = (float)lm75[2];
+        tmp->tmp2 = (float)lm63[2];
+        tmp->tmp3 = (float)lm86[2];
+
+        /*** GHC ***/
+        /* There's a bug during reading GHC's temp while actually the GHC is absent (return previous data).
+         * To avoid this, we have to read at least once to clear the sticky data. */
+        tmpbuff[0] = 0x03;
+        tmpbuff[1] = 0x32;
+        tmpbuff[2] = 0x2;
+        tmpbuff[3] = 0x1;
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        if (rdlen1 < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+
+        buf[0] = 0x03;
+        buf[1] = 0x18;
+        buf[2] = 0x0;
+        buf[3] = 0x1;
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[0][0], usec_delay);
+        if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc1_temp[0][2])) {
+            tmp->tmp5 = ghc1_temp[0][2];
+
+            buf[2] = 0x1;
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[1][0], usec_delay);
+            if (rdlen2 == 3) {
+                tmp->tmp4 = ghc1_temp[1][2];
+            }
+        }
+
+        tmpbuff[0] = 0x03;
+        tmpbuff[1] = 0x32;
+        tmpbuff[2] = 0x2;
+        tmpbuff[3] = 0x1;
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        if (rdlen1 < 0) {
+            LOG_ERROR("BMC read write error \n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+
+        buf[0] = 0x03;
+        buf[1] = 0x18;
+        buf[2] = 0x0;
+        buf[3] = 0x1;
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[0][0], usec_delay);
+        if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc2_temp[0][2])) {
+            tmp->tmp7 = ghc2_temp[0][2];
+
+            buf[2] = 0x1;
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[1][0], usec_delay);
+            if (rdlen2 == 3) {
+                tmp->tmp6 = ghc2_temp[1][2];
+            }
+        }
+
+        bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
+        tmp->tmp8 = (float)(stemp.main_sensor / 1000);
+        tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
     }
 
     return BF_PLTFM_SUCCESS;
@@ -249,8 +421,7 @@ __bf_pltfm_chss_mgmt_temperature_get__ (
         return BF_PLTFM_INVALID_ARG;
     }
 
-    memset (tmp, 0,
-            sizeof (bf_pltfm_temperature_info_t));
+    clr_temp_info (tmp);
 
     if (platform_type_equal (X532P)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x532p__
@@ -271,8 +442,7 @@ __bf_pltfm_chss_mgmt_temperature_get__ (
 
     if (!err) {
         /* Write to cache. */
-        memcpy (&bmc_tmp_data, tmp,
-                sizeof (bf_pltfm_temperature_info_t));
+        cpy_temp_info (&bmc_tmp_data, tmp);
     }
 
     return err;
@@ -287,8 +457,7 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
     uint32_t timeout = 0;
     bf_status_t err;
 
-    memset (tmp, 0,
-            sizeof (bf_pltfm_switch_temperature_info_t));
+    clr_stemp_info (tmp);
 
     if (BF_SUCCESS !=
         bf_serdes_temperature_read_start (
@@ -344,9 +513,8 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
     tmp->remote_sensor = temp_mC;
 
     /* Write to cache. */
-    memcpy (&switch_tmp_data[sensor %
-                                    MAX_SWITCH_SENSORS], tmp,
-            sizeof (bf_pltfm_switch_temperature_info_t));
+    cpy_stemp_info (&switch_tmp_data[sensor %
+                                    MAX_SWITCH_SENSORS], tmp);
 
     return BF_PLTFM_SUCCESS;
 }
@@ -361,8 +529,7 @@ bf_pltfm_chss_mgmt_temperature_get (
     }
 
     /* Read from cache. */
-    memcpy (tmp, &bmc_tmp_data,
-            sizeof (bf_pltfm_temperature_info_t));
+    cpy_temp_info (tmp, &bmc_tmp_data);
 
     return BF_PLTFM_SUCCESS;
 }
@@ -378,10 +545,8 @@ bf_pltfm_chss_mgmt_switch_temperature_get (
     }
 
     /* Read from cache. */
-    memcpy (tmp, &switch_tmp_data[sensor %
-                                         MAX_SWITCH_SENSORS],
-            sizeof (bf_pltfm_switch_temperature_info_t));
-
+    cpy_stemp_info (tmp, &switch_tmp_data[sensor %
+                                         MAX_SWITCH_SENSORS]);
     return BF_PLTFM_SUCCESS;
 }
 
@@ -411,13 +576,10 @@ bf_pltfm_chss_mgmt_tmp_init()
     fprintf (stdout,
              "\n\n================== TMPs INIT ==================\n");
 
-    memset (&bmc_tmp_data, 0,
-        sizeof (bf_pltfm_temperature_info_t));
-    int i;
-    for (i = 0; i < MAX_SWITCH_SENSORS; i ++) {
+    clr_temp_info (&bmc_tmp_data);
+    for (int i = 0; i < MAX_SWITCH_SENSORS; i ++) {
         s = &switch_tmp_data[i];
-        memset (s, 0,
-            sizeof (bf_pltfm_switch_temperature_info_t));
+        clr_stemp_info (s);
     }
 
     if (__bf_pltfm_chss_mgmt_temperature_get__ (
@@ -432,67 +594,94 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
                      t.tmp2, "Far right of mainboard");
             fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
-                     t.tmp3, "ASIC Ambient of XP70");
+                     t.tmp3, "ASIC Ambient");
             fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
-                     t.tmp4, "ASIC Junction of XP70");
+                     t.tmp4, "ASIC Junction");
             fprintf (stdout, "tmp5    %.1f C   \"%s\"\n",
                      t.tmp5, "Fan 1");
             fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
                      t.tmp6, "Fan 2");
             /* Added more sensors. */
         } else if (platform_type_equal (X308P)) {
-            fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
-                     t.tmp1, "Far left of mainboard");
-            fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
-                     t.tmp2, "Far right of mainboard");
-            fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
-                     t.tmp3, "Fan 1");
-            fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
-                     t.tmp4, "Fan 2");
-            fprintf (stdout, "tmp5    %.1f C   \"%s\"\n",
-                     t.tmp5, "BF Ambient");
-            fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
-                     t.tmp6, "BF Junction");
+            fprintf (stdout,
+                "tmp1    %.1f C   \"%s\"\n",
+                        t.tmp1, "Far left of mainboard");
+            fprintf (stdout,
+                "tmp2    %.1f C   \"%s\"\n",
+                        t.tmp2, "Far right of mainboard");
+            fprintf (stdout,
+                "tmp3    %.1f C   \"%s\"\n",
+                        t.tmp3, "Fan 1");
             // if == -100.0, means no GHC-0 installed
-            if (t.tmp7 == -100.0) {
-                fprintf (stdout, "tmp7    %s      \"%s\"\n",
-                         "  X", "GHC-0 Ambient");
-                fprintf (stdout, "tmp8    %s      \"%s\"\n",
-                         "  X", "GHC-0 Junction");
-                bf_pltfm_mgr_ctx()->sensor_count -= 2;
-            } else {
-                fprintf (stdout, "tmp7    %.1f C   \"%s\"\n",
-                         t.tmp7, "GHC-0 Ambient");
-                fprintf (stdout, "tmp8    %.1f C   \"%s\"\n",
-                         t.tmp8, "GHC-0 Junction");
+            if (t.tmp4 != -100.0) {
+                fprintf (stdout,
+                    "tmp4    %.1f C   \"%s\"\n",
+                            t.tmp4, "GHC-1 Junction");
+                fprintf (stdout,
+                    "tmp5    %.1f C   \"%s\"\n",
+                            t.tmp5, "GHC-1 Ambient");
             }
-            // if == -100.0;, means no GHC-1 installed
-            if (t.tmp9 == -100.0) {
-                fprintf (stdout, "tmp9    %s      \"%s\"\n",
-                         "  X", "GHC-1 Ambient");
-                fprintf (stdout, "tmp10   %s      \"%s\"\n",
-                         "  X", "GHC-1 Junction");
-                bf_pltfm_mgr_ctx()->sensor_count -= 2;
-            } else {
-                fprintf (stdout, "tmp9    %.1f C   \"%s\"\n",
-                         t.tmp9, "GHC-1 Ambient");
-                fprintf (stdout, "tmp10   %.1f C   \"%s\"\n",
-                         t.tmp10, "GHC-1 Junction");
+            // if == -100.0, means no GHC-0 installed
+            if (t.tmp6 != -100.0) {
+                fprintf (stdout,
+                    "tmp6   %.1f C   \"%s\"\n",
+                            t.tmp6, "GHC-2 Junction");
+                fprintf (stdout,
+                    "tmp7    %.1f C   \"%s\"\n",
+                            t.tmp7, "GHC-2 Ambient");
             }
+            fprintf (stdout,
+                "tmp8    %.1f C   \"%s\"\n",
+                        t.tmp8, "BF Junction");
+            fprintf (stdout,
+                "tmp9    %.1f C   \"%s\"\n",
+                        t.tmp9, "BF Ambient");
+            fprintf (stdout,
+                "tmp10    %.1f C   \"%s\"\n",
+                        t.tmp10, "Fan 2");
+            // The belowing code makes no sense due to there's no necessarily logic relationship about how many fantray should be inserted.
+            // We can still have all 6 fans even though without GHCs and on the other hand we can keep 4 fans even though with 1 or 2 GHCs.
+            // And in last case there may be a risk of heat dissipation but the logic is no problem.
+            // By tsihang, 2022-07-26.
             // if no GHC0 and GHC1, only have 4 * 2 fans
-            if (bf_pltfm_mgr_ctx()->sensor_count == 6) {
-                bf_pltfm_mgr_ctx()->fan_group_count = 4;
-            }
+            //if (bf_pltfm_mgr_ctx()->sensor_count == 6) {
+            //    bf_pltfm_mgr_ctx()->fan_group_count = 4;
+            //}
             /* Added more sensors. */
         } else if (platform_type_equal (X312P)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
                      t.tmp1, "lm75");
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
                      t.tmp2, "lm63");
-            if (platform_subtype_equal(v1dot3)) {
-                fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
-                         t.tmp3, "lm86");
+            fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
+                     t.tmp3, platform_subtype_equal(v3dot0) ? "lm86" : "Not Defined");
+            // if == -100.0, means no GHC-0 installed
+            if (t.tmp4 != -100.0) {
+                fprintf (stdout,
+                    "tmp4    %.1f C   \"%s\"\n",
+                            t.tmp4, "GHC-1 Junction");
+                fprintf (stdout,
+                    "tmp5    %.1f C   \"%s\"\n",
+                            t.tmp5, "GHC-1 Ambient");
             }
+            // if == -100.0, means no GHC-0 installed
+            if (t.tmp6 != -100.0) {
+                fprintf (stdout,
+                    "tmp6   %.1f C   \"%s\"\n",
+                            t.tmp6,"GHC-2 Junction");
+                fprintf (stdout,
+                    "tmp7    %.1f C   \"%s\"\n",
+                            t.tmp7, "GHC-2 Ambient");
+            }
+            fprintf (stdout,
+                "tmp8    %.1f C   \"%s\"\n",
+                        t.tmp8, "BF Junction");
+            fprintf (stdout,
+                "tmp9    %.1f C   \"%s\"\n",
+                        t.tmp9, "BF Ambient");
+            fprintf (stdout,
+                "tmp10    %.1f C   \"%s\"\n",
+                        t.tmp10, "Not Defined");
             /* Added more sensors. */
         } else if (platform_type_equal (HC)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",

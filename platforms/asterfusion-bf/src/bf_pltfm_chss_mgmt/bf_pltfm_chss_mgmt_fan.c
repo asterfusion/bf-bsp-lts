@@ -34,6 +34,7 @@
 #include "bf_pltfm_master_i2c.h"
 #include "bf_pltfm_uart.h"
 #include "chss_mgmt.h"
+#include "pltfm_types.h"
 
 #define BMC_CMD_FAN_ALL 0x05
 #define BMC_CMD_FAN_GET 0x06
@@ -43,14 +44,58 @@
 
 static bf_pltfm_fan_data_t bmc_fan_data;
 
+static inline void cpy_fan_info(bf_pltfm_fan_info_t *dst, bf_pltfm_fan_info_t *src)
+{
+    dst->direction   = src->direction;
+    dst->fan_num     = src->fan_num;
+    dst->front_speed = src->front_speed;
+    dst->group       = src->group;
+    dst->percent     = src->percent;
+    dst->present     = src->present;
+    dst->rear_speed  = src->rear_speed;
+    dst->speed_level = src->speed_level;
+}
+
+static inline void clr_fan_data(bf_pltfm_fan_data_t *data)
+{
+    bf_pltfm_fan_info_t *dst;
+    int block = sizeof (data->F) / sizeof (bf_pltfm_fan_info_t);
+
+    foreach_element(0, block) {
+        dst = &data->F[each_element];
+        dst->direction   = 0;
+        dst->fan_num     = 0;
+        dst->front_speed = 0;
+        dst->group       = 0;
+        dst->percent     = 0;
+        dst->present     = 0;
+        dst->rear_speed  = 0;
+        dst->speed_level = 0;
+    }
+    data->fantray_present = 0;
+}
+
+static inline void cpy_fan_data(bf_pltfm_fan_data_t *dst, bf_pltfm_fan_data_t *src)
+{
+    bf_pltfm_fan_info_t *idst, *isrc;
+    int block = sizeof (dst->F) / sizeof (bf_pltfm_fan_info_t);
+
+    foreach_element(0, block) {
+        isrc = &src->F[each_element];
+        idst = &dst->F[each_element];
+        cpy_fan_info (idst, isrc);
+    }
+    dst->fantray_present = src->fantray_present;
+}
+
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
     bf_pltfm_fan_data_t *fdata)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
-    uint32_t i = 0;
     int err = BF_PLTFM_COMM_FAILED, ret;
+    uint32_t num = 0;
 
     if (g_access_bmc_through_uart) {
         wr_buf[0] = 0xAA;
@@ -60,20 +105,33 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
                   BMC_CMD_FAN_ALL, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US);
         if ((ret == 23) && (rd_buf[0] == 22)) {
-            for (i = 0;
+            for (uint32_t i = 0;
                  i < bf_pltfm_mgr_ctx()->fan_group_count *
-                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
+                     bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
                 fdata->F[i].fan_num     = i + 1;
                 fdata->F[i].present     = (rd_buf[1] & (0x01 <<
                                                         (i >> 1))) ? 1 : 0;
                 fdata->F[i].direction   = 1;
                 fdata->F[i].front_speed = (rd_buf[2 * i + 3] << 8)
                                           + rd_buf[2 * i + 4];
-                err = BF_PLTFM_SUCCESS;
+
+                num = i;
+                /* Map to group */
+                if (fdata->F[num].fan_num == 1 || fdata->F[num].fan_num == 2)
+                    fdata->F[num].group = 1;
+                if (fdata->F[num].fan_num == 3 || fdata->F[num].fan_num == 4)
+                    fdata->F[num].group = 2;
+                if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 6)
+                    fdata->F[num].group = 3;
+                if (fdata->F[num].fan_num == 7 || fdata->F[num].fan_num == 8)
+                    fdata->F[num].group = 4;
+                if (fdata->F[num].fan_num == 9 || fdata->F[num].fan_num == 10)
+                    fdata->F[num].group = 5;
             }
+            err = BF_PLTFM_SUCCESS;
         }
     } else {
-        for (i = 0;
+        for (uint32_t i = 0;
              i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
 
             err = -1;
@@ -122,6 +180,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
     int err = BF_PLTFM_COMM_FAILED, ret;
+    uint32_t num = 0;
 
     if (g_access_bmc_through_uart) {
         wr_buf[0] = 0xAA;
@@ -133,20 +192,27 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
         if ((ret == 11) && (rd_buf[0] == 10)) {
             for (uint32_t i = 0;
                  i < bf_pltfm_mgr_ctx()->fan_group_count *
-                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
+                     bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
                 fdata->F[i].fan_num     = i + 1;
                 fdata->F[i].present     = (rd_buf[1] >> i) & 0x01;
                 fdata->F[i].direction   = (rd_buf[2] >> 2 * i) &
                                           0x03;
                 fdata->F[i].front_speed = (rd_buf[2 * i + 3] << 8)
                                           + rd_buf[2 * i + 4];
-                err = BF_PLTFM_SUCCESS;
+
+                num = i;
+                /* Map to group */
+                if (fdata->F[num].fan_num == 1 || fdata->F[num].fan_num == 2)
+                    fdata->F[num].group = 1;
+                if (fdata->F[num].fan_num == 3 || fdata->F[num].fan_num == 4)
+                    fdata->F[num].group = 2;
             }
+            err = BF_PLTFM_SUCCESS;
         }
     } else {
         for (uint32_t i = 0;
              i < bf_pltfm_mgr_ctx()->fan_group_count *
-             bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
+                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
 
             err = -1;
 
@@ -188,8 +254,8 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
-    uint32_t i = 0;
     int err = BF_PLTFM_COMM_FAILED, ret;
+    uint32_t num = 0;
 
     if (g_access_bmc_through_uart) {
         wr_buf[0] = 0xAA;
@@ -199,17 +265,31 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
                   BMC_CMD_FAN_ALL, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US);
         if ((ret == 27) && (rd_buf[0] == 26)) {
-            for (i = 0;
+            for (uint32_t i = 0;
                  i < bf_pltfm_mgr_ctx()->fan_group_count *
-                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
+                     bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
                 fdata->F[i].fan_num     = i + 1;
                 fdata->F[i].present     = (rd_buf[1] & (0x01 <<
                                                         (i >> 1))) ? 1 : 0;
                 fdata->F[i].direction   = 1;
                 fdata->F[i].front_speed = (rd_buf[2 * i + 3] << 8)
                                           + rd_buf[2 * i + 4];
-                err = BF_PLTFM_SUCCESS;
+                num = i;
+                /* Map to group */
+                if (fdata->F[num].fan_num == 1 || fdata->F[num].fan_num == 2)
+                    fdata->F[num].group = 1;
+                if (fdata->F[num].fan_num == 3 || fdata->F[num].fan_num == 4)
+                    fdata->F[num].group = 2;
+                if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 6)
+                    fdata->F[num].group = 3;
+                if (fdata->F[num].fan_num == 7 || fdata->F[num].fan_num == 8)
+                    fdata->F[num].group = 4;
+                if (fdata->F[num].fan_num == 9 || fdata->F[num].fan_num == 10)
+                    fdata->F[num].group = 5;
+                if (fdata->F[num].fan_num == 11 || fdata->F[num].fan_num == 12)
+                    fdata->F[num].group = 6;
             }
+             err = BF_PLTFM_SUCCESS;
         }
     }
 
@@ -221,44 +301,46 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
     bf_pltfm_fan_data_t *fdata)
 {
     int usec_delay = BMC_COMM_INTERVAL_US/25;
+    uint32_t num = 0;
+    int rdlen = 0;
+    uint8_t buf[4] = {0};
+    uint8_t data[I2C_SMBUS_BLOCK_MAX] = {0};
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v1dot2)) {
-        uint8_t buf[2] = {0};
-        uint8_t res[I2C_SMBUS_BLOCK_MAX + 2];
-        int rdlen;
-        int i;
-        uint8_t num = 0;
+    if (platform_subtype_equal(v2dot0)) {
 
         // fan status
-        for (i = 0; i < 5; i++) {
+        for (uint32_t i = 0;
+             i < bf_pltfm_mgr_ctx()->fan_group_count; i++) {
             buf[0] = i;
             buf[1] = 0x01;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x6, buf,
-                                            2, 0xff, res, 100000);
+                                            2, 0xff, data, 100000);
             if (rdlen == 4) {
                 fdata->F[2 * i].fan_num = 2 * i + 1;
-                fdata->F[2 * i].present = res[1] ? 1 : 0;
-                fdata->F[2 * i].direction = res[2];
+                fdata->F[2 * i].present = data[1] ? 1 : 0;
+                fdata->F[2 * i].direction = data[2];
 
                 fdata->F[2 * i + 1].fan_num = 2 * i + 2;
-                fdata->F[2 * i + 1].present = res[1] ? 1 : 0;
-                fdata->F[2 * i + 1].direction = res[2];
+                fdata->F[2 * i + 1].present = data[1] ? 1 : 0;
+                fdata->F[2 * i + 1].direction = data[2];
             }
         }
 
         // fan speed
-        for (i = 0; i < 10; i++) {
+        for (uint32_t i = 0;
+             i < bf_pltfm_mgr_ctx()->fan_group_count *
+                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
             buf[0] = i;
             buf[1] = 0x00;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x6, buf,
-                                            2, 0xff, res, 100000);
+                                            2, 0xff, data, 100000);
             if (rdlen == 4) {
                 if (i < 5) {
-                    fdata->F[ (i % 5) * 2 + 0].front_speed = res[2] *
+                    fdata->F[ (i % 5) * 2 + 0].front_speed = data[2] *
                             100;
                 } else {
-                    fdata->F[ (i % 5) * 2 + 1].front_speed = res[2] *
+                    fdata->F[ (i % 5) * 2 + 1].front_speed = data[2] *
                             100;
                 }
             }
@@ -276,13 +358,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 10)
                 fdata->F[num].group = 5;
         }
-    } else if (platform_subtype_equal(v1dot3)) {
-        uint8_t buf[4] = {0};
-        uint8_t data[3] = {0};
-        uint8_t i = 0;
-        int rdlen = 0;
-        uint8_t num = 0;
-
+    } else if (platform_subtype_equal(v3dot0)) {
         // fan status
         buf[0] = 0x03;
         buf[1] = 0x32;
@@ -339,7 +415,9 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         buf[0] = 0x1;
         buf[1] = 0x32;
         buf[3] = 0x1;
-        for (i = 0; i < 10; i++) {
+        for (uint32_t i = 0;
+             i < bf_pltfm_mgr_ctx()->fan_group_count *
+                 bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
             buf[2] = i;
             rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
             if (rdlen != 3) {
@@ -464,7 +542,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
     fdata = fdata;
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v1dot2)) {
+    if (platform_subtype_equal(v2dot0)) {
         uint8_t buf[2] = {0};
         uint8_t res[I2C_SMBUS_BLOCK_MAX + 2];
         int rdlen;
@@ -478,7 +556,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
         }
-    } else if (platform_subtype_equal(v1dot3)) {
+    } else if (platform_subtype_equal(v3dot0)) {
         uint8_t buf[5] = {0};
         uint8_t data[32] = {0};
         int rdlen = 0;
@@ -528,7 +606,7 @@ __bf_pltfm_chss_mgmt_fan_data_get__ (
         return BF_PLTFM_INVALID_ARG;
     }
 
-    memset (fdata, 0, sizeof (bf_pltfm_fan_data_t));
+    clr_fan_data(fdata);
 
     if (platform_type_equal (X532P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x532p__
@@ -549,8 +627,7 @@ __bf_pltfm_chss_mgmt_fan_data_get__ (
 
     if (!err) {
         /* Write to cache. */
-        memcpy (&bmc_fan_data, fdata,
-                sizeof (bf_pltfm_fan_data_t));
+        cpy_fan_data (&bmc_fan_data, fdata);
     }
 
     return err;
@@ -599,8 +676,7 @@ bf_pltfm_chss_mgmt_fan_data_get (
     }
 
     /* Read from cache. */
-    memcpy (fdata, &bmc_fan_data,
-            sizeof (bf_pltfm_fan_data_t));
+    cpy_fan_data (fdata, &bmc_fan_data);
 
     return BF_PLTFM_SUCCESS;
 }
@@ -621,8 +697,8 @@ bf_pltfm_chss_mgmt_fan_init()
     fprintf (stdout,
              "\n\n================== FANs INIT ==================\n");
 
-    memset (&bmc_fan_data, 0,
-         sizeof (bf_pltfm_fan_data_t));
+    clr_fan_data(&bmc_fan_data);
+
     if (__bf_pltfm_chss_mgmt_fan_data_get__ (
             &fdata) != BF_PLTFM_SUCCESS) {
         fprintf (stdout,

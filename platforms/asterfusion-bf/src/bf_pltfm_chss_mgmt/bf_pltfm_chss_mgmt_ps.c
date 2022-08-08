@@ -355,7 +355,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
     int usec_delay = BMC_COMM_INTERVAL_US/25;
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v1dot2)) {
+    if (platform_subtype_equal(v2dot0)) {
         // def
         uint8_t buf[10] = {0};
         uint8_t res[I2C_SMBUS_BLOCK_MAX + 2] = {0};
@@ -545,7 +545,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
     }
 
-    if (platform_subtype_equal(v1dot3)) {
+    if (platform_subtype_equal(v3dot0)) {
         uint8_t pre_buf[2] = {0};
         uint8_t buf[10] = {0};
         int ret = -1;

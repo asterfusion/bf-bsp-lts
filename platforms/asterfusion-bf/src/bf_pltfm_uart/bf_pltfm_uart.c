@@ -493,6 +493,7 @@ int bf_pltfm_uart_de_init ()
 
     if (unlikely (! (ctx->flags &
                      AF_PLAT_UART_ENABLE))) {
+        fprintf (stdout, "Skip ...\n");
         return 0;
     }
 

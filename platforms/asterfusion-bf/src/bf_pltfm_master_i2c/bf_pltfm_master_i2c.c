@@ -523,18 +523,19 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
         /* CPLD <- nct6679d */
         /* QSFP <- cp2112   */
         fd = i2c_ctx.fd_suio;
-    } else if (platform_type_equal(X532P)) {
+    } else if (platform_type_equal(X532P) ||
+               platform_type_equal(X564P)) {
         if (is_HVXXX) {
             /* When master i2c changed to super IO. */
             fd = i2c_ctx.fd_suio;
         }
     } else if (platform_type_equal (X312P)) {
-        if (platform_subtype_equal(v1dot2)) {
+        if (platform_subtype_equal(v2dot0)) {
             /* BMC  <- cp2112 */
             /* CPLD <- cp2112  */
             /* QSFP <- cp2112 */
             fd = i2c_ctx.fd_cp2112;
-        } else if (platform_subtype_equal(v1dot3)) {
+        } else if (platform_subtype_equal(v3dot0)) {
             /* BMC  <- nc76779d */
             /* CPLD <- nc76779d */
             /* QSFP <- cp2112   */
@@ -835,45 +836,37 @@ int bf_pltfm_master_i2c_init()
         "sio_smbus"
     };
 
-    if (platform_type_equal(UNKNOWM_PLATFORM)) {
-        /* During first init, only super IO have chance.
-         * this works for X308P-T and X312P-T. */
+    if (platform_type_equal (X312P)) {
+        if (platform_subtype_equal (v1dot0)) {
+            memset(&i2c_bus_name[0][0], '0', 255);
+            memset(&i2c_bus_name[1][0], '0', 255);
+            memset(&i2c_bus_name[2][0], '0', 255);
+            memset(&i2c_bus_name[3][0], '0', 255);
+        } else if (platform_subtype_equal (v2dot0)) {
+            memset(&i2c_bus_name[2][0], '0', 255);
+            memset(&i2c_bus_name[3][0], '0', 255);
+            memset(&i2c_bus_name[4][0], '0', 255);
+        } else if (platform_subtype_equal (v3dot0)) {
+            memset(&i2c_bus_name[2][0], '0', 255);
+            memset(&i2c_bus_name[3][0], '0', 255);
+        }
+    } else if (platform_type_equal (X308P)) {
+        memset(&i2c_bus_name[0][0], '0', 255);
+        memset(&i2c_bus_name[1][0], '0', 255);
         memset(&i2c_bus_name[2][0], '0', 255);
         memset(&i2c_bus_name[3][0], '0', 255);
-    } else {
-        /* Yeah, we have know the platform, then deal it case by case. */
-        /* Make sure do NOT open SuperIO twice. */
-        memset(&i2c_bus_name[4][0], '0', 255);
-        /* Specail case for X312P-T and all its subversion. */
-        if (platform_type_equal (X312P)) {
-            if (platform_subtype_equal (v1dot2)) {
-                fprintf (stdout, "v2\n");
-                return 0;
-            } else if (platform_subtype_equal (v1dot3)) {
-                /* Keep both super io and cp2112 i2c open. */
-                fprintf (stdout, "v3\n");
-                return 0;
-            }
-         } else {
-            /* Specail case for X308P-T and all its subversion. */
-            if (platform_type_equal (X308P)) {
-                fprintf (stdout, "Closing i2c : %d : %s\n", i2c->fd_cp2112, i2c_bus_name[0]);
-                if (i2c->fd_cp2112 > 0) {
-                    close (i2c->fd_cp2112);
-                    i2c->fd_cp2112 = -1;
-                }
-            }
-            if (platform_type_equal (X532P)) {
-                if (is_HVXXX) {
-                    fprintf (stdout, "Closing i2c : %d : %s\n", i2c->fd_cp2112, i2c_bus_name[0]);
-                    if (i2c->fd_cp2112 > 0) {
-                        close (i2c->fd_cp2112);
-                        i2c->fd_cp2112 = -1;
-                    }
-                }
-            }
-            return 0;
-         }
+        if (!is_HVXXX) {
+            memset(&i2c_bus_name[4][0], '0', 255);
+        }
+    } else if (platform_type_equal (X532P) ||
+               platform_type_equal (X564P)) {
+        memset(&i2c_bus_name[0][0], '0', 255);
+        memset(&i2c_bus_name[1][0], '0', 255);
+        memset(&i2c_bus_name[2][0], '0', 255);
+        memset(&i2c_bus_name[3][0], '0', 255);
+        if (!is_HVXXX) {
+            memset(&i2c_bus_name[4][0], '0', 255);
+        }
     }
 
     if (bf_sys_rmutex_init (&master_i2c_lock) != 0) {

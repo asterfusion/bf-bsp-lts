@@ -123,7 +123,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_vrail_show__ (
     }
 
     if (platform_type_equal (X312P)) {
-        if (platform_subtype_equal (v1dot2)) {
+        if (platform_subtype_equal (v2dot0)) {
             /* Not supported. */
         } else {
             /* V3 and later. */
@@ -182,7 +182,8 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         if (!fp) {
             continue;
         } else {
-            fgets (entry, 128, fp);
+            /* To avoid error for gcc-9 or higher. */
+            (void) !fgets (entry, 128, fp);
             fclose(fp);
 
             if (strncmp (entry, "x86_pkg_temp", 12) == 0) {
@@ -190,11 +191,12 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                 if (!fp) {
                     break;
                 } else {
-                    fgets (entry, 128, fp);
+                    /* To avoid error for gcc-9 or higher. */
+                    (void) !fgets (entry, 128, fp);
                     fclose(fp);
 
                     float cpu_temp = atoi (entry)/1000.0;
-                    aim_printf (&uc->pvs, "CPU     %.1f C\n",
+                    aim_printf (&uc->pvs, "X86     %.1f C\n",
                                 cpu_temp);
                 }
             }
@@ -209,9 +211,9 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
                     t.tmp2, "Far right of mainboard");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
-                    t.tmp3, "ASIC Ambient of XP70");
+                    t.tmp3, "BF Ambient  <- from BMC");
         aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
-                    t.tmp4, "ASIC Junction of XP70");
+                    t.tmp4, "BF Junction <- from BMC");
         aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
                     t.tmp5, "Fan 1");
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
@@ -223,9 +225,9 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
                     t.tmp2, "Far right of mainboard");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
-                    t.tmp3, "ASIC Ambient of XP70");
+                    t.tmp3, "BF Ambient");
         aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
-                    t.tmp4, "ASIC Junction of XP70");
+                    t.tmp4, "BF Junction");
         aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
                     t.tmp5, "Fan 1");
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
@@ -238,36 +240,50 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                     t.tmp2, "Far right of mainboard");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
                     t.tmp3, "Fan 1");
-        aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
-                    t.tmp4, "Fan 2");
-        aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
-                    t.tmp5, "BF Ambient");
-        aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
-                    t.tmp6, "BF Junction");
         // if == -100.0, means no GHC-0 installed
-        if (t.tmp7 != -100.0) {
+        if (t.tmp4 != -100.0) {
+            aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
+                        t.tmp4, "GHC-1 Junction");
+            aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
+                        t.tmp5, "GHC-1 Ambient");
+        }
+        // if == -100.0, means no GHC-0 installed
+        if (t.tmp6 != -100.0) {
+            aim_printf (&uc->pvs, "tmp6   %.1f C   \"%s\"\n",
+                        t.tmp6,"GHC-2 Junction");
             aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
-                        t.tmp7, "GHC-0 Ambient");
-            aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
-                        t.tmp8, "GHC-0 Junction");
+                        t.tmp7, "GHC-2 Ambient");
         }
-        // if == -100.0, means no GHC-0 installed
-        if (t.tmp9 != -100.0) {
-            aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
-                        t.tmp9, "GHC-1 Ambient");
-            aim_printf (&uc->pvs, "tmp10   %.1f C   \"%s\"\n",
-                        t.tmp10,"GHC-1 Junction");
-        }
+        aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
+                    t.tmp8, "BF Junction <- from BMC");
+        aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
+                    t.tmp9, "BF Ambient <- from BMC");
+        aim_printf (&uc->pvs, "tmp10    %.1f C   \"%s\"\n",
+                    t.tmp10, "Fan 2");
+
         /* Added more sensors. */
     } else if (platform_type_equal (X312P)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "lm75");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
                     t.tmp2, "lm63");
-        if (platform_subtype_equal(v1dot3)) {
-            aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
-                        t.tmp3, "lm86");
-        }
+        aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
+                    t.tmp3, platform_subtype_equal(v3dot0) ? "lm86" : "Not Defined");
+        aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
+                    t.tmp4, "GHC-1 Junction");
+        aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
+                    t.tmp5, "GHC-1 Ambient");
+        aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
+                    t.tmp6, "GHC-2 Junction");
+        aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
+                    t.tmp7, "GHC-2 Ambient");
+        /* temp 8 and temp 9 come from switch the value same with command "tofino_tmp_show". */
+        aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
+                    t.tmp8, "BF Junction <- from tofino");
+        aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
+                    t.tmp9, "BF Ambient <- from tofino");
+        aim_printf (&uc->pvs, "tmp10    %.1f C   \"%s\"\n",
+                    t.tmp10, "Not Defined");
         /* Added more sensors. */
     } else if (platform_type_equal (HC)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
@@ -290,7 +306,6 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__ (
 {
     UCLI_COMMAND_INFO (uc, "fan_show", 0,
                        " Show all fan speed data");
-    uint32_t i;
     bf_pltfm_fan_data_t fdata;
 
     if (bf_pltfm_chss_mgmt_fan_data_get (
@@ -301,7 +316,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__ (
     }
 
     if (!fdata.fantray_present) {
-        aim_printf (&uc->pvs, "Fan tray present \n");
+        aim_printf (&uc->pvs, "Fan tray present - maximum %d groups\n", bf_pltfm_mgr_ctx()->fan_group_count);
     } else {
         aim_printf (&uc->pvs, "Fan tray not present \n");
         return 0;
@@ -310,9 +325,9 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__ (
     aim_printf (&uc->pvs,
            "FAN   GRP FRONT-RPM  REAR-RPM    SPEED%%\n");
 
-    for (i = 0;
-       i < (bf_pltfm_mgr_ctx()->fan_group_count *
-            bf_pltfm_mgr_ctx()->fan_per_group); i++) {
+    for (uint32_t i = 0;
+         i < (bf_pltfm_mgr_ctx()->fan_group_count *
+              bf_pltfm_mgr_ctx()->fan_per_group); i++) {
         aim_printf (&uc->pvs,
                "%2d     %2d     %5d     %5d      %3d%%\n",
                fdata.F[i].fan_num,

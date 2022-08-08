@@ -37,9 +37,12 @@ typedef struct pltfm_mgr_info_s {
 
     /* Vary data based on real hardware which identified by this.pltfm_type. */
     uint32_t psu_count;
+    /* Means sensors from BMC. */
     uint32_t sensor_count;
     uint32_t fan_group_count;
     uint32_t fan_per_group;
+    /* Maximum accessiable syscplds of a platform. */
+    uint32_t cpld_count;
 } pltfm_mgr_info_t;
 
 extern pltfm_mgr_info_t *bf_pltfm_mgr_ctx();
