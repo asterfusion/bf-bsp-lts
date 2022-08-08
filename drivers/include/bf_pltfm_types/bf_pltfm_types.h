@@ -35,7 +35,7 @@
         LT(SDE_VERSION, (key))
 
 /* Mainline OS version, <= 9 or > 9. Valid value in [8,9,10,11]. */
-#define OS_VERSION 9
+#define OS_VERSION 10
 #define OS_VERSION_EQ(key) \
         EQ(OS_VERSION, (key))
 

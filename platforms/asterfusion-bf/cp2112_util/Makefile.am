@@ -16,4 +16,4 @@ cp2112_util.c \
 
 cp2112_util_LDFLAGS = $(AM_LDFLAGS) -L$(top_builddir)/platforms/asterfusion-bf/src/
 
-cp2112_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos
+cp2112_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos -li2c
