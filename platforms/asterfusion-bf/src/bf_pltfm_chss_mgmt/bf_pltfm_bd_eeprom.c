@@ -108,27 +108,35 @@ uint8_t eeprom_data[EEPROM_SIZE] = {
 };
 
 /*
- * BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU -> BF_PLTFM_BD_ID_MAVERICKS_P0B
- * edit by tsihang, 2019/7/25
+ * BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU -> BF_PLTFM_BD_ID_UNKNOWN
+ * edit by tsihang, 2022/06/20
  */
 static bf_pltfm_board_id_t bd_id =
-    BF_PLTFM_BD_ID_MAVERICKS_P0B;
+    BF_PLTFM_BD_ID_UNKNOWN;
 
-static bf_pltfm_type bf_cur_pltfm_type = 0;
+static bf_pltfm_type bf_cur_pltfm_type = UNKNOWM_PLATFORM;
 static uint8_t bf_cur_pltfm_subtype = 0;
 
+/* New method of board_ctx_t decareled.
+ * BF_PLTFM_BD_ID_X532PT_V1DOT1 means X532P-T subversion 1.1. */
 static struct bf_pltfm_board_ctx_t bd_ctx[] = {
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS320T-A1-V1.0", X532P, v1dot0},  // X532P-T V1.0
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS320T-A1-V1.1", X532P, v1dot1},  // X532P-T V1.1
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS640T-A1-V1.2", X564P, v1dot2},  // X564P-T V1.2
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
-    {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.0",            X312P, v1dot0},
-    {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.1",            X312P, v1dot1},
-    {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.2",            X312P, v1dot2},
-    {BF_PLTFM_BD_ID_MONTARA_P0B,   "X312P-V1.3",            X312P, v1dot3},
-    {BF_PLTFM_BD_ID_MAVERICKS_P0B, "Hello this is HC", HC, v1dot0},
+    {BF_PLTFM_BD_ID_X532PT_V1DOT0, "APNS320T-A1-V1.0", X532P, v1dot0},  // X532P-T V1.0
+    {BF_PLTFM_BD_ID_X532PT_V1DOT1, "APNS320T-A1-V1.1", X532P, v1dot1},  // X532P-T V1.1
+    {BF_PLTFM_BD_ID_X532PT_V2DOT0, "APNS320T-A1-V2.0", X532P, v2dot0},  // X532P-T V2.0
+
+    {BF_PLTFM_BD_ID_X564PT_V1DOT0, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
+    {BF_PLTFM_BD_ID_X564PT_V1DOT1, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
+    {BF_PLTFM_BD_ID_X564PT_V1DOT2, "APNS640T-A1-V1.2", X564P, v1dot2},  // X564P-T V1.2
+
+    {BF_PLTFM_BD_ID_X308PT_V1DOT0, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
+    /* More X308P-T board id. */
+
+    {BF_PLTFM_BD_ID_HC36Y24C_V1DOT0, "Hello this is HC", HC, v1dot0},
+
+    {BF_PLTFM_BD_ID_X312PT_V1DOT0,   "X312P-V1.0",            X312P, v1dot0},
+    {BF_PLTFM_BD_ID_X312PT_V1DOT1,   "X312P-V1.1",            X312P, v1dot1},
+    {BF_PLTFM_BD_ID_X312PT_V1DOT2,   "X312P-V1.2",            X312P, v1dot2},
+    {BF_PLTFM_BD_ID_X312PT_V1DOT3,   "X312P-V1.3",            X312P, v1dot3},
     /* As I know so far, product name is not a suitable way to distinguish platforms
      * from X-T to CX-T/PX-T, so how to distinguish X312P and HC ???
      * by tsihang, 2021-07-14. */
@@ -210,13 +218,12 @@ static int board_id_set (char *ptr)
             /* As we know, product name is not a suitable way to distinguish X-T platform.
              * So how to distinguish X312P and HC ???
              * by tsihang, 2021-06-29. */
-            bf_cur_pltfm_type = bd_ctx[i].type;
-            bf_cur_pltfm_subtype = bd_ctx[i].subtype;
-            LOG_DEBUG ("Board type : %06x : %s : %s",
+            bf_pltfm_bd_type_set (bd_ctx[i].type, bd_ctx[i].subtype);
+            LOG_DEBUG ("Board type : %04x : %s : %s",
                        bd_id,
                        dump_pltfm(),
                        ptr);
-            fprintf (stdout, "Board type : %06x : %s : %s\n",
+            fprintf (stdout, "Board type : %04x : %s : %s\n",
                      bd_id,
                      dump_pltfm(),
                      ptr);
@@ -409,9 +416,10 @@ static int product_subversion (const char *index)
         i++;
     }
     str[j] = '\0';
-    eeprom.bf_pltfm_product_subversion = atoi (str);
+    strncpy (eeprom.bf_pltfm_product_subversion,
+        str, j);
 
-    LOG_DEBUG ("Product Sub-Version: %d \n",
+    LOG_DEBUG ("Product Sub-Version: %s \n",
                eeprom.bf_pltfm_product_subversion);
 
     return 0;
@@ -777,6 +785,37 @@ static void further_decode ()
             }
         }
     }
+
+    /* Further decode for other platform. */
+}
+
+static void access_cpld_through_cp2112()
+{
+    /* Access CPLD through CP2112 */
+    uint8_t rd_buf[128] = {0};
+    uint8_t cmd = 0x0F;
+    uint8_t wr_buf[2] = {0x01, 0xAA};
+    fprintf (stdout, "CPLD <- CP2112\n");
+    bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                              2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
+    g_access_cpld_through_cp2112 = true;
+}
+
+static void access_cpld_through_superio()
+{
+    /* Access CPLD through SIO */
+    uint8_t rd_buf[128] = {0};
+    uint8_t cmd = 0x0F;
+    uint8_t wr_buf[2] = {0x02, 0xAA};
+    /* An error occured while launching ASIC: bf_pltfm_uart/bf_pltfm_uart.c[260], read(Resource temporarily unavailable).
+     * Does the cmd <0x0F> need a return from BMC ? If not so, update func no_return_cmd (called by bf_pltfm_bmc_uart_write_read)
+     * to tell the caller there's no need to wait for the return status.
+     * Haven't see bad affect so far. Keep tracking.
+     * by tsihang, 2022-06-20. */
+    fprintf (stdout, "CPLD <- SuperIO\n");
+    bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                              2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
+    g_access_cpld_through_cp2112 = false;
 }
 
 /*
@@ -836,12 +875,15 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
         memset (rd_buf, 0, 128);
 
         // Must give bmc more time to prepare data
+        usec_delay = BMC_COMM_INTERVAL_US;
         if (g_access_bmc_through_uart) {
-            usec_delay = BMC_COMM_INTERVAL_US;
             err = bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                                 2, rd_buf, 128 - 1, usec_delay);
         } else {
-            usec_delay = BMC_COMM_INTERVAL_US/25;
+            //usec_delay = ((tlvs[i].code == 0x21) || (tlvs[i].code == 0x22) || (tlvs[i].code == 0x23) || (tlvs[i].code == 0x24)) ?
+            //       BMC_COMM_INTERVAL_US * 5 : BMC_COMM_INTERVAL_US;
+            /* There're some old device such as x564p-t gets eeprom data through i2c (cgosdrv). */
+            usec_delay *= 3;
             err = bf_pltfm_bmc_write_read (bmc_i2c_addr, cmd,
                                            wr_buf, 2, 0xFF, rd_buf, usec_delay);
         }
@@ -975,19 +1017,36 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
         }
     }
 
-    if (platform_type_equal (X308P)) {
-        /* Access CPLD through SIO */ 
-        uint8_t rd_buf[128];
-        char cmd = 0x0F;
-        uint8_t wr_buf[2] = {0x02, 0xAA};
-        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
-    }
-
     /* Further decode when platform detected.
      * by tsihang, 2022-05-12. */
+    further_decode ();
+
     if (platform_type_equal (X312P)) {
-        further_decode ();
+        if (platform_subtype_equal (v1dot2)) {
+            fprintf (stdout, "CPLD <- cp2112\n");
+        } else if (platform_subtype_equal (v1dot3)) {
+            fprintf (stdout, "CPLD <- super io\n");
+        }
+    } else if (platform_type_equal (X308P)) {
+        if (is_HVXXX) {
+            access_cpld_through_superio();
+        }
+    } else if (platform_type_equal (X532P)) {
+        if (is_CG15XX) {
+            fprintf (stdout, "CPLD <- cgolx\n");
+        } else if (is_ADV15XX || is_S02XXX) {
+            access_cpld_through_cp2112();
+        } else if (is_HVXXX) {
+            access_cpld_through_superio();
+        }
+    } else if (platform_type_equal (X564P)) {
+        if (is_CG15XX) {
+            fprintf (stdout, "CPLD <- cgolx\n");
+        } else if (is_ADV15XX || is_S02XXX) {
+            access_cpld_through_cp2112();
+        } else if (is_HVXXX) {
+            access_cpld_through_superio();
+        }
     }
 
     /* Open eeprom data file, if non-exist, create it.
@@ -1022,6 +1081,14 @@ bf_pltfm_status_t bf_pltfm_bd_type_get (
     bf_pltfm_board_id_t *board_id)
 {
     *board_id = bd_id;
+    return BF_PLTFM_SUCCESS;
+}
+
+bf_pltfm_status_t bf_pltfm_bd_type_set (
+    uint8_t type, uint8_t subtype)
+{
+    bf_cur_pltfm_type = type;
+    bf_cur_pltfm_subtype = subtype;
     return BF_PLTFM_SUCCESS;
 }
 
@@ -1143,11 +1210,8 @@ bf_pltfm_status_t bf_pltfm_bd_eeprom_get_sonic (
 bf_pltfm_status_t
 bf_pltfm_bd_version_get (char *v)
 {
-    fprintf (stdout, "Board type : %06x : %s : %s\n",
-             bd_id,
-             dump_pltfm(),
-             eeprom.bf_pltfm_main_board_version);
-   sprintf(v, "%s-%s", dump_pltfm(), (char *)&eeprom.bf_pltfm_main_board_version[0]);
+    sprintf(v,
+        "%s-%s(%04x)", dump_pltfm(), (char *)&eeprom.bf_pltfm_main_board_version[0], bd_id);
 
     return 0;
 }

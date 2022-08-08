@@ -61,6 +61,9 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__ (
         return -1;
     }
 
+    aim_printf (&uc->pvs, "Supplier        %s \n",
+               (info.fvalid & PSU_INFO_AC) ? "AC" : "DC");
+
     aim_printf (&uc->pvs, "Presence        %s \n",
                 (info.presence ? "true" : "false"));
     if (info.presence) {
@@ -86,6 +89,18 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__ (
             aim_printf (&uc->pvs, "SN              %s\n",
                         info.serial);
         }
+        if (info.fvalid & PSU_INFO_VALID_MODEL) {
+            aim_printf (&uc->pvs, "Model           %s\n",
+                     info.model);
+        }
+        if (info.fvalid & PSU_INFO_VALID_REV) {
+            aim_printf (&uc->pvs, "Rev            %s\n",
+                     info.rev);
+        }
+        if (info.fvalid & PSU_INFO_VALID_FAN_ROTA) {
+            aim_printf (&uc->pvs, "Rota           %d\n",
+                     info.fspeed);
+        }
     }
 
     return 0;
@@ -107,23 +122,36 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_vrail_show__ (
         return -1;
     }
 
-    aim_printf (&uc->pvs,
-                "Barefoot_Core       %5d mV\n", t.vrail1);
-    aim_printf (&uc->pvs,
-                "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
-    aim_printf (&uc->pvs,
-                "Payload_12V         %5d mV\n", t.vrail3);
-    aim_printf (&uc->pvs,
-                "Payload_3_3V        %5d mV\n", t.vrail4);
-    aim_printf (&uc->pvs,
-                "Payload_5V          %5d mV\n", t.vrail5);
-    aim_printf (&uc->pvs,
-                "Payload_2_5V        %5d mV\n", t.vrail6);
-    aim_printf (&uc->pvs,
-                "88E6131_1_9V        %5d mV\n", t.vrail7);
-    aim_printf (&uc->pvs,
-                "88E6131_1_2V        %5d mV\n", t.vrail8);
-
+    if (platform_type_equal (X312P)) {
+        if (platform_subtype_equal (v1dot2)) {
+            /* Not supported. */
+        } else {
+            /* V3 and later. */
+            aim_printf (&uc->pvs,
+                     "Barefoot_Core       %5d mV\n", t.vrail1);
+            aim_printf (&uc->pvs,
+                     "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+            aim_printf (&uc->pvs,
+                     "Payload_2_5V        %5d mV\n", t.vrail6);
+        }
+    } else {
+        aim_printf (&uc->pvs,
+                    "Barefoot_Core       %5d mV\n", t.vrail1);
+        aim_printf (&uc->pvs,
+                    "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+        aim_printf (&uc->pvs,
+                    "Payload_12V         %5d mV\n", t.vrail3);
+        aim_printf (&uc->pvs,
+                    "Payload_3_3V        %5d mV\n", t.vrail4);
+        aim_printf (&uc->pvs,
+                    "Payload_5V          %5d mV\n", t.vrail5);
+        aim_printf (&uc->pvs,
+                    "Payload_2_5V        %5d mV\n", t.vrail6);
+        aim_printf (&uc->pvs,
+                    "88E6131_1_9V        %5d mV\n", t.vrail7);
+        aim_printf (&uc->pvs,
+                    "88E6131_1_2V        %5d mV\n", t.vrail8);
+    }
     return 0;
 }
 
@@ -280,17 +308,18 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__ (
     }
 
     aim_printf (&uc->pvs,
-                "FAN  FRONT RPM  REAR RPM  MAX SPEED%%  \n");
+           "FAN   GRP FRONT-RPM  REAR-RPM    SPEED%%\n");
 
     for (i = 0;
-         i < (bf_pltfm_mgr_ctx()->fan_group_count *
-              bf_pltfm_mgr_ctx()->fan_per_group); i++) {
+       i < (bf_pltfm_mgr_ctx()->fan_group_count *
+            bf_pltfm_mgr_ctx()->fan_per_group); i++) {
         aim_printf (&uc->pvs,
-                    "%2d     %5d     %5d      %3d%% \n",
-                    fdata.F[i].fan_num,
-                    fdata.F[i].front_speed,
-                    fdata.F[i].rear_speed,
-                    fdata.F[i].percent);
+               "%2d     %2d     %5d     %5d      %3d%%\n",
+               fdata.F[i].fan_num,
+               fdata.F[i].group,
+               fdata.F[i].front_speed,
+               fdata.F[i].rear_speed,
+               fdata.F[i].percent);
     }
 
     return 0;

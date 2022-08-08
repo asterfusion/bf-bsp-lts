@@ -220,7 +220,7 @@ static int bf_fsm_qsfp_rd (unsigned int module,
     rc = bf_qsfp_read_transceiver (module, offset,
                                    len, buf);
 
-    // LOG_DEBUG("QSFP: %2d : Rd : offset=%2d : len=%3d : data[0]=%02x",
+    // LOG_DEBUG("QSFP    %2d : Rd : offset=%2d : len=%3d : data[0]=%02x",
     //          module, offset, len, buf[0]);
 
     return rc;
@@ -236,7 +236,7 @@ static int bf_fsm_qsfp_wr (unsigned int module,
 {
     int rc;
 
-    // LOG_DEBUG("QSFP: %2d : Wr : offset=%2d : len=%3d : data[0]=%02x",
+    // LOG_DEBUG("QSFP    %2d : Wr : offset=%2d : len=%3d : data[0]=%02x",
     //          module, offset, len, buf[0]);
 
     rc = bf_qsfp_write_transceiver (module, offset,
@@ -287,7 +287,7 @@ void qsfp_fsm_inserted (int conn_id)
 
     qsfp_state[conn_id].status_and_alarms.los_ind =
         0xFF;  // all LOS bits
-    LOG_DEBUG ("QSFP: %2d : %s -> QSFP_FSM_ST_INSERTED\n",
+    LOG_DEBUG ("QSFP    %2d : %s -> QSFP_FSM_ST_INSERTED\n",
                conn_id,
                qsfp_fsm_st_to_str[prev_st]);
 }
@@ -305,7 +305,7 @@ void qsfp_fsm_removed (int conn_id)
     qsfp_state[conn_id].next_fsm_run_time.tv_nsec = 0;
 
     qsfp_state[conn_id].fsm_st = QSFP_FSM_ST_REMOVED;
-    LOG_DEBUG ("QSFP: %2d : %s -> QSFP_FSM_ST_REMOVED",
+    LOG_DEBUG ("QSFP    %2d : %s -> QSFP_FSM_ST_REMOVED",
                conn_id,
                qsfp_fsm_st_to_str[prev_st]);
 }
@@ -366,7 +366,7 @@ static int qsfp_fsm_identify_type (int conn_id,
     // see if flat_mem or paged
     rc = bf_fsm_qsfp_rd (conn_id, 2, 1, &status);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading status (byte 2)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading status (byte 2)",
                    conn_id, rc);
         return -1;
     }
@@ -377,7 +377,7 @@ static int qsfp_fsm_identify_type (int conn_id,
 
     // else, need to identify it
     if (bf_qsfp_type_get (conn_id, &qsfp_type) != 0) {
-        LOG_ERROR ("QSFP: %2d : Error determining type\n",
+        LOG_ERROR ("QSFP    %2d : Error determining type\n",
                    conn_id);
         return -1;
     }
@@ -405,7 +405,7 @@ static int qsfp_fsm_identify_model_requirements (
     rc = bf_fsm_qsfp_rd (conn_id, 148, 16,
                          vendor_name);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading vendor name (bytes 148-163)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading vendor name (bytes 148-163)",
                    conn_id,
                    rc);
         return -1;
@@ -413,7 +413,7 @@ static int qsfp_fsm_identify_model_requirements (
 
     rc = bf_fsm_qsfp_rd (conn_id, 168, 16, vendor_pn);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading vendor Part Nbr (bytes 168-183)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading vendor Part Nbr (bytes 168-183)",
                    conn_id,
                    rc);
         return -1;
@@ -496,7 +496,7 @@ static int qsfp_fsm_identify_model_requirements (
     }
 
     if (qsfp_needs_hi_pwr_init (conn_id)) {
-        LOG_DEBUG ("QSFP: %2d : %s : %s : requires High-Power init",
+        LOG_DEBUG ("QSFP    %2d : %s : %s : requires High-Power init",
                    conn_id,
                    vendor_name,
                    vendor_pn);
@@ -530,7 +530,7 @@ static bool qsfp_fsm_is_optical (int conn_id)
     bf_pltfm_ext_phy_cfg_t port_cfg;
     bool is_present;
 
-    LOG_DEBUG ("QSFP: %2d : Start PRBS31", conn_id);
+    LOG_DEBUG ("QSFP    %2d : Start PRBS31", conn_id);
     bf_serdes_prbs_mode_set (dev_id,
                              BF_PORT_PRBS_MODE_31);
 
@@ -844,13 +844,13 @@ static void qsfp_fsm_st_tx_disable (
         byte_86 = 0xF;
     }
     byte_86 = 0x0;/* By default, de-assert TX_DISABLE during init seq. */
-    LOG_DEBUG ("%s:%d  -> QSFP: %2d : TX_DISABLE = %2x\n",
+    LOG_DEBUG ("%s:%d  -> QSFP    %2d : TX_DISABLE = %2x\n",
                __func__, __LINE__, conn_id, byte_86);
 
     /* 0x56, Tx Disable Control */
     rc = bf_fsm_qsfp_wr (conn_id, 86, 1, &byte_86);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting TX_DISABLE=0x%x0",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting TX_DISABLE=0x%x0",
                    conn_id,
                    rc,
                    byte_86);
@@ -869,18 +869,18 @@ void qsfp_lpmode_sw_set (bf_dev_id_t dev_id,
     rc = bf_fsm_qsfp_rd (conn_id, 93, 1, &byte_93);
     if (rc) {
         LOG_ERROR (
-            "QSFP: %2d : Error <%d> reading Power ctrl (byte 93)",
+            "QSFP    %2d : Error <%d> reading Power ctrl (byte 93)",
             conn_id, rc);
     }
     byte_93 = (byte_93 & ~3) | (val & 3);
     rc = bf_fsm_qsfp_wr (conn_id, 93, 1, &byte_93);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
+        LOG_ERROR ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
                    conn_id,
                    rc,
                    byte_93);
     } else {
-        LOG_DEBUG ("QSFP: %2d : Power ctrl (byte 93) = %02x",
+        LOG_DEBUG ("QSFP    %2d : Power ctrl (byte 93) = %02x",
                    conn_id, byte_93);
     }
 }
@@ -1097,7 +1097,7 @@ static void qsfp_fsm_poll_los (bf_dev_id_t dev_id,
              conn_id, 2, sizeof (status_and_alarms),
              (uint8_t *)&status_and_alarms);
     if (rc) {
-        LOG_DEBUG ("QSFP: %2d : Error <%d> reading status fields",
+        LOG_DEBUG ("QSFP    %2d : Error <%d> reading status fields",
                    conn_id, rc);
         return;  // can't trust the data, just leave
     }
@@ -1143,7 +1143,7 @@ static void qsfp_fsm_poll_los (bf_dev_id_t dev_id,
         if (bf_status == BF_SUCCESS) {
             if ((rx_los_now & (1 << ch)) ^ (rx_los_before &
                                             (1 << ch))) {
-                LOG_DEBUG ("QSFP: %2d : dev_port=%d : LOS=%d",
+                LOG_DEBUG ("QSFP    %2d : dev_port=%3d : LOS=%d",
                            conn_id, dev_port, los);
             }
         }
@@ -1178,7 +1178,7 @@ static void qsfp_module_fsm_update (
         // read current value at "ofs"
         rc = bf_fsm_qsfp_rd (conn_id, ofs, 1, &cur_val);
         if (rc) {
-            LOG_ERROR ("QSFP: %2d : Error <%d> reading pg=%d : ofs=%d to coalesce",
+            LOG_ERROR ("QSFP    %2d : Error <%d> reading pg=%d : ofs=%d to coalesce",
                        conn_id,
                        rc,
                        pg,
@@ -1189,7 +1189,7 @@ static void qsfp_module_fsm_update (
 
     if (mask == 0xFF) {
         LOG_DEBUG (
-            "QSFP: %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
+            "QSFP    %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
             "%02xh : cur=XX",
             conn_id,
             pg,
@@ -1198,7 +1198,7 @@ static void qsfp_module_fsm_update (
             data);
     } else {
         LOG_DEBUG (
-            "QSFP: %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
+            "QSFP    %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
             "%02xh : cur=%02x",
             conn_id,
             pg,
@@ -1212,7 +1212,7 @@ static void qsfp_module_fsm_update (
     if (new_val != cur_val) {
         rc = bf_fsm_qsfp_wr (conn_id, ofs, 1, &new_val);
         if (rc) {
-            LOG_ERROR ("QSFP: %2d : Error <%d> Setting pg=%d : ofs=%d : new=%02x",
+            LOG_ERROR ("QSFP    %2d : Error <%d> Setting pg=%d : ofs=%d : new=%02x",
                        conn_id,
                        rc,
                        pg,
@@ -1296,9 +1296,9 @@ static void qsfp_module_fsm_run (bf_dev_id_t
                 delay_ms = SFF8436_TMR_t_reset_init;
             } else {
                 fprintf (stdout,
-                         "TSIHANG : QSFP: %2d : NOT OPTICAL ...\n",
+                         "TSIHANG : QSFP    %2d : NOT OPTICAL ...\n",
                          conn_id);
-                LOG_WARNING ("TSIHANG : QSFP: %2d : NOT OPTICAL ...",
+                LOG_WARNING ("TSIHANG : QSFP    %2d : NOT OPTICAL ...",
                              conn_id);
                 qsfp_fsm_notify_bf_pltfm (dev_id, conn_id);
 
@@ -1376,7 +1376,7 @@ static void qsfp_module_fsm_run (bf_dev_id_t
         &qsfp_state[conn_id].next_fsm_run_time, delay_ms);
 
     if (st != next_st) {
-        LOG_DEBUG ("QSFP: %2d : %s --> %s (%dms)\n",
+        LOG_DEBUG ("QSFP    %2d : %s --> %s (%dms)\n",
                    conn_id,
                    qsfp_fsm_st_to_str[st],
                    qsfp_fsm_st_to_str[next_st],
@@ -1408,7 +1408,7 @@ static int qsfp_fsm_coalesce_wr (bf_dev_id_t
         qsfp_state[conn_id].wr_coalesce.mask = mask;
         qsfp_state[conn_id].wr_coalesce.data = data;
 
-        LOG_DEBUG ("QSFP: %2d : %s --> %s (%dms)",
+        LOG_DEBUG ("QSFP    %2d : %s --> %s (%dms)",
                    conn_id,
                    qsfp_fsm_st_to_str[qsfp_state[conn_id].fsm_st],
                    qsfp_fsm_st_to_str[QSFP_FSM_ST_UPDATE],
@@ -1421,7 +1421,7 @@ static int qsfp_fsm_coalesce_wr (bf_dev_id_t
         if ((qsfp_state[conn_id].wr_coalesce.pg == pg) &&
             (qsfp_state[conn_id].wr_coalesce.ofs == ofs)) {
             // merge this write with in-progress one
-            // LOG_ERROR("QSFP: %2d : Coalesce pg=%d : ofs=%d : mask=%02x : data=%02x
+            // LOG_ERROR("QSFP    %2d : Coalesce pg=%d : ofs=%d : mask=%02x : data=%02x
             // : with : mask=%02x : data=%02x",
             //          conn_id, pg, ofs, mask, data,
             //          qsfp_state[conn_id].wr_coalesce.mask,
@@ -1444,7 +1444,7 @@ void qsfp_fsm_ch_enable (bf_dev_id_t dev_id,
     if (qsfp_state[conn_id].per_ch_fsm[ch].fsm_st !=
         QSFP_FSM_EN_ST_ENABLING) {
         LOG_DEBUG (
-            "QSFP: %2d : ch[%d] : %s --> %s (%dms)",
+            "QSFP    %2d : ch[%d] : %s --> %s (%dms)",
             conn_id,
             ch,
             qsfp_fsm_ch_en_st_to_str[qsfp_state[conn_id].per_ch_fsm[ch].fsm_st],
@@ -1467,7 +1467,7 @@ void qsfp_fsm_ch_disable (bf_dev_id_t dev_id,
     if (qsfp_state[conn_id].per_ch_fsm[ch].fsm_st !=
         QSFP_FSM_EN_ST_DISABLING) {
         LOG_DEBUG (
-            "QSFP: %2d : ch[%d] : %s --> %s (%dms)",
+            "QSFP    %2d : ch[%d] : %s --> %s (%dms)",
             conn_id,
             ch,
             qsfp_fsm_ch_en_st_to_str[qsfp_state[conn_id].per_ch_fsm[ch].fsm_st],
@@ -1536,7 +1536,7 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
 
     rc = bf_fsm_qsfp_rd (conn_id, 3, 1, &byte_3);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading TX LOS (byte 3)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading TX LOS (byte 3)",
                    conn_id, rc);
     }
     if (byte_3 & 0xF0 &
@@ -1548,7 +1548,7 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
 
     rc = bf_fsm_qsfp_rd (conn_id, 5, 1, &byte_5);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading CDR LOL (byte 5)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading CDR LOL (byte 5)",
                    conn_id, rc);
     }
     if (byte_5 & 0xF0 &
@@ -1559,7 +1559,7 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
     *lol_val = byte_5;
 
     LOG_DEBUG (
-        "QSFP: %2d : ch[%d] : TX LOS (byte 3) = %02x : TX CDR LOL (byte 5) = "
+        "QSFP    %2d : ch[%d] : TX LOS (byte 3) = %02x : TX CDR LOL (byte 5) = "
         "%02x : %s <num_lanes=%d : msk=%x>",
         conn_id,
         ch,
@@ -1631,7 +1631,7 @@ static void qsfp_fsm_ch_check_tx_optical_fault (
     rc = bf_fsm_qsfp_rd (conn_id, 0, 15,
                          faults_and_alarms);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading faults and alarms",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading faults and alarms",
                    conn_id, rc);
     }
     if (clear_only) {
@@ -1652,7 +1652,7 @@ static void qsfp_fsm_ch_check_tx_optical_fault (
             if (byte == 4) {
                 fault_or_alarm_set = true;
             }
-            LOG_DEBUG ("QSFP: %2d : Page 0: Faults and alarms: Byte %2d: %02xh",
+            LOG_DEBUG ("QSFP    %2d : Page 0: Faults and alarms: Byte %2d: %02xh",
                        conn_id,
                        byte,
                        faults_and_alarms[byte]);
@@ -1694,7 +1694,7 @@ void qsfp_fsm_ch_notify_ready (bf_dev_id_t dev_id,
     bf_port_optical_xcvr_ready_set (dev_id, dev_port,
                                     true);
 
-    LOG_DEBUG ("QSFP: %2d : ch[%d] : Ready %s",
+    LOG_DEBUG ("QSFP    %2d : ch[%d] : Ready %s",
                conn_id, ch, los ? "<LOS>" : "");
 }
 
@@ -1718,7 +1718,7 @@ void qsfp_fsm_ch_notify_not_ready (
            & (1 << ch)) ? true
           : false;
     LOG_DEBUG (
-        "QSFP: %2d : ch[%d] : NOT Ready %s", conn_id, ch,
+        "QSFP    %2d : ch[%d] : NOT Ready %s", conn_id, ch,
         los ? "<LOS>" : "");
 }
 
@@ -1794,7 +1794,7 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
                 &lol_fault_val);
             if (!ok) {
                 LOG_DEBUG (
-                    "QSFP: %2d : ch[%d] : TX LOS <%02x>, TX CDR LOL <%02x>. retry..",
+                    "QSFP    %2d : ch[%d] : TX LOS <%02x>, TX CDR LOL <%02x>. retry..",
                     conn_id,
                     ch,
                     los_fault_val,
@@ -1807,7 +1807,7 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
                 delay_ms = 400 +
                            3100;  // 3.5 sec for Luxtera MZI init
                 LOG_DEBUG (
-                    "QSFP: %2d : ch[%d] : First enable after reset. Extra 3.1 sec "
+                    "QSFP    %2d : ch[%d] : First enable after reset. Extra 3.1 sec "
                     "wait",
                     conn_id,
                     ch);
@@ -1842,7 +1842,7 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
                 dev_id, conn_id, ch, false /* log faults*/, &ok,
                 &fault_val);
             if (!ok) {
-                LOG_DEBUG ("QSFP: %2d : ch[%d] : Optical TX FAULT <%02x>. retry..",
+                LOG_DEBUG ("QSFP    %2d : ch[%d] : Optical TX FAULT <%02x>. retry..",
                            conn_id,
                            ch,
                            fault_val);
@@ -1887,7 +1887,7 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
         &qsfp_state[conn_id].per_ch_fsm[ch].next_fsm_run_time,
         delay_ms);
     if (st != next_st) {
-        LOG_DEBUG ("QSFP: %2d : ch[%d] : %s --> %s (%dms)",
+        LOG_DEBUG ("QSFP    %2d : ch[%d] : %s --> %s (%dms)",
                    conn_id,
                    ch,
                    qsfp_fsm_ch_en_st_to_str[st],
@@ -1922,8 +1922,8 @@ bf_pltfm_status_t qsfp_fsm (bf_dev_id_t dev_id)
             int ch;
 
             if (!qsfp_fsm_is_optical (conn_id)) {
-                fprintf (stdout, "QSFP %2d  is not optical\n",
-                         conn_id);
+                //fprintf (stdout, "QSFP %2d  is not optical\n",
+                //         conn_id);
                 continue;
             }
 
@@ -2001,7 +2001,7 @@ void qsfp_oper_info_get (int conn_id,
 
     rc = bf_fsm_qsfp_rd (conn_id, 0, 128, pg0_lower);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading page 0 (lower)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading page 0 (lower)",
                    conn_id, rc);
         *present = false;
         return;
@@ -2013,7 +2013,7 @@ void qsfp_oper_info_get (int conn_id,
     rc = bf_fsm_qsfp_rd (conn_id, 128, 128,
                          pg0_upper);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading page 0 (upper)",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading page 0 (upper)",
                    conn_id, rc);
         *present = false;
         return;
@@ -2050,7 +2050,7 @@ void qsfp_oper_info_get_pg3 (int conn_id,
 
     rc = bf_fsm_qsfp_rd (conn_id, 128, 128, pg3);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> reading page 3",
+        LOG_ERROR ("QSFP    %2d : Error <%d> reading page 3",
                    conn_id, rc);
         *present = false;
         return;
@@ -2077,7 +2077,7 @@ void qsfp_luxtera_lpbk (int conn_id,
     rc = bf_fsm_qsfp_wr (conn_id, 0x7b, 4, pwd);
     if (rc) {
         LOG_ERROR (
-            "QSFP: %2d : Error <%d> Setting pwd for loopback mode",
+            "QSFP    %2d : Error <%d> Setting pwd for loopback mode",
             conn_id, rc);
         return;
     }
@@ -2087,7 +2087,7 @@ void qsfp_luxtera_lpbk (int conn_id,
     ;
     bf_sys_usleep (50000);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting page 0x90 for loopback mode",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting page 0x90 for loopback mode",
                    conn_id,
                    rc);
         return;
@@ -2101,7 +2101,7 @@ void qsfp_luxtera_lpbk (int conn_id,
                              lpbk_mode_opt_far);
     }
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting loopback mode <%s>",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting loopback mode <%s>",
                    conn_id,
                    rc,
                    near_lpbk ? "NEAR/ELEC." : "FAR/OPTICAL");
@@ -2110,7 +2110,7 @@ void qsfp_luxtera_lpbk (int conn_id,
 
     rc = bf_fsm_qsfp_rd (conn_id, 0x80, 1, &byte80);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Reading byte 0x80 for loopback mode",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Reading byte 0x80 for loopback mode",
                    conn_id,
                    rc);
         return;
@@ -2118,7 +2118,7 @@ void qsfp_luxtera_lpbk (int conn_id,
     byte80 += 1;
     rc = bf_fsm_qsfp_wr (conn_id, 0x80, 1, &byte80);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting byte 0x80 for loopback mode",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting byte 0x80 for loopback mode",
                    conn_id,
                    rc);
         return;
@@ -2127,12 +2127,12 @@ void qsfp_luxtera_lpbk (int conn_id,
     byte81 = 0x85;
     rc = bf_fsm_qsfp_wr (conn_id, 0x81, 1, &byte81);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting byte 0x81 for loopback mode",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting byte 0x81 for loopback mode",
                    conn_id,
                    rc);
         return;
     }
-    LOG_ERROR ("QSFP: %2d : loopback mode <%s> set.",
+    LOG_ERROR ("QSFP    %2d : loopback mode <%s> set.",
                conn_id,
                near_lpbk ? "NEAR/ELEC." : "FAR/OPTICAL");
 }
@@ -2161,7 +2161,7 @@ void bf_pm_qsfp_luxtera_state_capture (
     // set dump tag
     rc = bf_fsm_qsfp_wr (conn_id, 0x7A, 1, &dump_tag);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting byte 0x81 for loopback mode",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting byte 0x81 for loopback mode",
                    conn_id,
                    rc);
     }
@@ -2170,7 +2170,7 @@ void bf_pm_qsfp_luxtera_state_capture (
     rc = bf_fsm_qsfp_wr (conn_id, 0x7B, 4,
                          luxtera_pwd);
     if (rc) {
-        LOG_ERROR ("QSFP: %2d : Error <%d> Setting byte 0x81 for loopback mode",
+        LOG_ERROR ("QSFP    %2d : Error <%d> Setting byte 0x81 for loopback mode",
                    conn_id,
                    rc);
     }
@@ -2183,7 +2183,7 @@ void bf_pm_qsfp_luxtera_state_capture (
                  conn_id, 0x0801d000 + (chunk * 128), 128,
                  &arr_0x3k[ (chunk * 128)]);
         if (rc) {
-            LOG_ERROR ("QSFP: %2d : Error <%d> Reading 128 bytes from %08x.",
+            LOG_ERROR ("QSFP    %2d : Error <%d> Reading 128 bytes from %08x.",
                        conn_id,
                        rc,
                        0x0801d000 + (chunk * 128));
@@ -2271,7 +2271,7 @@ static int qsfp_num_lanes_get (int conn_id,
     if (bf_status == BF_SUCCESS) {
         return num_lanes;
     }
-    LOG_DEBUG ("QSFP: %2d : ch[%d] : Error: %d : attempting to get num_lanes",
+    LOG_DEBUG ("QSFP    %2d : ch[%d] : Error: %d : attempting to get num_lanes",
                conn_id,
                chnl_id,
                bf_status);

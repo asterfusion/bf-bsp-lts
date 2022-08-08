@@ -83,6 +83,8 @@ extern ucli_node_t
 static pltfm_mgr_info_t pltfm_mgr_info = {
     .np_name = "pltfm_mgr",
     .health_mntr_t_id = 0,
+    .np_onlp_mntr_name = "pltfm_mgr_onlp",
+    .onlp_mntr_t_id = 0,
     .flags = 0,
 
     .pltfm_type = UNKNOWM_PLATFORM,
@@ -96,6 +98,7 @@ static pltfm_mgr_info_t pltfm_mgr_info = {
 static ucli_node_t *bf_pltfm_ucli_node;
 static bf_sys_rmutex_t
 mav_i2c_lock;    /* i2c(cp2112) lock for QSFP IO. by tsihang, 2021-07-13. */
+extern bf_sys_rmutex_t update_lock;
 
 bool platform_is_hw (void)
 {
@@ -114,8 +117,14 @@ bool platform_is_hw (void)
 static void pltfm_mgr_start_health_mntr (void)
 {
     int ret = 0;
-    pthread_attr_t health_mntr_t_attr;
+    pthread_attr_t health_mntr_t_attr, onlp_mntr_t_attr;
     pthread_attr_init (&health_mntr_t_attr);
+    pthread_attr_init (&onlp_mntr_t_attr);
+
+    if (bf_sys_rmutex_init (&update_lock) != 0) {
+        LOG_ERROR ("pltfm_mgr: Update lock init failed\n");
+        return;
+    }
 
     if ((ret = pthread_create (
                    &bf_pltfm_mgr_ctx()->health_mntr_t_id,
@@ -133,13 +142,30 @@ static void pltfm_mgr_start_health_mntr (void)
                    bf_pltfm_mgr_ctx()->health_mntr_t_id,
                    bf_pltfm_mgr_ctx()->np_name);
     }
+
+    if ((ret = pthread_create (
+                   &bf_pltfm_mgr_ctx()->onlp_mntr_t_id,
+                   &onlp_mntr_t_attr,
+                   onlp_mntr_init, NULL)) !=
+        0) {
+        LOG_ERROR (
+            "pltfm_mgr: ERROR: thread creation failed for transceiver monitor, ret=%d\n",
+            ret);
+    } else {
+        pthread_setname_np (
+            bf_pltfm_mgr_ctx()->onlp_mntr_t_id,
+            bf_pltfm_mgr_ctx()->np_onlp_mntr_name);
+        LOG_DEBUG ("pltfm_mgr: transceiver monitor initialized(%u : %s)\n",
+                   bf_pltfm_mgr_ctx()->onlp_mntr_t_id,
+                   bf_pltfm_mgr_ctx()->np_onlp_mntr_name);
+    }
 }
 
 /* Stop Health Monitor */
 static void pltfm_mgr_stop_health_mntr (void)
 {
     int ret;
-    pthread_attr_t health_mntr_t_attr;
+    pthread_attr_t health_mntr_t_attr, onlp_mntr_t_attr;
 
     fprintf(stdout, "================== Deinit .... %48s ================== \n",
         __func__);
@@ -162,6 +188,29 @@ static void pltfm_mgr_stop_health_mntr (void)
         }
         bf_pltfm_mgr_ctx()->health_mntr_t_id = 0;
     }
+
+
+    if (bf_pltfm_mgr_ctx()->onlp_mntr_t_id) {
+        int err = pthread_getattr_np (
+                      bf_pltfm_mgr_ctx()->onlp_mntr_t_id,
+                      &onlp_mntr_t_attr);
+        ret = pthread_cancel (
+                  bf_pltfm_mgr_ctx()->onlp_mntr_t_id);
+        if (ret != 0) {
+            LOG_ERROR (
+                "pltfm_mgr: ERROR: thread cancelation failed for health monitor, "
+                "ret=%d\n", ret);
+        } else {
+            pthread_join (
+                bf_pltfm_mgr_ctx()->onlp_mntr_t_id, NULL);
+        }
+        if (!err) {
+            pthread_attr_destroy (&onlp_mntr_t_attr);
+        }
+        bf_pltfm_mgr_ctx()->onlp_mntr_t_id = 0;
+    }
+
+    bf_sys_rmutex_del (&update_lock);
     fprintf(stdout, "================== Deinit done %48s ================== \n",
         __func__);
 }
@@ -323,7 +372,9 @@ static bf_pltfm_status_t cp2112_init()
 static ucli_status_t pltfm_mgr_ucli_ucli__mntr__
 (ucli_context_t *uc)
 {
+    extern void health_mntr_dbg_cntrs_get (uint32_t *cntrs);
     uint8_t ctrl = 0;
+    uint32_t cntrs[4] = {0};
 
     UCLI_COMMAND_INFO (
         uc, "pltfm-monitor", 1,
@@ -339,12 +390,17 @@ static ucli_status_t pltfm_mgr_ucli_ucli__mntr__
     bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date = time (
                 NULL);
 
+    health_mntr_dbg_cntrs_get((uint32_t *)&cntrs[0]);
+
     aim_printf (&uc->pvs, "Platform monitor    %s\n",
                 (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_CTRL) ?
                 "enabled" : "disabled");
     aim_printf (&uc->pvs, "@ %s\n",
                 ctime ((time_t *)
                        &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+
+    aim_printf (&uc->pvs, "pwr %12u : fan %12u : tmp %12u : trans %12u\n",
+                cntrs[0], cntrs[1], cntrs[2], cntrs[3]);
     return 0;
 }
 
@@ -352,19 +408,25 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                            *uc)
 {
+    char bd[128];
+
     UCLI_COMMAND_INFO (
         uc, "bsp", 0, " Show BSP version.");
+
+    platform_name_get_str (bd, sizeof (bd));
 
     aim_printf (&uc->pvs, "Ver    %s\n",
                 VERSION_NUMBER);
 
-    aim_printf (&uc->pvs, "Platform : %s\n",
+    aim_printf (&uc->pvs, "Platform  : %s\n",
                 platform_type_equal (X532P) ? "X532P-T"  :
                 platform_type_equal (X564P) ? "X564P-T"  :
                 platform_type_equal (X308P) ? "X308P-T"  :
                 platform_type_equal (X312P) ? "X312P-T"  :
                 platform_type_equal (HC)    ? "HC36Y24C" :
                 "Unknown");
+    aim_printf (&uc->pvs, "BD ID     : %s\n",
+                bd);
     aim_printf (&uc->pvs, "Max FANs  : %2d\n",
                 bf_pltfm_mgr_ctx()->fan_group_count *
                 bf_pltfm_mgr_ctx()->fan_per_group);
@@ -547,12 +609,6 @@ bf_status_t bf_pltfm_platform_init (
         return -1;
     }
 
-    err = bf_pltfm_syscpld_init();
-    if (err) {
-        LOG_ERROR ("pltfm_mgr: Error in syscpld init \n");
-        return BF_PLTFM_COMM_FAILED;
-    }
-
     /* Make it very clear for those platforms which need cp2112 init by doing below operations.
      * Because we cann't and shouldn't assume platforms which are NOT X312P-T could init cp2112.
      * by tsihang, 2022-04-27. */
@@ -565,6 +621,12 @@ bf_status_t bf_pltfm_platform_init (
             LOG_ERROR ("pltfm_mgr: Error in cp2112 init \n");
             return BF_PLTFM_COMM_FAILED;
         }
+    }
+
+    err = bf_pltfm_syscpld_init();
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: Error in syscpld init \n");
+        return BF_PLTFM_COMM_FAILED;
     }
 
     /* Register qsfp module */

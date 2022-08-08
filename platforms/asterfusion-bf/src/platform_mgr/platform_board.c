@@ -14,36 +14,94 @@
 #include <bf_pltfm_bd_cfg.h>
 #include <bf_mav_board.h>
 
-#if 0
-static pltfm_bd_map_t pltfm_board_maps[] = {
-
-    //{BF_PLTFM_BD_ID_MONTARA_P0A, montara_P0A_bd_map,
-    // ROWS(montara_P0A_bd_map)},
-    {BF_PLTFM_BD_ID_MONTARA_P0B, montara_P0B_bd_map, ROWS (montara_P0B_bd_map)},
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0A,
-        mavericks_P0A_bd_map,
-        ROWS (mavericks_P0A_bd_map)
-    },
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0B,
-        mavericks_P0B_bd_map,
-        ROWS (mavericks_P0B_bd_map)
-    },
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0C,
-        mavericks_P0C_bd_map,
-        ROWS (mavericks_P0C_bd_map)
-    },
+/* A board has least one version and the bd_map may different.
+ * by tsihang, 2022-06-20. */
+pltfm_bd_map_t pltfm_board_maps[] = {
     {
         BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU,
         /*  this type is used on harlyn model also */
         mavericks_P0B_emu_bd_map,
         ROWS (mavericks_P0B_emu_bd_map)
     },
-    {BF_PLTFM_BD_ID_MONTARA_P0C, montara_P0C_bd_map, ROWS (montara_P0C_bd_map)}
-};
+    {
+        /* X564P-T v1.0 has dropped support. */
+        BF_PLTFM_BD_ID_X564PT_V1DOT0,
+        mavericks_P0B_bd_map_x564p,
+        ROWS (mavericks_P0B_bd_map_x564p)
+    },
+    {
+        BF_PLTFM_BD_ID_X564PT_V1DOT1,
+        mavericks_P0B_bd_map_x564p,
+        ROWS (mavericks_P0B_bd_map_x564p)
+    },
+    {
+        BF_PLTFM_BD_ID_X564PT_V1DOT2,
+        mavericks_P0B_bd_map_x564p,
+        ROWS (mavericks_P0B_bd_map_x564p)
+    },
+    {
+        /* X532P-T v1.0 has dropped support. */
+        BF_PLTFM_BD_ID_X532PT_V1DOT0,
+        mavericks_P0B_bd_map_x532p,
+        ROWS (mavericks_P0B_bd_map_x532p)
+    },
+    {
+        BF_PLTFM_BD_ID_X532PT_V1DOT1,
+        mavericks_P0B_bd_map_x532p,
+        ROWS (mavericks_P0B_bd_map_x532p)
+    },
+    {
+        BF_PLTFM_BD_ID_X532PT_V2DOT0,
+        mavericks_P0B_bd_map_x532p,
+        ROWS (mavericks_P0B_bd_map_x532p)
+    },
+    {
+        BF_PLTFM_BD_ID_X308PT_V1DOT0,
+        mavericks_P0B_bd_map_x308p,
+        ROWS (mavericks_P0B_bd_map_x308p)
+    },
+    /* As I know so far, a new X308P-T with different lane map will be published Q3 2022.
+     * Please add the board here.
+     * by tsihang, 2022-06-20. */
+    //{
+    //    BF_PLTFM_BD_ID_X308PT_V1DOT1,
+    //    mavericks_P0B_bd_map_x308p_v1dot1,
+    //    ROWS (mavericks_P0B_bd_map_x308p_v1dot1)
+    //}
 
+    {
+        /* X312P-T both v1.0 and v1.1 have dropped support. */
+        BF_PLTFM_BD_ID_X312PT_V1DOT0,
+        montara_P0B_bd_map_x312p,
+        ROWS (montara_P0B_bd_map_x312p)
+    },
+    {
+        BF_PLTFM_BD_ID_X312PT_V1DOT1,
+        montara_P0B_bd_map_x312p,
+        ROWS (montara_P0B_bd_map_x312p)
+    },
+    {
+        BF_PLTFM_BD_ID_X312PT_V1DOT2,
+        montara_P0B_bd_map_x312p,
+        ROWS (montara_P0B_bd_map_x312p)
+    },
+    {
+        BF_PLTFM_BD_ID_X312PT_V1DOT3,
+        montara_P0B_bd_map_x312p,
+        ROWS (montara_P0B_bd_map_x312p)
+    },
+    {
+        /* HC36Y24C v1.0 has dropped support. */
+        BF_PLTFM_BD_ID_HC36Y24C_V1DOT0,
+        mavericks_P0B_bd_map_hc36y24c,
+        ROWS (mavericks_P0B_bd_map_hc36y24c)
+    },
+    {
+        BF_PLTFM_BD_ID_HC36Y24C_V1DOT1,
+        mavericks_P0B_bd_map_hc36y24c,
+        ROWS (mavericks_P0B_bd_map_hc36y24c)
+    },
+};
 
 /******************************************************************************
 *
@@ -71,143 +129,68 @@ pltfm_bd_map_t *platform_pltfm_bd_map_get (
     }
     return NULL;
 }
-#else
-/* bf_pltfm_type as the index.
- * by tsihang, 2021-07-14. */
-pltfm_bd_map_t pltfm_board_maps[] = {
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU,
-        /*  this type is used on harlyn model also */
-        mavericks_P0B_emu_bd_map,
-        ROWS (mavericks_P0B_emu_bd_map)
-    },
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0B,
-        mavericks_P0B_bd_map_x564p,
-        ROWS (mavericks_P0B_bd_map_x564p)
-    },
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0B,
-        mavericks_P0B_bd_map_x532p,
-        ROWS (mavericks_P0B_bd_map_x532p)
-    },
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0B,
-        mavericks_P0B_bd_map_x308p,
-        ROWS (mavericks_P0B_bd_map_x308p)
-    },
-    {
-        BF_PLTFM_BD_ID_MONTARA_P0B,
-        montara_P0B_bd_map_x312p,
-        ROWS (montara_P0B_bd_map_x312p)
-    },
-    {
-        BF_PLTFM_BD_ID_MAVERICKS_P0B,
-        mavericks_P0B_bd_map_hc36y24c,
-        ROWS (mavericks_P0B_bd_map_hc36y24c)
-    },
-};
-#endif
-pltfm_bd_map_t *platform_pltfm_bd_map_get (
-    int *rows)
-{
-    if (platform_type_equal (X564P)) {
-        return &pltfm_board_maps[X564P];
-    } else if (platform_type_equal (X532P)) {
-        return &pltfm_board_maps[X532P];
-    } else if (platform_type_equal (X308P)) {
-        return &pltfm_board_maps[X308P];
-    } else if (platform_type_equal (X312P)) {
-        return &pltfm_board_maps[X312P];
-    } else if (platform_type_equal (HC)) {
-        return &pltfm_board_maps[HC];
-    }
-    return NULL;
-}
 
 int platform_name_get_str (char *name,
                            size_t name_size)
 {
     bf_pltfm_status_t sts;
-    uint8_t type, subtype;
-
-#if 0
     bf_pltfm_board_id_t bd_id;
     sts = bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
     if (sts != BF_PLTFM_SUCCESS) {
-        snprintf (name, name_size, "Board type: Error");
+        snprintf (name, name_size, "Error");
         name[name_size - 1] = '\0';
         return sts;
     }
     switch (bd_id) {
-        case BF_PLTFM_BD_ID_MAVERICKS_P0A:
+        case BF_PLTFM_BD_ID_X532PT_V1DOT0:
             snprintf (name, name_size,
-                      "Board type: MAVERICKS_P0A");
+                      "BF_PLTFM_BD_ID_X532PT_V1DOT0");
             break;
-        case BF_PLTFM_BD_ID_MAVERICKS_P0B:
+        case BF_PLTFM_BD_ID_X532PT_V1DOT1:
             snprintf (name, name_size,
-                      "Board type: MAVERICKS_P0B");
+                      "BF_PLTFM_BD_ID_X532PT_V1DOT1");
             break;
-        case BF_PLTFM_BD_ID_MAVERICKS_P0C:
+        case BF_PLTFM_BD_ID_X532PT_V2DOT0:
             snprintf (name, name_size,
-                      "Board type: MAVERICKS_P0C");
+                      "BF_PLTFM_BD_ID_X532PT_V2DOT0");
             break;
-        case BF_PLTFM_BD_ID_MONTARA_P0A:
+        case BF_PLTFM_BD_ID_X564PT_V1DOT0:
             snprintf (name, name_size,
-                      "Board type: MONTARA_P0A");
+                      "BF_PLTFM_BD_ID_X564PT_V1DOT0");
             break;
-        case BF_PLTFM_BD_ID_MONTARA_P0B:
+        case BF_PLTFM_BD_ID_X564PT_V1DOT1:
             snprintf (name, name_size,
-                      "Board type: MONTARA_P0B");
+                      "BF_PLTFM_BD_ID_X564PT_V1DOT1");
             break;
-        case BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU:
+        case BF_PLTFM_BD_ID_X564PT_V1DOT2:
             snprintf (name, name_size,
-                      "Board type: MAVERICKS_P0B_EMU");
+                      "BF_PLTFM_BD_ID_X564PT_V1DOT2");
             break;
-        case BF_PLTFM_BD_ID_MONTARA_P0C:
+        case BF_PLTFM_BD_ID_X308PT_V1DOT0:
             snprintf (name, name_size,
-                      "Board type: MONTARA_P0C");
+                      "BF_PLTFM_BD_ID_X308PT_V1DOT0");
+            break;
+        case BF_PLTFM_BD_ID_X312PT_V1DOT0:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X312PT_V1DOT0");
+            break;
+        case BF_PLTFM_BD_ID_X312PT_V1DOT1:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X312PT_V1DOT1");
+            break;
+        case BF_PLTFM_BD_ID_X312PT_V1DOT2:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X312PT_V1DOT2");
+            break;
+        case BF_PLTFM_BD_ID_X312PT_V1DOT3:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X312PT_V1DOT3");
             break;
         default:
-            snprintf (name, name_size, "Board type: Unknown");
+            snprintf (name, name_size, "Unknown");
             break;
     }
     name[name_size - 1] = '\0';
-#else
-    sts = bf_pltfm_chss_mgmt_platform_type_get(&type, &subtype);
-    if (sts != BF_PLTFM_SUCCESS) {
-        snprintf (name, name_size, "Board type: Error");
-        name[name_size - 1] = '\0';
-        return sts;
-    }
-
-    switch (type) {
-        case X564P:
-            snprintf (name, name_size,
-                      "Platform: X564P-T");
-            break;
-        case X532P:
-            snprintf (name, name_size,
-                      "Platform: X532P-T");
-            break;
-        case X308P:
-            snprintf (name, name_size,
-                      "Platform: X308P-T");
-            break;
-        case X312P:
-            snprintf (name, name_size,
-                      "Platform: X312P-T");
-            break;
-        case HC:
-            snprintf (name, name_size,
-                      "Platform: HC36Y24C");
-            break;
-        default:
-            snprintf (name, name_size, "Platform: Unknown");
-            break;
-    }
-    name[name_size - 1] = '\0';
-#endif
     return 0;
 }
 

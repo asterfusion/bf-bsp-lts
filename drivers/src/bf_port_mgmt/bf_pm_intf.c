@@ -174,11 +174,6 @@ static void qsfp_detection_actions (
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
 
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
-
     qsfp_all_info_read (conn_id);
 
     bf_pltfm_platform_ext_phy_config_set (
@@ -227,7 +222,7 @@ static void qsfp_detection_actions (
                 sts);
         }
     }
-     fprintf (stdout, "QSFP: %2d : inserted\n",
+     fprintf (stdout, "QSFP    %2d : inserted\n",
                 conn_id);
 }
 
@@ -239,11 +234,6 @@ static void qsfp_removal_actions (bf_dev_id_t
     bf_pal_front_port_handle_t port_hdl;
 
     qsfp_info_clear (conn_id);
-
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
 
     port_hdl.conn_id = conn_id;
     for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
@@ -292,7 +282,7 @@ static void qsfp_removal_actions (bf_dev_id_t
         }
     }
 
-     fprintf (stdout, "QSFP: %2d : removed\n",
+     fprintf (stdout, "QSFP    %2d : removed\n",
                 port_hdl.conn_id);
 
     (void)dev_id;
@@ -351,11 +341,11 @@ static bf_pltfm_status_t qsfp_scan_helper (
         // Find if the said qsfp module was removed or added
         int detect_st = bf_qsfp_detect_transceiver (conn_id,
                                         &is_present);
-        LOG_DEBUG ("QSFP: %2d : detect-st : %d is-present : %d\n",
+        LOG_DEBUG ("QSFP    %2d : detect-st : %d is-present : %d\n",
                    conn_id,
                    detect_st,
                    is_present);
-        fprintf (stdout, "QSFP: %2d : detect-st : %d is-present : %d\n",
+        fprintf (stdout, "QSFP    %2d : detect-st : %d is-present : %d\n",
                    conn_id,
                    detect_st,
                    is_present);
@@ -554,18 +544,14 @@ void qsfp_fsm_timer_cb (struct bf_sys_timer_s
     bf_pltfm_status_t sts;
     bf_dev_id_t dev_id = (bf_dev_id_t) (intptr_t)data;
 
-    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
-        // Process QSFP start-up actions (if necessary)
-        sts = qsfp_fsm (dev_id);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error %s: in qsfp fsm at %s:%d\n",
-                       bf_pltfm_err_str (sts),
-                       __func__,
-                       __LINE__);
-        }
-    } else {
-        qsfp_fsm (dev_id);
-        //bf_pm_interface_fsm();
+    // Process QSFP start-up actions (if necessary)
+    sts = qsfp_fsm (dev_id);
+    //bf_pm_interface_fsm();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: in qsfp fsm at %s:%d\n",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
     }
 
     (void)timer;
@@ -695,11 +681,6 @@ static void sfp_removal_actions (bf_dev_id_t
 
     sfp_info_clear (module);
 
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
-
     /* get conn_id and chnl_id by module. */
     bf_sfp_get_conn (module, &port_hdl.conn_id,
                      &port_hdl.chnl_id);
@@ -730,7 +711,7 @@ static void sfp_removal_actions (bf_dev_id_t
             sts);
     }
 
-    fprintf (stdout, "SFP: %2d - %2d/%d : removed\n",
+    fprintf (stdout, " SFP    %2d : %2d/%d : removed\n",
                module,
                port_hdl.conn_id,
                port_hdl.chnl_id);
@@ -747,10 +728,10 @@ void sfp_scan_removed (bf_dev_id_t dev_id,
     sfp_fsm_removed (module);
 }
 
-static void sfp_present_actions (int module)
+void sfp_present_actions (int module)
 {
     if (module > bf_sfp_get_max_sfp_ports()) {
-        LOG_ERROR ("SFP %2d : Invalid. Max supported = %2d",
+        LOG_ERROR (" SFP    %2d : Invalid. Max supported = %2d",
                    module,
                    bf_sfp_get_max_sfp_ports());
         return;
@@ -776,11 +757,6 @@ static void sfp_detection_actions (
     bf_status_t sts;
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
-
-    if (!bf_pm_intf_is_device_family_tofino (
-            dev_id)) {
-        return;
-    }
 
     sfp_all_info_read (module);
 
@@ -814,7 +790,7 @@ static void sfp_detection_actions (
             sts);
     }
 
-    fprintf (stdout, "SFP: %2d - %2d/%d : inserted\n",
+    fprintf (stdout, " SFP    %2d : %2d/%d : inserted\n",
                module,
                port_hdl.conn_id,
                port_hdl.chnl_id);
@@ -896,24 +872,24 @@ static bf_pltfm_status_t sfp_scan_helper (
             if (bf_sfp_get_reset (module)) {
                 int rc;
 
-                LOG_DEBUG ("pm SFP: %2d : RESETL = true",
+                LOG_DEBUG (" SFP    %2d : RESETL = true",
                            module);
                 // assert resetL
                 rc = bf_sfp_reset (module, true);
                 if (rc != 0) {
-                    LOG_ERROR ("pm SFP: %2d : Error <%d> asserting resetL",
+                    LOG_ERROR (" SFP    %2d : Error <%d> asserting resetL",
                                module, rc);
                 }
 
                 bf_sys_usleep (3); // really 2 micro-seconds
 
-                LOG_DEBUG ("pm SFP: %2d : RESETL = false",
+                LOG_DEBUG (" SFP    %2d : RESETL = false",
                            module);
                 // de-assert resetL
                 rc = bf_sfp_reset (module, false);
                 if (rc != 0) {
                     LOG_ERROR (
-                        "pm SFP: %2d : Error <%d> de-asserting resetL",
+                        " SFP    %2d : Error <%d> de-asserting resetL",
                         module, rc);
                 }
                 // We need 2-seconds for module to be ready, hence we continue.
@@ -930,13 +906,13 @@ static bf_pltfm_status_t sfp_scan_helper (
         bool sfp_prev_st_abs =
             PM_BIT_GET (sfp_pres_mask[mask_id],
                         (module % 32) - 1);
-        LOG_DEBUG ("SFP: %2d : curr-pres-st : %d prev-pres-st : %d",
+        LOG_DEBUG (" SFP    %2d : curr-pres-st : %d prev-pres-st : %d",
                    module,
                    sfp_curr_st_abs,
                    sfp_prev_st_abs);
         if (sfp_curr_st_abs) {
             if (!sfp_prev_st_abs) {
-                LOG_DEBUG ("SFP: %2d : unplugged (from plug st)\n",
+                LOG_DEBUG (" SFP    %2d : unplugged (from plug st)\n",
                            module);
                 is_present = false;
                 // hack to clear the states.
@@ -945,7 +921,7 @@ static bf_pltfm_status_t sfp_scan_helper (
             }
             // we should never land here. But fall through and handle as done
             // previously
-            LOG_DEBUG ("SFP: %2d : unplugged (from unplugged st)",
+            LOG_DEBUG (" SFP    %2d : unplugged (from unplugged st)",
                        module);
         }
 
@@ -957,13 +933,13 @@ static bf_pltfm_status_t sfp_scan_helper (
         bf_sfp_get_conn (module, &conn_id,
                          &chnl_id);
 
-        LOG_DEBUG ("SFP: %2d - %2d/%d : detect-st : %d is-present : %d\n",
+        LOG_DEBUG (" SFP    %2d :  %2d/%d : detect-st : %d is-present : %d\n",
                    module,
                    conn_id,
                    chnl_id,
                    detect_st,
                    is_present);
-        fprintf (stdout, "SFP: %2d - %2d/%d : detect-st : %d is-present : %d\n",
+        fprintf (stdout, " SFP    %2d : %2d/%d : detect-st : %d is-present : %d\n",
                    module,
                    conn_id,
                    chnl_id,
@@ -973,7 +949,7 @@ static bf_pltfm_status_t sfp_scan_helper (
         // Find if so-called sfp module was removed or added
         if (detect_st) {
             // hopefully, detect it in the next iteration
-            LOG_ERROR ("SFP   %2d : error detecting SFP\n",
+            LOG_ERROR (" SFP    %2d : error detecting SFP\n",
                        module);
             module++;
             continue;  // back to outer while loop
@@ -984,7 +960,7 @@ handle_removal:
                 // over-ride present bit so that we go through clean state in next cycle
                 if (is_present) {
                     LOG_DEBUG (
-                        "SFP: %2d Latched removal conditon detected. Doing removal "
+                        " SFP    %2d : Latched removal conditon detected. Doing removal "
                         "actions.\n",
                         module);
                     is_present = false;
@@ -1004,10 +980,6 @@ handle_removal:
         if (is_present == true) {
             // kick off the module FSM
             if (!bf_pltfm_pm_is_ha_mode()) {
-                if (!bf_pm_intf_is_device_family_tofino (
-                        dev_id)) {
-                    sfp_present_actions (module);
-                }
                 sfp_fsm_inserted (module);
             } else {
                 //sfp_state_ha_config_set (dev_id, conn_id);
@@ -1139,18 +1111,14 @@ void sfp_fsm_timer_cb (struct bf_sys_timer_s
     bf_pltfm_status_t sts;
     bf_dev_id_t dev_id = (bf_dev_id_t) (intptr_t)data;
 
-    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
-        /* Process SFP start-up actions (if necessart) */
-        sts = sfp_fsm (dev_id);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error %s: in sfp FSM at %s:%d\n",
-                       bf_pltfm_err_str (sts),
-                       __func__,
-                       __LINE__);
-        }
-    } else {
-        sfp_fsm (dev_id);
-        //bf_pm_interface_fsm();
+    /* Process SFP start-up actions (if necessart) */
+    sts = sfp_fsm (dev_id);
+    //bf_pm_interface_fsm();
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error %s: in sfp FSM at %s:%d\n",
+                   bf_pltfm_err_str (sts),
+                   __func__,
+                   __LINE__);
     }
 
     (void)timer;
@@ -1707,13 +1675,7 @@ bf_pltfm_status_t bf_pltfm_pm_ha_mode_clear()
 
 bool bf_pltfm_pm_is_ha_mode()
 {
-    if (!bf_pm_intf_is_device_family_tofino (0)) {
-        /* Warm init on newport is not yet supported. */
-        /* TOFINO2 TODO */
-        return false;
-    } else {
-        return bf_pltfm_pm_ha_mode;
-    }
+    return bf_pltfm_pm_ha_mode;
 }
 
 bf_pm_qsfp_info_t *bf_pltfm_get_pm_qsfp_info_ptr (

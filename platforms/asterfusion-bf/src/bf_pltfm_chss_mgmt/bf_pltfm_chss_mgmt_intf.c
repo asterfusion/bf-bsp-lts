@@ -39,51 +39,85 @@
 #define lqe_valen  256
 
 COME_type global_come_type = COME_UNKNOWN;
+bool g_access_cpld_through_cp2112 = false;
 
-/* COME_type as the index. */
-const char *cme_desc[] = {
-    "Unknown",
-    "CME3000",
-    "CME7000",
-    "CGT1508",
-    "CGT1527"
+static struct x86_carrier_board_t x86_cb[] = {
+    {"Unknown",  COME_UNKNOWN},
+    {"CME3000",  CME3000},
+    {"CME7000",  CME7000},
+    {"CG1508",   CG1508},
+    {"CG1527",   CG1527},
+    {"ADV1508",  ADV1508},
+    {"ADV1527",  ADV1527},
+    {"S021508",  S021508},
+    {"S021527",  S021527},
 };
 
-char bmc_i2c_bus = 0;
+char bmc_i2c_bus = 0x7F;
 unsigned char bmc_i2c_addr = 0x3e;
 
 static void bf_pltfm_parse_i2c (const char *str,
-                                int l, char *c)
+                                size_t l)
 {
     int i = 0;
+    char *c = NULL;
 
-    for (i = 0; i < l; i ++) {
+    BUG_ON (str == NULL);
+
+    for (i = 0; i < (int)(l - 1); i ++) {
         if (isspace (str[i])) {
             continue;
         }
         if (isdigit (str[i])) {
-            *c = str[i];
+            c = (char *)&str[i];
             break;
         }
     }
+    if (c) {
+        /* I2C MUST be disabled or set to 127 for those platforms which are not used it in /etc/platform.conf. */
+        bmc_i2c_bus = atoi(c);
+        if (bmc_i2c_bus != 0x7F)
+        fprintf (stdout,
+                 "I2C  : %d (CPLD or BMC)\n", bmc_i2c_bus);
+    }
+
 }
 
-static int my_strcmp (char *p, char *standard)
+static void bf_pltfm_parse_cme(const char *str,
+                                  size_t l)
 {
-    char *start, *end;
-    start = p;
-    end = p + strlen (p) - 1;
-    while (*start == ' ') {
-        start ++;
+    struct x86_carrier_board_t *cb = NULL;
+
+    BUG_ON (str == NULL);
+
+    foreach_element(0, ARRAY_LENGTH(x86_cb)) {
+        cb = &x86_cb[each_element];
+        //fprintf(stdout, "%s : %s\n", str, cb->desc);
+        if (strstr (str, cb->desc)) {
+            global_come_type = cb->type;
+            break;
+        }
     }
-    if (*end == '\n') {
-        end --;
+    BUG_ON (cb == NULL);
+    fprintf (stdout,
+             "COME : %s \n", cb->desc);
+}
+
+static void bf_pltfm_parse_uart(const char *str,
+                                  size_t l)
+{
+    int i = 0;
+    BUG_ON (str == NULL);
+
+    for (i = 0; i < (int)(l - 1); i ++) {
+        uart_ctx.dev[i] = str[i];
     }
-    while (*end == ' ') {
-        end --;
-    }
-    * (end + 1) = '\0';
-    return strcasecmp (start, standard);
+    uart_ctx.dev[i] = '\0';
+
+    /* Identify to open UART. */
+    uart_ctx.flags |= AF_PLAT_UART_ENABLE;
+    fprintf (stdout,
+             "UART : %s\n", (uart_ctx.flags & AF_PLAT_UART_ENABLE) ? "enabled (BMC)" : "disabled");
 }
 
 bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
@@ -92,9 +126,8 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
     FILE *fp = NULL;
     const char *cfg = "/etc/platform.conf";
     char entry[lqe_valen] = {0};
-    int i2c = 0;
 
-    bmc_i2c_bus = 0;
+    bf_pltfm_bd_type_set (UNKNOWM_PLATFORM, v1dot0);
 
     fp = fopen (cfg, "r");
     if (!fp) {
@@ -103,63 +136,37 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
                  "%s\n", cfg, strerror (errno));
         return -1;
     } else {
+        fprintf (stdout,
+                 "\n\n================== %s ==================\n", cfg);
         while (fgets (entry, lqe_valen, fp)) {
             char *p;
             if (entry[0] == '#') {
                 continue;
             }
-            /* Find Master I2C */
+
             p = strstr (entry, "i2c:");
             if (p) {
-                p += 4;
-                char c = '0';
-                bf_pltfm_parse_i2c (p, strlen (p), &c);
-                i2c = c - '0';
+                /* Find Master I2C */
+                bf_pltfm_parse_i2c (p + 4, strlen (p + 4));
             }
-
-            /* Find other ... */
             p = strstr (entry, "com-e:");
             if (p) {
-                p += 6;
-                if (!my_strcmp (p, "CME3000")) {
-                    global_come_type = CME3000;
-                }
-                if (!my_strcmp (p, "CME7000")) {
-                    global_come_type = CME7000;
-                }
-                if (!my_strcmp (p, "CG1508")) {
-                    global_come_type = CG1508;
-                }
-                if (!my_strcmp (p, "CG1527")) {
-                    global_come_type = CG1527;
-                }
+                /* Find X86 */
+                bf_pltfm_parse_cme (p + 6, strlen (p + 6));
             }
-
-            /* Make sure that the UART configuration is disabled in /etc/platform.conf
-             * when current platform is X312P-T.
-             * by tsihang, 2022-04-27. */
             p = strstr (entry, "uart:");
             if (p) {
-                p += 5;
-                for (int i = 0; i < (int)strlen (p) - 1; i ++) {
-                    uart_ctx.dev[i] = p[i];
-                }
-                /* Identify to open UART. */
-                uart_ctx.flags |= AF_PLAT_UART_ENABLE;
+                /* Make sure that the UART configuration is disabled in /etc/platform.conf
+                 * when current platform is X312P-T.
+                 * by tsihang, 2022-04-27. */
+                bf_pltfm_parse_uart (p + 5, strlen (p + 5));
             }
-
             memset (&entry[0], 0, lqe_valen);
         }
         fclose (fp);
     }
 
-    bmc_i2c_bus = i2c;
-    fprintf (stdout,
-             "COME : %s : I2C : %2d (%s)\n",
-             cme_desc[global_come_type], bmc_i2c_bus,
-             (uart_ctx.flags & AF_PLAT_UART_ENABLE) ? "out of duty" : "on duty");
-
-    if (bf_pltfm_master_i2c_init()) {
+    if (bf_pltfm_master_i2c_init ()) {
         LOG_ERROR ("pltfm_mgr: Error in master-i2c init \n");
         return BF_PLTFM_COMM_FAILED;
     }
@@ -183,8 +190,14 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
         return BF_PLTFM_COMM_FAILED;
     }
 
-    // Other initializations(Fan, etc.) go here
+    /* As we have known the platform, do more i2c init case by case.
+     * by tsihang, 2022-06-24. */
+    if (bf_pltfm_master_i2c_init ()) {
+        LOG_ERROR ("pltfm_mgr: Error in master-i2c reinit \n");
+        return BF_PLTFM_COMM_FAILED;
+    }
 
+    // Other initializations(Fan, etc.) go here
 
     return BF_PLTFM_SUCCESS;
 }

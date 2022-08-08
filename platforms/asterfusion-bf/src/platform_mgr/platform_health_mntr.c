@@ -26,6 +26,23 @@
 
 static bf_pltfm_temperature_info_t peak;
 
+/* Lockless.
+ * Only updated by health_mntr.
+ * Read and cleared by onlp_mntr. */
+static uint32_t volatile ul_update_flags = 0;
+
+bf_sys_rmutex_t update_lock;
+#define UPDATE_LOCK   \
+    bf_sys_rmutex_lock(&update_lock)
+#define UPDATE_UNLOCK \
+    bf_sys_rmutex_unlock(&update_lock)
+
+/* Lockless, only updated by onlp_mntr*/
+static uint32_t ul_dbg_update_times_pwr = 0;
+static uint32_t ul_dbg_update_times_fan = 0;
+static uint32_t ul_dbg_update_times_tmp = 0;
+static uint32_t ul_dbg_update_times_transceiver = 0;
+
 extern bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get__ (
     bf_pltfm_fan_data_t *fdata);
@@ -108,6 +125,11 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "pwrgood");
+    sprintf (value, "%d", psu->power);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "vin");
     sprintf (value, "%d", psu->vin);
     onlp_save (fonlp, value, strlen (value));
@@ -148,6 +170,37 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
         sprintf (value, "%s", psu->serial);
         onlp_save (fonlp, value, strlen (value));
     }
+
+    if (psu->fvalid & PSU_INFO_VALID_MODEL) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "model");
+        sprintf (value, "%s", psu->model);
+        onlp_save (fonlp, value, strlen (value));
+    }
+
+    if (psu->fvalid & PSU_INFO_VALID_REV) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "rev");
+        sprintf (value, "%s", psu->rev);
+        onlp_save (fonlp, value, strlen (value));
+    }
+
+    if (psu->fvalid & PSU_INFO_VALID_FAN_ROTA) {
+        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+                "rota");
+        sprintf (value, "%d", psu->fspeed);
+        onlp_save (fonlp, value, strlen (value));
+    }
+
+    bool psu_type = 1;  /* default AC */
+    if (!(psu->fvalid & PSU_INFO_AC)) {
+        psu_type = 0;
+    }
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+        "supptype");
+    sprintf (value, "%d", psu_type);
+    onlp_save (fonlp, value, strlen (value));
+
 }
 
 static void bf_pltfm_chss_mgmt_onlp_temp (int id,
@@ -188,111 +241,140 @@ static void bf_pltfm_chss_mgmt_onlp_pwr_rails (
     sprintf (value, "%d", pwr_rails);
     onlp_save (fonlp, value, strlen (value));
 }
-#endif
 
-static void check_pwr_supply (void)
+static void bf_pltfm_onlp_mntr_transceiver()
 {
-    bf_pltfm_pwr_supply_t pwr;
-    bf_pltfm_pwr_supply_info_t info;
-    bool presence;
+    extern int bf_pltfm_get_qsfp_ctx (struct
+                                      qsfp_ctx_t
+                                      **qsfp_ctx);
 
-    if (bf_pltfm_mgr_ctx()->psu_count == 0) {
-        return;
-    }
+    extern int bf_pltfm_get_sfp_ctx (struct
+                                     sfp_ctx_t
+                                     **sfp_ctx);
 
-    /* check presence of power supply 1 */
-    pwr = POWER_SUPPLY1;
-    if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
-        (pwr,
-         &presence, &info) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading power supply status : PWR%d\n",
-                   pwr);
-    }
+    int i;
+    int module;
+    int max_sfp_modules;
+    int max_qsfp_modules;
+    uint8_t buf[MAX_QSFP_PAGE_SIZE * 2] = {0};
 
-    if (!presence) {
-        LOG_WARNING ("POWER SUPPLY 1 not present \n");
-    }
-#if defined(HAVE_ONLP)
-    /* Added ONLP API */
-    bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
+    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
+    bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
+
+    struct sfp_ctx_t *sfp, *sfp_ctx;
+    bf_pltfm_get_sfp_ctx (&sfp_ctx);
+
+    max_sfp_modules  = bf_sfp_get_max_sfp_ports();
+    max_qsfp_modules = bf_qsfp_get_max_qsfp_ports();
+
+    static uint32_t sfp_pres_mask_h  = 0xFFFFFFFF;
+    static uint32_t sfp_pres_mask_l  = 0xFFFFFFFF;
+    static uint32_t qsfp_pres_mask_h = 0xFFFFFFFF;
+    static uint32_t qsfp_pres_mask_l = 0xFFFFFFFF;
+    uint32_t bit_mask;
+    uint32_t *p_pres_mask;
+    char path[MAX_LEN];
+    char value[MAX_LEN];
+
+    for (i = 1; i <= max_qsfp_modules; i ++) {
+        qsfp = &qsfp_ctx[i - 1];
+        module = atoi (&qsfp->desc[1]);
+
+        if (module >= 33) {
+            bit_mask = 1 << (module - 33);
+            p_pres_mask = &qsfp_pres_mask_h;
+        } else {
+            bit_mask = 1 << (module - 1);
+            p_pres_mask = &qsfp_pres_mask_l;
+        }
+
+        sprintf (path, ONLP_LOG_QSFP_PATH,
+                 module, "eeprom");
+
+        if (!bf_qsfp_is_present (i)) {
+            if (*p_pres_mask & bit_mask) {
+                remove (path);
+            }
+            *p_pres_mask &= ~bit_mask;
+            continue;
+        } else {
+            *p_pres_mask |= bit_mask;
+        }
+        if (bf_qsfp_get_cached_info (i,
+                                     QSFP_PAGE0_LOWER, buf)) {
+            continue;
+        }
+        if (bf_qsfp_get_cached_info (
+                i, QSFP_PAGE0_UPPER,
+                buf + MAX_QSFP_PAGE_SIZE)) {
+            continue;
+        }
+#if 0
+        if (bf_qsfp_is_cmis (i)) {
+            continue;
+        }
 #endif
-
-    pwr = POWER_SUPPLY2;
-    if (__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
-        (pwr,
-         &presence, &info) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading power supply status : PWR%d\n",
-                   pwr);
+        onlp_save (path, (char *)buf,
+                   MAX_QSFP_PAGE_SIZE * 2);
     }
+    sprintf (path, ONLP_LOG_QSFP_PRES_PATH,
+             "presence");
+    sprintf (value, "0x%08x%08x", ~qsfp_pres_mask_h,
+             ~qsfp_pres_mask_l);
+    onlp_save (path, (char *)value, strlen (value));
 
-    if (!presence) {
-        LOG_WARNING ("POWER SUPPLY 2 not present \n");
+    for (i = 1; i <= max_sfp_modules; i ++) {
+        sfp = &sfp_ctx[i - 1];
+        module = atoi (&sfp->info.desc[1]);
+
+        if (module >= 33) {
+            bit_mask = 1 << (module - 33);
+            p_pres_mask = &sfp_pres_mask_h;
+        } else {
+            bit_mask = 1 << (module - 1);
+            p_pres_mask = &sfp_pres_mask_l;
+        }
+
+        sprintf (path, ONLP_LOG_SFP_PATH,
+                 module, "eeprom");
+
+        if (!bf_sfp_is_present (i)) {
+            if (*p_pres_mask & bit_mask) {
+                remove (path);
+            }
+            *p_pres_mask &= ~bit_mask;
+            continue;
+        } else {
+            *p_pres_mask |= bit_mask;
+        }
+        if (bf_sfp_get_cached_info (i, 0,
+                                    buf) ) {
+            continue;
+        }
+        if (bf_sfp_get_cached_info (i, 1,
+                                    buf + MAX_QSFP_PAGE_SIZE) ) {
+            continue;
+        }
+        onlp_save (path, (char *)buf,
+                   MAX_QSFP_PAGE_SIZE * 2);
     }
-#if defined(HAVE_ONLP)
-    /* Added ONLP API */
-    bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
-#endif
+    sprintf (path, ONLP_LOG_SFP_PRES_PATH,
+             "presence");
+    sprintf (value, "0x%08x%08x", ~sfp_pres_mask_h,
+             ~sfp_pres_mask_l);
+    onlp_save (path, (char *)value, strlen (value));
+
     return;
 }
 
-static void check_tofino_temperature (void)
-{
-    bf_dev_id_t dev_id = 0;
-    int sensor = 0;
-    bf_pltfm_switch_temperature_info_t temp_mC;
-    bf_pltfm_status_t r;
-
-    if (bf_pltfm_mgr_ctx()->sensor_count == 0) {
-        return;
-    }
-
-    r = __bf_pltfm_chss_mgmt_switch_temperature_get__
-        (
-            dev_id, sensor, &temp_mC);
-
-    if (r != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading switch temperature\n");
-    }
-
-    if (temp_mC.main_sensor >=
-        TOFINO_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TOFINO MAIN TEMP SENOR above threshold value(%d): %d C\n",
-                   (TOFINO_TMP_ALARM_RANGE / 1000),
-                   (temp_mC.main_sensor / 1000));
-        LOG_ALARM ("=========================================\n");
-        LOG_ALARM ("        SHUTDOWN THE SYSTEM\n");
-        LOG_ALARM ("=========================================\n");
-    }
-
-    if (temp_mC.remote_sensor >=
-        TOFINO_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TOFINO REMOTE TEMP SENOR above threshold value(%d): %d C\n",
-                   (TOFINO_TMP_ALARM_RANGE / 1000),
-                   (temp_mC.remote_sensor / 1000));
-        LOG_ALARM ("=========================================\n");
-        LOG_ALARM ("        SHUTDOWN THE SYSTEM\n");
-        LOG_ALARM ("=========================================\n");
-    }
-#if defined(HAVE_ONLP)
-    bf_pltfm_chss_mgmt_onlp_tofino_temp (&temp_mC);
-#endif
-    return;
-}
-
-static void check_chassis_temperature (void)
+static void bf_pltfm_onlp_mntr_tmp ()
 {
     bf_pltfm_temperature_info_t t;
 
-    if (bf_pltfm_mgr_ctx()->sensor_count == 0) {
-        return;
-    }
-
-    if (__bf_pltfm_chss_mgmt_temperature_get__ (
+    if (bf_pltfm_chss_mgmt_temperature_get (
             &t) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading chassis temperature \n");
-        return;
+        LOG_ERROR ("Error in reading temperature from cache.\n");
     } else {
-#if defined(HAVE_ONLP)
         if (platform_type_equal (X532P)) {
             bf_pltfm_chss_mgmt_onlp_temp (1, (float)t.tmp1);
             bf_pltfm_chss_mgmt_onlp_temp (2, (float)t.tmp2);
@@ -330,7 +412,268 @@ static void check_chassis_temperature (void)
                 bf_pltfm_chss_mgmt_onlp_temp (3, (float)t.tmp3);
             }
         }
+    }
+}
+
+static void bf_pltfm_onlp_mntr_fantray ()
+{
+    bf_pltfm_fan_data_t fdata;
+
+    if (bf_pltfm_chss_mgmt_fan_data_get (
+            &fdata) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading fan data from cache.\n");
+    } else {
+        int i;
+        for (i = 0;
+             i < (int) (bf_pltfm_mgr_ctx()->fan_per_group *
+                        bf_pltfm_mgr_ctx()->fan_group_count); i ++) {
+            bf_pltfm_chss_mgmt_onlp_fan (fdata.F[i].fan_num,
+                                         & (fdata.F[i]));
+        }
+    }
+}
+
+static void bf_pltfm_onlp_mntr_pwr_supply ()
+{
+    bf_pltfm_pwr_supply_t pwr;
+    bf_pltfm_pwr_supply_info_t info;
+
+    pwr = POWER_SUPPLY1;
+    if (bf_pltfm_chss_mgmt_pwr_supply_get (
+            pwr, &info) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading pwr data from cache.\n");
+    } else {
+        /* Added ONLP API */
+        bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
+    }
+
+    pwr = POWER_SUPPLY2;
+    if (bf_pltfm_chss_mgmt_pwr_supply_get (
+            pwr, &info) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading pwr data from cache.\n");
+    } else {
+        /* Added ONLP API */
+        bf_pltfm_chss_mgmt_onlp_psu ((int)pwr, &info);
+    }
+}
+
+static void bf_pltfm_onlp_mntr_pwr_rails (void)
+{
+    bf_pltfm_pwr_rails_info_t pwr_rails;
+
+    if (bf_pltfm_chss_mgmt_pwr_rails_get (
+            &pwr_rails) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading RAILs pwr from cache.\n");
+    } else {
+        // save pwr_rails for onlp
+        bf_pltfm_chss_mgmt_onlp_pwr_rails (
+            pwr_rails.vrail1);
+    }
+}
+
+static void bf_pltfm_onlp_mntr_tofino_temperature (void)
+{
+    bf_dev_id_t dev_id = 0;
+    int sensor = 0;
+    bf_pltfm_switch_temperature_info_t temp_mC;
+    bf_pltfm_status_t r;
+
+    r = bf_pltfm_chss_mgmt_switch_temperature_get
+        (dev_id, sensor, &temp_mC);
+    if (r != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading switch temperature from cache.\n");
+    } else {
+        bf_pltfm_chss_mgmt_onlp_tofino_temp (&temp_mC);
+    }
+}
 #endif
+
+void health_mntr_dbg_cntrs_get (uint32_t *cntrs) {
+    cntrs[0] = ul_dbg_update_times_pwr;
+    cntrs[1] = ul_dbg_update_times_fan;
+    cntrs[2] = ul_dbg_update_times_tmp;
+    cntrs[3] = ul_dbg_update_times_transceiver;
+}
+
+/* Init function of thread */
+void *onlp_mntr_init (void *arg)
+{
+    (void)arg;
+    uint32_t flags = 0, update_flags = 0;
+
+    printf ("ONLP monitor started \n");
+    ul_dbg_update_times_pwr = 0;
+    ul_dbg_update_times_fan = 0;
+    ul_dbg_update_times_tmp = 0;
+    ul_dbg_update_times_transceiver = 0;
+    ul_update_flags = 0;
+
+    FOREVER {
+        flags = bf_pltfm_mgr_ctx()->flags;
+        update_flags = ul_update_flags;
+
+        /* Wait for ul_update_flags's update by health monitor thread. */
+        if (!update_flags) {
+            sleep(1);
+            continue;
+        }
+
+        if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
+            fprintf (stdout, "ONLP Monitor is disabled\n");
+            fprintf (stdout, "@ %s\n",
+                     ctime ((time_t *)
+                            &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+            sleep (15);
+        } else {
+#if defined(HAVE_ONLP)
+            /* Chassis temprature is quite important.
+             * Monitor this unconditionally even though Monitor Ctrl is disabled.
+             * by tsihang, 2021-07-06. */
+            if (likely (flags & AF_PLAT_MNTR_TMP) &&
+                likely (update_flags & AF_PLAT_MNTR_TMP)) {
+                ul_dbg_update_times_tmp ++;
+                bf_pltfm_onlp_mntr_tmp();
+                bf_pltfm_onlp_mntr_tofino_temperature();
+            }
+
+            if (likely (flags & AF_PLAT_MNTR_FAN) &&
+                likely (update_flags & AF_PLAT_MNTR_FAN)) {
+                ul_dbg_update_times_fan ++;
+                bf_pltfm_onlp_mntr_fantray();
+            }
+
+            if (likely (flags & AF_PLAT_MNTR_POWER) &&
+                likely (update_flags & AF_PLAT_MNTR_POWER)) {
+                ul_dbg_update_times_pwr ++;
+                bf_pltfm_onlp_mntr_pwr_supply();
+                bf_pltfm_onlp_mntr_pwr_rails();
+            }
+
+            if (likely (flags & AF_PLAT_MNTR_MODULE) &&
+                likely (update_flags & AF_PLAT_MNTR_MODULE)) {
+                ul_dbg_update_times_transceiver ++;
+                bf_pltfm_onlp_mntr_transceiver ();
+            }
+#endif
+            /* clear flags and wait health monitor's update.
+             * by tsihang, 2022-06-02. */
+            UPDATE_LOCK;
+            ul_update_flags = 0;
+            UPDATE_UNLOCK;
+        }
+    }
+    printf ("====== ONLP monitor cancelled ======\n");
+
+    return NULL;
+}
+
+void bf_pltfm_temperature_monitor_enable (
+    bool enable)
+{
+    if (enable) {
+        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_CTRL;
+    } else {
+        bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_CTRL;
+    }
+    return;
+}
+
+static bf_pltfm_status_t check_pwr_supply (void)
+{
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
+    bf_pltfm_pwr_supply_t pwr;
+    bf_pltfm_pwr_supply_info_t info;
+    bool presence;
+
+    if (bf_pltfm_mgr_ctx()->psu_count == 0) {
+        return err;
+    }
+
+    /* check presence of power supply 1 */
+    pwr = POWER_SUPPLY1;
+    if ((err =__bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
+        (pwr,
+         &presence, &info)) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading power supply status : PWR%d from hardware.\n",
+                   pwr);
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
+    } else {
+        if (!presence) {
+            LOG_WARNING ("POWER SUPPLY 1 not present \n");
+        }
+    }
+
+    pwr = POWER_SUPPLY2;
+    if ((err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__
+        (pwr,
+         &presence, &info)) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading power supply status : PWR%d from hardware.\n",
+                   pwr);
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
+    } else {
+        if (!presence) {
+            LOG_WARNING ("POWER SUPPLY 2 not present \n");
+        }
+    }
+    return err;
+}
+
+static bf_pltfm_status_t check_tofino_temperature (void)
+{
+    bf_dev_id_t dev_id = 0;
+    int sensor = 0;
+    bf_pltfm_switch_temperature_info_t temp_mC;
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
+
+    if (bf_pltfm_mgr_ctx()->sensor_count == 0) {
+        return err;
+    }
+
+    if ((err = __bf_pltfm_chss_mgmt_switch_temperature_get__(dev_id,
+            sensor, &temp_mC)) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading switch temperature from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
+    }
+
+    if (temp_mC.main_sensor >=
+        TOFINO_TMP_ALARM_RANGE) {
+        LOG_ALARM ("TOFINO MAIN TEMP SENOR above threshold value(%d): %d C\n",
+                   (TOFINO_TMP_ALARM_RANGE / 1000),
+                   (temp_mC.main_sensor / 1000));
+        LOG_ALARM ("=========================================\n");
+        LOG_ALARM ("        SHUTDOWN THE SYSTEM\n");
+        LOG_ALARM ("=========================================\n");
+    }
+
+    if (temp_mC.remote_sensor >=
+        TOFINO_TMP_ALARM_RANGE) {
+        LOG_ALARM ("TOFINO REMOTE TEMP SENOR above threshold value(%d): %d C\n",
+                   (TOFINO_TMP_ALARM_RANGE / 1000),
+                   (temp_mC.remote_sensor / 1000));
+        LOG_ALARM ("=========================================\n");
+        LOG_ALARM ("        SHUTDOWN THE SYSTEM\n");
+        LOG_ALARM ("=========================================\n");
+    }
+    return err;
+}
+
+static bf_pltfm_status_t check_chassis_temperature (void)
+{
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
+    bf_pltfm_temperature_info_t t;
+
+    if (bf_pltfm_mgr_ctx()->sensor_count == 0) {
+        return err;
+    }
+
+    if ((err = __bf_pltfm_chss_mgmt_temperature_get__ (
+            &t)) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading chassis temperature from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
     }
 
     if (t.tmp1 > CHASSIS_TMP_ALARM_RANGE) {
@@ -423,248 +766,73 @@ static void check_chassis_temperature (void)
     if (t.tmp10 > peak.tmp10) {
         peak.tmp10 = t.tmp10;
     }
-    return;
+    return err;
 }
 
-static void check_fantray (void)
+static bf_pltfm_status_t check_fantray (void)
 {
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
     bf_pltfm_fan_data_t fdata;
 
     if (bf_pltfm_mgr_ctx()->fan_group_count == 0) {
-        return;
+        return err;
     }
 
-    if (__bf_pltfm_chss_mgmt_fan_data_get__ (
-            &fdata) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading fan data\n");
+    if ((err = __bf_pltfm_chss_mgmt_fan_data_get__ (
+            &fdata)) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading fan data from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
     } else {
-#if defined(HAVE_ONLP)
-        int i;
-        for (i = 0;
-             i < (int) (bf_pltfm_mgr_ctx()->fan_per_group *
-                        bf_pltfm_mgr_ctx()->fan_group_count); i ++) {
-            bf_pltfm_chss_mgmt_onlp_fan (fdata.F[i].fan_num,
-                                         & (fdata.F[i]));
+        if (fdata.fantray_present) {
+            LOG_ALARM ("Fan tray not present \n");
         }
-#endif
     }
-
-    if (fdata.fantray_present) {
-        LOG_ALARM ("Fan tray not present \n");
-    }
-    return;
+    return err;
 }
 
-static void check_pwr_rails (void)
+static bf_pltfm_status_t check_pwr_rails (void)
 {
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
     bf_pltfm_pwr_rails_info_t pwr_rails;
 
     if (bf_pltfm_mgr_ctx()->psu_count == 0) {
-        return;
+        return err;
     }
 
-    if (__bf_pltfm_chss_mgmt_pwr_rails_get__ (
-            &pwr_rails) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading RAILs pwr\n");
-    } else {
-#if defined(HAVE_ONLP)
-        // save pwr_rails for onlp
-        bf_pltfm_chss_mgmt_onlp_pwr_rails (
-            pwr_rails.vrail1);
-#endif
-    }
-    return;
-}
-
-extern int bf_pltfm_get_qsfp_ctx (struct
-                                  qsfp_ctx_t
-                                  **qsfp_ctx);
-
-static void check_module()
-{
-    int i;
-    int module;
-    int max_sfp_modules;
-    int max_qsfp_modules;
-    uint8_t buf[MAX_QSFP_PAGE_SIZE * 2] = {0};
-
-    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
-    bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
-
-    max_sfp_modules  = bf_sfp_get_max_sfp_ports();
-    max_qsfp_modules = bf_qsfp_get_max_qsfp_ports();
-
-#if defined(HAVE_ONLP)
-    static uint32_t sfp_pres_mask_h  = 0xFFFFFFFF;
-    static uint32_t sfp_pres_mask_l  = 0xFFFFFFFF;
-    static uint32_t qsfp_pres_mask_h = 0xFFFFFFFF;
-    static uint32_t qsfp_pres_mask_l = 0xFFFFFFFF;
-    uint32_t bit_mask;
-    uint32_t *p_pres_mask;
-    char path[MAX_LEN];
-    char value[MAX_LEN];
-
-    for (i = 1; i <= max_qsfp_modules; i ++) {
-        qsfp = &qsfp_ctx[i - 1];
-        module = atoi (&qsfp->desc[1]);
-
-        if (module >= 33) {
-            bit_mask = 1 << (module - 33);
-            p_pres_mask = &qsfp_pres_mask_h;
-        } else {
-            bit_mask = 1 << (module - 1);
-            p_pres_mask = &qsfp_pres_mask_l;
-        }
-
-        sprintf (path, ONLP_LOG_QSFP_PATH,
-                 module, "eeprom");
-
-        if (!bf_qsfp_is_present (i)) {
-            if (*p_pres_mask & bit_mask) {
-                remove (path);
-            }
-            *p_pres_mask &= ~bit_mask;
-            continue;
-        } else {
-            *p_pres_mask |= bit_mask;
-        }
-        if (bf_qsfp_get_cached_info (i,
-                                     QSFP_PAGE0_LOWER, buf)) {
-            continue;
-        }
-        if (bf_qsfp_get_cached_info (
-                i, QSFP_PAGE0_UPPER,
-                buf + MAX_QSFP_PAGE_SIZE)) {
-            continue;
-        }
-#if 0
-        if (bf_qsfp_is_cmis (i)) {
-            continue;
-        }
-#endif
-        onlp_save (path, (char *)buf,
-                   MAX_QSFP_PAGE_SIZE * 2);
-    }
-    sprintf (path, ONLP_LOG_QSFP_PRES_PATH,
-             "presence");
-    sprintf (value, "0x%08x%08x", ~qsfp_pres_mask_h,
-             ~qsfp_pres_mask_l);
-    onlp_save (path, (char *)value, strlen (value));
-
-    for (i = 1; i <= max_sfp_modules; i ++) {
-        if (bf_sfp_is_present (i)) {
-            if (i >= 33) {
-                sfp_pres_mask_h |= 1 << (i - 33);
-            } else {
-                sfp_pres_mask_l |= 1 << (i - 1);
-            }
-        } else {
-            if (i >= 33) {
-                sfp_pres_mask_h &= ~ (1 << (i - 33));
-            } else {
-                sfp_pres_mask_l &= ~ (1 << (i - 1));
-            }
-            continue;
-        }
-
-        bf_sfp_update_cache (i);
-    }
-    sprintf (path, ONLP_LOG_SFP_PRES_PATH,
-             "presence");
-    sprintf (value, "0x%08x%08x", ~sfp_pres_mask_h,
-             ~sfp_pres_mask_l);
-    onlp_save (path, (char *)value, strlen (value));
-#else
-    for (i = 1; i <= max_qsfp_modules; i ++) {
-        if (!bf_qsfp_is_present (i)) {
-            continue;
-        }
-        if (bf_qsfp_get_cached_info (i,
-                                     QSFP_PAGE0_LOWER, buf)) {
-            continue;
-        }
-        if (bf_qsfp_get_cached_info (
-                i, QSFP_PAGE0_UPPER,
-                buf + MAX_QSFP_PAGE_SIZE)) {
-            continue;
-        }
-#if 0
-        if (bf_qsfp_is_cmis (i)) {
-            continue;
-        }
-#endif
-    }
-    for (i = 1; i <= max_sfp_modules; i ++) {
-
-    }
-#endif
-    return;
-}
-
-bf_pltfm_status_t bf_pltfm_temperature_get (
-    bf_pltfm_temperature_info_t *tmp,
-    bf_pltfm_temperature_info_t *peak_tmp)
-{
-    if ((tmp == NULL) || (peak_tmp == tmp)) {
-        LOG_ERROR ("Invalid arguments passed \n");
-        return BF_PLTFM_INVALID_ARG;
-    }
-
-    if (bf_pltfm_chss_mgmt_temperature_get (
-            tmp) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Error in reading temperature \n");
+    if ((err = __bf_pltfm_chss_mgmt_pwr_rails_get__ (
+            &pwr_rails)) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading RAILs pwr from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
         return BF_PLTFM_COMM_FAILED;
-    }
-
-    peak_tmp->tmp1 = peak.tmp1;
-    peak_tmp->tmp2 = peak.tmp2;
-    peak_tmp->tmp3 = peak.tmp3;
-    peak_tmp->tmp4 = peak.tmp4;
-    peak_tmp->tmp5 = peak.tmp5;
-    peak_tmp->tmp6 = peak.tmp6;
-    peak_tmp->tmp7 = peak.tmp7;
-    peak_tmp->tmp8 = peak.tmp8;
-    peak_tmp->tmp9 = peak.tmp9;
-    peak_tmp->tmp10 = peak.tmp10;
-
-    return BF_PLTFM_SUCCESS;
-}
-
-void bf_pltfm_temperature_monitor_enable (
-    bool enable)
-{
-    if (enable) {
-        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_CTRL;
     } else {
-        bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_CTRL;
+        /* Nothing to do. */
     }
-    return;
+    return err;
 }
+
 
 /* Init function of thread */
 void *health_mntr_init (void *arg)
 {
+    int err = 0;
     (void)arg;
-    uint32_t flags = 0;
-    int sec = 15;
+    uint32_t flags = 0, update_flags = 0;
     static bool first_startup = true;
+    extern uint64_t g_rt_async_led_q_length;
 
     printf ("Health monitor started \n");
-
-    /* The more ports (reset circle), the more time to wait until ASIC ready. */
-    if (platform_type_equal (X564P)) {
-        sec = 30;
-    }
-
     FOREVER {
+        err = 0;
         flags = bf_pltfm_mgr_ctx()->flags;
+        update_flags = 0;
 
         /* Chassis temprature is quite important.
          * Monitor this unconditionally even though Monitor Ctrl is disabled.
          * by tsihang, 2021-07-06. */
-        if (likely (flags & AF_PLAT_MNTR_TMP))
-        {
-            check_chassis_temperature();
+        if (likely (flags & AF_PLAT_MNTR_TMP) &&
+            !g_rt_async_led_q_length) {
+            err = check_chassis_temperature();
             sleep (3);
 
             // Tofino temperature monitoring still needs to add FSM
@@ -672,43 +840,56 @@ void *health_mntr_init (void *arg)
                 /* May occure error if no enough time to wait ASIC ready.
                  * by tsihang, 2021-07-06 */
                 if (first_startup) {
-                    /* be carefull when you want to change the sleep interval. */
-                    sleep (sec);
+                    /* The more ports (reset circle), the more time to wait until ASIC ready.
+                     * Be carefull when you want to change the sleep interval. */
+                    sleep (30);
                     first_startup = false;
                 }
                 sleep (3);
-                check_tofino_temperature();
+                err |= check_tofino_temperature();
+            }
+            if (!err) {
+                /* Flush TEMP files in /var/asterfusion/ ONLY when no error occures. */
+                update_flags |= AF_PLAT_MNTR_TMP;
             }
         }
 
-        if (unlikely (! (flags & AF_PLAT_MNTR_CTRL)))
-        {
+        if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
             fprintf (stdout, "Chassis Monitor is disabled\n");
             fprintf (stdout, "@ %s\n",
                      ctime ((time_t *)
                             &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
             sleep (15);
-        } else
-        {
-            if (likely (flags & AF_PLAT_MNTR_FAN)) {
+        } else {
+            if (likely (flags & AF_PLAT_MNTR_FAN) &&
+                !g_rt_async_led_q_length) {
                 sleep (3);
-                check_fantray();
+                err = check_fantray();
+                if (!err) {
+                    /* Flush FAN files in /var/asterfusion/ ONLY when no error occures. */
+                    update_flags |= AF_PLAT_MNTR_FAN;
+                }
             }
 
-            if (likely (flags & AF_PLAT_MNTR_POWER)) {
+            if (likely (flags & AF_PLAT_MNTR_POWER) &&
+                !g_rt_async_led_q_length) {
                 sleep (3);
-                check_pwr_supply();
-
+                err = check_pwr_supply();
                 sleep (3);
-                check_pwr_rails();
-            }
-
-            if (likely (flags & AF_PLAT_MNTR_MODULE)) {
-                check_module();
-                sleep (5);
+                err |= check_pwr_rails();
+                if (!err) {
+                    /* Flush Power files in /var/asterfusion/ ONLY when no error occures. */
+                    update_flags |= AF_PLAT_MNTR_POWER;
+                }
+                sleep (3);
             }
         }
+        /* Update transceivers last. */
+        update_flags |= AF_PLAT_MNTR_MODULE;
+        UPDATE_LOCK;
+        ul_update_flags = update_flags;
+        UPDATE_UNLOCK;
     }
-
+    printf ("====== Health monitor cancelled ======\n");
     return NULL;
 }

@@ -1081,7 +1081,7 @@ int bf_qsfp_detect_transceiver (int port,
         *is_present = st;
         if (st) {
             LOG_DEBUG (
-                "QSFP: %2d : %s\n",
+                "QSFP    %2d : %s\n",
                 port, st ? "PRESENT" : "REMOVED");
 
             err = bf_qsfp_update_data (port);
@@ -1099,7 +1099,7 @@ int bf_qsfp_detect_transceiver (int port,
     } else {
         LOG_DEBUG (
             "(%s:%d) "
-            "QSFP: %2d : %s\n",
+            "QSFP    %2d : %s\n",
             __func__, __LINE__,
             port, st ? "PRESENT" : "REMOVED");
         *is_present = st;
@@ -1807,7 +1807,7 @@ retry_begin :
         //wait some time and retry
         sleep (1);
         retry_times ++;
-        LOG_DEBUG ("QSFP : %2d get_type retry %2d/%2d times",
+        LOG_DEBUG ("QSFP    %2d : get_type retry %2d/%2d times",
                    port, retry_times, max_retry_times);
         //it is bad to retry
         if (retry_times == max_retry_times) {
@@ -1839,7 +1839,7 @@ retry_begin :
      * code as well. Otherwise, we characterize the QSFP by regular compliance
      * code only.
      */
-    LOG_DEBUG ("QSFP : %2d : eth_comp : %2d\n", port,
+    LOG_DEBUG ("QSFP    %2d : eth_comp : %2d\n", port,
                eth_comp);
     if (eth_comp &
         0x77) {  // all except 40GBASE-CR4 and ext compliance bits
@@ -1860,6 +1860,14 @@ retry_begin :
         } else {
             type_copper = true;
         }
+    } else {
+        /* Force to QSFP OPT as if ext_compiance and eth ext_compliance not 0x80 or 0x77.
+         * This may occur vary error and let us keep tracking.
+         * by tsihang, 2022-06-22.
+         */
+        LOG_WARNING ("QSFP    %2d : Force to OPT as if ext_compiance and eth ext_compliance not 0x80 or 0x77.\
+            This override by tsihang.\n", port);
+         type_copper = false;
     }
     if (!type_copper) {  // we are done if found optical module
         *qsfp_type = BF_PLTFM_QSFP_OPT;
@@ -1875,7 +1883,7 @@ retry_begin :
         *qsfp_type = BF_PLTFM_QSFP_CU_LOOP;
         return 0;
     }
-    LOG_DEBUG ("QSFP : %2d : len_copp : %2d\n", port,
+    LOG_DEBUG ("QSFP    %2d : len_copp : %2d\n", port,
                *qsfp_length);
     switch (*qsfp_length) {
         case 0:

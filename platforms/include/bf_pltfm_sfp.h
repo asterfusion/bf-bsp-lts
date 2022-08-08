@@ -197,15 +197,11 @@ struct sfp_ctx_info_t {
 
 /* User defined sfp ctx. */
 struct sfp_ctx_st_t {
-    struct st_ctx_t tx_dis;
+    struct st_ctx_t tx_dis; /* enb for x312p-t. */
     struct st_ctx_t pres;
     struct st_ctx_t rx_los;
     //struct st_ctx_t tx_fault;
 };
-
-typedef struct sfp_ctx_st_t sfp_ctx_st_x5_t;
-typedef struct sfp_ctx_st_t sfp_ctx_st_x3_t;
-typedef struct sfp_ctx_st_t sfp_ctx_st_hc_t;
 
 /* access is 0 based index. */
 struct sfp_ctx_t {

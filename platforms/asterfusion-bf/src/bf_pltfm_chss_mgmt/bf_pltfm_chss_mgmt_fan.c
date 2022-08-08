@@ -220,12 +220,15 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
     bf_pltfm_fan_data_t *fdata)
 {
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
+
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v1dot2)) {
         uint8_t buf[2] = {0};
         uint8_t res[I2C_SMBUS_BLOCK_MAX + 2];
         int rdlen;
         int i;
+        uint8_t num = 0;
 
         // fan status
         for (i = 0; i < 5; i++) {
@@ -259,6 +262,19 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
                             100;
                 }
             }
+
+            num = i;
+            /* Map to group */
+            if (fdata->F[num].fan_num == 1 || fdata->F[num].fan_num == 6)
+                fdata->F[num].group = 1;
+            if (fdata->F[num].fan_num == 2 || fdata->F[num].fan_num == 7)
+                fdata->F[num].group = 2;
+            if (fdata->F[num].fan_num == 3 || fdata->F[num].fan_num == 8)
+                fdata->F[num].group = 3;
+            if (fdata->F[num].fan_num == 4 || fdata->F[num].fan_num == 9)
+                fdata->F[num].group = 4;
+            if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 10)
+                fdata->F[num].group = 5;
         }
     } else if (platform_subtype_equal(v1dot3)) {
         uint8_t buf[4] = {0};
@@ -267,12 +283,65 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         int rdlen = 0;
         uint8_t num = 0;
 
+        // fan status
+        buf[0] = 0x03;
+        buf[1] = 0x32;
+        buf[2] = 0x02;
+        buf[3] = 0x01;
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+        if (rdlen != 3) {
+            LOG_ERROR("read fan status from bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+        /* 0x01 means group 1 (ID 1 and ID 6). */
+        fdata->F[0].present = (data[2] & 0x01) ? 0 : 1;
+        fdata->F[5].present = fdata->F[0].present;
+        /* 0x02 means group 2 (ID 2 and ID 7). */
+        fdata->F[1].present = (data[2] & 0x02) ? 0 : 1;
+        fdata->F[6].present = fdata->F[1].present;
+        /* 0x04 means group 3 (ID 3 and ID 8). */
+        fdata->F[2].present = (data[2] & 0x04) ? 0 : 1;
+        fdata->F[7].present = fdata->F[2].present;
+        /* 0x08 means group 4 (ID 4 and ID 9). */
+        fdata->F[3].present = (data[2] & 0x08) ? 0 : 1;
+        fdata->F[8].present = fdata->F[3].present;
+        /* 0x10 means group 5 (ID 5 and ID 10). */
+        fdata->F[4].present = (data[2] & 0x10) ? 0 : 1;
+        fdata->F[9].present = fdata->F[4].present;
+
+        // fan direction
+        buf[0] = 0x03;
+        buf[1] = 0x32;
+        buf[2] = 0x03;
+        buf[3] = 0x01;
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+        if (rdlen != 3) {
+            LOG_ERROR("read fan direction from bmc error!\n");
+            return BF_PLTFM_COMM_FAILED;
+        }
+        /* 0x01 means group 1 (ID 1 and ID 6). */
+        fdata->F[0].direction = (data[2] & 0x01) ? 0 : 1;
+        fdata->F[5].direction = fdata->F[0].direction;
+        /* 0x02 means group 2 (ID 2 and ID 7). */
+        fdata->F[1].direction = (data[2] & 0x02) ? 0 : 1;
+        fdata->F[6].direction = fdata->F[1].direction;
+        /* 0x04 means group 3 (ID 3 and ID 8). */
+        fdata->F[2].direction = (data[2] & 0x04) ? 0 : 1;
+        fdata->F[7].direction = fdata->F[2].direction;
+        /* 0x08 means group 4 (ID 4 and ID 9). */
+        fdata->F[3].direction = (data[2] & 0x08) ? 0 : 1;
+        fdata->F[8].direction = fdata->F[3].direction;
+        /* 0x10 means group 5 (ID 5 and ID 10). */
+        fdata->F[4].direction = (data[2] & 0x10) ? 0 : 1;
+        fdata->F[9].direction = fdata->F[4].direction;
+
+        // fan speed
         buf[0] = 0x1;
         buf[1] = 0x32;
         buf[3] = 0x1;
         for (i = 0; i < 10; i++) {
             buf[2] = i;
-            rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+            rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
             if (rdlen != 3) {
                 LOG_ERROR("read fan speed from bmc error!\n");
                 return BF_PLTFM_COMM_FAILED;
@@ -288,6 +357,18 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
 
             /* FAN number start from 1. */
             fdata->F[num].fan_num = (num + 1);
+
+            /* Map to group */
+            if (fdata->F[num].fan_num == 1 || fdata->F[num].fan_num == 6)
+                fdata->F[num].group = 1;
+            if (fdata->F[num].fan_num == 2 || fdata->F[num].fan_num == 7)
+                fdata->F[num].group = 2;
+            if (fdata->F[num].fan_num == 3 || fdata->F[num].fan_num == 8)
+                fdata->F[num].group = 3;
+            if (fdata->F[num].fan_num == 4 || fdata->F[num].fan_num == 9)
+                fdata->F[num].group = 4;
+            if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 10)
+                fdata->F[num].group = 5;
         }
     }
 
@@ -318,8 +399,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x532p__ (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
     } else {
-        err = bf_pltfm_bmc_write (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2);
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -342,8 +423,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x564p__ (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
     } else {
-        err = bf_pltfm_bmc_write (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2);
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -366,8 +447,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x308p__ (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
     } else {
-        err = bf_pltfm_bmc_write (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2);
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -379,6 +460,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
     bf_pltfm_fan_info_t *fdata)
 {
+    int usec_delay = BMC_COMM_INTERVAL_US/25;
     fdata = fdata;
 
     /* Example code for a subversion in a given platform. */
@@ -406,7 +488,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[2] = 0x4a;
         buf[3] = 0x01;
         buf[4] = 0x22;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, 10000);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -417,7 +499,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[2] = 0x4c;
         buf[3] = 0x01;
         buf[4] = fdata->speed_level;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, 10000);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -556,14 +638,15 @@ bf_pltfm_chss_mgmt_fan_init()
     }
 
     fprintf (stdout,
-             "FAN  FRONT RPM  REAR RPM  MAX SPEED%%  \n");
+             "FAN   GRP FRONT-RPM  REAR-RPM    SPEED%%\n");
 
     for (uint32_t i = 0;
          i < (bf_pltfm_mgr_ctx()->fan_group_count *
               bf_pltfm_mgr_ctx()->fan_per_group); i++) {
         fprintf (stdout,
-                 "%2d     %5d     %5d      %3d%% \n",
+                 "%2d     %2d     %5d     %5d      %3d%%\n",
                  fdata.F[i].fan_num,
+                 fdata.F[i].group,
                  fdata.F[i].front_speed,
                  fdata.F[i].rear_speed,
                  fdata.F[i].percent);

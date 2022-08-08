@@ -48,8 +48,8 @@ def pltfm_mgr_ps_info_get(ps_num):
     print "VOUT: %d.%d" % (ps_info.vout >> 8, ps_info.vout & 0x00FF)
     print "IIN: %d.%d" % (ps_info.iin >> 8, ps_info.iin & 0x00FF)
     print "IOUT: %d.%d" % (ps_info.iout >> 8, ps_info.iout & 0x00FF)
-    print "PIN: %f" % ps_info.pin
-    print "POUT: %f" % ps_info.pout
+    print "PIN: %f" % ps_info.pwr_in
+    print "POUT: %f" % ps_info.pwr_out
 
 def print_usage():
     print "Usage: ps_info.py <power supply #>         "

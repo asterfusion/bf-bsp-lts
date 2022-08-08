@@ -60,9 +60,14 @@ int bf_pltfm_qsfp_init (void *arg)
                    __func__);
         return -1;
     }
-    if ((board_id == BF_PLTFM_BD_ID_MAVERICKS_P0B) ||
-        (board_id == BF_PLTFM_BD_ID_MAVERICKS_P0A) ||
-        (board_id == BF_PLTFM_BD_ID_MAVERICKS_P0C)) {
+    if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
+        (board_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
+        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
+        (board_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
         qsfp_hndl[CP2112_ID_2] =
             bf_pltfm_cp2112_get_handle (CP2112_ID_2);
         if (!qsfp_hndl[CP2112_ID_2]) {
@@ -95,11 +100,10 @@ static int mav_qsfp_param_get (unsigned int
     bf_pltfm_board_id_t board_id;
     bf_pltfm_chss_mgmt_bd_type_get (&board_id);
 
-    if ((board_id == BF_PLTFM_BD_ID_MONTARA_P0B) ||
-        (board_id == BF_PLTFM_BD_ID_MONTARA_P0C) ||
-        (board_id == BF_PLTFM_BD_ID_NEWPORT_P0A) ||
-        (board_id == BF_PLTFM_BD_ID_NEWPORT_P0B) ||
-        (board_id == BF_PLTFM_BD_ID_MONTARA_P0A)) {
+    if ((board_id == BF_PLTFM_BD_ID_X312PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X312PT_V1DOT1) ||
+        (board_id == BF_PLTFM_BD_ID_X312PT_V1DOT2) ||
+        (board_id == BF_PLTFM_BD_ID_X312PT_V1DOT3)) {
         if (module < 1 ||
             module > (BF_MAV_SUB_PORT_CNT + 1)) {
             return -1;
@@ -114,10 +118,14 @@ static int mav_qsfp_param_get (unsigned int
             *handle = qsfp_hndl[CP2112_ID_1];
             *sub_module = BF_MAV_SUB_PORT_CNT;
         }
-    } else if ((board_id ==
-                BF_PLTFM_BD_ID_MAVERICKS_P0B) ||
-               (board_id == BF_PLTFM_BD_ID_MAVERICKS_P0A) ||
-               (board_id == BF_PLTFM_BD_ID_MAVERICKS_P0C)) {
+    } else if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
+        (board_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
+        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
+        (board_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
         if (module < 1 ||
             module > (BF_MAV_SUB_PORT_CNT * 2 + 1)) {
             return -1;

@@ -280,13 +280,20 @@ bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
     sff = &se->info;
     memset (se, 0, sizeof (sff_eeprom_t));
     rc = sff_eeprom_parse (se, idprom);
+    /* sff_eeprom_parse is quite an importand API for most sfp.
+     * but it is still not ready for all kind of sfps.
+     * so override the failure here and keep tracking.
+     * by tsihang, 2022-06-17. */
+#if 0
     if (!se->identified) {
         aim_printf (&uc->pvs,
                     " SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>\n",
                     module, rc);
         return 0;
     }
-
+#else
+    rc = rc;
+#endif
     a0h = idprom;
     a2h = idprom + MAX_SFP_PAGE_SIZE;
     sff_dom_info_get (&sdi, sff, a0h, a2h);
@@ -453,13 +460,20 @@ bf_pltfm_ucli_ucli__sfp_show_module (
     sff = &se->info;
     memset (se, 0, sizeof (sff_eeprom_t));
     rc = sff_eeprom_parse (se, idprom);
+    /* sff_eeprom_parse is quite an importand API for most sfp.
+     * but it is still not ready for all kind of sfps.
+     * so override the failure here.
+     * by tsihang, 2022-06-17. */
+#if 0
     if (!se->identified) {
         aim_printf (&uc->pvs,
                     " SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>\n",
                     module, rc);
         return 0;
     }
-
+#else
+    rc = rc;
+#endif
     a0h = idprom;
     a2h = idprom + MAX_SFP_PAGE_SIZE;
     sff_dom_info_get (&sdi, sff, a0h, a2h);
@@ -626,8 +640,8 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
         module = (i + 1);
         err = bf_pltfm_sfp_lookup_by_module (module, &conn_id, &chnl_id);
         if (!err) {
-            sprintf(alias, "Y%d", module);
-            sprintf(connc, "%2d/%d", conn_id, chnl_id);
+            sprintf(alias, "Y%d", module % (BF_PLAT_MAX_QSFP * 4));
+            sprintf(connc, "%2d/%d", (conn_id % BF_PLAT_MAX_QSFP), (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         module, alias, connc, bf_sfp_is_present (module) ? "true" : "false");
         }

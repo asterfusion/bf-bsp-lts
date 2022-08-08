@@ -212,7 +212,12 @@ am__libasterfusionbf_platform_la_SOURCES_DIST =  \
 	bf_pltfm_bmc_tty/bmc_tty.c platform_mgr/platform.c \
 	platform_mgr/platform_board.c \
 	platform_mgr/platform_health_mntr.c \
-	bf_pltfm_led/bf_pltfm_mav_led.c bf_pltfm_led/lq.c \
+	bf_pltfm_led/bf_pltfm_mav_led.c \
+	bf_pltfm_led/bf_pltfm_mav_led_x564p.c \
+	bf_pltfm_led/bf_pltfm_mav_led_x532p.c \
+	bf_pltfm_led/bf_pltfm_mav_led_x308p.c \
+	bf_pltfm_led/bf_pltfm_mav_led_x312p.c \
+	bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c bf_pltfm_led/lq.c \
 	bf_pltfm_led/bf_pltfm_mav_cpld_led.c bf_pltfm_rptr/rptr.h \
 	bf_pltfm_rptr/bf_pltfm_rptr.c \
 	bf_pltfm_rptr/bf_pltfm_rptr_ucli.c \
@@ -229,6 +234,11 @@ am__libasterfusionbf_platform_la_SOURCES_DIST =  \
 @TCL_ONLY_FALSE@	platform_mgr/libasterfusionbf_platform_la-platform_board.lo \
 @TCL_ONLY_FALSE@	platform_mgr/libasterfusionbf_platform_la-platform_health_mntr.lo \
 @TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led.lo \
+@TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo \
+@TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo \
+@TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo \
+@TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo \
+@TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo \
 @TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-lq.lo \
 @TCL_ONLY_FALSE@	bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_cpld_led.lo \
 @TCL_ONLY_FALSE@	bf_pltfm_rptr/libasterfusionbf_platform_la-bf_pltfm_rptr.lo \
@@ -252,10 +262,29 @@ libasterfusionbf_platform_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 @TCL_ONLY_TRUE@am_libasterfusionbf_platform_la_rpath =
 libasterfusionbf_qsfp_la_LIBADD =
 am__libasterfusionbf_qsfp_la_SOURCES_DIST = qsfp/bf_mav_qsfp_module.c \
-	qsfp/bf_mav_qsfp_sub_module.c qsfp/bf_mav_sfp_module.c
+	qsfp/bf_mav_qsfp_sub_module.c \
+	qsfp/bf_mav_qsfp_sub_module_x312p.c \
+	qsfp/bf_mav_qsfp_sub_module_x308p.c \
+	qsfp/bf_mav_qsfp_sub_module_x532p.c \
+	qsfp/bf_mav_qsfp_sub_module_x564p.c \
+	qsfp/bf_mav_qsfp_sub_module_hc36y24c.c \
+	qsfp/bf_mav_sfp_module.c qsfp/bf_mav_sfp_module_x312p.c \
+	qsfp/bf_mav_sfp_module_x308p.c qsfp/bf_mav_sfp_module_x532p.c \
+	qsfp/bf_mav_sfp_module_x564p.c \
+	qsfp/bf_mav_sfp_module_hc36y24c.c
 @TCL_ONLY_FALSE@am_libasterfusionbf_qsfp_la_OBJECTS = qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_module.lo \
 @TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module.lo \
-@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo \
+@TCL_ONLY_FALSE@	qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo
 libasterfusionbf_qsfp_la_OBJECTS =  \
 	$(am_libasterfusionbf_qsfp_la_OBJECTS)
 libasterfusionbf_qsfp_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
@@ -492,6 +521,11 @@ libasterfusionbf_chss_mgmt_la_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS) -DINC_
 @TCL_ONLY_FALSE@platform_mgr/platform_board.c \
 @TCL_ONLY_FALSE@platform_mgr/platform_health_mntr.c \
 @TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_led.c \
+@TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_led_x564p.c \
+@TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_led_x532p.c \
+@TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_led_x308p.c \
+@TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_led_x312p.c \
+@TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c \
 @TCL_ONLY_FALSE@bf_pltfm_led/lq.c \
 @TCL_ONLY_FALSE@bf_pltfm_led/bf_pltfm_mav_cpld_led.c \
 @TCL_ONLY_FALSE@bf_pltfm_rptr/rptr.h \
@@ -523,7 +557,17 @@ libasterfusionbf_chss_mgmt_la_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS) -DINC_
 @TCL_ONLY_FALSE@libasterfusionbf_qsfp_la_SOURCES = \
 @TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_module.c \
 @TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_sub_module.c \
-@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module.c
+@TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_sub_module_x312p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_sub_module_x308p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_sub_module_x532p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_sub_module_x564p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_qsfp_sub_module_hc36y24c.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module_x312p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module_x308p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module_x532p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module_x564p.c \
+@TCL_ONLY_FALSE@qsfp/bf_mav_sfp_module_hc36y24c.c
 
 @TCL_ONLY_FALSE@libasterfusionbf_cpld_la_SOURCES = \
 @TCL_ONLY_FALSE@bf_pltfm_cpld/bf_pltfm_cpld_ucli.c
@@ -745,6 +789,21 @@ bf_pltfm_led/$(DEPDIR)/$(am__dirstamp):
 bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led.lo:  \
 	bf_pltfm_led/$(am__dirstamp) \
 	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo:  \
+	bf_pltfm_led/$(am__dirstamp) \
+	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo:  \
+	bf_pltfm_led/$(am__dirstamp) \
+	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo:  \
+	bf_pltfm_led/$(am__dirstamp) \
+	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo:  \
+	bf_pltfm_led/$(am__dirstamp) \
+	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo:  \
+	bf_pltfm_led/$(am__dirstamp) \
+	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
 bf_pltfm_led/libasterfusionbf_platform_la-lq.lo:  \
 	bf_pltfm_led/$(am__dirstamp) \
 	bf_pltfm_led/$(DEPDIR)/$(am__dirstamp)
@@ -836,7 +895,27 @@ qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_module.lo:  \
 	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
 qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module.lo:  \
 	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
 qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo:  \
+	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo:  \
 	qsfp/$(am__dirstamp) qsfp/$(DEPDIR)/$(am__dirstamp)
 
 libasterfusionbf_qsfp.la: $(libasterfusionbf_qsfp_la_OBJECTS) $(libasterfusionbf_qsfp_la_DEPENDENCIES) $(EXTRA_libasterfusionbf_qsfp_la_DEPENDENCIES) 
@@ -925,6 +1004,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_cpld/$(DEPDIR)/libasterfusionbf_cpld_la-bf_pltfm_cpld_ucli.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_cpld_led.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-lq.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_master_i2c/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_cgos_i2c.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_pltfm_master_i2c/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_master_i2c.Plo@am__quote@
@@ -941,7 +1025,17 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@platform_mgr/$(DEPDIR)/libasterfusionbf_platform_la-platform_health_mntr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_module.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1079,6 +1173,41 @@ bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led.lo: bf_pltfm_led/bf_p
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led.c
 
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo: bf_pltfm_led/bf_pltfm_mav_led_x564p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -MT bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo -MD -MP -MF bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.Tpo -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x564p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x564p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.Tpo bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_pltfm_led/bf_pltfm_mav_led_x564p.c' object='bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x564p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x564p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x564p.c
+
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo: bf_pltfm_led/bf_pltfm_mav_led_x532p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -MT bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo -MD -MP -MF bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.Tpo -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x532p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x532p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.Tpo bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_pltfm_led/bf_pltfm_mav_led_x532p.c' object='bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x532p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x532p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x532p.c
+
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo: bf_pltfm_led/bf_pltfm_mav_led_x308p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -MT bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo -MD -MP -MF bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.Tpo -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x308p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x308p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.Tpo bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_pltfm_led/bf_pltfm_mav_led_x308p.c' object='bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x308p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x308p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x308p.c
+
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo: bf_pltfm_led/bf_pltfm_mav_led_x312p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -MT bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo -MD -MP -MF bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.Tpo -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x312p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x312p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.Tpo bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_pltfm_led/bf_pltfm_mav_led_x312p.c' object='bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_x312p.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_x312p.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_x312p.c
+
+bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo: bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -MT bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo -MD -MP -MF bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.Tpo -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.Tpo bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c' object='bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -c -o bf_pltfm_led/libasterfusionbf_platform_la-bf_pltfm_mav_led_hc36y24c.lo `test -f 'bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c' || echo '$(srcdir)/'`bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c
+
 bf_pltfm_led/libasterfusionbf_platform_la-lq.lo: bf_pltfm_led/lq.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_platform_la_CFLAGS) $(CFLAGS) -MT bf_pltfm_led/libasterfusionbf_platform_la-lq.lo -MD -MP -MF bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-lq.Tpo -c -o bf_pltfm_led/libasterfusionbf_platform_la-lq.lo `test -f 'bf_pltfm_led/lq.c' || echo '$(srcdir)/'`bf_pltfm_led/lq.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-lq.Tpo bf_pltfm_led/$(DEPDIR)/libasterfusionbf_platform_la-lq.Plo
@@ -1177,12 +1306,82 @@ qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module.lo: qsfp/bf_mav_qsfp_sub_mo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module.lo `test -f 'qsfp/bf_mav_qsfp_sub_module.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module.c
 
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo: qsfp/bf_mav_qsfp_sub_module_x312p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x312p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x312p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_qsfp_sub_module_x312p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x312p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x312p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x312p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo: qsfp/bf_mav_qsfp_sub_module_x308p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x308p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x308p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_qsfp_sub_module_x308p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x308p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x308p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x308p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo: qsfp/bf_mav_qsfp_sub_module_x532p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x532p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x532p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_qsfp_sub_module_x532p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x532p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x532p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x532p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo: qsfp/bf_mav_qsfp_sub_module_x564p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x564p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x564p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_qsfp_sub_module_x564p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_x564p.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_x564p.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_x564p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo: qsfp/bf_mav_qsfp_sub_module_hc36y24c.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_hc36y24c.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_hc36y24c.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_qsfp_sub_module_hc36y24c.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_qsfp_sub_module_hc36y24c.lo `test -f 'qsfp/bf_mav_qsfp_sub_module_hc36y24c.c' || echo '$(srcdir)/'`qsfp/bf_mav_qsfp_sub_module_hc36y24c.c
+
 qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo: qsfp/bf_mav_sfp_module.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo `test -f 'qsfp/bf_mav_sfp_module.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_sfp_module.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module.lo `test -f 'qsfp/bf_mav_sfp_module.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo: qsfp/bf_mav_sfp_module_x312p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo `test -f 'qsfp/bf_mav_sfp_module_x312p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x312p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_sfp_module_x312p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x312p.lo `test -f 'qsfp/bf_mav_sfp_module_x312p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x312p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo: qsfp/bf_mav_sfp_module_x308p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo `test -f 'qsfp/bf_mav_sfp_module_x308p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x308p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_sfp_module_x308p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x308p.lo `test -f 'qsfp/bf_mav_sfp_module_x308p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x308p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo: qsfp/bf_mav_sfp_module_x532p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo `test -f 'qsfp/bf_mav_sfp_module_x532p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x532p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_sfp_module_x532p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x532p.lo `test -f 'qsfp/bf_mav_sfp_module_x532p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x532p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo: qsfp/bf_mav_sfp_module_x564p.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo `test -f 'qsfp/bf_mav_sfp_module_x564p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x564p.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_sfp_module_x564p.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_x564p.lo `test -f 'qsfp/bf_mav_sfp_module_x564p.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_x564p.c
+
+qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo: qsfp/bf_mav_sfp_module_hc36y24c.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -MT qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo -MD -MP -MF qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.Tpo -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo `test -f 'qsfp/bf_mav_sfp_module_hc36y24c.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_hc36y24c.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.Tpo qsfp/$(DEPDIR)/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='qsfp/bf_mav_sfp_module_hc36y24c.c' object='qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libasterfusionbf_qsfp_la_CFLAGS) $(CFLAGS) -c -o qsfp/libasterfusionbf_qsfp_la-bf_mav_sfp_module_hc36y24c.lo `test -f 'qsfp/bf_mav_sfp_module_hc36y24c.c' || echo '$(srcdir)/'`qsfp/bf_mav_sfp_module_hc36y24c.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

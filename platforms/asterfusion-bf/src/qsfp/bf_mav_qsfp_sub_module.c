@@ -41,11 +41,6 @@
     }
 
 #define DEFAULT_TIMEOUT_MS 500
-#define INVALIDBIT(b) (-1)
-
-/* GHC channel num. */
-static int max_vqsfp = 4;
-static int max_vsfp = 6;
 
 typedef enum {
     /* The PCA9548 switch selecting for 32 port controllers
@@ -56,224 +51,10 @@ typedef enum {
     ADDR_SWITCH_COMM = 0xe8
 } mav_mux_pca9548_addr_t;
 
-/* For those platforms which not finished yet, I use this macro as a indicator.
- * Please help me with this fixed.
- * by tsihang, 2021-07-18. */
-#define QSFP_UNDEFINED_ST_CTX  \
-     {BF_MAV_SYSCPLD3, 0x00, BIT (0)}, {BF_MAV_SYSCPLD3, 0x00, BIT (0)}
 
-/* access is 0 based index. */
-static struct qsfp_ctx_t qsfp_ctx_x532p[] = {
-    {"C1",   1, (0x70 << 1), 0, INVALID, {BF_MAV_SYSCPLD1, 0x02, BIT (0)}, {BF_MAV_SYSCPLD1, 0x0F, BIT (0)}},
-    {"C2",   2, (0x70 << 1), 1, INVALID, {BF_MAV_SYSCPLD1, 0x02, BIT (1)}, {BF_MAV_SYSCPLD1, 0x0F, BIT (1)}},
-    {"C3",   3, (0x70 << 1), 2, INVALID, {BF_MAV_SYSCPLD1, 0x02, BIT (2)}, {BF_MAV_SYSCPLD1, 0x0F, BIT (2)}},
-    {"C4",   4, (0x70 << 1), 3, INVALID, {BF_MAV_SYSCPLD1, 0x02, BIT (3)}, {BF_MAV_SYSCPLD1, 0x0F, BIT (3)}},
-    {"C5",   5, (0x70 << 1), 4, INVALID, {BF_MAV_SYSCPLD1, 0x03, BIT (0)}, {BF_MAV_SYSCPLD1, 0x10, BIT (0)}},
-    {"C6",   6, (0x70 << 1), 5, INVALID, {BF_MAV_SYSCPLD1, 0x03, BIT (1)}, {BF_MAV_SYSCPLD1, 0x10, BIT (1)}},
-    {"C7",   7, (0x70 << 1), 6, INVALID, {BF_MAV_SYSCPLD1, 0x03, BIT (2)}, {BF_MAV_SYSCPLD1, 0x10, BIT (2)}},
-    {"C8",   8, (0x70 << 1), 7, INVALID, {BF_MAV_SYSCPLD1, 0x03, BIT (3)}, {BF_MAV_SYSCPLD1, 0x10, BIT (3)}},
-    {"C9",   9, (0x71 << 1), 0, INVALID, {BF_MAV_SYSCPLD1, 0x04, BIT (0)}, {BF_MAV_SYSCPLD1, 0x11, BIT (0)}},
-    {"C10", 10, (0x71 << 1), 1, INVALID, {BF_MAV_SYSCPLD1, 0x04, BIT (1)}, {BF_MAV_SYSCPLD1, 0x11, BIT (1)}},
-    {"C11", 11, (0x71 << 1), 2, INVALID, {BF_MAV_SYSCPLD1, 0x04, BIT (2)}, {BF_MAV_SYSCPLD1, 0x11, BIT (2)}},
-    {"C12", 12, (0x71 << 1), 3, INVALID, {BF_MAV_SYSCPLD1, 0x04, BIT (3)}, {BF_MAV_SYSCPLD1, 0x11, BIT (3)}},
-    {"C13", 13, (0x71 << 1), 4, INVALID, {BF_MAV_SYSCPLD1, 0x05, BIT (0)}, {BF_MAV_SYSCPLD1, 0x12, BIT (0)}},
-    {"C14", 14, (0x71 << 1), 5, INVALID, {BF_MAV_SYSCPLD1, 0x05, BIT (1)}, {BF_MAV_SYSCPLD1, 0x12, BIT (1)}},
-    {"C15", 15, (0x71 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x0e, BIT (1)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (0)}},
-    {"C16", 16, (0x71 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x0e, BIT (2)}, {BF_MAV_SYSCPLD1, 0x12, BIT (3)}},
-    {"C17", 17, (0x72 << 1), 0, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (0)}, {BF_MAV_SYSCPLD2, 0x0A, BIT (0)}},
-    {"C18", 18, (0x72 << 1), 1, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (1)}, {BF_MAV_SYSCPLD2, 0x0A, BIT (1)}},
-    {"C19", 19, (0x72 << 1), 2, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (2)}, {BF_MAV_SYSCPLD2, 0x0A, BIT (2)}},
-    {"C20", 20, (0x72 << 1), 3, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (3)}, {BF_MAV_SYSCPLD2, 0x0A, BIT (3)}},
-    {"C21", 21, (0x72 << 1), 4, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (0)}, {BF_MAV_SYSCPLD2, 0x0B, BIT (0)}},
-    {"C22", 22, (0x72 << 1), 5, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (1)}, {BF_MAV_SYSCPLD2, 0x0B, BIT (1)}},
-    {"C23", 23, (0x72 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (2)}, {BF_MAV_SYSCPLD2, 0x0B, BIT (2)}},
-    {"C24", 24, (0x72 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (3)}, {BF_MAV_SYSCPLD2, 0x0B, BIT (3)}},
-    {"C25", 25, (0x73 << 1), 0, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (0)}, {BF_MAV_SYSCPLD2, 0x0C, BIT (0)}},
-    {"C26", 26, (0x73 << 1), 1, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (1)}, {BF_MAV_SYSCPLD2, 0x0C, BIT (1)}},
-    {"C27", 27, (0x73 << 1), 2, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (2)}, {BF_MAV_SYSCPLD2, 0x0C, BIT (2)}},
-    {"C28", 28, (0x73 << 1), 3, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (3)}, {BF_MAV_SYSCPLD2, 0x0C, BIT (3)}},
-    {"C29", 29, (0x73 << 1), 4, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (0)}, {BF_MAV_SYSCPLD2, 0x0D, BIT (0)}},
-    {"C30", 30, (0x73 << 1), 5, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (1)}, {BF_MAV_SYSCPLD2, 0x0D, BIT (1)}},
-    {"C31", 31, (0x73 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (2)}, {BF_MAV_SYSCPLD2, 0x0D, BIT (2)}},
-    {"C32", 32, (0x73 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (3)}, {BF_MAV_SYSCPLD2, 0x0D, BIT (3)}},
-};
-
-static struct qsfp_ctx_t qsfp_ctx_x564p[] = {
-    {"C1",   1, (0x70 << 1), 0, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (0)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (0)}},
-    {"C2",   2, (0x70 << 1), 1, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (1)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (1)}},
-    {"C3",   3, (0x70 << 1), 2, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (2)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (2)}},
-    {"C4",   4, (0x70 << 1), 3, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (3)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (3)}},
-    {"C5",   5, (0x71 << 1), 0, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (0)}, {BF_MAV_SYSCPLD2, 0x10, BIT (0)}},
-    {"C6",   6, (0x71 << 1), 1, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (1)}, {BF_MAV_SYSCPLD2, 0x10, BIT (1)}},
-    {"C7",   7, (0x71 << 1), 2, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (2)}, {BF_MAV_SYSCPLD2, 0x10, BIT (2)}},
-    {"C8",   8, (0x71 << 1), 3, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (3)}, {BF_MAV_SYSCPLD2, 0x10, BIT (3)}},
-    {"C9",   9, (0x72 << 1), 0, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (0)}, {BF_MAV_SYSCPLD2, 0x11, BIT (0)}},
-    {"C10", 10, (0x72 << 1), 1, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (1)}, {BF_MAV_SYSCPLD2, 0x11, BIT (1)}},
-    {"C11", 11, (0x72 << 1), 2, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (2)}, {BF_MAV_SYSCPLD2, 0x11, BIT (2)}},
-    {"C12", 12, (0x72 << 1), 3, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (3)}, {BF_MAV_SYSCPLD2, 0x11, BIT (3)}},
-    {"C13", 13, (0x73 << 1), 0, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (0)}, {BF_MAV_SYSCPLD2, 0x12, BIT (0)}},
-    {"C14", 14, (0x73 << 1), 1, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (1)}, {BF_MAV_SYSCPLD2, 0x12, BIT (1)}},
-    {"C15", 15, (0x73 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 0x0e, BIT (1)}, {BF_MAV_SYSCPLD3, 0x0F, BIT (0)}},
-    {"C16", 16, (0x73 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 0x0e, BIT (2)}, {BF_MAV_SYSCPLD2, 0x12, BIT (3)}},
-    {"C17", 17, (0x75 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (0)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (0)}},
-    {"C18", 18, (0x74 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (1)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (1)}},
-    {"C19", 19, (0x74 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (2)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (2)}},
-    {"C20", 20, (0x74 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (3)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (3)}},
-    {"C21", 21, (0x75 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (0)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (0)}},
-    {"C22", 22, (0x75 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (1)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (1)}},
-    {"C23", 23, (0x75 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (2)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (2)}},
-    {"C24", 24, (0x75 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (3)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (3)}},
-    {"C25", 25, (0x77 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (0)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (0)}},
-    {"C26", 26, (0x77 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (1)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (1)}},
-    {"C27", 27, (0x77 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (2)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (2)}},
-    {"C28", 28, (0x77 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (3)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (3)}},
-    {"C29", 29, (0x76 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (0)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (0)}},
-    {"C30", 30, (0x76 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (1)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (1)}},
-    {"C31", 31, (0x76 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (2)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (2)}},
-    {"C32", 32, (0x76 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (3)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (3)}},
-    {"C33", 33, (0x70 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (7)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (7)}},
-    {"C34", 34, (0x70 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (6)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (6)}},
-    {"C35", 35, (0x70 << 1), 5, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (5)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (5)}},
-    {"C36", 36, (0x70 << 1), 4, INVALID, {BF_MAV_SYSCPLD2, 0x02, BIT (4)}, {BF_MAV_SYSCPLD2, 0x0F, BIT (4)}},
-    {"C37", 37, (0x71 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (7)}, {BF_MAV_SYSCPLD2, 0x10, BIT (7)}},
-    {"C38", 38, (0x71 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (6)}, {BF_MAV_SYSCPLD2, 0x10, BIT (6)}},
-    {"C39", 39, (0x71 << 1), 5, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (5)}, {BF_MAV_SYSCPLD2, 0x10, BIT (5)}},
-    {"C40", 40, (0x71 << 1), 4, INVALID, {BF_MAV_SYSCPLD2, 0x03, BIT (4)}, {BF_MAV_SYSCPLD2, 0x10, BIT (4)}},
-    {"C41", 41, (0x72 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (7)}, {BF_MAV_SYSCPLD2, 0x11, BIT (7)}},
-    {"C42", 42, (0x72 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (6)}, {BF_MAV_SYSCPLD2, 0x11, BIT (6)}},
-    {"C43", 43, (0x72 << 1), 5, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (5)}, {BF_MAV_SYSCPLD2, 0x11, BIT (5)}},
-    {"C44", 44, (0x72 << 1), 4, INVALID, {BF_MAV_SYSCPLD2, 0x04, BIT (4)}, {BF_MAV_SYSCPLD2, 0x11, BIT (4)}},
-    {"C45", 45, (0x73 << 1), 7, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (7)}, {BF_MAV_SYSCPLD2, 0x12, BIT (7)}},
-    {"C46", 46, (0x73 << 1), 6, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (6)}, {BF_MAV_SYSCPLD2, 0x12, BIT (6)}},
-    {"C47", 47, (0x73 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 0x0e, BIT (3)}, {BF_MAV_SYSCPLD3, 0x0F, BIT (1)}},
-    {"C48", 48, (0x73 << 1), 4, INVALID, {BF_MAV_SYSCPLD2, 0x05, BIT (4)}, {BF_MAV_SYSCPLD2, 0x12, BIT (4)}},
-    {"C49", 49, (0x74 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (7)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (7)}},
-    {"C50", 50, (0x74 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (6)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (6)}},
-    {"C51", 51, (0x74 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (5)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (5)}},
-    {"C52", 52, (0x74 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 0x02, BIT (4)}, {BF_MAV_SYSCPLD3, 0x0A, BIT (4)}},
-    {"C53", 53, (0x74 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (7)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (7)}},
-    {"C54", 54, (0x75 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (6)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (6)}},
-    {"C55", 55, (0x75 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (5)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (5)}},
-    {"C56", 56, (0x75 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 0x03, BIT (4)}, {BF_MAV_SYSCPLD3, 0x0B, BIT (4)}},
-    {"C57", 57, (0x77 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (7)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (7)}},
-    {"C58", 58, (0x77 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (6)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (6)}},
-    {"C59", 59, (0x77 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (5)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (5)}},
-    {"C60", 60, (0x77 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 0x04, BIT (4)}, {BF_MAV_SYSCPLD3, 0x0C, BIT (4)}},
-    {"C61", 61, (0x76 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (7)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (7)}},
-    {"C62", 62, (0x76 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (6)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (6)}},
-    {"C63", 63, (0x76 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (5)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (5)}},
-    {"C64", 64, (0x76 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 0x05, BIT (4)}, {BF_MAV_SYSCPLD3, 0x0D, BIT (4)}},
-};
-
-static struct qsfp_ctx_t qsfp_ctx_x308p[] = {
-    {"C1",   1, (0x76 << 1), 0, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (0)}, {BF_MAV_SYSCPLD1, 0x14, BIT (0)}},
-    {"C2",   2, (0x76 << 1), 1, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (1)}, {BF_MAV_SYSCPLD1, 0x14, BIT (1)}},
-    {"C3",   3, (0x76 << 1), 2, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (2)}, {BF_MAV_SYSCPLD1, 0x14, BIT (2)}},
-    {"C4",   4, (0x76 << 1), 3, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (3)}, {BF_MAV_SYSCPLD1, 0x14, BIT (3)}},
-    {"C5",   5, (0x76 << 1), 4, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (4)}, {BF_MAV_SYSCPLD1, 0x14, BIT (4)}},
-    {"C6",   6, (0x76 << 1), 5, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (5)}, {BF_MAV_SYSCPLD1, 0x14, BIT (5)}},
-    {"C7",   7, (0x76 << 1), 6, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (6)}, {BF_MAV_SYSCPLD1, 0x14, BIT (6)}},
-    {"C8",   8, (0x76 << 1), 7, INVALID, {BF_MAV_SYSCPLD1, 0x06, BIT (7)}, {BF_MAV_SYSCPLD1, 0x14, BIT (7)}},
-};
-
-/* Fixed me */
-static struct qsfp_ctx_t vqsfp_ctx_x308p[] = {
-    /* vQSFP: C9,C10,C11,C12, treated as QSFP by stratum. */
-    {"C9",  24, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 9*/
-    {"C10", 22, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 10*/
-    {"C11", 26, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 11*/
-    {"C12", 14, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 12*/
-
-    /* GHC0 in the future. */
-    {"C13", 18, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 18*/
-    {"C14", 23, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 23*/
-
-    /* GHC1 in the future. */
-    {"C15", 16, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 16*/
-    {"C26", 25, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                  /* QSFP 25*/
-};
-
-/* Not finished yet, please help this work.
- * by tsihang, 2021-07-18. */
-static struct qsfp_ctx_t qsfp_ctx_hc[] = {
-    {"C1", 22, (0x70 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (0)}, {BF_MAV_SYSCPLD3, 0x10, BIT (0)}}, /* QSFP 22 */
-    {"C2", 21, (0x70 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (1)}, {BF_MAV_SYSCPLD3, 0x10, BIT (1)}}, /* QSFP 21 */
-    {"C3", 24, (0x70 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (2)}, {BF_MAV_SYSCPLD3, 0x10, BIT (2)}}, /* QSFP 24 */
-    {"C4", 20, (0x70 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (3)}, {BF_MAV_SYSCPLD3, 0x10, BIT (3)}}, /* QSFP 20 */
-    {"C5", 19, (0x70 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (4)}, {BF_MAV_SYSCPLD3, 0x10, BIT (4)}}, /* QSFP 19 */
-    {"C6", 23, (0x70 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (5)}, {BF_MAV_SYSCPLD3, 0x10, BIT (5)}}, /* QSFP 23 */
-    {"C7", 16, (0x71 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (6)}, {BF_MAV_SYSCPLD3, 0x10, BIT (6)}}, /* QSFP 16 */
-    {"C8", 15, (0x71 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 2, BIT (7)}, {BF_MAV_SYSCPLD3, 0x10, BIT (7)}}, /* QSFP 15 */
-    {"C9", 18, (0x70 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (0)}, {BF_MAV_SYSCPLD3, 0x11, BIT (0)}}, /* QSFP 18 */
-    {"C10", 14, (0x70 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (1)}, {BF_MAV_SYSCPLD3, 0x11, BIT (1)}}, /* QSFP 14 */
-    {"C11", 13, (0x71 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (2)}, {BF_MAV_SYSCPLD3, 0x11, BIT (2)}}, /* QSFP 13 */
-    {"C12", 17, (0x71 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (3)}, {BF_MAV_SYSCPLD3, 0x11, BIT (3)}}, /* QSFP 17 */
-    {"C13", 10, (0x71 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (4)}, {BF_MAV_SYSCPLD3, 0x11, BIT (4)}}, /* QSFP 10 */
-    {"C14", 9, (0x71 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (5)}, {BF_MAV_SYSCPLD3, 0x11, BIT (5)}}, /* QSFP  9 */
-    {"C15", 12, (0x71 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (6)}, {BF_MAV_SYSCPLD3, 0x11, BIT (6)}}, /* QSFP 12 */
-    {"C16", 8, (0x71 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 3, BIT (7)}, {BF_MAV_SYSCPLD3, 0x11, BIT (7)}}, /* QSFP  8 */
-    {"C17", 7, (0x72 << 1), 0, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (0)}, {BF_MAV_SYSCPLD3, 0x12, BIT (0)}}, /* QSFP  7 */
-    {"C18", 11, (0x72 << 1), 1, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (1)}, {BF_MAV_SYSCPLD3, 0x12, BIT (1)}}, /* QSFP 11 */
-    {"C19", 4, (0x72 << 1), 4, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (2)}, {BF_MAV_SYSCPLD3, 0x12, BIT (2)}}, /* QSFP  4 */
-    {"C20", 3, (0x72 << 1), 5, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (3)}, {BF_MAV_SYSCPLD3, 0x12, BIT (3)}}, /* QSFP  3 */
-    {"C21", 6, (0x72 << 1), 2, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (4)}, {BF_MAV_SYSCPLD3, 0x12, BIT (4)}}, /* QSFP  6 */
-    {"C22", 2, (0x72 << 1), 3, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (5)}, {BF_MAV_SYSCPLD3, 0x12, BIT (5)}}, /* QSFP  2 */
-    {"C23", 1, (0x72 << 1), 6, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (6)}, {BF_MAV_SYSCPLD3, 0x12, BIT (6)}}, /* QSFP  1 */
-    {"C24", 5, (0x72 << 1), 7, INVALID, {BF_MAV_SYSCPLD3, 4, BIT (7)}, {BF_MAV_SYSCPLD3, 0x12, BIT (7)}}, /* QSFP  5 */
-};
-
-/* 2021/08/06
- * X312P uses two level PCA9548s to read qsfp eeprom,
- * Address of level1 PCA9548 is always 0x71,
- * For QSFP, channel of level1 PCA9548 is always CH1
- *
- * So, let's define qsfp_ctx_t:
- * qsfp_ctx_t.pca9548 means level2 PCA9548 address
- * qsfp_ctx_t.channel means level2 PCA9548 channel
- * qsfp_ctx_t.rev means l2_pca9548_unconcerned, qsfp_select_addr and qsfp_select_value, the formula is below:
- * rev = 0x0 | (l2_pca9548_unconcerned << 16) | (qsfp_select_addr << 8) | qsfp_select_value
- *
- * Procedure of Select QSFP in X312P:
- * 1. Write level1 PCA9548 to select target channel
- * 2. Write unconcerned level2 PCA9548 to select nothing
- * 3. Write level2 PCA9548 to select target channel
- * 4. Write CPLD1 to Select QSFP finally
- *
- */
-static struct qsfp_ctx_t qsfp_ctx_x312p[] = {
-    {"C1",   1, 0x73, 2, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfb), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (2)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (2)} }, /* QSFP 30*/
-    {"C2",   2, 0x73, 3, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xf7), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (3)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (3)} }, /* QSFP 32*/
-    {"C3",   3, 0x73, 0, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfe), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (0)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (0)} }, /* QSFP  6*/
-    {"C4",   4, 0x73, 1, (0x0 | (0x74 << 16) | (0x09 << 8) | 0xfd), {BF_MON_SYSCPLD1_I2C_ADDR, 0x03, BIT (1)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x01, BIT (1)} }, /* QSFP  2*/
-    {"C5",   5, 0x74, 0, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfe), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (0)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (0)} }, /* QSFP  4*/
-    {"C6",   6, 0x74, 1, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfd), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (1)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (1)} }, /* QSFP  5*/
-    {"C7",   7, 0x74, 2, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xfb), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (2)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (2)} }, /* QSFP  3*/
-    {"C8",   8, 0x74, 3, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xf7), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (3)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (3)} }, /* QSFP  1*/
-    {"C9",   9, 0x74, 4, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xef), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (4)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (4)} }, /* QSFP 31*/
-    {"C10", 10, 0x74, 5, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xdf), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (5)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (5)} }, /* QSFP 29*/
-    {"C11", 11, 0x74, 6, (0x0 | (0x73 << 16) | (0x08 << 8) | 0xbf), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (6)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (6)} }, /* QSFP 27*/
-    {"C12", 12, 0x74, 7, (0x0 | (0x73 << 16) | (0x08 << 8) | 0x7f), {BF_MON_SYSCPLD1_I2C_ADDR, 0x02, BIT (7)}, {BF_MON_SYSCPLD1_I2C_ADDR, 0x00, BIT (7)} }, /* QSFP 28*/
-};
-
-/* vQSFP: C13,C14,C15,C16, treated as QSFP by stratum. */
-static struct qsfp_ctx_t vqsfp_ctx_x312p[] = {
-    /* GHC0 */
-    {"C13", 24, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 24*/
-    {"C14", 22, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 22*/
-
-    /* GHC1 */
-    {"C15", 26, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 26*/
-    {"C16", 14, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 14*/
-
-    /* GHC0 in the future. */
-    {"C17", 18, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 18*/
-    {"C18", 23, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 23*/
-
-    /* GHC1 in the future. */
-    {"C19", 16, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 16*/
-    {"C20", 25, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},                                                                                   /* QSFP 25*/
-
-};
+/* GHC channel num. */
+static uint32_t max_vqsfp = 4;
+static uint32_t max_vsfp = 6;
 
 /* Global qsfp_ctx specifed by platform.
  * by tsihang, 2021-08-02. */
@@ -281,51 +62,42 @@ static struct qsfp_ctx_t *g_qsfp_ctx;
 /* GHC channel. */
 static struct qsfp_ctx_t *g_vqsfp_ctx;
 
-/* Some QSFP and its logic ID in CPLD are alternant.
- * by tsihang, 2021/06/29. */
-static int qsfp_pres_map_x532p[] = {
+extern int bf_pltfm_get_sub_module_pres_hc (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h);
+extern int bf_pltfm_get_sub_module_pres_x308p (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h);
+extern int bf_pltfm_get_sub_module_pres_x312p (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h);
+extern int bf_pltfm_get_sub_module_pres_x532p (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h);
+extern int bf_pltfm_get_sub_module_pres_x564p (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h);
 
-    /* CPLD1 */
-    30, 31, INVALIDBIT (2),  INVALIDBIT (3), INVALIDBIT (4), INVALIDBIT (5), INVALIDBIT (6), INVALIDBIT (7),
-
-    /* CPLD2 */
-    0, 1, 2, 3, 4, 5, 6, 7,
-    8, 9, 10, 11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20, 21, 22, 23,
-    24, 25, 26, 27, 28, 29, INVALIDBIT (6), INVALIDBIT (7)
-};
-
-/* Some QSFP and its logic ID in CPLD are alternant.
- * by tsihang, 2021/06/29. */
-static int qsfp_pres_map_x564p[] = {
-
-    /* CPLD2 */
-    0, 1, 2, 3, 35, 34, 33, 32,
-    4, 5, 6, 7, 39, 38, 37, 36,
-    8, 9, 10, 11, 43, 42, 41, 40,
-    12, 13, INVALIDBIT (2), INVALIDBIT (3), 47, INVALIDBIT (5), 45, 44,
-
-    /* CPLD3 */
-    16, 17, 18, 19, 51, 50, 49, 48,
-    20, 21, 22, 23, 55, 54, 53, 52,
-    24, 25, 26, 27, 59, 58, 57, 56,
-    28, 29, 30, 31, 63, 62, 61, 60,
-
-    /* MISC */
-    INVALIDBIT (0), 14, 15, 46, INVALIDBIT (4), INVALIDBIT (5), INVALIDBIT (6), INVALIDBIT (7)
-};
-
-/* Some QSFP and its logic ID in CPLD are alternant.
- * by tsihang, 2021/06/29. */
-static int qsfp_pres_map_hc[] = {
-    2, 3, 0, 1, 4, 5, 8, 9, 6, 7, 10, 11, 14, 15,
-    12, 13, 16, 17, 20, 21, 18, 19, 22, 23
-};
-
-/* magic array for X312P */
-static int qsfp_pres_map_x312p[] = {
-    4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 0, 1
-};
+void bf_pltfm_qsfp_init_x312p (struct qsfp_ctx_t **ctx,
+    uint32_t *num,
+    struct qsfp_ctx_t **vctx,
+    uint32_t *vnum);
+void bf_pltfm_qsfp_init_x308p (struct qsfp_ctx_t **ctx,
+    uint32_t *num,
+    struct qsfp_ctx_t **vctx,
+    uint32_t *vnum);
+void bf_pltfm_qsfp_init_x564p (struct qsfp_ctx_t **ctx,
+    uint32_t *num,
+    struct qsfp_ctx_t **vctx,
+    uint32_t *vnum);
+void bf_pltfm_qsfp_init_x532p (struct qsfp_ctx_t **ctx,
+    uint32_t *num,
+    struct qsfp_ctx_t **vctx,
+    uint32_t *vnum);
+void bf_pltfm_qsfp_init_hc36y24c (struct qsfp_ctx_t **ctx,
+    uint32_t *num,
+    struct qsfp_ctx_t **vctx,
+    uint32_t *vnum);
 
 /* For those board which has 2 layer PCA9548 to select a port.
  * Not finished yet.
@@ -335,7 +107,7 @@ static bool
 select_2nd_layer_pca9548 (struct qsfp_ctx_t *qsfp,
                           unsigned char *pca9548, unsigned char *channel)
 {
-    if (platform_type_equal ( X312P)) {
+    if (platform_type_equal (X312P)) {
         uint8_t l1_pca9548_addr = 0x71;
         uint8_t l1_pca9548_chnl = 1;
 
@@ -343,18 +115,18 @@ select_2nd_layer_pca9548 (struct qsfp_ctx_t *qsfp,
         uint8_t l2_pca9548_chnl = qsfp->channel;
         uint8_t l2_pca9548_unconcerned_addr = ((
                 qsfp->rev >> 16) & 0x000000FF);
-        /* select 1nd pca9548 */
-        if (bf_pltfm_cpld_write_byte (l1_pca9548_addr,
+        /* select 1st pca9548 */
+        if (bf_pltfm_master_i2c_write_byte (l1_pca9548_addr,
                                       0x0, 1 << l1_pca9548_chnl)) {
             return false;
         }
         /* unselect unconcerned 2nd pca9548 */
-        if (bf_pltfm_cpld_write_byte (
+        if (bf_pltfm_master_i2c_write_byte (
                 l2_pca9548_unconcerned_addr, 0x0, 0x0)) {
             return false;
         }
         /* select 2nd pca9548 */
-        if (bf_pltfm_cpld_write_byte (l2_pca9548_addr,
+        if (bf_pltfm_master_i2c_write_byte (l2_pca9548_addr,
                                       0x0, 1 << l2_pca9548_chnl)) {
             return false;
         }
@@ -372,7 +144,7 @@ unselect_2nd_layer_pca9548 (struct qsfp_ctx_t
                             *qsfp,
                             unsigned char *pca9548, unsigned char *channel)
 {
-    if (platform_type_equal ( X312P)) {
+    if (platform_type_equal (X312P)) {
         uint8_t l1_pca9548_addr = 0x71;
         //uint8_t l1_pca9548_chnl = 1;
 
@@ -381,17 +153,17 @@ unselect_2nd_layer_pca9548 (struct qsfp_ctx_t
         uint8_t l2_pca9548_unconcerned_addr = ((
                 qsfp->rev >> 16) & 0x000000FF);
         /* unselect unconcerned 2nd pca9548 */
-        if (bf_pltfm_cpld_write_byte (
+        if (bf_pltfm_master_i2c_write_byte (
                 l2_pca9548_unconcerned_addr, 0x0, 0x0)) {
             return false;
         }
         /* unselect 2nd pca9548 */
-        if (bf_pltfm_cpld_write_byte (l2_pca9548_addr,
+        if (bf_pltfm_master_i2c_write_byte (l2_pca9548_addr,
                                       0x0, 0x0)) {
             return false;
         }
-        /* unselect 1nd pca9548 */
-        if (bf_pltfm_cpld_write_byte (l1_pca9548_addr,
+        /* unselect 1st pca9548 */
+        if (bf_pltfm_master_i2c_write_byte (l1_pca9548_addr,
                                       0x0, 0x0)) {
             return false;
         }
@@ -445,113 +217,6 @@ unselect_1st_layer_pca9548 (int module,
     return true;
 }
 
-static inline void bf_pltfm_qsfp_bitmap_x312p (
-    uint32_t *maskl, uint32_t *maskh,
-    int off, uint8_t pres)
-{
-    int i;
-    maskh = maskh;
-    /* off = 2 or 3 */
-    off -= 2;
-
-    for (i = 0; i < 8; i ++) {
-        if (pres & (1 << i)) {
-            continue;
-        }
-        *maskl &= ~ (1 << qsfp_pres_map_x312p[i + 8 *
-                                                off]);
-    }
-}
-
-static inline void bf_pltfm_qsfp_bitmap_hc (
-    uint32_t *maskl, uint32_t *maskh,
-    int off, uint8_t pres)
-{
-    int i;
-    maskh = maskh;
-
-    for (i = 0; i < 8; i ++) {
-        if (pres & (1 << i)) {
-            continue;
-        }
-        *maskl &= ~ (1 << qsfp_pres_map_hc[i + 8 * off]);
-    }
-}
-
-static inline void bf_pltfm_qsfp_bitmap_x532p (
-    uint32_t *maskl, uint32_t *maskh,
-    int off, uint8_t pres)
-{
-    int i;
-    maskh = maskh;
-
-    for (i = 0; i < 8; i ++) {
-        if (off != 0) {
-            if (pres & (1 << i)) {
-                continue;
-            }
-            *maskl &= ~ (1 << qsfp_pres_map_x532p[i + 8 *
-                                                    off]);
-        } else {
-            if (pres & (1 << i)) {
-                continue;
-            }
-            if (i == 0) {
-                /* C31 */
-                *maskl &= ~ (1 << qsfp_pres_map_x532p[i + 8 *
-                                                        off]);
-            }
-            if (i == 1) {
-                /* C32 */
-                *maskl &= ~ (1 << qsfp_pres_map_x532p[i + 8 *
-                                                        off]);
-            }
-        }
-    }
-}
-
-static inline void bf_pltfm_qsfp_bitmap_x564p (
-    uint32_t *maskl, uint32_t *maskh,
-    int off, uint8_t pres)
-{
-    int i;
-    maskh = maskh;
-
-    for (i = 0; i < 8; i ++) {
-        if (off != 8) {
-            if (pres & (1 << i)) {
-                continue;
-            }
-            if (i <= 3) {
-                *maskl &= ~ (1 << qsfp_pres_map_x564p[i + 8 *
-                                                        off]);
-            } else {
-                *maskh &= ~ (1 << ((qsfp_pres_map_x564p[i + 8 *
-                                                          off]) % 32));
-            }
-        } else {
-            if (pres & (1 << i)) {
-                continue;
-            }
-            if (i == 1) {
-                /* C15 */
-                *maskl &= ~ (1 << qsfp_pres_map_x564p[i + 8 *
-                                                        off]);
-            }
-            if (i == 2) {
-                /* C16 */
-                *maskl &= ~ (1 << qsfp_pres_map_x564p[i + 8 *
-                                                        off]);
-            }
-            if (i == 3) {
-                /* C47 */
-                *maskh &= ~ (1 << ((qsfp_pres_map_x564p[i + 8 *
-                                                          off]) % 32));
-            }
-        }
-    }
-}
-
 
 /* intialize PCA 9548 and PCA 9535 on the qsfp subsystem i2c bus to
  * ensure a consistent state on i2c addreesed devices
@@ -597,10 +262,10 @@ int bf_pltfm_init_cp2112_qsfp_bus (
         }
     }
 #if 0
-    /* For those platform which access qsfp/sfp with 2-way CP2112.
-     * Closed due to only one CP2112 on duty to access qsfp/sfp
-     * for all X-T platforms.
-     * by tsihang, 2021-07-07. */
+    /* Make sure that the cp2112 hndl in CP2112_ID_1 for those platforms
+     * which has two CP2112 but only one on duty to access QSFP.
+     * See differentiate_cp2112_devices for reference.
+     * by tsihang, 2021-07-14. */
     if (hndl2 != NULL) {
         if (qsfp_init_sub_bus (hndl2)) {
             return -1;
@@ -608,34 +273,26 @@ int bf_pltfm_init_cp2112_qsfp_bus (
     }
 #endif
 
+    uint32_t qsfp28_num = 0, vqsfp_num = 0;
     if (platform_type_equal (X532P)) {
-        g_vqsfp_ctx = NULL;
-        max_vqsfp = 0;
-        g_qsfp_ctx = &qsfp_ctx_x532p[0];
-        bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x532p));
+        bf_pltfm_qsfp_init_x532p((struct qsfp_ctx_t **)&g_qsfp_ctx,
+            &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
     } else if (platform_type_equal (X564P)) {
-        g_vqsfp_ctx = NULL;
-        max_vqsfp = 0;
-        g_qsfp_ctx = &qsfp_ctx_x564p[0];
-        bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x564p));
+        bf_pltfm_qsfp_init_x564p((struct qsfp_ctx_t **)&g_qsfp_ctx,
+            &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
     } else if (platform_type_equal (X308P)) {
-        g_vqsfp_ctx = &vqsfp_ctx_x308p[0];
-        max_vqsfp = 4;
-        g_qsfp_ctx = &qsfp_ctx_x308p[0];
-        bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x308p));
+        bf_pltfm_qsfp_init_x308p((struct qsfp_ctx_t **)&g_qsfp_ctx,
+            &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
     } else if (platform_type_equal (X312P)) {
-        g_vqsfp_ctx = &vqsfp_ctx_x312p[0];
-        //max_vqsfp = ARRAY_LENGTH(vqsfp_ctx_x312p);
-        max_vqsfp = 4;
-        g_qsfp_ctx = &qsfp_ctx_x312p[0];
-        bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_x312p));
+        bf_pltfm_qsfp_init_x312p((struct qsfp_ctx_t **)&g_qsfp_ctx,
+            &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
     } else if (platform_type_equal (HC)) {
-        g_vqsfp_ctx = NULL;
-        max_vqsfp = 0;
-        g_qsfp_ctx = &qsfp_ctx_hc[0];
-        bf_qsfp_set_num (ARRAY_LENGTH (qsfp_ctx_hc));
+        bf_pltfm_qsfp_init_hc36y24c((struct qsfp_ctx_t **)&g_qsfp_ctx,
+            &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
     }
     BUG_ON (g_qsfp_ctx == NULL);
+    bf_qsfp_set_num (qsfp28_num);
+    max_vqsfp = vqsfp_num;
 
     return 0;
 }
@@ -736,14 +393,18 @@ static int unselect_qsfp (
     if (platform_type_equal (X312P)) {
         /* select QSFP in CPLD1, i2c_addr is offset, chnl is value */
         rc = bf_pltfm_cpld_write_byte (
-                 BF_MON_SYSCPLD1_I2C_ADDR, i2c_addr, 0xff);
+                 BF_MAV_SYSCPLD1, i2c_addr, 0xff);
     } else {
         rc = bf_pltfm_cp2112_write_byte (hndl,
                                          i2c_addr, 0, DEFAULT_TIMEOUT_MS);
     }
     if (rc != BF_PLTFM_SUCCESS) {
-        LOG_DEBUG ("QSFP : %2d , PCA9548 : 0x%02x error\n",
-                   sub_port, i2c_addr);
+        LOG_ERROR (
+            "%s[%d], "
+            "qsfp.disselect(%02d : %s : %d : %02x : %02x)"
+            "\n",
+            __FILE__, __LINE__, sub_port,
+            "Failed to diselect QSFP", rc, i2c_addr, chnl);
         return -2;
     }
 
@@ -769,14 +430,18 @@ static int select_qsfp (
     if (platform_type_equal (X312P)) {
         /* select QSFP in CPLD1, i2c_addr is offset, chnl is value */
         rc = bf_pltfm_cpld_write_byte (
-                 BF_MON_SYSCPLD1_I2C_ADDR, i2c_addr, chnl);
+                 BF_MAV_SYSCPLD1, i2c_addr, chnl);
     } else {
         rc = bf_pltfm_cp2112_write_byte (hndl,
                                          i2c_addr, (1 << chnl), DEFAULT_TIMEOUT_MS);
     }
     if (rc != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("QSFP : %2d , PCA9548 : 0x%02x CHNL : 0x%02x\n",
-                   sub_port, i2c_addr, chnl);
+        LOG_ERROR (
+            "%s[%d], "
+            "qsfp.select(%02d : %s : %d : %02x : %02x)"
+            "\n",
+            __FILE__, __LINE__, sub_port,
+            "Failed to select QSFP", rc, i2c_addr, chnl);
         return -2;
     }
 
@@ -1009,77 +674,63 @@ int bf_pltfm_sub_module_reset (
     int rc = 0;
     uint8_t val = 0, val0 = 0, val1 = 0;
     bool original_reset = reset;
-    uint8_t cpld_addr;
     struct qsfp_ctx_t *qsfp;
+    struct st_ctx_t *st;
     int usec = 1000;
 
     qsfp = &g_qsfp_ctx[module];
+    st = &qsfp->rst;
 
     if (platform_type_equal (X312P)) {
-        cpld_addr = BF_MON_SYSCPLD1_I2C_ADDR;
         if (!reset) {
             /* X312P, there's no need to de-reset! It will auto de-reset after 200ms, so just return */
-            fprintf (stdout,
-                     "QSFP    %2d : -RST : auto de-reset\n",
-                     module + 1);
-            LOG_DEBUG (
-                "QSFP    %2d : -RST : auto de-reset\n",
-                module + 1);
             return 0;
         }
         /* for X312P, 0 means reset, 1 means de-reset, so reverse reset */
         reset = !reset;
-    } else {
-        cpld_addr = qsfp->rst.cpld_sel;
     }
 
-    MASTER_I2C_LOCK;
-    /* Select PCA9548 channel for a given CPLD. */
-    if (((rc = select_cpld (qsfp->rst.cpld_sel)) !=
-         0)) {
-        fprintf (stdout, "0 : write offset : %2d\n",
-                 qsfp->rst.cpld_sel);
-        goto end;
-    }
-    bf_sys_usleep (usec);
-
-    rc |= bf_pltfm_cpld_read_byte (cpld_addr,
-                                   qsfp->rst.off, &val0);
-    if (rc != 0) {
-        fprintf (stdout, "1 : read offset : %2d\n",
-                 qsfp->rst.off);
+    rc = bf_pltfm_cpld_read_byte (st->cpld_sel, st->off, &val0);
+    if (rc) {
+        LOG_ERROR (
+            "%s[%d], "
+            "read_cpld(%02d : %d : %s)"
+            "\n",
+            __FILE__, __LINE__, module, st->off,
+            "Failed to read CPLD");
         goto end;
     }
 
     val = val0;
-
     if (reset) {
         /* reset control bit is active high */
-        val |= (1 << (qsfp->rst.off_b));
+        val |= (1 << (st->off_b));
     } else {
         /* de-reset control bit is active low */
-        val &= ~ (1 << (qsfp->rst.off_b));
+        val &= ~ (1 << (st->off_b));
     }
 
     /* Write it back */
-    rc |= bf_pltfm_cpld_write_byte (cpld_addr,
-                                    qsfp->rst.off, val);
-    if (rc != 0) {
-        fprintf (stdout, "2 : write offset : %2d\n",
-                 qsfp->rst.off);
+    rc = bf_pltfm_cpld_write_byte (st->cpld_sel, st->off, val);
+    if (rc) {
+        LOG_ERROR (
+            "%s[%d], "
+            "write_cpld(%02d : %d : %s)"
+            "\n",
+            __FILE__, __LINE__, module, st->off,
+            "Failed to write CPLD");
         goto end;
     }
     bf_sys_usleep (usec);
 
-    rc |= bf_pltfm_cpld_read_byte (cpld_addr,
-                                   qsfp->rst.off, &val1);
-    if (rc != 0) {
-        fprintf (stdout, "3 : read offset : %2d\n",
-                 qsfp->rst.off);
-        goto end;
-    }
-
-    if (rc != 0) {
+    rc = bf_pltfm_cpld_read_byte (st->cpld_sel, st->off, &val1);
+    if (rc) {
+        LOG_ERROR (
+            "%s[%d], "
+            "read_cpld(%02d : %d : %s)"
+            "\n",
+            __FILE__, __LINE__, module, st->off,
+            "Failed to read CPLD");
         goto end;
     }
 
@@ -1096,330 +747,6 @@ end:
     unselect_cpld();
     MASTER_I2C_UNLOCK;
     return rc;
-}
-
-/*
- * get the qsfp present mask status for the group of qsfps that are
- * within a single cp2112 domain
- * bit 0: module present, 1: not-present
- */
-static int bf_pltfm_get_sub_module_pres_x312p (
-    bf_pltfm_cp2112_device_ctx_t *hndl,
-    uint32_t *pres_l, uint32_t *pres_h)
-{
-    int rc = 0;
-    uint8_t addr;
-    uint8_t off;
-    uint8_t val = 0xff;
-    uint32_t qsfp_pres_h = 0xFFFFFFFF;
-    uint32_t qsfp_pres_l = 0xFFFFFFFF;
-
-    MASTER_I2C_LOCK;
-
-    addr = BF_MON_SYSCPLD1_I2C_ADDR;
-    off = X312P_QSFP_PRS_1;
-    rc = bf_pltfm_cpld_read_byte (addr, off, &val);
-    if (rc) {
-        goto end;
-    }
-    bf_pltfm_qsfp_bitmap_x312p (&qsfp_pres_l,
-                                &qsfp_pres_h, off, val);
-
-
-    off = X312P_QSFP_PRS_2;
-    rc = bf_pltfm_cpld_read_byte (addr, off, &val);
-    if (rc) {
-        goto end;
-    }
-    val = 0xF0 | val;
-    bf_pltfm_qsfp_bitmap_x312p (&qsfp_pres_l,
-                                &qsfp_pres_h, off, val);
-
-end:
-    MASTER_I2C_UNLOCK;
-
-    *pres_l = qsfp_pres_l;
-    *pres_h = qsfp_pres_h;
-
-    return rc;
-}
-
-/*
- * get the qsfp present mask status for the group of qsfps that are
- * within a single cp2112 domain
- * bit 0: module present, 1: not-present
- */
-static int bf_pltfm_get_sub_module_pres_hc (
-    bf_pltfm_cp2112_device_ctx_t *hndl,
-    uint32_t *pres_l, uint32_t *pres_h)
-{
-    int off = 0;
-    int rc = 0;
-    uint8_t val = 0;
-    uint32_t qsfp_pres_h = 0xFFFFFFFF;
-    uint32_t qsfp_pres_l = 0xFFFFFFFF;
-
-    MASTER_I2C_LOCK;
-    if (((rc = select_cpld (3)) != 0)) {
-        goto end;
-    } else {
-        /* qsfp[7:0] */
-        off = 0;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR, 0x02 + off, &val);
-        if (rc) {
-            goto end;
-        }
-        bf_pltfm_qsfp_bitmap_hc (&qsfp_pres_l,
-                                 &qsfp_pres_h, off, val);
-
-        /* qsfp[15:8] */
-        off = 1;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR, 0x02 + off, &val);
-        if (rc) {
-            goto end;
-        }
-        bf_pltfm_qsfp_bitmap_hc (&qsfp_pres_l,
-                                 &qsfp_pres_h, off, val);
-
-        /* qsfp[23:16] */
-        off = 2;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR, 0x02 + off, &val);
-        if (rc) {
-            goto end;
-        }
-        bf_pltfm_qsfp_bitmap_hc (&qsfp_pres_l,
-                                 &qsfp_pres_h, off, val);
-
-    }
-end:
-    unselect_cpld();
-    MASTER_I2C_UNLOCK;
-
-    *pres_l = qsfp_pres_l;
-    *pres_h = qsfp_pres_h;
-
-    return rc;
-}
-
-
-/*
- * get the qsfp present mask status for the group of qsfps that are
- * within a single cp2112 domain
- * bit 0: module present, 1: not-present
- */
-static int bf_pltfm_get_sub_module_pres_x532p (
-    bf_pltfm_cp2112_device_ctx_t *hndl,
-    uint32_t *pres_l, uint32_t *pres_h)
-{
-    int rc;
-    int off;
-    uint8_t val[5] = {0};
-    uint32_t qsfp_pres_h = 0xFFFFFFFF;
-    uint32_t qsfp_pres_l = 0xFFFFFFFF;
-    hndl = hndl;
-    const uint8_t reg = 0x02;
-
-    MASTER_I2C_LOCK;
-    if (((rc = select_cpld (1)) != 0)) {
-        goto end;
-    } else {
-        /* MISC */
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD1_I2C_ADDR, 0x05, &val[0]);
-        MASKBIT (val[0], 2);
-        MASKBIT (val[0], 3);
-        MASKBIT (val[0], 4);
-        MASKBIT (val[0], 5);
-        MASKBIT (val[0], 6);
-        MASKBIT (val[0], 7);
-        bf_pltfm_qsfp_bitmap_x532p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 0, val[0]);
-    }
-
-    if (((rc = select_cpld (2)) != 0)) {
-        goto end;
-    } else {
-        off = 0;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[1]);
-        bf_pltfm_qsfp_bitmap_x532p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 1, val[1]);
-
-        off = 1;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[2]);
-        bf_pltfm_qsfp_bitmap_x532p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 2, val[2]);
-
-        off = 2;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[3]);
-        bf_pltfm_qsfp_bitmap_x532p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 3, val[3]);
-
-        off = 3;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[4]);
-        MASKBIT (val[4], 6);
-        MASKBIT (val[4], 7);
-        bf_pltfm_qsfp_bitmap_x532p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 4, val[4]);
-    }
-
-end:
-    unselect_cpld();
-    MASTER_I2C_UNLOCK;
-
-    *pres_l = qsfp_pres_l;
-    *pres_h = qsfp_pres_h;
-
-    return rc;
-
-}
-
-/*
- * get the qsfp present mask status for the group of qsfps that are
- * within a single cp2112 domain
- * bit 0: module present, 1: not-present
- */
-static int bf_pltfm_get_sub_module_pres_x564p (
-    bf_pltfm_cp2112_device_ctx_t *hndl,
-    uint32_t *pres_l, uint32_t *pres_h)
-{
-    int rc;
-    int off;
-    uint8_t val[9] = {0};
-    uint32_t qsfp_pres_h = 0xFFFFFFFF;
-    uint32_t qsfp_pres_l = 0xFFFFFFFF;
-    hndl = hndl;
-    const uint8_t reg = 0x02;
-
-    MASTER_I2C_LOCK;
-    if (((rc = select_cpld (2)) != 0)) {
-        goto end;
-    } else {
-        off = 0;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[0]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 0, val[0]);
-
-        off = 1;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[1]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 1, val[1]);
-
-        off = 2;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[2]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 2, val[2]);
-
-        off = 3;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD2_I2C_ADDR,
-                  reg + off, &val[3]);
-        MASKBIT (val[3], 2);
-        MASKBIT (val[3], 3);
-        MASKBIT (val[3], 5);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 3, val[3]);
-    }
-
-    if (((rc = select_cpld (3)) != 0)) {
-        goto end;
-    } else {
-        off = 0;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR,
-                  reg + off, &val[4]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 4, val[4]);
-
-        off = 1;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR,
-                  reg + off, &val[5]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 5, val[5]);
-
-        off = 2;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR,
-                  reg + off, &val[6]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 6, val[6]);
-
-        off = 3;
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR,
-                  reg + off, &val[7]);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 7, val[7]);
-
-        /* MISC */
-        rc |= bf_pltfm_master_i2c_read_byte (
-                  BF_MAV_SYSCPLD3_I2C_ADDR, 0x0E, &val[8]);
-        MASKBIT (val[8], 0);
-        MASKBIT (val[8], 4);
-        MASKBIT (val[8], 5);
-        MASKBIT (val[8], 6);
-        MASKBIT (val[8], 7);
-        bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
-                                    &qsfp_pres_h, 8, val[8]);
-    }
-
-end:
-    unselect_cpld();
-    MASTER_I2C_UNLOCK;
-
-    *pres_l = qsfp_pres_l;
-    *pres_h = qsfp_pres_h;
-
-    return rc;
-
-}
-
-/*
- * get the qsfp present mask status for the group of qsfps that are
- * within a single cp2112 domain
- * bit 0: module present, 1: not-present
- */
-static int bf_pltfm_get_sub_module_pres_x308p (
-    bf_pltfm_cp2112_device_ctx_t *hndl,
-    uint32_t *pres_l, uint32_t *pres_h)
-{
-    int rc = 0;
-    uint8_t val = 0;
-    uint32_t qsfp_pres_h = 0xFFFFFFFF;
-    uint32_t qsfp_pres_l = 0xFFFFFF00;
-    hndl = hndl;
-
-    MASTER_I2C_LOCK;
-    /* MISC */
-    rc |= bf_pltfm_master_i2c_read_byte (
-              BF_MAV_SYSCPLD1_I2C_ADDR, 0x06, &val);
-
-    qsfp_pres_l |= val;
-
-    MASTER_I2C_UNLOCK;
-
-    *pres_l = qsfp_pres_l;
-    *pres_h = qsfp_pres_h;
-
-    return rc;
-
 }
 
 /*

@@ -85,11 +85,6 @@
 #endif
 
 
-#if SDE_VERSION_LT(900)
-#define bf_pm_intf_is_device_family_tofino((dev)) (true)
-#endif
-
-
 #if SDE_VERSION_LT(980)
 #ifdef INC_PLTFM_UCLI
 #include <bfutils/uCli/ucli.h>
@@ -135,19 +130,53 @@ extern "C" {
 // are derived from internal-port. Keep it for backwardation
 #define BF_PLAT_MAX_QSFP 65
 
+typedef enum  {X564P = 1, X532P, X308P, X312P, HC, UNKNOWM_PLATFORM} bf_pltfm_type;
+
 /*
  * Identifies the type of the board
  */
 typedef enum bf_pltfm_board_id_e {
+    /* legacy */
     BF_PLTFM_BD_ID_MAVERICKS_P0A = 0x0234,
+    /* legacy */
     BF_PLTFM_BD_ID_MAVERICKS_P0B = 0x1234,
+    /* legacy */
     BF_PLTFM_BD_ID_MAVERICKS_P0C = 0x5234,
+    /* legacy */
     BF_PLTFM_BD_ID_MONTARA_P0A = 0x2234,
+    /* legacy */
     BF_PLTFM_BD_ID_MONTARA_P0B = 0x3234,
+    /* legacy */
     BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU = 0x4234,
+    /* legacy */
     BF_PLTFM_BD_ID_MONTARA_P0C = 0x6234,
+    /* legacy */
     BF_PLTFM_BD_ID_NEWPORT_P0A = 0x1134,
+    /* legacy */
     BF_PLTFM_BD_ID_NEWPORT_P0B = 0x2134,
+
+
+    /* Override bf_pltfm_board_id_e to private board powered by Asterfusion.
+     * by tsihang, 2022-06-20. */
+    /* X564P-T and its subtype. */
+    BF_PLTFM_BD_ID_X564PT_V1DOT0 = 0x5640,
+    BF_PLTFM_BD_ID_X564PT_V1DOT1 = 0x5641,
+    BF_PLTFM_BD_ID_X564PT_V1DOT2 = 0x5642,
+    /* X532P-T and its subtype. */
+    BF_PLTFM_BD_ID_X532PT_V1DOT0 = 0x5320,
+    BF_PLTFM_BD_ID_X532PT_V1DOT1 = 0x5321,
+    BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5323,
+    /* X308P-T and its subtype. */
+    BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
+    /* X312P-T and its subtype. */
+    BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,
+    BF_PLTFM_BD_ID_X312PT_V1DOT1 = 0x3121,
+    BF_PLTFM_BD_ID_X312PT_V1DOT2 = 0x3122,
+    BF_PLTFM_BD_ID_X312PT_V1DOT3 = 0x3123,
+    /* HC36Y24C-T and its subtype. */
+    BF_PLTFM_BD_ID_HC36Y24C_V1DOT0 = 0x2400,
+    BF_PLTFM_BD_ID_HC36Y24C_V1DOT1 = 0x2401,
+
     BF_PLTFM_BD_ID_UNKNOWN = 0XFFFF
 } bf_pltfm_board_id_t;
 /*
@@ -241,8 +270,11 @@ static inline const char *bf_pltfm_err_str (
 
 /* State defined in CPLD. */
 struct st_ctx_t {
+    /* Index of CPLD <NOT addr of cpld> */
     uint8_t cpld_sel;
+    /* offset to current <cpld_sel>. */
     uint8_t off;
+    /* bit offset of <off> */
     uint8_t off_b;   /* bit offset in off */
 };
 

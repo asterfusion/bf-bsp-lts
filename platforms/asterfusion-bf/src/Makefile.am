@@ -30,6 +30,11 @@ platform_mgr/platform.c \
 platform_mgr/platform_board.c \
 platform_mgr/platform_health_mntr.c \
 bf_pltfm_led/bf_pltfm_mav_led.c \
+bf_pltfm_led/bf_pltfm_mav_led_x564p.c \
+bf_pltfm_led/bf_pltfm_mav_led_x532p.c \
+bf_pltfm_led/bf_pltfm_mav_led_x308p.c \
+bf_pltfm_led/bf_pltfm_mav_led_x312p.c \
+bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c \
 bf_pltfm_led/lq.c \
 bf_pltfm_led/bf_pltfm_mav_cpld_led.c \
 bf_pltfm_rptr/rptr.h \
@@ -54,7 +59,18 @@ else
 libasterfusionbf_qsfp_la_SOURCES = \
 qsfp/bf_mav_qsfp_module.c \
 qsfp/bf_mav_qsfp_sub_module.c \
-qsfp/bf_mav_sfp_module.c
+qsfp/bf_mav_qsfp_sub_module_x312p.c \
+qsfp/bf_mav_qsfp_sub_module_x308p.c \
+qsfp/bf_mav_qsfp_sub_module_x532p.c \
+qsfp/bf_mav_qsfp_sub_module_x564p.c \
+qsfp/bf_mav_qsfp_sub_module_hc36y24c.c \
+qsfp/bf_mav_sfp_module.c \
+qsfp/bf_mav_sfp_module_x312p.c \
+qsfp/bf_mav_sfp_module_x308p.c \
+qsfp/bf_mav_sfp_module_x532p.c \
+qsfp/bf_mav_sfp_module_x564p.c \
+qsfp/bf_mav_sfp_module_hc36y24c.c
+
 
 libasterfusionbf_cpld_la_SOURCES = \
 bf_pltfm_cpld/bf_pltfm_cpld_ucli.c

@@ -490,7 +490,7 @@ void bf_pm_qsfp_luxtera_state_capture (
     int conn_id, uint8_t arr_0x3k[0x3000]);
 int bf_pm_num_qsfp_get (void);
 
-#if defined(HAVE_SFP)
+//#if defined(HAVE_SFP)
 /**
  * @brief Return the type of the SFP connected to a port
  *
@@ -505,6 +505,6 @@ bf_pltfm_status_t bf_pltfm_pm_port_sfp_type_get (
 void sfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
                               int module);
 
-#endif
+//#endif
 
 #endif

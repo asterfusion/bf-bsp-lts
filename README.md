@@ -36,17 +36,53 @@ Please install the dependencies first from sources before compiling the **all-in
 All your files and folders are presented as a tree in the file explorer. You can switch from one to another by clicking a file in the tree.
 The building of drivers produces a set of libraries that need to be loaded (or linked to) the application.
 Here're the steps to build and install the <bf-platforms> package:
+
+Barefoot SDK environment setup:
 ```
-​cd bf-bsp-8.9.x
-​./autogen.sh
-​./configure --prefix=$SDE_INSTALL [--enable-thrift]
-​make -j7
-​make install
+root@localhost:~# vi ~/.bashrc
+export SDE=/usr/local/sde/bf-sde-9.3.2
+export SDE_INSTALL=/usr/local/sde
+export PATH=$PATH:$SDE_INSTALL/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SDE_INSTALL/lib
+root@localhost:# source ~/.bashrc
+```
+Clone and compile `bf-bsp-8.9.x`:
+```
+root@localhost:~# git clone https://asternos.dev/xt/bf-bsp-8.9.x.git
+root@localhost:~# cd bf-bsp-8.9.x
+root@localhost:~/bf-bsp-8.9.x# ./autogen.sh
+root@localhost:~/bf-bsp-8.9.x# ​./configure --prefix=$SDE_INSTALL [--enable-thrift]
+root@localhost:~/bf-bsp-8.9.x# ​make -j7
+​root@localhost:~/bf-bsp-8.9.x# make install
 ```
 After make & make install done, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` and `libtcl_server*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
 
+Runtime environment setup:
+```
+# Generate /etc/platform.conf
+root@localhost:~# xt-cfgen.sh
+It looks like x532p-t detected.
+...
+========================== Generate /etc/platform.conf ==========================
+CG1508
+uart enabled
+==========================            Done             ==========================
+
+# Launch ASIC
+root@localhost:~# run_switchd.sh -p diag
+Using SDE /usr/local/sde/bf-sde-9.3.2
+Using SDE_INSTALL /usr/local/sde
+Setting up DMA Memory Pool
+Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino/diag.conf
+...
+Install dir: /usr/local/sde (0x564634fa2140)
+bf_switchd: system services initialized
+bf_switchd: loading conf_file /usr/local/sde/share/p4/targets/tofino/diag.conf...
+bf_switchd: processing device configuration...
+Configuration for dev_id 0
+...
+```
 
 ## Q&A
 
 Looking forward your questions by emailing TSIHANG (tsihang@asterfusion.com).
-

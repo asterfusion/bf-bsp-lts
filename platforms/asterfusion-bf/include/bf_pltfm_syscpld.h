@@ -15,29 +15,45 @@ extern "C" {
 #endif
 
 #define BF_MAV_SYSCPLD_I2C_ADDR   (0x40)   /* syscpld i2c_addr on cp2112 */
-#define BF_MAV_SYSCPLD1_I2C_ADDR  (0x40)   /* syscpld */
-#define BF_MAV_SYSCPLD2_I2C_ADDR  (0x40)
-#define BF_MAV_SYSCPLD3_I2C_ADDR  (0x40)
-
-#define BF_MON_SYSCPLD1_I2C_ADDR  (0x60)
-#define BF_MON_SYSCPLD2_I2C_ADDR  (0x32)
-#define BF_MON_SYSCPLD3_I2C_ADDR  (0x62)
-#define BF_MON_SYSCPLD4_I2C_ADDR  (0x64)
-#define BF_MON_SYSCPLD5_I2C_ADDR  (0x66)
 
 enum {
     BF_MAV_SYSCPLD1 = 1,
     BF_MAV_SYSCPLD2,
     BF_MAV_SYSCPLD3,
+    BF_MAV_SYSCPLD4,
+    BF_MAV_SYSCPLD5,
+    /* Add max syscpld enum for your platform and update bf_pltfm_max_cplds. */
 };
 
-enum {
-    BF_MON_SYSCPLD1 = 1,
-    BF_MON_SYSCPLD2,
-    BF_MON_SYSCPLD3,
-    BF_MON_SYSCPLD4,
-    BF_MON_SYSCPLD5,
-};
+typedef enum {
+    HC36Y24C_SYSCPLD1_I2C_ADDR = 0x40,
+    HC36Y24C_SYSCPLD2_I2C_ADDR = 0x40,
+    HC36Y24C_SYSCPLD3_I2C_ADDR = 0x40,
+} hc36y24c_cpld_addr_t;
+
+typedef enum {
+    X532P_SYSCPLD1_I2C_ADDR = 0x40,
+    X532P_SYSCPLD2_I2C_ADDR = 0x40,
+} x532p_cpld_addr_t;
+
+typedef enum {
+    X564P_SYSCPLD1_I2C_ADDR = 0x40,
+    X564P_SYSCPLD2_I2C_ADDR = 0x40,
+    X564P_SYSCPLD3_I2C_ADDR = 0x40,
+} x564p_cpld_addr_t;
+
+typedef enum {
+    X308P_SYSCPLD1_I2C_ADDR = 0x40,
+    X308P_SYSCPLD2_I2C_ADDR = 0x40,
+} x308p_cpld_addr_t;
+
+typedef enum {
+    X312P_SYSCPLD1_I2C_ADDR = 0x60,
+    X312P_SYSCPLD2_I2C_ADDR = 0x32,
+    X312P_SYSCPLD3_I2C_ADDR = 0x62,
+    X312P_SYSCPLD4_I2C_ADDR = 0x64,
+    X312P_SYSCPLD5_I2C_ADDR = 0x66,
+} x312p_cpld_addr_t;
 
 typedef enum {
     X312P_QSFP_RST_1 = 0x00,
@@ -110,36 +126,109 @@ typedef enum {
 } x312p_cpld5_reg_t;
 
 typedef enum {
-    X312P_PCA9548_L1_0X71 = 0x71,
+    X312P_PCA9548_L1_0x71 = 0x71,
     X312P_PCA9548_L2_0x72 = 0x72,
     X312P_PCA9548_L2_0x73 = 0x73,
     X312P_PCA9548_L2_0x74 = 0x74
 } x312p_pca9548_addr_t;
 
-int bf_pltfm_cpld_read_bytes (
-    int cpld_index,
-    uint8_t *buf,
-    uint8_t rdlen);
+/** read bytes from slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to read
+*  @param val
+*   value to read into
+*  @return
+*   0 on success and otherwise in error
+*/
+int bf_pltfm_cp2112_reg_read_block (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t *read_buf,
+    uint32_t read_buf_size);
 
-int bf_pltfm_cpld_write_bytes (
-    int cpld_index,
-    uint8_t offset,
-    uint8_t *buf,
-    uint8_t wrlen);
+/** write bytes to slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to write
+*  @param val
+*   value to write
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cp2112_reg_write_block (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t *write_buf,
+    uint32_t write_buf_size);
 
+/** write bytes to slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to write
+*  @param val
+*   value to write
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cp2112_reg_write_byte (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t val);
+
+/** read a byte from syscpld register
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @param offset
+*   syscpld register to read
+*  @param buf
+*   buffer to read to
+*  @return
+*   0 on success otherwise in error
+*/
 int bf_pltfm_cpld_read_byte (
-    int cpld_index,
+    uint8_t cpld_index,
     uint8_t offset,
     uint8_t *buf);
 
+/** write a byte to syscpld register
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @param offset
+*   syscpld register to read
+*  @param buf
+*   buffer to write from
+*  @return
+*   0 on success otherwise in error
+*/
 int bf_pltfm_cpld_write_byte (
-    int cpld_index,
+    uint8_t cpld_index,
     uint8_t offset,
     uint8_t val);
 
-int select_cpld (int cpld);
-int unselect_cpld();
+/** write PCA9548 to select channel which connects to syscpld
+*
+*  @param cpld_index
+*   index of cpld for a given platform
+*  @return
+*   0 on success otherwise in error
+*/
+int select_cpld (uint8_t cpld_index);
 
+/** write PCA9548 back to zero to de-select syscpld
+*
+*  @return
+*   0 on success otherwise in error
+*/
+int unselect_cpld();
 
 int bf_pltfm_syscpld_init();
 
