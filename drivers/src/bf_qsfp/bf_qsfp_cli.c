@@ -1769,15 +1769,12 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
     /* vQSFP, always true. */
     aim_printf (&uc->pvs, "%12s\n",
             "===vQSFP===");
-    for (int i = bf_qsfp_get_max_qsfp_ports();
-        i < bf_qsfp_get_max_qsfp_ports() + 12; i ++) {
-        module = (i + 1);
-        err = bf_pltfm_vqsfp_lookup_by_module (module, &conn_id);
+    for (int i = 0; i < bf_pltfm_get_max_vqsfp_ports(); i ++) {
+        err  = bf_pltfm_vqsfp_lookup_by_index (i, alias, &conn_id);
         if (!err) {
-            sprintf(alias, "C%d", module % (BF_PLAT_MAX_QSFP * 4));
             sprintf(connc, "%2d/%d", (conn_id % BF_PLAT_MAX_QSFP), (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
-                     module, alias, connc, "true");
+                     bf_qsfp_get_max_qsfp_ports() + 1 + i, alias, connc, "true");
         }
     }
 

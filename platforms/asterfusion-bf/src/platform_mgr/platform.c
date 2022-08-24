@@ -89,7 +89,8 @@ static pltfm_mgr_info_t pltfm_mgr_info = {
     .onlp_mntr_t_id = 0,
     .flags = 0,
 
-    .pltfm_type = UNKNOWM_PLATFORM,
+    .pltfm_type = INVALID_TYPE,
+    .pltfm_subtype = INVALID_SUBTYPE,
 
     .psu_count = 0,
     .sensor_count = 0,
@@ -291,7 +292,8 @@ static bf_pltfm_status_t chss_mgmt_init()
             /* LM75, LM63 and GHC(4) and Tofino(2).
              * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
             bf_pltfm_mgr_ctx()->sensor_count = 8;
-            if (platform_subtype_equal(v3dot0)) {
+            if (platform_subtype_equal(v3dot0) ||
+                platform_subtype_equal(v4dot0)) {
             /* LM75, LM63, LM86 and GHC(4) and Tofino(2).
              * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
                 bf_pltfm_mgr_ctx()->sensor_count = 9;

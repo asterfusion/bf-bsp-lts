@@ -138,7 +138,6 @@ extern "C" {
     X312P,
     HC
 } bf_pltfm_type;
-#define UNKNOWM_PLATFORM INVALID_TYPE
 
 #define mkver(a,b) (((a) & 0x0F) << 4 | ((b) & 0x0F))
 typedef enum {
@@ -146,6 +145,7 @@ typedef enum {
     v1dot0 = mkver(1,0), v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14,
     v2dot0 = 0x20, v2dot1 = 0x21, v2dot2 = 0x22, v2dot3 = 0x23, v2dot4 = 0x24,
     v3dot0 = 0x30, v3dot1 = 0x31, v3dot2 = 0x32, v3dot3 = 0x33, v3dot4 = 0x34,
+    v4dot0 = 0x40,
 } bf_pltfm_subtype;
 
 /*
@@ -191,6 +191,7 @@ typedef enum bf_pltfm_board_id_e {
     BF_PLTFM_BD_ID_X312PT_V1DOT3 = 0x3123,
     BF_PLTFM_BD_ID_X312PT_V2DOT0 = 0x3122,
     BF_PLTFM_BD_ID_X312PT_V3DOT0 = 0x3123,
+    BF_PLTFM_BD_ID_X312PT_V4DOT0 = 0x3124,
     /* HC36Y24C-T and its subtype. */
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT0 = 0x2400,
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT1 = 0x2401,

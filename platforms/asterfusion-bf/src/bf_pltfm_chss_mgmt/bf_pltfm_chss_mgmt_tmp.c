@@ -299,7 +299,8 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         tmp->tmp8 = (float)(stemp.main_sensor / 1000);
         tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
 
-    } else if (platform_subtype_equal(v3dot0)) {
+    } else if (platform_subtype_equal(v3dot0) ||
+               platform_subtype_equal(v4dot0)) {
         uint8_t lm75[3] = {0};
         uint8_t lm63[3] = {0};
         uint8_t lm86[3] = {0};
@@ -654,7 +655,7 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
                      t.tmp2, "lm63");
             fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
-                     t.tmp3, platform_subtype_equal(v3dot0) ? "lm86" : "Not Defined");
+                     t.tmp3, (platform_subtype_equal(v3dot0) || platform_subtype_equal(v4dot0)) ? "lm86" : "Not Defined");
             // if == -100.0, means no GHC-0 installed
             if (t.tmp4 != -100.0) {
                 fprintf (stdout,

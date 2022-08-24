@@ -136,6 +136,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X312PT_V1DOT1,   "X312P-V1.x",     X312P, v1dot0},
     {BF_PLTFM_BD_ID_X312PT_V2DOT0,   "X312P-V2.x",     X312P, v2dot0},
     {BF_PLTFM_BD_ID_X312PT_V3DOT0,   "X312P-V3.x",     X312P, v3dot0},
+    {BF_PLTFM_BD_ID_X312PT_V4DOT0,   "X312P-V4.x",     X312P, v4dot0},
     /* As I know so far, product name is not a suitable way to distinguish platforms
      * from X-T to CX-T/PX-T, so how to distinguish X312P and HC ???
      * by tsihang, 2021-07-14. */
@@ -805,13 +806,16 @@ static void further_decode ()
                     tlv->content[1], tlv->content[2], tlv->content[3]);
                 memcpy(tlv->content, (uint8_t *)temp, 32);
             } else if(tlv->code == 0x26) {
-                if (!strstr (tlv->content, "3") && 
+                if (!strstr (tlv->content, "4") &&
+                    !strstr (tlv->content, "3") &&
                     !strstr (tlv->content, "2")) {
                     fprintf (stdout,
                              "** Invalid data in eeprom sections (0x%02x), This may occur errors while running.\n",
                              tlv->code);
                 }
-                if (strstr (tlv->content, "3")) {
+                if (strstr (tlv->content, "4")) {
+                    sprintf(eeprom.bf_pltfm_main_board_version, "%s V4.x", eeprom.bf_pltfm_product_name);
+                } else if (strstr (tlv->content, "3")) {
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V3.x", eeprom.bf_pltfm_product_name);
                 } else {
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V2.x", eeprom.bf_pltfm_product_name);

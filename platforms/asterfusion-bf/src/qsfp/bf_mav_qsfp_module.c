@@ -103,7 +103,8 @@ static int mav_qsfp_param_get (unsigned int
     if ((board_id == BF_PLTFM_BD_ID_X312PT_V1DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X312PT_V1DOT1) ||
         (board_id == BF_PLTFM_BD_ID_X312PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X312PT_V3DOT0)) {
+        (board_id == BF_PLTFM_BD_ID_X312PT_V3DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X312PT_V4DOT0)) {
         if (module < 1 ||
             module > (BF_MAV_SUB_PORT_CNT + 1)) {
             return -1;

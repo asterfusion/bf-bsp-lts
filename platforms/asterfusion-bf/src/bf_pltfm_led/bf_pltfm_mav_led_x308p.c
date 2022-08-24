@@ -155,41 +155,36 @@ bf_pltfm_port_led_by_tofino_sync_set_x308p (
     err = bf_pltfm_tf_cpld_read (p->idx,
                 AF_LED_CPLD_I2C_ADDR, p->off, &val0);
     if (err) {
-        fprintf (stdout, "1 tf cpld read error<%d>\n",
+        fprintf (stdout, "tf cpld read error<%d>\n",
                  err);
         return -1;
     }
 
-    // set val
     if (p->desc[0] == 'C') {
-        if (led_speed == 0x03) {
-            val0 = (led_speed << 2) + (led_link << 1) + led_active;
-        } else {
-            val = (led_speed << 2) + (led_link << 1) + led_active;
-            val0 = (val0 & ~(0x0F << p->off_b)) | (val << p->off_b);
+        // set val
+        val0 = (led_speed << 2) + (led_link << 1) + led_active;
+
+        // write
+        err  = bf_pltfm_tf_cpld_write (p->idx,
+                AF_LED_CPLD_I2C_ADDR, p->off,   val0);
+        err |= bf_pltfm_tf_cpld_write (p->idx,
+                AF_LED_CPLD_I2C_ADDR, p->off+1, 0);
+        if (err) {
+            fprintf (stdout, "tf cpld write error<%d>\n",
+                     err);
+            return -2;
         }
     } else {
-        val = (led_link << 1) + led_active;
-        val0 = (val0 & ~(0x03 << p->off_b)) | (val << p->off_b);
-    }
+        // set val
+        val0 = (val0 & ~(0x03 << p->off_b)) | (((led_link << 1) + led_active) << p->off_b);
 
-    // write
-    err = bf_pltfm_tf_cpld_write (p->idx,
-                AF_LED_CPLD_I2C_ADDR, p->off, val0);
-    if (err) {
-        fprintf (stdout, "2 tf cpld write error<%d>\n",
-                 err);
-        return -2;
-    }
-
-    // if speed == 50G/100G, write 0 at offset + 1
-    if (led_speed == 0x03) {
+        // write
         err = bf_pltfm_tf_cpld_write (p->idx,
-                AF_LED_CPLD_I2C_ADDR, p->off + 1, 0);
+               AF_LED_CPLD_I2C_ADDR, p->off, val0);
         if (err) {
-            fprintf (stdout, "2 tf cpld write error<%d>\n",
-                 err);
-            return -3; 
+            fprintf (stdout, "tf cpld write error<%d>\n",
+                     err);
+            return -2;
         }
     }
 

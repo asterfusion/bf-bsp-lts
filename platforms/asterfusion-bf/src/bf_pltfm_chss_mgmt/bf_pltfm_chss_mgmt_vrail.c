@@ -178,7 +178,8 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
     if (platform_subtype_equal(v2dot0)) {
         /* Not supported in v2. */
         pwr_rails = pwr_rails;
-    } else if (platform_subtype_equal(v3dot0)) {
+    } else if (platform_subtype_equal(v3dot0) ||
+               platform_subtype_equal(v4dot0)) {
         uint8_t buf[4] = {0};
         int err;
         uint8_t vrail_data[3] = {0};

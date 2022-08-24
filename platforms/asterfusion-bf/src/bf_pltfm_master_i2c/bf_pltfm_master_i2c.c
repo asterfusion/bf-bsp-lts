@@ -535,7 +535,8 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
             /* CPLD <- cp2112  */
             /* QSFP <- cp2112 */
             fd = i2c_ctx.fd_cp2112;
-        } else if (platform_subtype_equal(v3dot0)) {
+        } else if (platform_subtype_equal(v3dot0) ||
+                   platform_subtype_equal(v4dot0)) {
             /* BMC  <- nc76779d */
             /* CPLD <- nc76779d */
             /* QSFP <- cp2112   */
@@ -846,7 +847,8 @@ int bf_pltfm_master_i2c_init()
             memset(&i2c_bus_name[2][0], '0', 255);
             memset(&i2c_bus_name[3][0], '0', 255);
             memset(&i2c_bus_name[4][0], '0', 255);
-        } else if (platform_subtype_equal (v3dot0)) {
+        } else if (platform_subtype_equal (v3dot0) ||
+                   platform_subtype_equal (v4dot0)) {
             memset(&i2c_bus_name[2][0], '0', 255);
             memset(&i2c_bus_name[3][0], '0', 255);
         }

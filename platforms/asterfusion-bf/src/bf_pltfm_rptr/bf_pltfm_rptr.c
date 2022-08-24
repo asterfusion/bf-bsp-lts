@@ -813,7 +813,8 @@ bf_pltfm_status_t bf_pltfm_rptr_init (void)
     if ((bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_X312PT_V2DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X312PT_V3DOT0)) {
+        (bd_id == BF_PLTFM_BD_ID_X312PT_V3DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_X312PT_V4DOT0)) {
         // No repeaters on board, so simply return success
         return BF_PLTFM_SUCCESS;
     }

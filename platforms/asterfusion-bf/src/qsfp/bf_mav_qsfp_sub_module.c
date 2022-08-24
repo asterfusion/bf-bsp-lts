@@ -950,6 +950,11 @@ EXPORT int bf_pltfm_get_vqsfp_ctx (struct
     return 0;
 }
 
+EXPORT int bf_pltfm_get_max_vqsfp_ports (void)
+{
+    return max_vqsfp;
+}
+
 /* Panel QSFP28. */
 EXPORT int bf_pltfm_qsfp_lookup_by_module (
     IN  int module,
@@ -974,29 +979,43 @@ EXPORT int bf_pltfm_vqsfp_lookup_by_module (
     OUT uint32_t *conn_id
 )
 {
-    int base = 0;
+    int alias_num;
     struct qsfp_ctx_t *qsfp, *qsfp_ctx;
     if (bf_pltfm_get_vqsfp_ctx (&qsfp_ctx)) {
         return -1;
     }
 
-    if (platform_type_equal (X308P)) {
-        base = 8;
-    } else if (platform_type_equal (X312P)) {
-        base = 12;
-    } else if (platform_type_equal (HC)) {
-        base = 24;
-    } else {
-        //LOG_ERROR (
-        //    "Current platform has no vQSFP %2d, exiting ...", module);
+    for (int i = 0; i < bf_pltfm_get_max_vqsfp_ports(); i ++) {
+        qsfp = &qsfp_ctx[i];
+        alias_num = atoi (&qsfp->desc[1]);
+        if (alias_num == module) {
+            // found in vqsfp
+            *conn_id = qsfp->conn_id;
+            return 0;
+        }
+    }
+
+    max_vsfp = max_vsfp;
+    // not found
+    return -1;
+}
+
+EXPORT int bf_pltfm_vqsfp_lookup_by_index (
+    IN  int index,
+    OUT char *alias,
+    OUT uint32_t *conn_id
+)
+{
+    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
+    if (bf_pltfm_get_vqsfp_ctx (&qsfp_ctx)) {
         return -1;
     }
 
-    qsfp = &qsfp_ctx[(module - base - 1) %
-        max_vqsfp];
+    qsfp = &qsfp_ctx[index %
+        bf_pltfm_get_max_vqsfp_ports()];
     *conn_id = qsfp->conn_id;
+    strcpy(alias, qsfp->desc);
 
-    max_vsfp = max_vsfp;
     return 0;
 }
 
