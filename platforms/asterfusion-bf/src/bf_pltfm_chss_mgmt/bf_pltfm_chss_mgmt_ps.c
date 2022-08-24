@@ -545,7 +545,8 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
     }
 
-    if (platform_subtype_equal(v3dot0)) {
+    if (platform_subtype_equal(v3dot0) ||
+        platform_subtype_equal(v4dot0)) {
         uint8_t pre_buf[2] = {0};
         uint8_t buf[10] = {0};
         int ret = -1;

@@ -204,7 +204,7 @@ static void qsfp_detection_actions (
         bf_dev_port_t dev_port;
         FP2DP (dev_id, &port_hdl, &dev_port);
         if (dev_port_in_tx_mode[dev_port]) {
-            bf_pm_pltfm_front_port_ready_for_bringup (dev_id,
+            bf_pal_pm_front_port_ready_for_bringup (dev_id,
                     &port_hdl, true);
             return;
         }
@@ -248,7 +248,7 @@ static void qsfp_removal_actions (bf_dev_id_t
         FP2DP (dev_id, &port_hdl, &dev_port);
         if (dev_port_in_tx_mode[dev_port]) {
             return;
-            bf_pm_pltfm_front_port_ready_for_bringup (dev_id,
+            bf_pal_pm_front_port_ready_for_bringup (dev_id,
                     &port_hdl, false);
             return;
         }
@@ -698,19 +698,6 @@ static void sfp_removal_actions (bf_dev_id_t
             sts);
     }
     sfp_fsm_notify_not_ready (dev_id, module);
-    sts = bf_pal_pm_front_port_ready_for_bringup (
-              dev_id, &port_hdl, false);
-    if (sts != BF_SUCCESS) {
-        LOG_ERROR (
-            "Unable to mark port ready for bringup for dev : %d : front port : "
-            "%d/%d : %s (%d)",
-            dev_id,
-            port_hdl.conn_id,
-            port_hdl.chnl_id,
-            bf_err_str (sts),
-            sts);
-    }
-
     fprintf (stdout, " SFP    %2d : %2d/%d : removed\n",
                module,
                port_hdl.conn_id,

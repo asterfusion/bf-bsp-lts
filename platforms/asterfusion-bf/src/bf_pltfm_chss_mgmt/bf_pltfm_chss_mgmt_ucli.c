@@ -268,7 +268,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
                     t.tmp2, "lm63");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
-                    t.tmp3, platform_subtype_equal(v3dot0) ? "lm86" : "Not Defined");
+                    t.tmp3, (platform_subtype_equal(v3dot0) || platform_subtype_equal(v4dot0)) ? "lm86" : "Not Defined");
         aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
                     t.tmp4, "GHC-1 Junction");
         aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",

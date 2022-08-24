@@ -79,6 +79,8 @@ static void bf_pltfm_parse_subversion (const char *subver,
         *subtype = v3dot1;
     } else if (strstr (subver, "3.2")) {
         *subtype = v3dot2;
+    } else if (strstr (subver, "4.0")) {
+        *subtype = v4dot0;
     } else {
         /* TBD: */
         *find = false;
@@ -175,7 +177,8 @@ static void bf_pltfm_parse_hwversion (const char *str,
         if (subtype != v3dot0 &&
             subtype != v3dot1 &&
             subtype != v3dot2 &&
-            subtype != v3dot3) {
+            subtype != v3dot3 &&
+            subtype != v4dot0) {
             subtype = v2dot0;
             fprintf (stdout,
                      "WARNNING: Overwrite %02x's subversion to %02x\n", type, subtype);
@@ -446,12 +449,13 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
     if (platform_type_equal (X312P)) {
         if (platform_subtype_equal (v2dot0)) {
             fprintf (stdout, "CPLD <- cp2112\n");
-        } else if (platform_subtype_equal (v3dot0)) {
+        } else if (platform_subtype_equal (v3dot0) ||
+                   platform_subtype_equal (v4dot0)) {
             fprintf (stdout, "CPLD <- super io\n");
         }
     } else if (platform_type_equal (X308P)) {
         if (is_HVXXX) {
-            access_cpld_through_superio();
+            access_cpld_through_cp2112();
         }
     } else if (platform_type_equal (X532P)) {
         if (is_CG15XX) {

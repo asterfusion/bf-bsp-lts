@@ -68,17 +68,13 @@ static struct qsfp_ctx_t qsfp_ctx_x312p[] = {
  * GHCy <- C13/C14, while another 3x 25G are unused.
  * by tsihang, 2022/07/21. */
 static struct qsfp_ctx_t vqsfp_ctx_x312p[] = {
-    /* GHCx */
-    {"C13", 25, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 25*/
-    {"C14", 26, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 26*/
-    {"C15", 27, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 17*/
-    {"C16", 28, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 28*/
-
     /* GHCy */
-    {"C17", 29, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 29*/
-    {"C18", 30, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 30*/
-    {"C19", 31, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 31*/
-    {"C20", 32, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 32*/
+    {"C13", 31, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 31*/
+    {"C14", 32, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 32*/
+
+    /* GHCx */
+    {"C15", 27, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 27*/
+    {"C16", 28, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 28*/
 };
 
 /* magic array for X312P */

@@ -640,10 +640,11 @@ void sfp_fsm_notify_not_ready (bf_dev_id_t dev_id,
     port_hdl.chnl_id = chnl;
     FP2DP (dev_id, &port_hdl, &dev_port);
 
-
+    bf_port_optical_los_set (dev_id, dev_port, true);
     bf_port_optical_xcvr_ready_set (dev_id, dev_port,
                                     false);
-    bf_port_optical_los_set (dev_id, dev_port, true);
+    bf_pal_pm_front_port_ready_for_bringup (
+        dev_id, &port_hdl, false);
 
     LOG_DEBUG (
         " SFP    %2d : (%02d/%d) Not Ready",

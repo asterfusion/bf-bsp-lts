@@ -358,7 +358,8 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 10)
                 fdata->F[num].group = 5;
         }
-    } else if (platform_subtype_equal(v3dot0)) {
+    } else if (platform_subtype_equal(v3dot0) ||
+               platform_subtype_equal(v4dot0)) {
         // fan status
         buf[0] = 0x03;
         buf[1] = 0x32;
@@ -556,7 +557,8 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
         }
-    } else if (platform_subtype_equal(v3dot0)) {
+    } else if (platform_subtype_equal(v3dot0) ||
+               platform_subtype_equal(v4dot0)) {
         uint8_t buf[5] = {0};
         uint8_t data[32] = {0};
         int rdlen = 0;
