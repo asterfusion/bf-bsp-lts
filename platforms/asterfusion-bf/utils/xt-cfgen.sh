@@ -343,10 +343,7 @@ fi
 # CPLD <- nct6779d
 # SFP  <- CP2112
 if [ "$default_cme"X = "CME3000"X ] && [[ $xt_platform =~ "308" ]]; then
-    install_nct6779d
-    i2c=`i2cdetect -l | awk -F '[- ]' '/sio_smbus/{print $2}'`
-    enable_iic=1
-    default_i2c=${i2c:0:1}
+    enable_iic=0
     hw_platform="X308P-T"
     echo -e "${YELLOW}${BLINK}It looks like x308p-t detected.${RES}${RES}"
 fi
