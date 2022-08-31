@@ -210,7 +210,11 @@ static void bf_pltfm_chss_mgmt_onlp_temp (int id,
     char value[MAX_LEN];
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_TMP_PATH, id);
-    sprintf (value, "%d", (int) (temp * 1000));
+    if (temp == -100) {
+        sprintf (value, "%s", "NULL");
+    } else {
+        sprintf (value, "%d", (int) (temp * 1000));
+    }
     onlp_save (fonlp, value, strlen (value));
 }
 
