@@ -291,7 +291,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->psu_count = 2;
             /* LM75, LM63 and GHC(4) and Tofino(2).
              * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
-            bf_pltfm_mgr_ctx()->sensor_count = 8;
+            bf_pltfm_mgr_ctx()->sensor_count = 9;
             if (platform_subtype_equal(v3dot0) ||
                 platform_subtype_equal(v4dot0)) {
             /* LM75, LM63, LM86 and GHC(4) and Tofino(2).

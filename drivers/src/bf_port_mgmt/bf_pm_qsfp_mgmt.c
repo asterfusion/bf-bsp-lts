@@ -377,9 +377,18 @@ static int qsfp_fsm_identify_type (int conn_id,
 
     // else, need to identify it
     if (bf_qsfp_type_get (conn_id, &qsfp_type) != 0) {
-        LOG_ERROR ("QSFP    %2d : Error determining type\n",
-                   conn_id);
-        return -1;
+        /*100G Terspeak read tranceiver data err on sometimes, so need retry to update data*/
+        int err = bf_qsfp_update_data(conn_id);
+        if (err) {
+            LOG_ERROR ("QSFP    %2d : Error bf_qsfp_update_data failure\n", conn_id);
+            return -1;
+        }
+        // set pg 0 (if neccessary)
+        qsfp_set_pg (conn_id, page);
+        if (bf_qsfp_type_get (conn_id, &qsfp_type) != 0) {
+            LOG_ERROR ("QSFP    %2d : Error determining type\n", conn_id);
+            return -1;
+        }
     }
     if (qsfp_type == BF_PLTFM_QSFP_OPT) {
         qsfp_state[conn_id].qsfp_type = QSFP_TYP_OPTICAL;
@@ -1999,7 +2008,7 @@ void qsfp_oper_info_get (int conn_id,
     }
     *present = true;
 
-    rc = bf_fsm_qsfp_rd (conn_id, 0, 128, pg0_lower);
+    rc = bf_fsm_qsfp_rd (conn_id, 0, MAX_QSFP_PAGE_SIZE, pg0_lower);
     if (rc) {
         LOG_ERROR ("QSFP    %2d : Error <%d> reading page 0 (lower)",
                    conn_id, rc);
@@ -2010,7 +2019,7 @@ void qsfp_oper_info_get (int conn_id,
     // first, set to pg 0 (just in case)
     qsfp_set_pg (conn_id, pg);
 
-    rc = bf_fsm_qsfp_rd (conn_id, 128, 128,
+    rc = bf_fsm_qsfp_rd (conn_id, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE,
                          pg0_upper);
     if (rc) {
         LOG_ERROR ("QSFP    %2d : Error <%d> reading page 0 (upper)",
@@ -2048,7 +2057,7 @@ void qsfp_oper_info_get_pg3 (int conn_id,
     pg = 3;
     qsfp_set_pg (conn_id, pg);
 
-    rc = bf_fsm_qsfp_rd (conn_id, 128, 128, pg3);
+    rc = bf_fsm_qsfp_rd (conn_id, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg3);
     if (rc) {
         LOG_ERROR ("QSFP    %2d : Error <%d> reading page 3",
                    conn_id, rc);

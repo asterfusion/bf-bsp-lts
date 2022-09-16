@@ -163,7 +163,6 @@ __bf_pltfm_chss_mgmt_temperature_get_x308p__ (
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
     int err = BF_PLTFM_COMM_FAILED, ret;
-    bf_pltfm_switch_temperature_info_t stemp = {0, 0};
 
     wr_buf[0] = 0xAA;
     wr_buf[1] = 0xAA;
@@ -180,8 +179,10 @@ __bf_pltfm_chss_mgmt_temperature_get_x308p__ (
             tmp->tmp3 = (float)rd_buf[3];
             tmp->tmp10 = (float)rd_buf[4];
 
+            /* Map Tofino temp to tmp8 and tmp9. And these two values come from BMC instead of from tofino. */
             tmp->tmp9 = (float)rd_buf[5];
             tmp->tmp8 = (float)rd_buf[6];
+
             if (rd_buf[7] == 0x9C) {
                 tmp->tmp5 = -100.0;
                 tmp->tmp4 = -100.0;
@@ -197,9 +198,6 @@ __bf_pltfm_chss_mgmt_temperature_get_x308p__ (
                 tmp->tmp6= (float)rd_buf[10];
             }
 
-            bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
-            tmp->tmp8 = (float)(stemp.main_sensor / 1000);
-            tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
             err = BF_PLTFM_SUCCESS;
         }
     }
@@ -294,7 +292,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
                 tmp->tmp6 = ghc2_temp[1][2];
             }
         }
-
+        /* Map Tofino temp to tmp8 and tmp9. And these two values come from tofino instead of from BMC. */
         bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
         tmp->tmp8 = (float)(stemp.main_sensor / 1000);
         tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
