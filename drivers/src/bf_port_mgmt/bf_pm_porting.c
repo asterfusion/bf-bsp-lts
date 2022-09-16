@@ -634,7 +634,7 @@ bf_status_t bf_pm_port_link_down_actions (
         fprintf(stdout, "\n");
         fprintf(stdout,
             "%2d/%d : %s\n",
-            (port_hdl)->conn_id, (port_hdl)->chnl_id, "down");
+            (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn");
         return BF_SUCCESS;
     }
 
@@ -656,7 +656,7 @@ bf_status_t bf_pm_port_link_down_actions (
     fprintf(stdout, "\n");
     fprintf(stdout,
         "%2d/%d : %s : is_present : %d\n",
-        (port_hdl)->conn_id, (port_hdl)->chnl_id, "down", is_present);
+        (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn", is_present);
 
     sts = bf_port_led_set (dev_id, &port_info,
                            led_cond);

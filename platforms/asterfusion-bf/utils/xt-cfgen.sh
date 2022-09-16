@@ -1,5 +1,6 @@
-# Generate /etc/platform.conf and output configure entries to /etc/platform.conf.
-# which is strongly required when launch X-T Programmable Bare Metal Switches.
+# Generate /etc/platform.conf and write required entries(i.e, platform,hwver,i2c,...) to /etc/platform.conf.
+# /etc/platform.conf is a pre-installed configuration file which holds amount of entries that strongly required
+# when launching X-T Programmable Bare Metal Switch.
 #
 # by tsihang <tsihang@asterfusion.com> on 20 May, 2022.
 #
@@ -338,10 +339,10 @@ if [ "$xt_platform"X != ""X ] && [ $enable_uart = 0 ]; then
     # TBD
 fi
 
-# Detect X308P-T.
+# Detect X308P-T. Two-way cp2112
 # BMC  <- UART
-# CPLD <- nct6779d
-# SFP  <- CP2112
+# CPLD <- cp2112 or nct6779d
+# SFP  <- cp2112
 if [ "$default_cme"X = "CME3000"X ] && [[ $xt_platform =~ "308" ]]; then
     enable_iic=0
     hw_platform="X308P-T"
@@ -349,15 +350,15 @@ if [ "$default_cme"X = "CME3000"X ] && [[ $xt_platform =~ "308" ]]; then
 fi
 
 # Detect X312P-T.
-# v1.0 and v1.1
+# v1.x
     # BMC  <- nct6779d
     # CPLD <- nct6779d
     # SFP  <- nct6779d
-# v1.2
+# v2.x
     # BMC  <- cp2112
     # CPLD <- cp2112
     # SFP  <- cp2112
-# v1.3
+# v3.x and later
     # BMC  <- nct6779d
     # CPLD <- nct6779d
     # SFP  <- cp2112
@@ -371,7 +372,7 @@ fi
 # Detect X532P-T. Two-way cp2112
 # BMC  <- UART or cgosdrv
 # CPLD <- cp2112 or cgosdrv
-# SFP  <- cp2112 or cogsdrv
+# SFP  <- cp2112 or cgosdrv
 # QSFP <- cp2112
 if [[ $xt_platform =~ "532" ]]; then
     enable_iic=0
@@ -392,7 +393,7 @@ fi
 # Detect X564P-T. Two-way cp2112
 # BMC  <- UART or cgosdrv
 # CPLD <- cp2112 or cgosdrv
-# SFP  <- cp2112 or cogsdrv
+# SFP  <- cp2112 or cgosdrv
 # QSFP <- cp2112
 if [[ $xt_platform =~ "564" ]]; then
     enable_iic=0

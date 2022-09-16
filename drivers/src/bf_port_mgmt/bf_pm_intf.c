@@ -1169,7 +1169,7 @@ bf_pltfm_status_t bf_pltfm_pm_port_sfp_type_get (
         return BF_PLTFM_INVALID_ARG;
     }
 
-    bf_sfp_get_port (port_info->chnl_id,
+    bf_sfp_get_port (port_info->conn_id,
                      port_info->chnl_id, &module);
     *qsfp_type =
         pm_sfp_info_arr[module].qsfp_type;
@@ -1199,7 +1199,7 @@ bf_pltfm_status_t pltfm_pm_port_sfp_is_present (
         return BF_PLTFM_INVALID_ARG;
     }
 
-    bf_sfp_get_port (port_info->chnl_id,
+    bf_sfp_get_port (port_info->conn_id,
                      port_info->chnl_id, &module);
 
     // use bf_sfp_is_present for consistent view - TBD
@@ -1222,7 +1222,7 @@ void sfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
                      &port_hdl.chnl_id);
     FP2DP (dev_id, &port_hdl, &dev_port);
 
-    // notify bf_pltfm of new QSFP
+    // notify bf_pltfm of new SFP
     pm_sfp_info_arr[module].is_present = true;
 
     port_info.conn_id = port_hdl.conn_id;

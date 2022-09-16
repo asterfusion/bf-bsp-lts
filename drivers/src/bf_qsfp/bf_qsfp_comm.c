@@ -58,7 +58,8 @@ static bool bf_qsfp_cache_dirty[BF_PLAT_MAX_QSFP +
                                                  1];
 static bool bf_qsfp_flat_mem[BF_PLAT_MAX_QSFP +
                                               1];
-
+static MemMap_Format bf_qsfp_memmap_format[BF_PLAT_MAX_QSFP +
+                                              1];
 static int bf_plt_max_qsfp = 0;
 
 /* SFF-8436, QSFP+ 10 Gbs 4X PLUGGABLE TRANSCEIVER spec */
@@ -430,6 +431,54 @@ static int get_threshold_values (int port,
     return 0;
 }
 
+bool bf_qsfp_is_cmis (int port)
+{
+    if (port > bf_plt_max_qsfp) {
+        return false;
+    }
+
+    if ((bf_qsfp_memmap_format[port] ==
+                        MMFORMAT_CMIS3P0) ||
+        (bf_qsfp_memmap_format[port] ==
+                        MMFORMAT_CMIS4P0)) {
+        return true;
+    }
+    return false;
+}
+
+bool bf_qsfp_is_sff8636 (int port)
+{
+    if (port > bf_plt_max_qsfp) {
+        return false;
+    }
+
+    if (bf_qsfp_memmap_format[port] ==
+                        MMFORMAT_SFF8636) {
+        return true;
+    }
+    return false;
+}
+
+bool bf_qsfp_is_dd (int port)
+{
+    int offset = 0;
+    int length = 0;
+    int data_addr = 0;
+    uint8_t *id = NULL;
+
+    if (port > bf_plt_max_qsfp) {
+        return -1;
+    }
+    get_qsfp_field_addr (IDENTIFIER, &data_addr,
+                      &offset, &length);
+    id = get_qsfp_value_ptr (port, data_addr, offset,
+                          length);
+    if (*id == QSFP_DD) {
+        return true;
+    }
+    return 0;
+}
+
 /** return qsfp vendor information
  *
  *  @param port
@@ -707,6 +756,7 @@ int bf_qsfp_init (void)
         bf_qsfp_during_reset[port] = false;
         bf_qsfp_cache_dirty[port] = true;
         bf_qsfp_flat_mem[port] = false;
+        bf_qsfp_memmap_format[port] = MMFORMAT_UNKNOWN;
     }
     return 0;
 }
@@ -728,6 +778,7 @@ int bf_qsfp_port_deinit (int port)
     bf_qsfp_during_reset[port] = false;
     bf_qsfp_cache_dirty[port] = true;
     bf_qsfp_flat_mem[port] = false;
+    bf_qsfp_memmap_format[port] = MMFORMAT_UNKNOWN;
     return 0;
 }
 
@@ -894,6 +945,7 @@ int bf_qsfp_reset (int port, bool reset)
 {
     if (port <= bf_plt_max_qsfp) {
         bf_qsfp_during_reset[port] = reset;
+        LOG_DEBUG("QSFP    %2d : %s", port, reset ? "True" : "False");
         return (bf_pltfm_qsfp_module_reset (port, reset));
     } else {
         return -1; /* TBD: handle cpu port QSFP */
@@ -910,6 +962,7 @@ bool bf_qsfp_get_reset (int port)
 
 static int set_qsfp_idprom (int port)
 {
+    uint8_t id;
     uint8_t status[2];
     int offset = 0;
     int length = 0;
@@ -922,6 +975,22 @@ static int set_qsfp_idprom (int port)
         LOG_ERROR ("QSFP %d IDProm set failed as QSFP is not present\n",
                    port);
         return -1;
+    }
+    get_qsfp_field_addr (IDENTIFIER, &data_addr,
+                         &offset, &length);
+    get_qsfp_value (port, data_addr, offset, length,
+                    &id);
+
+    if ((id == QSFP) || (id == QSFP_PLUS) ||
+        (id == QSFP_28)) {
+        bf_qsfp_memmap_format[port] =
+            MMFORMAT_SFF8636;
+        //bf_qsfp_info_arr[port].num_ch = 4;
+    } else {
+        /* CMS */
+        // now determine if the CMIS memory map is rev 3.0 or 4.0+
+        //MMFORMAT_CMIS3P0
+        //MMFORMAT_CMIS4P0
     }
 
     /* set flat_mem appropriately */
@@ -1262,12 +1331,19 @@ int bf_qsfp_update_data (int port)
                        "Set IDPROM for QSFP %2d\n", rc, port);
             return -1;
         }
+
+        LOG_DEBUG (
+            "QSFP    %2d : %s", port,
+            bf_qsfp_is_cmis (port) ? "CMIS" : "SFF-8636");
+
+        LOG_DEBUG (
+            "QSFP    %2d : %s", port,
+            bf_qsfp_has_pages (port) ? "Paged" : "Flat");
+
         /* should the other data be read ??? */
         /* If we have flat memory, we don't have to set the page */
         if (!bf_qsfp_flat_mem[port]) {
             uint8_t page = 0;
-            uint8_t page_read;
-
             rc = bf_pltfm_qsfp_write_module (port, 127, 1,
                                              &page);
             if (rc) {
@@ -1276,6 +1352,8 @@ int bf_qsfp_update_data (int port)
                 return -1;
             }
             bf_sys_usleep (50000);
+            /* Belowing code makes no sense. Closed by tsihang, 2022-09-01. */
+#if 0
             rc = bf_pltfm_qsfp_read_module (port, 127, 1,
                                             &page_read);
             if ( page ^ page_read) {
@@ -1284,6 +1362,7 @@ int bf_qsfp_update_data (int port)
                            page, port);
                 return -1;
             }
+#endif
         }
         rc = bf_pltfm_qsfp_read_module (
                  port, 128, MAX_QSFP_PAGE_SIZE,
@@ -1295,7 +1374,6 @@ int bf_qsfp_update_data (int port)
         }
         if (!bf_qsfp_flat_mem[port]) {
             uint8_t page = 3;
-            uint8_t page_read;
             rc = bf_pltfm_qsfp_write_module (port, 127, 1,
                                              &page);
             if (rc) {
@@ -1312,6 +1390,8 @@ int bf_qsfp_update_data (int port)
                            "Reading page_3 from QSFP %2d\n", rc, port);
                 return -1;
             }
+            /* Belowing code makes no sense. Closed by tsihang, 2022-09-01. */
+#if 0
             rc = bf_pltfm_qsfp_read_module (port, 127, 1,
                                             &page_read);
             if ( page ^ page_read) {
@@ -1320,6 +1400,7 @@ int bf_qsfp_update_data (int port)
                            page, port);
                 return -1;
             }
+#endif
         }
     }
     return 0;
@@ -1799,7 +1880,7 @@ int bf_qsfp_type_get (int port,
     if (port > bf_plt_max_qsfp) {
         return -1;
     }
-
+#if 0
     int retry_times = 0;
     const int max_retry_times = 11;
 retry_begin :
@@ -1815,7 +1896,7 @@ retry_begin :
         }
         goto retry_begin;
     }
-
+#endif
     Ethernet_compliance eth_comp;
     if (bf_qsfp_get_eth_compliance (port,
                                     &eth_comp) != 0) {
@@ -1919,26 +2000,5 @@ extern bool bf_pm_qsfp_is_luxtera (int conn_id);
 bool bf_qsfp_is_luxtera_optic (int conn_id)
 {
     return bf_pm_qsfp_is_luxtera (conn_id);
-}
-
-bool bf_qsfp_is_dd (int port)
-{
-    int offset = 0;
-    int length = 0;
-    int data_addr = 0;
-    uint8_t *id = NULL;
-
-    if (port > bf_plt_max_qsfp) {
-        return -1;
-    }
-    get_qsfp_field_addr (IDENTIFIER, &data_addr,
-                         &offset, &length);
-    id = get_qsfp_value_ptr (port, data_addr, offset,
-                             length);
-    if (*id == QSFP_DD) {
-        return true;
-    }
-
-    return 0;
 }
 

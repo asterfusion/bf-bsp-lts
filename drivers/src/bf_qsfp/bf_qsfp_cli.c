@@ -426,6 +426,7 @@ static ucli_status_t qsfp_dump_pg0_info (
                 }
                 aim_printf (&uc->pvs, "%02x ", pg0_upper[byte]);
             }
+            aim_printf (&uc->pvs, "\n");
             aim_printf (&uc->pvs, "\nPage 3:\n");
             for (byte = 0; byte < 128; byte++) {
                 if ((byte % 16) == 0) {

@@ -411,10 +411,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
 
   pltfm_mgr_status_t pltfm_mgr_qsfp_reset(const int port_num,
                                           const bool reset) {
-    /* Not yet supported.  Need code from qsfp_mgnt branch */
-    // bf_pltfm_qsfp_reset(port_num, reset);
-
-    return 0;
+    return bf_qsfp_reset (port_num, reset);
   }
 
   bool pltfm_mgr_qsfp_lpmode_get(const int port_num) {
