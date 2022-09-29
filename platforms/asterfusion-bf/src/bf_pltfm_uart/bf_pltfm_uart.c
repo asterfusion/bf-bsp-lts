@@ -384,9 +384,11 @@ no_return_cmd (unsigned char cmd)
      * 9  = Reboot BMC.
      * 10 = Payload shutdown or reboot.
      * 12 = Config WDT.
+     * 15 = cp2112/superio selecttion.
+     * 16 = cp2112 hard reset.
      */
     if ((cmd == 7) || (cmd == 9) || (cmd == 10) ||
-        (cmd == 12)) {
+        (cmd == 12) || (cmd == 15) || (cmd == 16)) {
         return true;
     }
 

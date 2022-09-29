@@ -69,12 +69,12 @@ static struct qsfp_ctx_t qsfp_ctx_x312p[] = {
  * by tsihang, 2022/07/21. */
 static struct qsfp_ctx_t vqsfp_ctx_x312p[] = {
     /* GHCy */
-    {"C13", 31, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 31*/
-    {"C14", 32, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 32*/
+    {"C13", 27, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 31*/
+    {"C14", 28, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 32*/
 
     /* GHCx */
-    {"C15", 27, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 27*/
-    {"C16", 28, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 28*/
+    {"C15", 31, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 27*/
+    {"C16", 32, 0x0, 0, 0, {0, 0x0, BIT (0)}, {0, 0x0, BIT (0)}},     /* QSFP 28*/
 };
 
 /* magic array for X312P */

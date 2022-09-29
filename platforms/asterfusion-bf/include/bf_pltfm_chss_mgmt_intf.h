@@ -162,12 +162,12 @@ typedef enum bf_pltfm_pwr_supply_e {
 #define PSU_INFO_AC                 (1 << 7)
 
 typedef struct bf_pltfm_pwr_supply_info_t {
-    uint32_t vin;      /* Input voltage in Volts */
-    uint32_t vout;     /* Output voltage in Volts */
-    uint32_t iin;
+    uint32_t vin;      /* Input voltage in milli Volts */
+    uint32_t vout;     /* Output voltage in milli Volts */
+    uint32_t iin;      /* Input current in milli Amperes */
     uint32_t iout;     /* Output current in milli Amperes */
     uint32_t pwr_out;  /* Output power in milli watts */
-    uint32_t pwr_in;
+    uint32_t pwr_in;   /* Input power in milli watts */
     bool presence;     /* Power supply present or not */
     bool power;        /* Is there power to PSU */
 

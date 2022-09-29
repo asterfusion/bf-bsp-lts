@@ -840,6 +840,7 @@ bf_pltfm_status_t bf_pltfm_rptr_config_set (
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
         (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
         /* No Repeaters Present, hence simply return */
         return BF_PLTFM_SUCCESS;

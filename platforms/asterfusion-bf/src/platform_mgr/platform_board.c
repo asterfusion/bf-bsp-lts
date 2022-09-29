@@ -57,18 +57,14 @@ pltfm_bd_map_t pltfm_board_maps[] = {
     },
     {
         BF_PLTFM_BD_ID_X308PT_V1DOT0,
-        mavericks_P0B_bd_map_x308p,
-        ROWS (mavericks_P0B_bd_map_x308p)
+        mavericks_P0B_bd_map_x308p_v1dot0,
+        ROWS (mavericks_P0B_bd_map_x308p_v1dot0)
     },
-    /* As I know so far, a new X308P-T with different lane map will be published Q3 2022.
-     * Please add the board here.
-     * by tsihang, 2022-06-20. */
-    //{
-    //    BF_PLTFM_BD_ID_X308PT_V1DOT1,
-    //    mavericks_P0B_bd_map_x308p_v1dot1,
-    //    ROWS (mavericks_P0B_bd_map_x308p_v1dot1)
-    //}
-
+    {
+        BF_PLTFM_BD_ID_X308PT_V1DOT1,
+        mavericks_P0B_bd_map_x308p_v1dot1,
+        ROWS (mavericks_P0B_bd_map_x308p_v1dot1)
+    },
     {
         /* X312P-T both v1.0 and v1.1 have dropped support. */
         BF_PLTFM_BD_ID_X312PT_V1DOT0,
@@ -174,6 +170,10 @@ int platform_name_get_str (char *name,
         case BF_PLTFM_BD_ID_X308PT_V1DOT0:
             snprintf (name, name_size,
                       "BF_PLTFM_BD_ID_X308PT_V1DOT0");
+            break;
+        case BF_PLTFM_BD_ID_X308PT_V1DOT1:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X308PT_V1DOT1");
             break;
         case BF_PLTFM_BD_ID_X312PT_V1DOT0:
             snprintf (name, name_size,

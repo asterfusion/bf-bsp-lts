@@ -1,7 +1,9 @@
 #! /bin/bash
 
+source xt-setup.sh
+
 echo "Uninstall SDE"
-sde=`dpkg -l | grep sde | awk '{print $2}'`
+sde=`dpkg -l | grep sde- | awk '{print $2}'`
 if [ "$sde"X != ""X ];then
 	echo -e "${RED}Removing $sde${RES}"
 	dpkg -r $sde
@@ -94,5 +96,15 @@ if [ "$deps"X != ""X ];then
 fi
 unset deps
 
-rm -rf /usr/local/sde
+if [[ -d  $BFNSDK_INSTDIR ]];then
+    echo -e "${RED}Removing $BFNSDK_INSTDIR${RES}"
+    rm -rf $BFNSDK_INSTDIR
+fi
+
+if [[ -d  $LOG_DIR_PREFIX ]];then
+    echo -e "${RED}Removing $LOG_DIR_PREFIX${RES}"
+    rm -rf $LOG_DIR_PREFIX
+fi
+
+echo -e "${YELLOW}Done${RES}"
 

@@ -200,7 +200,7 @@ static void bf_pltfm_parse_hwversion (const char *str,
     } else if (platform_type_equal (X308P)) {
         /* 0x31. */
         if (subtype != v1dot0 &&
-            subtype != v2dot0) {
+            subtype != v1dot1) {
             find = false;
         }
     } else if (platform_type_equal (HC)) {
@@ -448,29 +448,34 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
 
     if (platform_type_equal (X312P)) {
         if (platform_subtype_equal (v2dot0)) {
-            fprintf (stdout, "CPLD <- cp2112\n");
+            LOG_DEBUG ("CPLD <- cp2112\n");
         } else if (platform_subtype_equal (v3dot0) ||
                    platform_subtype_equal (v4dot0)) {
-            fprintf (stdout, "CPLD <- super io\n");
+            LOG_DEBUG ("CPLD <- super io\n");
         }
     } else if (platform_type_equal (X308P)) {
-        if (is_HVXXX) {
+        if (is_HVXXX || is_CG15XX  || is_ADV15XX || is_S02XXX) {
+            LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();
         }
     } else if (platform_type_equal (X532P)) {
         if (is_CG15XX) {
-            fprintf (stdout, "CPLD <- cgolx\n");
+            LOG_DEBUG ("CPLD <- cgoslx\n");
         } else if (is_ADV15XX || is_S02XXX) {
+            LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();
         } else if (is_HVXXX) {
+            LOG_DEBUG ("CPLD <- super io\n");
             access_cpld_through_superio();
         }
     } else if (platform_type_equal (X564P)) {
         if (is_CG15XX) {
-            fprintf (stdout, "CPLD <- cgolx\n");
+            LOG_DEBUG ("CPLD <- cgoslx\n");
         } else if (is_ADV15XX || is_S02XXX) {
+            LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();
         } else if (is_HVXXX) {
+            LOG_DEBUG ("CPLD <- super io\n");
             access_cpld_through_superio();
         }
     }

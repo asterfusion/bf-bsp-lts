@@ -1,49 +1,113 @@
 #!/bin/bash
 
-# Legacy tool, by tsihang, 2022-06-24.
-echo "Run xt-cfgen.sh instead"
-exit 0
+BLINK='\033[05m'
+RED='\E[1;31m'
+GREEN='\E[1;32m'
+YELLOW='\E[1;33m'
+BLUE='\E[1;34m'
+PINK='\E[1;35m'
+RES='\E[0m'
 
-hugepages=`cat /proc/meminfo  | grep HugePages_Total | awk '{print $2}'`
-if [ $hugepages -ne 128 ]; then
-   echo "Running through $SDE_INSTALL/bin/dma_setup.sh"
-   $SDE_INSTALL/bin/dma_setup.sh
-fi
+cfgfile=/etc/platform.conf
+LOG_DIR_PREFIX="/var/asterfusion"
+BFNSDK_INSTDIR="/usr/local/sde"
 
-bf_kdrv=`lsmod | grep bf_kdrv | awk '{print $1}'`
-if [ "$bf_kdrv"X == ""X ]; then
-   echo "Loading Barefoot Kernel driver"
-   $SDE_INSTALL/bin/bf_kdrv_mod_load $SDE_INSTALL
-fi
+friendly_exit()
+{
+    echo ""
+    read -n1 -p "Press any key to exit."
+    echo
+    exit 0
+}
 
-bsp=`dpkg -l | grep bsp | awk '{print $2}'`
-if [ "$bsp"X = "bsp-8.9.x"X ];then
-   echo "Loading CGOS kernel driver"
-   insmod /lib/modules/`uname -r`/kernel/drivers/misc/cgosdrv.ko
-   echo "Loading NCT6779D kernel driver"
-   insmod /lib/modules/`uname -r`/kernel/drivers/misc/nct6779d.ko
-   # Generate /etc/platform.conf
-   #$SDE_INSTALL/bin/xt-cfgen.sh
-else
-   # install kernel drivers for CME
-   cme=`cat /etc/platform.conf  | grep "com-e:" | awk '{print $1}'`
-   type=${cme:6}
+install_cgosdrv()
+{
+    cgosdrv="/lib/modules/`uname -r`/kernel/drivers/misc/cgosdrv.ko"
+    mod=`lsmod | grep cgosdrv`
+    mod=${mod:0:7}
 
-   if [ "$type"X == "CG1508"X ] || [ "$type"X == "CG1527"X ]; then
-      cgos_kdrv=`lsmod | grep cgosdrv | awk '{print $1}'`
-      if [ "$cgos_kdrv"X == ""X ]; then
-         echo "Loading CGOS kernel driver"
-         insmod /lib/modules/`uname -r`/kernel/drivers/misc/cgosdrv.ko
-      fi
-   fi
-   if [ "$type"X == "CME3000"X ]; then
-      nct6779d_kdrv=`lsmod | grep nct6779d | awk '{print $1}'`
-      if [ "$nct6779d_kdrv"X == ""X ]; then
-         echo "Loading NCT6779D kernel driver"
-	 insmod /lib/modules/`uname -r`/kernel/drivers/misc/nct6779d.ko
-      fi
-   fi
-   #  do nothing.
-   #if [ "$type"X == "CME7000"X ]; then
-   #fi
-fi
+    if [ "$mod"X = ""X ]; then
+        if [ ! -e $cgosdrv ]; then
+            echo -e "${RED}$cgosdrv.${RES}"
+            echo -e "${RED}Critical: No cgosdrv detected, please install it first.${RES}"
+            echo -e "${RED}You can install it from a package or from source.${RES}"
+            friendly_exit
+        fi
+
+        echo -e "Loading cgosdrv ..."
+        insmod $cgosdrv
+    fi
+}
+
+uninstall_cgosdrv()
+{
+    mod=`lsmod | grep cgosdrv`
+    mod=${mod:0:7}
+
+    if [ "$mod"X = "cgosdrv"X ]; then
+        echo -e "Off loading cgosdrv ..."
+        rmmod $mod
+    fi
+}
+
+install_nct6779d()
+{
+    nct6779drv="/lib/modules/`uname -r`/kernel/drivers/misc/nct6779d.ko"
+    mod=`lsmod | grep nct6779d`
+    mod=${mod:0:8}
+
+    if [ "$mod"X = ""X ]; then
+        if [ ! -e $nct6779drv ]; then
+            echo -e "${RED}$nct6779drv.${RES}"
+            echo -e "${RED}Critical: No nct6779drv detected, please install it first.${RES}"
+            echo -e "${RED}You can install it from a package or from source.${RES}"
+            friendly_exit
+        fi
+
+        echo -e "Loading nct6779d ..."
+        insmod $nct6779drv
+    fi
+}
+
+uninstall_nct6779d()
+{
+    mod=`lsmod | grep nct6779d`
+    mod=${mod:0:8}
+
+    if [ "$mod"X = "nct6779d"X ]; then
+        echo -e "Off loading nct6779d ..."
+        rmmod $mod
+    fi
+}
+
+install_bfnkdrv()
+{
+    hugepages=`cat /proc/meminfo  | grep HugePages_Total | awk '{print $2}'`
+    if [ $hugepages -ne 128 ]; then
+        echo "DMA setup $SDE_INSTALL/bin/dma_setup.sh"
+        $SDE_INSTALL/bin/dma_setup.sh
+    fi
+
+    bfnkdrv="$SDE_INSTALL/lib/modules/bf_kdrv.ko"
+    mod=`lsmod | grep bf_kdrv`
+    mod=${mod:0:7}
+
+    if [ "$mod"X = ""X ]; then
+        if [ ! -e $bfnkdrv ]; then
+            echo -e "${RED}$bfnkdrv.${RES}"
+            echo -e "${RED}Critical: No bfnkdrv detected, please install it first.${RES}"
+            echo -e "${RED}You can install it from a package or from source.${RES}"
+            friendly_exit
+        fi
+
+        echo -e "Loading bf_kdrv ..."
+        $SDE_INSTALL/bin/bf_kdrv_mod_load $SDE_INSTALL
+    fi
+}
+
+dump_eeprom()
+{
+    #TBD
+    echo ""
+}
+
