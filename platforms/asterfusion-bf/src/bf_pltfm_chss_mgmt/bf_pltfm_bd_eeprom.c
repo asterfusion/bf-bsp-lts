@@ -129,6 +129,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X564PT_V1DOT2, "APNS640T-A1-V1.2", X564P, v1dot2},  // X564P-T V1.2
 
     {BF_PLTFM_BD_ID_X308PT_V1DOT0, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
+    {BF_PLTFM_BD_ID_X308PT_V1DOT1, "APNS320T-B1-V1.1", X308P, v1dot1},  // X308P-T V1.1
     /* More X308P-T board id. */
 
     {BF_PLTFM_BD_ID_HC36Y24C_V1DOT0, "Hello this is HC", HC, v1dot0},

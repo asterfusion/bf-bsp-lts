@@ -1448,6 +1448,7 @@ bf_pltfm_cp2112_device_ctx_t
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
         (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
+        (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
         if ((cp2112_id != CP2112_ID_2) &&
             (cp2112_id != CP2112_ID_1)) {

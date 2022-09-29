@@ -564,7 +564,7 @@ int bf_pltfm_master_i2c_read_byte (
     uint8_t *value)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX) {
+    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
         return bf_cgos_i2c_read_byte (slave, offset,
                                       value);
     }
@@ -604,7 +604,7 @@ int bf_pltfm_master_i2c_read_block (
     uint8_t  rdlen)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX) {
+    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
         return bf_cgos_i2c_read_block (slave, offset,
                                        rdbuf, rdlen);
     }
@@ -664,7 +664,7 @@ int bf_pltfm_master_i2c_write_byte (
     uint8_t value)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX) {
+    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
         return bf_cgos_i2c_write_byte (slave, offset,
                                        value);
     }
@@ -704,7 +704,7 @@ int bf_pltfm_master_i2c_write_block (
     uint8_t  wrlen)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX) {
+    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
         return bf_cgos_i2c_write_block (slave, offset,
                                         wrbuf, wrlen);
     }
@@ -755,7 +755,7 @@ int bf_pltfm_bmc_write_read (
     int usec)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX) {
+    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
         return bf_cgos_i2c_bmc_read (slave,
                                      wr_off, wr_buf, wr_len, rd_buf,
                                      usec);
@@ -883,7 +883,7 @@ int bf_pltfm_master_i2c_init()
         fprintf (stdout,
                  "\n\n================== %s ==================\n", "IIC INIT");
         /* X564P-T/X532P-T. */
-        if (is_CG15XX) {
+        if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
             if (bf_cgos_init()) {
                 fprintf (stdout, "Error in cgos init\n");
                 exit (1);
@@ -964,7 +964,7 @@ int bf_pltfm_master_i2c_de_init()
         fprintf (stdout, "Skip ...\n");
         goto finish;
     } else {
-        if (is_CG15XX) {
+        if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
             if (bf_cgos_de_init ()) {
                 fprintf (stdout, "Deinit Master i2c\n");
                 goto finish;

@@ -144,22 +144,22 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
     }
 
     if ((ret == 27) && (rd_buf[0] == 26)) {
-        info[0].vin        = rd_buf[1] << 8 | rd_buf[2];
-        info[0].vout       = rd_buf[3] << 8 | rd_buf[4];
-        info[0].iin        = rd_buf[5] << 8 | rd_buf[6];
-        info[0].iout       = rd_buf[7] << 8 | rd_buf[8];
-        info[0].pwr_out    = rd_buf[9] << 8 | rd_buf[10];
-        info[0].pwr_in     = rd_buf[11] << 8 | rd_buf[12];
+        info[0].vin        = rd_buf[1] * 1000 + rd_buf[2] * 100;
+        info[0].vout       = rd_buf[3] * 1000 + rd_buf[4] * 100;
+        info[0].iin        = rd_buf[5] * 1000 + rd_buf[6] * 100;
+        info[0].iout       = rd_buf[7] * 1000 + rd_buf[8] * 100;
+        info[0].pwr_out    = (rd_buf[9] << 8 | rd_buf[10]) * 1000;
+        info[0].pwr_in     = (rd_buf[11] << 8 | rd_buf[12])* 1000;
         /* Default to AC as we do not have a way to detect at this moment.
          * by tsihang, 2022-07-08. */
         info[0].fvalid |= PSU_INFO_AC;
 
-        info[1].vin        = rd_buf[14] << 8 | rd_buf[15];
-        info[1].vout       = rd_buf[16] << 8 | rd_buf[17];
-        info[1].iin        = rd_buf[18] << 8 | rd_buf[19];
-        info[1].iout       = rd_buf[20] << 8 | rd_buf[21];
-        info[1].pwr_out    = rd_buf[22] << 8 | rd_buf[23];
-        info[1].pwr_in     = rd_buf[24] << 8 | rd_buf[25];
+        info[1].vin        = rd_buf[14] * 1000 + rd_buf[15] * 100;
+        info[1].vout       = rd_buf[16] * 1000 + rd_buf[17] * 100;
+        info[1].iin        = rd_buf[18] * 1000 + rd_buf[19] * 100;
+        info[1].iout       = rd_buf[20] * 1000 + rd_buf[21] * 100;
+        info[1].pwr_out    = (rd_buf[22] << 8 | rd_buf[23]) * 1000;
+        info[1].pwr_in     = (rd_buf[24] << 8 | rd_buf[25]) * 1000;
         /* Default to AC as we do not have a way to detect at this moment.
          * by tsihang, 2022-07-08. */
         info[1].fvalid |= PSU_INFO_AC;
@@ -231,22 +231,22 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
     }
 
     if ((ret == 27) && (rd_buf[0] == 26)) {
-        info[0].vin        = rd_buf[1] << 8 | rd_buf[2];
-        info[0].vout       = rd_buf[3] << 8 | rd_buf[4];
-        info[0].iin        = rd_buf[5] << 8 | rd_buf[6];
-        info[0].iout       = rd_buf[7] << 8 | rd_buf[8];
-        info[0].pwr_out    = rd_buf[9] << 8 | rd_buf[10];
-        info[0].pwr_in     = rd_buf[11] << 8 | rd_buf[12];
+        info[0].vin        = rd_buf[1] * 1000 + rd_buf[2] * 100;
+        info[0].vout       = rd_buf[3] * 1000 + rd_buf[4] * 100;
+        info[0].iin        = rd_buf[5] * 1000 + rd_buf[6] * 100;
+        info[0].iout       = rd_buf[7] * 1000 + rd_buf[8] * 100;
+        info[0].pwr_out    = (rd_buf[9] << 8 | rd_buf[10]) * 1000;
+        info[0].pwr_in     = (rd_buf[11] << 8 | rd_buf[12])* 1000;
         /* Default to AC as we do not have a way to detect at this moment.
          * by tsihang, 2022-07-08. */
         info[0].fvalid |= PSU_INFO_AC;
 
-        info[1].vin        = rd_buf[14] << 8 | rd_buf[15];
-        info[1].vout       = rd_buf[16] << 8 | rd_buf[17];
-        info[1].iin        = rd_buf[18] << 8 | rd_buf[19];
-        info[1].iout       = rd_buf[20] << 8 | rd_buf[21];
-        info[1].pwr_out    = rd_buf[22] << 8 | rd_buf[23];
-        info[1].pwr_in     = rd_buf[24] << 8 | rd_buf[25];
+        info[1].vin        = rd_buf[14] * 1000 + rd_buf[15] * 100;
+        info[1].vout       = rd_buf[16] * 1000 + rd_buf[17] * 100;
+        info[1].iin        = rd_buf[18] * 1000 + rd_buf[19] * 100;
+        info[1].iout       = rd_buf[20] * 1000 + rd_buf[21] * 100;
+        info[1].pwr_out    = (rd_buf[22] << 8 | rd_buf[23]) * 1000;
+        info[1].pwr_in     = (rd_buf[24] << 8 | rd_buf[25]) * 1000;
         /* Default to AC as we do not have a way to detect at this moment.
          * by tsihang, 2022-07-08. */
         info[1].fvalid |= PSU_INFO_AC;
@@ -316,22 +316,22 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
     }
 
     if ((ret == 27) && (rd_buf[0] == 26)) {
-        info[0].vin        = rd_buf[1] << 8 | rd_buf[2];
-        info[0].vout       = rd_buf[3] << 8 | rd_buf[4];
-        info[0].iin        = rd_buf[5] << 8 | rd_buf[6];
-        info[0].iout       = rd_buf[7] << 8 | rd_buf[8];
-        info[0].pwr_out    = rd_buf[9] << 8 | rd_buf[10];
-        info[0].pwr_in     = rd_buf[11] << 8 | rd_buf[12];
+        info[0].vin        = rd_buf[1] * 1000 + rd_buf[2] * 100;
+        info[0].vout       = rd_buf[3] * 1000 + rd_buf[4] * 100;
+        info[0].iin        = rd_buf[5] * 1000 + rd_buf[6] * 100;
+        info[0].iout       = rd_buf[7] * 1000 + rd_buf[8] * 100;
+        info[0].pwr_out    = (rd_buf[9] << 8 | rd_buf[10]) * 1000;
+        info[0].pwr_in     = (rd_buf[11] << 8 | rd_buf[12])* 1000;
         /* Default to AC as we do not have a way to detect at this moment.
          * by tsihang, 2022-07-08. */
         info[0].fvalid |= PSU_INFO_AC;
 
-        info[1].vin        = rd_buf[14] << 8 | rd_buf[15];
-        info[1].vout       = rd_buf[16] << 8 | rd_buf[17];
-        info[1].iin        = rd_buf[18] << 8 | rd_buf[19];
-        info[1].iout       = rd_buf[20] << 8 | rd_buf[21];
-        info[1].pwr_out    = rd_buf[22] << 8 | rd_buf[23];
-        info[1].pwr_in     = rd_buf[24] << 8 | rd_buf[25];
+        info[1].vin        = rd_buf[14] * 1000 + rd_buf[15] * 100;
+        info[1].vout       = rd_buf[16] * 1000 + rd_buf[17] * 100;
+        info[1].iin        = rd_buf[18] * 1000 + rd_buf[19] * 100;
+        info[1].iout       = rd_buf[20] * 1000 + rd_buf[21] * 100;
+        info[1].pwr_out    = (rd_buf[22] << 8 | rd_buf[23]) * 1000;
+        info[1].pwr_in     = (rd_buf[24] << 8 | rd_buf[25]) * 1000;
         /* Default to AC as we do not have a way to detect at this moment.
          * by tsihang, 2022-07-08. */
         info[1].fvalid |= PSU_INFO_AC;
@@ -410,8 +410,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.05;
-            info->vin = ((int)y << 8) + (int) ((y -
-                                                (int)y) * 10);
+            info->vin = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "vin is %d\n", info->vin);
             }
@@ -437,8 +436,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 value = res[1] + (res[2] << 8);
                 y = value;
                 y = y * pow (2, (double)n) + 0.05;
-                info->vout = ((int)y << 8) + (int) ((y -
-                                                    (int)y) * 10);
+                info->vout = y * 1000;
                 if (debug_print) {
                     fprintf (stdout, "vout is %d\n", info->vout);
                 }
@@ -457,8 +455,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.05;
-            info->iin = ((int)y << 8) + (int) ((y -
-                                                (int)y) * 10);
+            info->iin = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "iin is %d\n", info->iin);
             }
@@ -476,8 +473,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.05;
-            info->iout = ((int)y << 8) + (int) ((y -
-                                                (int)y) * 10);
+            info->iout = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "iout is %d\n", info->iout);
             }
@@ -495,7 +491,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.5;
-            info->pwr_in = y;
+            info->pwr_in = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "pwr_in is %d\n", info->pwr_in);
             }
@@ -511,7 +507,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.5;
-            info->pwr_out = y;
+            info->pwr_out = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "pwr_out is %d\n",
                         info->pwr_out);
@@ -627,7 +623,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.5;
-            info->pwr_out = y;
+            info->pwr_out = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "POUT  : %d\n",
                         info->pwr_out);
@@ -646,7 +642,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.5;
-            info->pwr_in = y;
+            info->pwr_in = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "PIN   : %d\n",
                         info->pwr_in);
@@ -675,8 +671,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             value = (psu_vout_data[2] << 8) | psu_vout_data[1];
             y = value;
             y = y * pow (2, (double)n) + 0.05;
-            info->vout = ((int)y << 8) + (int) ((y -
-                                                    (int)y) * 10);
+            info->vout = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "VOUT  : %d\n",
                         info->vout);
@@ -695,8 +690,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.05;
-            info->vin = ((int)y << 8) + (int) ((y -
-                                                (int)y) * 10);
+            info->vin = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "VIN   : %d\n",
                         info->vin);
@@ -715,8 +709,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.05;
-            info->iout = ((int)y << 8) + (int) ((y -
-                                                (int)y) * 10);
+            info->iout = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "IOUT  : %d\n",
                         info->iout);
@@ -735,8 +728,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
             y = (value & 0x07FF);
             y = y * pow (2, (double)n) + 0.05;
-            info->iin = ((int)y << 8) + (int) ((y -
-                                                (int)y) * 10);
+            info->iin = y * 1000;
             if (debug_print) {
                 fprintf (stdout, "IIN   : %d\n",
                         info->iin);
@@ -997,23 +989,17 @@ bf_pltfm_chss_mgmt_pwr_init()
             fprintf (stdout, "  Power ok        %s \n",
                      (info->power ? "true" : "false"));
             fprintf (stdout,
-                     "  Vin             %3d.%2d V\n", info->vin >> 8,
-                     (info->vin & 0x00FF));
+                     "  Vin             %5.1f V\n", info->vin / 1000.0);
             fprintf (stdout,
-                     "  Vout            %3d.%2d V\n", info->vout >> 8,
-                     (info->vout & 0x00FF));
+                     "  Vout            %5.1f V\n", info->vout / 1000.0);
             fprintf (stdout,
-                     "  Iin             %3d.%2d A\n", info->iin >> 8,
-                     (info->iin & 0x00FF));
+                     "  Iin             %5.1f A\n", info->iin / 1000.0);
             fprintf (stdout,
-                     "  Iout            %3d.%2d A\n", info->iout >> 8,
-                     (info->iout & 0x00FF));
+                     "  Iout            %5.1f A\n", info->iout / 1000.0);
             fprintf (stdout,
-                     "  Pin             %4d W\n",
-                     info->pwr_in);
+                     "  Pin            %6.1f W\n", info->pwr_in / 1000.0);
             fprintf (stdout,
-                     "  Pout            %4d W\n",
-                     info->pwr_out);
+                     "  Pout           %6.1f W\n", info->pwr_out / 1000.0);
             if (info->fvalid & PSU_INFO_VALID_SERIAL) {
                 fprintf (stdout,
                          "  SN              %s\n",
@@ -1054,23 +1040,17 @@ bf_pltfm_chss_mgmt_pwr_init()
             fprintf (stdout, "  Power ok        %s \n",
                      (info->power ? "true" : "false"));
             fprintf (stdout,
-                     "  Vin             %3d.%2d V\n", info->vin >> 8,
-                     (info->vin & 0x00FF));
+                     "  Vin             %5.1f V\n", info->vin / 1000.0);
             fprintf (stdout,
-                     "  Vout            %3d.%2d V\n", info->vout >> 8,
-                     (info->vout & 0x00FF));
+                     "  Vout            %5.1f V\n", info->vout / 1000.0);
             fprintf (stdout,
-                     "  Iin             %3d.%2d A\n", info->iin >> 8,
-                     (info->iin & 0x00FF));
+                     "  Iin             %5.1f A\n", info->iin / 1000.0);
             fprintf (stdout,
-                     "  Iout            %3d.%2d A\n", info->iout >> 8,
-                     (info->iout & 0x00FF));
+                     "  Iout            %5.1f A\n", info->iout / 1000.0);
             fprintf (stdout,
-                     "  Pin             %4d W\n",
-                     info->pwr_in);
+                     "  Pin            %6.1f W\n", info->pwr_in / 1000.0);
             fprintf (stdout,
-                     "  Pout            %4d W\n",
-                     info->pwr_out);
+                     "  Pout           %6.1f W\n", info->pwr_out / 1000.0);
             if (info->fvalid & PSU_INFO_VALID_SERIAL) {
                 fprintf (stdout,
                          "  SN              %s\n",

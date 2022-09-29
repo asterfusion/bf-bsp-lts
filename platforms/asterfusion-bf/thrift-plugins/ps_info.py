@@ -44,12 +44,12 @@ def pltfm_mgr_ps_info_get(ps_num):
     #print "PS Model: %s" % ps_info.model
     #print "PS Serial #: %s" % ps_info.serial
     #print "PS revision: %s" % ps_info.rev
-    print "VIN: %d.%d" % (ps_info.vin >> 8, ps_info.vin & 0x00FF)
-    print "VOUT: %d.%d" % (ps_info.vout >> 8, ps_info.vout & 0x00FF)
-    print "IIN: %d.%d" % (ps_info.iin >> 8, ps_info.iin & 0x00FF)
-    print "IOUT: %d.%d" % (ps_info.iout >> 8, ps_info.iout & 0x00FF)
-    print "PIN: %f" % ps_info.pwr_in
-    print "POUT: %f" % ps_info.pwr_out
+    print "VIN: %d" % ps_info.vin
+    print "VOUT: %d" % ps_info.vout
+    print "IIN: %d" % ps_info.iin
+    print "IOUT: %d" % ps_info.iout
+    print "PIN: %d" % ps_info.pwr_in
+    print "POUT: %d" % ps_info.pwr_out
 
 def print_usage():
     print "Usage: ps_info.py <power supply #>         "

@@ -70,21 +70,17 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__ (
         aim_printf (&uc->pvs, "Power ok        %s \n",
                     (info.power ? "true" : "false"));
         aim_printf (&uc->pvs,
-                    "Vin             %3d.%2d V\n", info.vin >> 8,
-                    (info.vin & 0x00FF));
+                    "Vin             %5.1f V\n", info.vin / 1000.0);
         aim_printf (&uc->pvs,
-                    "Vout            %3d.%2d V\n", info.vout >> 8,
-                    (info.vout & 0x00FF));
+                    "Vout            %5.1f V\n", info.vout / 1000.0);
         aim_printf (&uc->pvs,
-                    "Iin             %3d.%2d A\n", info.iin >> 8,
-                    (info.iin & 0x00FF));
+                    "Iin             %5.1f A\n", info.iin / 1000.0);
         aim_printf (&uc->pvs,
-                    "Iout            %3d.%2d A\n", info.iout >> 8,
-                    (info.iout & 0x00FF));
-        aim_printf (&uc->pvs, "Pin             %4d W\n",
-                    info.pwr_in);
-        aim_printf (&uc->pvs, "Pout            %4d W\n",
-                    info.pwr_out);
+                    "Iout            %5.1f A\n", info.iout / 1000.0);
+        aim_printf (&uc->pvs, "Pin            %6.1f W\n",
+                    info.pwr_in / 1000.0);
+        aim_printf (&uc->pvs, "Pout           %6.1f W\n",
+                    info.pwr_out / 1000.0);
         if (info.fvalid & PSU_INFO_VALID_SERIAL) {
             aim_printf (&uc->pvs, "SN              %s\n",
                         info.serial);

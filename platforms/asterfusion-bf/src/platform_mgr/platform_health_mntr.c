@@ -131,31 +131,61 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "vin");
+    sprintf (value, "%d", (psu->vin / 1000 << 8) + psu->vin / 100 % 10);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "vin_mV");
     sprintf (value, "%d", psu->vin);
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "vout");
+    sprintf (value, "%d", (psu->vout / 1000 << 8) + psu->vout / 100 % 10);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "vout_mV");
     sprintf (value, "%d", psu->vout);
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "iin");
+    sprintf (value, "%d", (psu->iin / 1000 << 8) + psu->iin / 100 % 10);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "iin_mA");
     sprintf (value, "%d", psu->iin);
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "iout");
+    sprintf (value, "%d", (psu->iout / 1000 << 8) + psu->iout / 100 % 10);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "iout_mA");
     sprintf (value, "%d", psu->iout);
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "pin");
+    sprintf (value, "%d", psu->pwr_in / 1000);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "pin_mW");
     sprintf (value, "%d", psu->pwr_in);
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "pout");
+    sprintf (value, "%d", psu->pwr_out / 1000);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "pout_mW");
     sprintf (value, "%d", psu->pwr_out);
     onlp_save (fonlp, value, strlen (value));
 

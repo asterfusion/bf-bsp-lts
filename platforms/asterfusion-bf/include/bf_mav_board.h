@@ -24,7 +24,8 @@ extern "C" {
  * by tsihang, 2021-07-14. */
 #include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B-x532p.h"
 #include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B-x564p.h"
-#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B-x308p.h"
+#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B-x308p-v1dot0.h"
+#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B-x308p-v1dot1.h"
 #include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B-hc36y24c.h"
 #include "../src/platform_mgr/pltfm_bd_map_montara_P0B-x312p.h"
 
