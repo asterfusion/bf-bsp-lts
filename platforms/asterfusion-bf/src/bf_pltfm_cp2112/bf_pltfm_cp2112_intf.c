@@ -288,8 +288,8 @@ static int sm_bus_config_init (
     cfg.address = 0x02;
     cfg.auto_send_read = 0;
     cfg.speed = 100000;
-    cfg.write_timeout_ms = 0;
-    cfg.read_timeout_ms = 0;
+    cfg.write_timeout_ms = 25;
+    cfg.read_timeout_ms = 25;
     cfg.retry_limit = 1;
     cfg.scl_low_timeout = 1;
     rc = sm_bus_config_set (hndl, &cfg);
@@ -1481,7 +1481,7 @@ bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
         platform_type_equal (X532P) ||
         platform_type_equal (X308P)) {
         uint8_t rd_buf[128];
-        char cmd = 0x10;
+        uint8_t cmd = 0x10;
         uint8_t wr_buf[2] = {0x01, 0xAA};
         bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                       2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
@@ -1567,6 +1567,16 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
              "\n\n================== CP2112s INIT ==================\n");
 
     bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
+
+#if 0
+    /* At the beginning, Use BMC interface to reset cp2112 first. */
+    sts = bf_pltfm_bmc_cp2112_reset (true);
+    if (sts) {
+        LOG_ERROR ("Error resetting primary cp2112\n");
+        return BF_PLTFM_COMM_FAILED;
+    }
+    bf_sys_sleep (2);
+#endif
     while (1) {
         // Initialize the cp2112 mutex
         for (i = 0; i < CP2112_ID_MAX; i++) {

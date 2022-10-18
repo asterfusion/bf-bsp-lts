@@ -679,7 +679,7 @@ static void qsfp_fsm_st_removed (bf_dev_id_t
 static void qsfp_fsm_reset_de_assert (
     int conn_id)
 {
-#if 0
+#if 1
     int rc;
 
     LOG_DEBUG ("QSFP    %2d : RESETL = false",
@@ -698,7 +698,7 @@ static void qsfp_fsm_reset_de_assert (
 *****************************************************************/
 static void qsfp_fsm_reset_assert (int conn_id)
 {
-#if 0
+#if 1
     int rc;
 
     LOG_DEBUG ("QSFP    %2d : RESETL = true",

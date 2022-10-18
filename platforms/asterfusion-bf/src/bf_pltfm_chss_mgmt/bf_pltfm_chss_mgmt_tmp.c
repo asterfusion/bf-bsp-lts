@@ -353,7 +353,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
             return BF_PLTFM_COMM_FAILED;
         }
 
-        buf[0] = 0x03;
+        buf[0] = 0x02;
         buf[1] = 0x18;
         buf[2] = 0x0;
         buf[3] = 0x1;
@@ -378,7 +378,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
             return BF_PLTFM_COMM_FAILED;
         }
 
-        buf[0] = 0x03;
+        buf[0] = 0x06;
         buf[1] = 0x18;
         buf[2] = 0x0;
         buf[3] = 0x1;

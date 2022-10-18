@@ -9,12 +9,15 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdlib.h>
 #define __USE_GNU /* See feature_test_macros(7) */
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <pwd.h>
+#include <net/if.h>
 
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_switchd/bf_switchd.h>
@@ -103,6 +106,8 @@ static ucli_node_t *bf_pltfm_ucli_node;
 static bf_sys_rmutex_t
 mav_i2c_lock;    /* i2c(cp2112) lock for QSFP IO. by tsihang, 2021-07-13. */
 extern bf_sys_rmutex_t update_lock;
+
+extern bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver);
 
 bool platform_is_hw (void)
 {
@@ -330,10 +335,10 @@ static bf_pltfm_status_t chss_mgmt_init()
         return BF_PLTFM_SUCCESS;
     }
 
-    bf_pltfm_chss_mgmt_fan_init();
-    bf_pltfm_chss_mgmt_pwr_init();
-    bf_pltfm_chss_mgmt_tmp_init();
-    bf_pltfm_chss_mgmt_pwr_rails_init();
+    //bf_pltfm_chss_mgmt_fan_init();
+    //bf_pltfm_chss_mgmt_pwr_init();
+    //bf_pltfm_chss_mgmt_tmp_init();
+    //bf_pltfm_chss_mgmt_pwr_rails_init();
 
     /* Open platfom resource file, if non-exist, create it.
      * For onlp, should run BSP at least once. */
@@ -418,17 +423,1052 @@ static ucli_status_t pltfm_mgr_ucli_ucli__mntr__
     return 0;
 }
 
+static bool bf_pltfm_ucli_mgt_detected (bool *plugged, bool *linked) {
+    int fd = 0, i;
+    struct ifreq ifr;
+    struct ethtool_value {
+            __uint32_t      cmd;
+            __uint32_t      data;
+    } edata;
+    /* ma1   -> ONL */
+    /* eth0  -> SONiC or other OS. */
+    /* enpXsY-> Debian or other OS. */
+    const char *mgts[3] = {"ma1", "eth0", "NULL"};
+
+    fd = socket (AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) return false;
+
+    for (i = 0; i < 2; i ++) {
+        *plugged = false;
+        *linked  = false;
+        memset(&ifr, 0, sizeof(ifr));
+
+        strcpy (ifr.ifr_name, mgts[i]);
+        if (ioctl (fd, SIOCGIFFLAGS, &ifr) < 0) {
+            continue;
+        } else {
+            if (ifr.ifr_flags & IFF_RUNNING) {
+                *plugged = true;
+            }
+
+            edata.cmd = 0x0000000a;
+            ifr.ifr_data = (caddr_t)&edata;
+            if (ioctl (fd, 0x8946, &ifr) < 0) {
+                continue;
+            } else {
+                if (edata.data) {
+                    *linked = true;
+                }
+            }
+            /* A valid mgt detected. */
+            break;
+        }
+    }
+    close (fd);
+    return true;
+}
+
+static bool bf_pltfm_ucli_usb_detected () {
+    /* In some case USB is not right removed /dev/sdx may be different with /dev/sdb* */
+    return ((0 == access ("/dev/sdb", F_OK)) ||
+            (0 == access ("/dev/sdc", F_OK)) ||
+            (0 == access ("/dev/sdd", F_OK)) ||
+            (0 == access ("/dev/sde", F_OK)));
+}
+
+static void bf_pltfm_ucli_format_psu_acdc (bf_pltfm_pwr_supply_info_t *psu, char *fmt) {
+    sprintf (fmt, "%s      ", "    ");
+    if (psu->presence) {
+        if (psu->power) {
+            sprintf (fmt, "%s      ", (psu->fvalid & PSU_INFO_AC) ? "AC* " : "DC* ");
+        } else {
+            sprintf (fmt, "%s      ", (psu->fvalid & PSU_INFO_AC) ? "AC  " : "DC  ");
+        }
+    }
+}
+static void bf_pltfm_ucli_format_psu_watt (bf_pltfm_pwr_supply_info_t *psu, char *fmt, bool in) {
+    sprintf (fmt, "%s      ", "    ");
+    if (psu->presence) {
+        if (psu->power) {
+            sprintf (fmt, "%-5.1f     ", in ? psu->pwr_in / 1000.0 : psu->pwr_out / 1000.0);
+        }
+    }
+}
+static void bf_pltfm_ucli_format_psu_ampere (bf_pltfm_pwr_supply_info_t *psu, char *fmt, bool in) {
+    sprintf (fmt, "%s      ", "    ");
+    if (psu->presence) {
+        if (psu->power) {
+            sprintf (fmt, "%-5.1f     ", in ? psu->iin / 1000.0 : psu->iout / 1000.0);
+        }
+    }
+}
+static void bf_pltfm_ucli_format_psu_volt (bf_pltfm_pwr_supply_info_t *psu, char *fmt, bool in) {
+    sprintf (fmt, "%s      ", "    ");
+    if (psu->presence) {
+        if (psu->power) {
+            sprintf (fmt, "%-5.1f     ", in ? psu->vin / 1000.0 : psu->vout / 1000.0);
+        }
+    }
+
+}
+
+static void bf_pltfm_ucli_format_transceiver (int a1, int d, int n, int o, char *str, bool is_qsfp) {
+    int module;
+    uint32_t conn_id, chnnl_id = 0;
+
+    /* Arithmetic progression, an = a1 + (n - o) *d */
+    module = a1 + (n - o) * d;
+    if (is_qsfp) {
+        bf_pltfm_qsfp_lookup_by_module(module, &conn_id);
+        sprintf (str, "%2d/-", conn_id);
+    } else {
+        bf_pltfm_sfp_lookup_by_module(module, &conn_id, &chnnl_id);
+        sprintf (str, "%2d/%d", conn_id, chnnl_id);
+    }
+}
+
+static void bf_pltfm_ucli_format_transceiver_alias (int a1, int d, int n, int o, char *str, bool is_qsfp) {
+    int module;
+    uint32_t conn_id, chnnl_id = 0;
+
+    /* Arithmetic progression, an = a1 + (n - o) *d */
+    module = a1 + (n - o) * d;
+    if (is_qsfp) {
+        bf_pltfm_qsfp_lookup_by_module(module, &conn_id);
+        sprintf (str, "C%02d%c", module, bf_qsfp_is_present(module) ? '*' : ' ');
+    } else {
+        bf_pltfm_sfp_lookup_by_module(module, &conn_id, &chnnl_id);
+        sprintf (str, "Y%02d%c", module, bf_sfp_is_present(module) ? '*' : ' ');
+    }
+}
+
+static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
+                           *uc) {
+    int i;
+    const char *boarder = "==== ";
+    char str[5] = {0}, fmt[128] = {0};
+
+    /////////////////////////////////////////  Front Panel /////////////////////////////////////////
+    // 1st
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 1, str, true);
+        } else {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 0, str, false);
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "MGT ");
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 1, str, true);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 0, str, false);
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    /*
+     * "P*" : Plugged and Linked
+     * "P " : Plugged but not Linked
+     * "  " : Not Plugged (always means not linked)
+     **/
+    bool plugged = false, linked = false;
+    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+    aim_printf (&uc->pvs, "%s ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+    aim_printf (&uc->pvs, "\n");
+
+    // 2nd
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 1, str, true);
+        } else {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 0, str, false);
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "USB ");
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 1, str, true);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 0, str, false);
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "\n");
+
+    // 3rd
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (33, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            aim_printf (&uc->pvs, "%s ", "    ");
+        }
+    }
+    aim_printf (&uc->pvs, "CON ");
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (33, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            aim_printf (&uc->pvs, "%s ", "    ");
+        }
+    }
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "\n");
+
+    // 4th
+    for (i = 0; i < 18; i ++) {
+        if (i == 0) aim_printf (&uc->pvs, "%s", "     ");
+        else aim_printf (&uc->pvs, "%s", boarder);
+    }
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (34, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            aim_printf (&uc->pvs, "%s ", "    ");
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (34, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            aim_printf (&uc->pvs, "%s ", "    ");
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 18; i ++) {
+        if (i == 0 || i == 17) aim_printf (&uc->pvs, "%s", "     ");
+        else aim_printf (&uc->pvs, "%s", boarder);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+
+    /////////////////////////////////////////  Rear Panel /////////////////////////////////////////
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /* FAN */
+    aim_printf (&uc->pvs, "%s      ", "FAN1");
+    aim_printf (&uc->pvs, "%s      ", "FAN2");
+    aim_printf (&uc->pvs, "%s      ", "FAN3");
+    aim_printf (&uc->pvs, "%s      ", "FAN4");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    /* PSU */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "PSU2");
+    aim_printf (&uc->pvs, "%s      ", "PSU1");
+    aim_printf (&uc->pvs, "\n");
+
+    /* FAN rota */
+    bf_pltfm_fan_data_t fdata;
+    int err = bf_pltfm_chss_mgmt_fan_data_get (
+                &fdata);
+    if (!err && !fdata.fantray_present) {
+        /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    } else {
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    }
+    /* PSU present and vin/vout/pin/pout/iin/iout */
+    bf_pltfm_pwr_supply_info_t info1, info2;
+    memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                           &info1);
+
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                           &info2);
+    /* AC or DC */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+
+    bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+}
+
+static void bf_pltfm_ucli_dump_x532p_panel(ucli_context_t
+                           *uc) {
+    int i;
+    const char *boarder = "==== ";
+    char str[5] = {0}, fmt[128] = {0};
+
+    /////////////////////////////////////////  Front Panel /////////////////////////////////////////
+    // 1st
+    for (i = 0; i < 19; i ++) {
+        if (i == 0) aim_printf (&uc->pvs, "%s", "     ");
+        else aim_printf (&uc->pvs, "%s", boarder);
+    }
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "CON ");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    // 2nd
+    for (i = 0; i < 19; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "USB ");
+    aim_printf (&uc->pvs, "%s ", "MGT ");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    aim_printf (&uc->pvs, "%s ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
+    /*
+     * "P*" : Plugged and Linked
+     * "P " : Plugged but not Linked
+     * "  " : Not Plugged (always means not linked)
+     **/
+    bool plugged = false, linked = false;
+    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+    aim_printf (&uc->pvs, "%s ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 19; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /////////////////////////////////////////  Rear Panel /////////////////////////////////////////
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 19; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /* FAN */
+    aim_printf (&uc->pvs, "%s      ", "FAN1");
+    aim_printf (&uc->pvs, "%s      ", "FAN2");
+    aim_printf (&uc->pvs, "%s      ", "FAN3");
+    aim_printf (&uc->pvs, "%s      ", "FAN4");
+    aim_printf (&uc->pvs, "%s      ", "FAN5");
+    /* PSU */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "PSU2");
+    aim_printf (&uc->pvs, "%s      ", "PSU1");
+    aim_printf (&uc->pvs, "\n");
+
+    /* FAN rota */
+    bf_pltfm_fan_data_t fdata;
+    int err = bf_pltfm_chss_mgmt_fan_data_get (
+                &fdata);
+    if (!err && !fdata.fantray_present) {
+        /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
+    } else {
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    }
+    /* PSU present and vin/vout/pin/pout/iin/iout */
+    bf_pltfm_pwr_supply_info_t info1, info2;
+    memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                           &info1);
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                           &info2);
+    /* AC or DC */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 19; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+}
+
+static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
+                           *uc) {
+    int i;
+    const char *boarder = "==== ";
+    char str[5] = {0}, fmt[128] = {0};
+
+    /////////////////////////////////////////  Front Panel /////////////////////////////////////////
+    // 1st
+    for (i = 0; i < 28; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 28; i ++) {
+        if (i > 23) {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 24, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    for (i = 0; i < 28; i ++) {
+        if (i > 23) {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 24, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    // 2nd
+    for (i = 0; i < 28; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 28; i ++) {
+        if (i > 23) {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 24, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    for (i = 0; i < 28; i ++) {
+        if (i > 23) {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 24, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 28; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /////////////////////////////////////////  Rear Panel /////////////////////////////////////////
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 28; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /* 1st : CON */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "CON ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 2nd */
+    aim_printf (&uc->pvs, "%s      ", "PSU2");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "FAN1");
+    aim_printf (&uc->pvs, "%s      ", "FAN2");
+    aim_printf (&uc->pvs, "%s      ", "FAN3");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "USB ");
+    aim_printf (&uc->pvs, "%s      ", "MGT ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "FAN4");
+    aim_printf (&uc->pvs, "%s      ", "FAN5");
+    aim_printf (&uc->pvs, "%s      ", "FAN6");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "PSU1");
+    aim_printf (&uc->pvs, "\n");
+
+    /* 3rd */
+    bf_pltfm_fan_data_t fdata;
+    int err = bf_pltfm_chss_mgmt_fan_data_get (
+                &fdata);
+
+    bf_pltfm_pwr_supply_info_t info1, info2;
+    memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                           &info1);
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                           &info2);
+    /* AC or DC */
+    bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "%s      ", "    ");
+
+    if (!err && !fdata.fantray_present) {
+        /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+    } else {
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    }
+
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
+
+    /*
+     * "P*" : Plugged and Linked
+     * "P " : Plugged but not Linked
+     * "  " : Not Plugged (always means not linked)
+     **/
+    bool plugged = false, linked = false;
+    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+    aim_printf (&uc->pvs, "%s      ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+
+    aim_printf (&uc->pvs, "%s      ", "    ");
+
+    if (!err && !fdata.fantray_present) {
+        /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[10].front_speed);
+    } else {
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    }
+
+    aim_printf (&uc->pvs, "%s      ", "    ");
+
+    /* AC or DC */
+    bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 4th, pin */
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 12; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 5th, pout */
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 12; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 6th, vin */
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 12; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 7th, vout */
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 12; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 8th, iin */
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 12; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* 9th, iout */
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 12; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 28; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+}
+
+static void bf_pltfm_ucli_dump_x312p_panel(ucli_context_t
+                           *uc) {
+    int i;
+    const char *boarder = "==== ";
+    char str[5] = {0}, fmt[128] = {0};
+
+    /////////////////////////////////////////  Front Panel /////////////////////////////////////////
+    // 1st
+    for (i = 0; i < 24; i ++) {
+        if (i >= 18) aim_printf (&uc->pvs, "%s", "     ");
+        else aim_printf (&uc->pvs, "%s", boarder);
+    }
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "MGT ");
+    for (i = 0; i < 23; i ++) {
+        if (i > 16) aim_printf (&uc->pvs, "%s", "");
+        else {
+            if (i != 0) {
+                bf_pltfm_ucli_format_transceiver (1, 3, i, 1, str, false);
+            } else {
+                bf_pltfm_ucli_format_transceiver (49, 3, i, 0, str, false);
+            }
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    /*
+     * "P*" : Plugged and Linked
+     * "P " : Plugged but not Linked
+     * "  " : Not Plugged (always means not linked)
+     **/
+    bool plugged = false, linked = false;
+    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+    aim_printf (&uc->pvs, "%s ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+    for (i = 0; i < 23; i ++) {
+        if (i > 16) aim_printf (&uc->pvs, "%s", "");
+        else {
+            if (i != 0) {
+                bf_pltfm_ucli_format_transceiver_alias (1, 3, i, 1, str, false);
+            } else {
+                bf_pltfm_ucli_format_transceiver_alias (49, 3, i, 0, str, false);
+            }
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    // 2nd
+    for (i = 0; i < 24; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "CON ");
+    for (i = 0; i < 23; i ++) {
+        if (i > 16) {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 17, str, true);
+        } else {
+            if (i != 0) {
+                bf_pltfm_ucli_format_transceiver (2, 3, i, 1, str, false);
+            } else {
+                bf_pltfm_ucli_format_transceiver (50, 3, i, 0, str, false);
+            }
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    aim_printf (&uc->pvs, "%s ", "    ");
+    for (i = 0; i < 23; i ++) {
+        if (i > 16) {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 17, str, true);
+        } else {
+            if (i != 0) {
+                bf_pltfm_ucli_format_transceiver_alias (2, 3, i, 1, str, false);
+            } else {
+                bf_pltfm_ucli_format_transceiver_alias (50, 3, i, 0, str, false);
+            }
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    // 3rd
+    for (i = 0; i < 24; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "USB ");
+    for (i = 0; i < 22; i ++) {
+        if (i > 15) {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 16, str, true);
+        } else {
+            bf_pltfm_ucli_format_transceiver (3, 3, i, 0, str, false);
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
+    for (i = 0; i < 22; i ++) {
+        if (i > 15) {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 16, str, true);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (3, 3, i, 0, str, false);
+        }
+        aim_printf (&uc->pvs, "%s ", str);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 24; i ++) {
+            if (i == 0) aim_printf (&uc->pvs, "%s", "     ");
+            else aim_printf (&uc->pvs, "%s", boarder);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /////////////////////////////////////////  Rear Panel /////////////////////////////////////////
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 24; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /* FAN */
+    aim_printf (&uc->pvs, "%s      ", "FAN1");
+    aim_printf (&uc->pvs, "%s      ", "FAN2");
+    aim_printf (&uc->pvs, "%s      ", "FAN3");
+    aim_printf (&uc->pvs, "%s      ", "FAN4");
+    aim_printf (&uc->pvs, "%s      ", "FAN5");
+    /* PSU */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "PSU2");
+    aim_printf (&uc->pvs, "%s      ", "PSU1");
+    aim_printf (&uc->pvs, "\n");
+
+    /* FAN rota */
+    bf_pltfm_fan_data_t fdata;
+    int err = bf_pltfm_chss_mgmt_fan_data_get (
+                &fdata);
+    if (!err && !fdata.fantray_present) {
+        /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
+    } else {
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    }
+    /* PSU present and vin/vout/pin/pout/iin/iout */
+    bf_pltfm_pwr_supply_info_t info1, info2;
+    memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                           &info1);
+
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                           &info2);
+    /* AC or DC */
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iin */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iout */
+    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 24; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+}
+
+static void bf_pltfm_ucli_dump_panel(ucli_context_t
+                           *uc) {
+    if (platform_type_equal (X564P)) {
+        bf_pltfm_ucli_dump_x564p_panel(uc);
+    }else if (platform_type_equal (X532P)) {
+        bf_pltfm_ucli_dump_x532p_panel(uc);
+    } else if (platform_type_equal (X308P)) {
+        bf_pltfm_ucli_dump_x308p_panel(uc);
+    } else if (platform_type_equal (X312P)) {
+        bf_pltfm_ucli_dump_x312p_panel(uc);
+    }
+}
+
 static ucli_status_t
 bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                            *uc)
 {
-    char bd[128];
+    char fmt[128];
     double diff;
 
     UCLI_COMMAND_INFO (
         uc, "bsp", 0, " Show BSP version.");
 
-    platform_name_get_str (bd, sizeof (bd));
+    platform_name_get_str (fmt, sizeof (fmt));
 
     aim_printf (&uc->pvs, "Ver    %s\n",
                 VERSION_NUMBER);
@@ -441,7 +1481,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                 platform_type_equal (HC)    ? "HC36Y24C" :
                 "Unknown");
     aim_printf (&uc->pvs, "BD ID     : %s\n",
-                bd);
+                fmt);
     aim_printf (&uc->pvs, "Max FANs  : %2d\n",
                 bf_pltfm_mgr_ctx()->fan_group_count *
                 bf_pltfm_mgr_ctx()->fan_per_group);
@@ -461,8 +1501,10 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
         aim_printf (&uc->pvs, "    CPLD%d : %s\n",
                     (each_element + 1), ver);
     }
+
+    bf_pltfm_get_bmc_ver (&fmt[0]);
     aim_printf (&uc->pvs, "    BMC   : %s\n",
-                "TBD");
+               fmt);
 
     time(&g_tm_end);
     diff = difftime(g_tm_end, g_tm_start);
@@ -473,6 +1515,12 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     aim_printf (&uc->pvs, "Uptime    : %u %u %u, %u sec(s)\n",
                 days, hours, min, sec);
 
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    bf_pltfm_ucli_dump_panel(uc);
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
     return 0;
 }
 

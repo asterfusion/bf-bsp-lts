@@ -228,6 +228,8 @@ static int sfp_select_x308p (uint32_t module)
 static int sfp_unselect_x308p (uint32_t module)
 {
     int rc = 0;
+    int retry_times = 0;
+    uint8_t pca9548_value = 0xFF;
     struct sfp_ctx_t *sfp;
 
     do {
@@ -245,12 +247,32 @@ static int sfp_unselect_x308p (uint32_t module)
             break;
         }
 
-        // unselect PCA9548
-        if (bf_pltfm_cp2112_write_byte (hndl,
-                                        sfp->info.i2c_chnl_addr << 1,  0,
-                                        DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
-            rc = -3;
-            break;
+        rc = -3;
+        for (retry_times = 0; retry_times < 10; retry_times ++) {
+            // unselect PCA9548
+            if (bf_pltfm_cp2112_write_byte (hndl,
+                                            sfp->info.i2c_chnl_addr << 1,  0,
+                                            DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
+                rc = -4;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+
+            // readback PCA9548 to ensure PCA9548 is closed
+            if (bf_pltfm_cp2112_read (hndl,
+                                      sfp->info.i2c_chnl_addr << 1,  &pca9548_value, 1,
+                                      DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
+                rc = -5;
+                break;
+            }
+
+            if (pca9548_value == 0) {
+                rc = 0;
+                break;
+            }
+
+            bf_sys_usleep (5000);
         }
     } while (0);
 
