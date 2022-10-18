@@ -19,7 +19,7 @@ struct bf_pltfm_uart_ctx_t {
     int fd;
 #define MAX_DEV_NAME    32
     char dev[MAX_DEV_NAME];
-    uint32_t rate;
+    int rate;
 
 #define AF_PLAT_UART_ENABLE (1 << 0)
     uint32_t flags;
@@ -37,6 +37,7 @@ int bf_pltfm_bmc_uart_write_read (
     uint8_t *rx_buf,
     uint8_t rx_len,
     int usec);
+
 
 #ifdef __cplusplus
 }

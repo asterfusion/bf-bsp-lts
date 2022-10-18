@@ -26,7 +26,7 @@ static bf_sys_rmutex_t uart_lock;
 #define UART_UNLOCK \
     bf_sys_rmutex_unlock(&uart_lock)
 
-static bool uart_debug = true;
+bool uart_debug = true;
 /* Access BMC through UART or IIC. */
 bool g_access_bmc_through_uart = false;
 
@@ -101,10 +101,8 @@ rx_crc (unsigned char *rx_buf, int rx_len)
 }
 
 static void
-uart_close (void)
+uart_close (struct bf_pltfm_uart_ctx_t *ctx)
 {
-    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
-
     if (ctx->fd > 0) {
         close (ctx->fd);
     }
@@ -228,10 +226,10 @@ tx_crc (unsigned char *tx_buf,
 }
 
 static int
-xmit (unsigned char *tx_buf, size_t tx_len)
+xmit (struct bf_pltfm_uart_ctx_t *ctx,
+    unsigned char *tx_buf, size_t tx_len)
 {
     ssize_t rc = 0;
-    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
     rc = write (ctx->fd, (void *)tx_buf, tx_len);
     if (rc == (ssize_t)tx_len) {
@@ -255,10 +253,10 @@ xmit (unsigned char *tx_buf, size_t tx_len)
 }
 
 static int
-recv (unsigned char *rx_buf, size_t rx_len)
+recv (struct bf_pltfm_uart_ctx_t *ctx,
+    unsigned char *rx_buf, size_t rx_len)
 {
     ssize_t rc = 0;
-    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
     rc = read (ctx->fd, (void *)rx_buf, rx_len);
     tcflush (ctx->fd, TCIOFLUSH);
@@ -277,14 +275,13 @@ recv (unsigned char *rx_buf, size_t rx_len)
 }
 
 static int
-uart_open (void)
+uart_open (struct bf_pltfm_uart_ctx_t *ctx)
 {
-    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
     char *dev = (char *)&ctx->dev[0];
 
     if (ctx->fd > 0) {
         fprintf(stdout, "=========== Opened : %d\n", ctx->fd);
-        uart_close ();
+        uart_close (ctx);
         //return 0;
     }
 
@@ -303,7 +300,7 @@ uart_open (void)
 }
 
 static int
-uart_send (
+uart_send (struct bf_pltfm_uart_ctx_t *ctx,
     unsigned char cmd,
     unsigned char *tx_buf,
     unsigned char tx_len)
@@ -319,8 +316,9 @@ uart_send (
             "\n",
             __FILE__, __LINE__, "Unknown CMD.");
         if (uart_debug) {
-            fprintf (stdout, "\n%02x:\n", cmd);
+            fprintf (stdout, "\n---> %02x:\n", cmd);
             hex_dump (buf, l);
+            fprintf (stdout, "\n---> done\n");
         }
         return -1;
     }
@@ -340,28 +338,29 @@ uart_send (
 
     tx_crc (buf, &l);
 
-    rc = xmit (buf, l);
+    rc = xmit (ctx, buf, l);
     if (rc) {
         LOG_ERROR (
             "%s[%d], "
             "uart.send(%s)"
             "\n",
             __FILE__, __LINE__, "Failed to write uart.");
-        fprintf (stdout, "\n%02x:\n", cmd);
+        fprintf (stdout, "\n<--- %02x:\n", cmd);
         hex_dump (buf, l);
+        fprintf (stdout, "\n<--- done\n");
     }
 
     return rc;
 }
 
 static int
-uart_recv (
+uart_recv (struct bf_pltfm_uart_ctx_t *ctx,
     unsigned char *rx_buf,
     unsigned char rx_len)
 {
     int rc = 0;
 
-    rc = recv (rx_buf, rx_len);
+    rc = recv (ctx, rx_buf, rx_len);
     if (rc >= 0) {
         int cc = rx_crc (rx_buf, rc);
         if (cc) {
@@ -414,16 +413,18 @@ int bf_pltfm_bmc_uart_write_read (
     uint8_t rx_len,
     int usec)
 {
+    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
+
     int rc = -1;
 
     UART_LOCK;
 
-    if (uart_open()) {
+    if (uart_open(ctx)) {
         rc = -2;
         goto end;
     }
 
-    if (uart_send (cmd, tx_buf, tx_len)) {
+    if (uart_send (ctx, cmd, tx_buf, tx_len)) {
         goto end;
     }
 
@@ -432,15 +433,107 @@ int bf_pltfm_bmc_uart_write_read (
     } else {
         /* Wait for data ready. */
         usleep (usec);
-        rc = uart_recv (rx_buf, rx_len);
+        rc = uart_recv (ctx, rx_buf, rx_len);
     }
 
 end:
     usleep (5000);
-    uart_close();
+    uart_close(ctx);
     UART_UNLOCK;
 
     return rc;
+}
+
+int bf_pltfm_bmc_uart_util_write_read (
+    struct bf_pltfm_uart_ctx_t *ctx,
+    uint8_t cmd,
+    uint8_t *tx_buf,
+    uint8_t tx_len,
+    uint8_t *rx_buf,
+    uint8_t rx_len,
+    int usec)
+{
+    int rc = -1;
+
+    UART_LOCK;
+
+    if (uart_debug) {
+        fprintf (stdout, "\n---> %02x:\n", cmd);
+        hex_dump (tx_buf, tx_len);
+        fprintf (stdout, "\n---> done\n");
+    }
+
+    if (uart_open(ctx)) {
+        rc = -2;
+        goto end;
+    }
+
+    if (uart_send (ctx, cmd, tx_buf, tx_len)) {
+        goto end;
+    }
+
+    if (no_return_cmd (cmd)) {
+        rc = 0;
+    } else {
+        /* Wait for data ready. */
+        usleep (usec);
+        rc = uart_recv (ctx, rx_buf, rx_len);
+        if (uart_debug) {
+            fprintf (stdout, "\n<--- %02x:\n", cmd);
+            hex_dump (rx_buf, rx_len);
+            fprintf (stdout, "\n<--- done\n");
+        }
+    }
+
+end:
+    usleep (5000);
+    uart_close(ctx);
+    UART_UNLOCK;
+
+    return rc;
+}
+
+int bf_pltfm_uart_util_init (struct bf_pltfm_uart_ctx_t *ctx)
+{
+    if (unlikely (! (ctx->flags &
+                     AF_PLAT_UART_ENABLE))) {
+        fprintf (stdout, "Skip ...\n");
+        return 0;
+    }
+
+    /* Check UART */
+    if (likely (access ((char *)&ctx->dev[0],
+                        F_OK))) {
+        fprintf (stdout,
+                 "%s[%d], "
+                 "access(%s)"
+                 "\n",
+                 __FILE__, __LINE__, oryx_safe_strerror (errno));
+        return -1;
+    }
+
+    g_access_bmc_through_uart = true;
+    LOG_WARNING ("Seems that you want to access BMC thru Uart.");
+
+    if (bf_sys_rmutex_init (&uart_lock) != 0) {
+        LOG_ERROR ("pltfm_mgr: uart lock init failed\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+int bf_pltfm_uart_util_de_init (struct bf_pltfm_uart_ctx_t *ctx)
+{
+    if (unlikely (! (ctx->flags &
+                     AF_PLAT_UART_ENABLE))) {
+        fprintf (stdout, "Skip ...\n");
+        return 0;
+    }
+    uart_close(ctx);
+    bf_sys_rmutex_del (&uart_lock);
+    g_access_bmc_through_uart = false;
+    return 0;
 }
 
 int bf_pltfm_uart_init ()
@@ -499,7 +592,7 @@ int bf_pltfm_uart_de_init ()
         return 0;
     }
 
-    uart_close();
+    uart_close(ctx);
     bf_sys_rmutex_del (&uart_lock);
 
     fprintf(stdout, "================== Deinit done %48s ================== \n",

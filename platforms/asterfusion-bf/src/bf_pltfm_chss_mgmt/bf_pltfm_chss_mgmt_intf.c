@@ -41,6 +41,8 @@
 COME_type global_come_type = COME_UNKNOWN;
 bool g_access_cpld_through_cp2112 = false;
 
+static char g_bmc_version[32] = {0};
+
 static struct x86_carrier_board_t x86_cb[] = {
     {"Unknown",  COME_UNKNOWN},
     {"CME3000",  CME3000},
@@ -134,9 +136,9 @@ static void bf_pltfm_parse_platorm (const char *str,
             type, subtype);
     } else {
         fprintf (stdout,
-                 "Exit due to the type of current platform is not given\n");
+                 "Exit due to the type of current platform is unrecognized\n");
         LOG_ERROR(
-                 "Exit due to the type of current platform is not given\n");
+                 "Exit due to the type of current platform is unrecognized\n");
         exit (0);
     }
 }
@@ -182,7 +184,7 @@ static void bf_pltfm_parse_hwversion (const char *str,
             subtype = v2dot0;
             fprintf (stdout,
                      "WARNNING: Overwrite %02x's subversion to %02x\n", type, subtype);
-            LOG_ERROR(
+            LOG_WARNING(
                      "WARNNING: Overwrite %02x's subversion to %02x\n", type, subtype);
         }
     } else if (platform_type_equal (X564P)) {
@@ -218,9 +220,9 @@ static void bf_pltfm_parse_hwversion (const char *str,
             type, subtype);
     } else {
         fprintf (stdout,
-                 "Exit due to the subversion of current platform is not given\n");
+                 "Exit due to the subversion of current platform is unrecognized\n");
         LOG_ERROR(
-                 "Exit due to the subversion of current platform is not given\n");
+                 "Exit due to the subversion of current platform is unrecognized\n");
         exit (0);
     }
 }
@@ -353,6 +355,61 @@ static void access_cpld_through_superio()
     g_access_cpld_through_cp2112 = false;
 }
 
+bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
+    uint8_t rd_buf[128] = {0};
+    uint8_t cmd = 0x0D;
+    uint8_t wr_buf[2] = {0xAA, 0xAA};
+    int ret;
+
+    /* Read cached BMC version to caller. */
+    if (g_bmc_version[0] != 0) {
+        memcpy (bmc_ver, g_bmc_version, 32);
+        return 0;
+    }
+
+    if (platform_type_equal (X312P)) {
+        cmd = 0x11;
+        wr_buf[0] = 0xAA;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                       cmd, wr_buf, 2, 0xFF, rd_buf,
+                                       BMC_COMM_INTERVAL_US);
+        if (ret == 5) {
+            /* Write to cache. */
+            sprintf (g_bmc_version, "v%x.%x.%x-%s",
+                rd_buf[1], rd_buf[2], rd_buf[3], rd_buf[4] == 0x4F ? "offical" : "beta");
+        } else {
+            sprintf (g_bmc_version, "%s", "N/A");
+        }
+    } else {
+        if (platform_type_equal (X532P) ||
+            platform_type_equal (X564P) ||
+            platform_type_equal (X308P)) {
+            cmd = 0x0D;
+            wr_buf[0] = 0xAA;
+            wr_buf[1] = 0xAA;
+        } else {
+            /* Not Defined. */
+        }
+
+        if (g_access_bmc_through_uart) {
+            ret = bf_pltfm_bmc_uart_write_read (
+                                        cmd, wr_buf, 2, rd_buf, 128 - 1,
+                                        BMC_COMM_INTERVAL_US * 3);
+            if (ret == 4) {
+                /* Write to cache. */
+                sprintf (g_bmc_version, "v%x.%x.%x", rd_buf[1], rd_buf[2], rd_buf[3]);
+            } else {
+                sprintf (g_bmc_version, "%s", "N/A");
+            }
+        } else {
+            /* Early Hardware with I2C interface. */
+        }
+    }
+
+    return 0;
+}
+
 bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
 {
     // Initialize all the sub modules
@@ -480,6 +537,8 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
         }
     }
 
+    bf_pltfm_get_bmc_ver (&entry[0]);
+    fprintf (stdout, "BMC Version : %s\n", entry);
     // Other initializations(Fan, etc.) go here
 
     return BF_PLTFM_SUCCESS;

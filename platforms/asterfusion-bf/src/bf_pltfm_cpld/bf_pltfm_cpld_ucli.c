@@ -20,18 +20,254 @@
 /* For YH and S02 CME. */
 static bf_pltfm_cp2112_device_ctx_t *g_cpld_cp2112_hndl;
 
-static void hex_dump (ucli_context_t *uc,
-                      uint8_t *buf, uint32_t len)
+static void bf_pltfm_cpld_decode_x308p (ucli_context_t *uc,
+    uint8_t cpld_index,
+    uint8_t *buf, uint8_t size) {
+    if (cpld_index == BF_MAV_SYSCPLD1) {
+        /* 48x 25G */
+        for (int i = 0; i < 48; i ++) {
+            aim_printf (&uc->pvs, " %2d", i + 1);
+        }
+        aim_printf (&uc->pvs, "\n");
+
+        /* Tx */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[26] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[25] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[24] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[23] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[22] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[21] & (1 << i) ? "*" : "");
+        }
+        aim_printf (&uc->pvs, "|     TXOFF");
+        aim_printf (&uc->pvs, "\n");
+
+        /* PRS */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[19] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[18] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[15] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[14] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[11] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[10] & (1 << i) ? "" : "*");
+        }
+        aim_printf (&uc->pvs, "|       PRS");
+        aim_printf (&uc->pvs, "\n");
+
+        /* LOS */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[17] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[16] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[13] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[12] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[9] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[8] & (1 << i) ? "*" : "");
+        }
+        aim_printf (&uc->pvs, "|       LOS");
+        aim_printf (&uc->pvs, "\n");
+
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+        /* 8x 100G */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, " %2d", i + 1);
+        }
+        aim_printf (&uc->pvs, "\n");
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[20] & (1 << i) ? "*" : "");
+        }
+        aim_printf (&uc->pvs, "|       RST");
+        aim_printf (&uc->pvs, "\n");
+
+        /* Aux */
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%5s  %5s   %2s   %13s   %15s   %3s   \n", "GHC-1", "GHC-0", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC");
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%5s  %5s   %2s   %13s   %15s   %3s   \n", "-----", "-----", "--", "-------------", "---------------", "---");
+        aim_printf (&uc->pvs, "         RST");
+        aim_printf (&uc->pvs, "%5s  %5s   %2s   %13s   %15s   %3s   \n",
+            buf[2] & 0x80 ? "*" : " ",
+            buf[2] & 0x40 ? "*" : " ",
+            buf[2] & 0x20 ? "*" : " ",
+            buf[2] & 0x04 ? "*" : " ",
+            buf[2] & 0x02 ? "*" : " ",
+            buf[2] & 0x01 ? "*" : " ");
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+    }
+
+}
+
+static void bf_pltfm_cpld_decode_x532p (ucli_context_t *uc,
+    uint8_t cpld_index,
+    uint8_t *buf, uint8_t size) {
+    if (cpld_index == BF_MAV_SYSCPLD1) {
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n", "RST", "INT", "PRS");
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n", "---", "---", "---");
+        aim_printf (&uc->pvs, "         C31");
+        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n",
+            buf[2] & 0x01 ? "*" : " ",
+            buf[5] & 0x04 ? " " : "*",
+            buf[5] & 0x01 ? " " : "*");
+        aim_printf (&uc->pvs, "         C32");
+        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n",
+            buf[2] & 0x02 ? "*" : " ",
+            buf[5] & 0x08 ? " " : "*",
+            buf[5] & 0x02 ? " " : "*");
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+    } else if (cpld_index == BF_MAV_SYSCPLD2) {
+        //aim_printf (&uc->pvs, "\n");
+        for (int i = 0; i < 32; i ++) {
+            aim_printf (&uc->pvs, " %2d", i + 1);
+        }
+        aim_printf (&uc->pvs, "\n");
+
+        /* RST */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[15] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[16] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[17] & (1 << i) ? "*" : "");
+        }
+        for (int i = 0; i < 6; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[18] & (1 << i) ? "*" : "");
+        }
+        aim_printf (&uc->pvs, "|       RST");
+        aim_printf (&uc->pvs, "\n");
+
+        /* PRS */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[2] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[3] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[4] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 6; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[5] & (1 << i) ? "" : "*");
+        }
+        aim_printf (&uc->pvs, "|       PRS");
+        aim_printf (&uc->pvs, "\n");
+
+        /* INT */
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[6] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[7] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 8; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[8] & (1 << i) ? "" : "*");
+        }
+        for (int i = 0; i < 6; i ++) {
+            aim_printf (&uc->pvs, "|%2s", buf[9] & (1 << i) ? "" : "*");
+        }
+        aim_printf (&uc->pvs, "|       INT");
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "LOS", "FALUT", "PRS", "TXON");
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "---", "-----", "---", "----");
+        aim_printf (&uc->pvs, "         Y01");
+        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n",
+            buf[10] & 0x02 ? "*" : " ",
+            buf[11] & 0x02 ? "*" : " ",
+            buf[12] & 0x02 ? " " : "*",
+            buf[13] & 0x02 ? " " : "*");
+        aim_printf (&uc->pvs, "         Y02");
+        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n",
+            buf[10] & 0x01 ? "*" : " ",
+            buf[11] & 0x01 ? "*" : " ",
+            buf[12] & 0x01 ? " " : "*",
+            buf[13] & 0x01 ? " " : "*");
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%7s  %7s   %7s   %7s\n", "C01-C08", "C09-C16", "C17-C24", "C25-C32");
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "%7s  %7s   %7s   %7s\n", "-------", "-------", "-------", "-------");
+        aim_printf (&uc->pvs, "PCA9548 RST ");
+        aim_printf (&uc->pvs, "%7s  %7s   %7s   %7s\n",
+            buf[14] & 0x01 ? "*" : " ",
+            buf[14] & 0x02 ? "*" : " ",
+            buf[14] & 0x04 ? "*" : " ",
+            buf[14] & 0x07 ? "*" : " ");
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+    }
+}
+
+void bf_pltfm_cpld_decode (ucli_context_t *uc,
+    uint8_t cpld_index,
+    uint8_t *buf, uint8_t size)
 {
     uint8_t byte;
 
-    for (byte = 0; byte < len; byte++) {
-        if ((byte % 16) == 0) {
-            aim_printf (&uc->pvs, "\n%3d : ", byte);
-        }
-        aim_printf (&uc->pvs, "%02x ", buf[byte]);
+    aim_printf (&uc->pvs, "\ncpld %d:\n",
+                cpld_index);
+
+    for (byte = 0; byte < size; byte++) {
+      if ((byte % 16) == 0) {
+          aim_printf (&uc->pvs, "\n%3d : ", byte);
+      }
+      aim_printf (&uc->pvs, "%02x ", buf[byte]);
     }
     aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    if (platform_type_equal (X532P)) {
+        bf_pltfm_cpld_decode_x532p (uc, cpld_index, buf, size);
+    } else if (platform_type_equal (X308P)) {
+        bf_pltfm_cpld_decode_x308p (uc, cpld_index, buf, size);
+    }
 }
 
 /** read bytes from slave's register by cp2112.
@@ -885,6 +1121,7 @@ int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version)
         sprintf(version, "%s", "N/A");
         return 0;
     }
+
     rc = bf_pltfm_cpld_read_byte (cpld_index, veroff, &val);
     if (rc) {
         sprintf(version, "N/A");
@@ -904,6 +1141,7 @@ int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version)
             sprintf(version, "%d.0", val);
         }
     }
+
     return 0;
 }
 
@@ -977,10 +1215,8 @@ bf_pltfm_cpld_ucli_ucli__read_cpld (
     }
     /* Check total */
     if (i == cpld_page_size) {
-        aim_printf (&uc->pvs, "\ncpld %d:\n",
-                    cpld_index);
-        hex_dump (uc, buf, cpld_page_size);
-
+        bf_pltfm_cpld_decode (uc, cpld_index,
+            buf, cpld_page_size);
     }
     return 0;
 }

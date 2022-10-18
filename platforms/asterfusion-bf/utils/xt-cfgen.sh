@@ -71,7 +71,7 @@ if [ $? -ne 0 ]; then
     echo -e "${YELLOW}Warning: The reason why this error occured is either the environment is incorrect or the command is not recognized.${RES}"
     exit 0
 else
-    if [ "$bmc_version_10hex"x = "read failed"x ];then
+    if [[ "$bmc_version_10hex" =~ "read failed" ]];then
         # This means we could not get eeprom through uart. There could be two reason for this case:
         # 1. Wrong /dev/ttySx
         # 2. Get eeprom through I2C.

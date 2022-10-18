@@ -381,6 +381,8 @@ static int unselect_qsfp (
     unsigned int sub_port)
 {
     int rc;
+    int retry_times = 0;
+    uint8_t pca9548_value = 0xFF;
     uint8_t chnl = 0;
     uint8_t i2c_addr = 0;
 
@@ -395,8 +397,30 @@ static int unselect_qsfp (
         rc = bf_pltfm_cpld_write_byte (
                  BF_MAV_SYSCPLD1, i2c_addr, 0xff);
     } else {
-        rc = bf_pltfm_cp2112_write_byte (hndl,
-                                         i2c_addr, 0, DEFAULT_TIMEOUT_MS);
+        rc = -2;
+        for (retry_times = 0; retry_times < 10; retry_times ++) {
+            // unselect PCA9548
+            if (bf_pltfm_cp2112_write_byte (hndl, i2c_addr, 0,
+                                            DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
+                rc = -3;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+
+            if (bf_pltfm_cp2112_read (hndl, i2c_addr, &pca9548_value, 1,
+                                      DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
+                rc = -4;
+                break;
+            }
+
+            if (pca9548_value == 0) {
+                rc = BF_PLTFM_SUCCESS;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+        }
     }
     if (rc != BF_PLTFM_SUCCESS) {
         LOG_ERROR (
@@ -405,7 +429,7 @@ static int unselect_qsfp (
             "\n",
             __FILE__, __LINE__, sub_port,
             "Failed to diselect QSFP", rc, i2c_addr, chnl);
-        return -2;
+        return -5;
     }
 
     return 0;
