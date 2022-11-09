@@ -13,8 +13,6 @@
 extern "C" {
 #endif
 
-extern bool g_access_bmc_through_uart;
-
 struct bf_pltfm_uart_ctx_t {
     int fd;
 #define MAX_DEV_NAME    32

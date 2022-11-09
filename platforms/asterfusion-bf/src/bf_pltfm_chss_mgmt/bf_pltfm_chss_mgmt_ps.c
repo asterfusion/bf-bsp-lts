@@ -94,7 +94,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
     wr_buf[0] = BMC_SUB1_STATUS;
     wr_buf[1] = 0xAA;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US *
@@ -132,7 +132,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
     wr_buf[0] = BMC_SUB1_INFO;
     wr_buf[1] = 0xAA;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US *
@@ -183,7 +183,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
     wr_buf[0] = BMC_SUB1_STATUS;
     wr_buf[1] = 0xAA;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US);
@@ -220,7 +220,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
     wr_buf[0] = BMC_SUB1_INFO;
     wr_buf[1] = 0xAA;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US * 1.5);
@@ -270,7 +270,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
     wr_buf[0] = BMC_SUB1_STATUS;
     wr_buf[1] = 0xAA;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US *
@@ -304,7 +304,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
     wr_buf[0] = BMC_SUB1_INFO;
     wr_buf[1] = 0xAA;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US *

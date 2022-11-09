@@ -220,8 +220,8 @@ int tofino_porting_spi_init (int dev_id,
                              void *arg)
 {
     bf_status_t sts;
-    uint8_t board_id = (uint8_t)strtol ((char *)arg,
-                                        NULL, 0);
+    //uint8_t board_id = (uint8_t)strtol ((char *)arg,
+    //                                    NULL, 0);
     bf_pltfm_board_id_t bd_id =
         BF_PLTFM_BD_ID_UNKNOWN;
 

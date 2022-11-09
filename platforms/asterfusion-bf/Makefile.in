@@ -90,7 +90,7 @@ host_triplet = @host@
 #SUBDIRS += tcl_server
 @IS_THRIFT_ENABLED_TRUE@@TCL_ONLY_FALSE@am__append_1 = thrift
 #SUBDIRS += include src cp2112_util tofino_spi_util uart_util
-@TCL_ONLY_FALSE@am__append_2 = include src cp2112_util uart_util
+@TCL_ONLY_FALSE@am__append_2 = include src cp2112_util uart_util tofino_spi_util
 @BUILD_ASTERFUSIONBF_DIAGS_TRUE@@TCL_ONLY_FALSE@am__append_3 = diags
 @TCL_ONLY_TRUE@am__append_4 = src
 subdir = platforms/asterfusion-bf
@@ -161,7 +161,8 @@ am__define_uniq_tagged_files = \
   done | $(am__uniquify_input)`
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = thrift include src cp2112_util uart_util diags
+DIST_SUBDIRS = thrift include src cp2112_util uart_util \
+	tofino_spi_util diags
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \

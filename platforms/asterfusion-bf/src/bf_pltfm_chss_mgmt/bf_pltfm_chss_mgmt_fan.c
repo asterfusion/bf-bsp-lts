@@ -97,7 +97,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
     int err = BF_PLTFM_COMM_FAILED, ret;
     uint32_t num = 0;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         wr_buf[0] = 0xAA;
         wr_buf[1] = 0xAA;
 
@@ -182,7 +182,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
     int err = BF_PLTFM_COMM_FAILED, ret;
     uint32_t num = 0;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         wr_buf[0] = 0xAA;
         wr_buf[1] = 0xAA;
 
@@ -257,7 +257,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
     int err = BF_PLTFM_COMM_FAILED, ret;
     uint32_t num = 0;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         wr_buf[0] = 0xAA;
         wr_buf[1] = 0xAA;
 
@@ -473,7 +473,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x532p__ (
     wr_buf[0] = fdata->fan_num;
     wr_buf[1] = fdata->speed_level;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         err = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
@@ -497,7 +497,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x564p__ (
     wr_buf[0] = fdata->fan_num;
     wr_buf[1] = fdata->speed_level;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         err = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);
@@ -521,7 +521,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x308p__ (
     wr_buf[0] = fdata->fan_num;
     wr_buf[1] = fdata->speed_level;
 
-    if (g_access_bmc_through_uart) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         err = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
                   BMC_COMM_INTERVAL_US);

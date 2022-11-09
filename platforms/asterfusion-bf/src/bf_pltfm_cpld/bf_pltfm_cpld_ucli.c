@@ -369,7 +369,7 @@ int select_cpld (uint8_t cpld_index)
 
     chnl = cpld_index - 1;
 
-    if (g_access_cpld_through_cp2112) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
         rc = bf_pltfm_cp2112_reg_write_byte (
                 BF_MAV_MASTER_PCA9548_ADDR, 0x00, 1 << chnl);
     } else {
@@ -403,15 +403,59 @@ int unselect_cpld()
     }
 
     int rc = -1;
+    int retry_times = 0;
+    uint8_t pca9548_value = 0xFF;
 
-    /* for X5-T and HC */
-    if (g_access_cpld_through_cp2112) {
-        rc = bf_pltfm_cp2112_reg_write_byte (
-                BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0);
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
+        for (retry_times = 0; retry_times < 10; retry_times ++) {
+            // unselect PCA9548
+            if (bf_pltfm_cp2112_reg_write_byte (
+                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00)) {
+                rc = -2;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+
+            // readback PCA9548 to ensure PCA9548 is closed
+            if (bf_pltfm_cp2112_reg_read_block (
+                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, &pca9548_value, 0x01)) {
+                rc = -3;
+                break;
+            }
+
+            if (pca9548_value == 0) {
+                rc = 0;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+        }
     } else {
-        /* disable all channel */
-        rc = bf_pltfm_master_i2c_write_byte (
-                BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0);
+        for (retry_times = 0; retry_times < 10; retry_times ++) {
+            // unselect PCA9548
+            if (bf_pltfm_master_i2c_write_byte (
+                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00)) {
+                rc = -2;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+
+            // readback PCA9548 to ensure PCA9548 is closed
+            if (bf_pltfm_master_i2c_read_byte (
+                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, &pca9548_value)) {
+                rc = -3;
+                break;
+            }
+
+            if (pca9548_value == 0) {
+                rc = 0;
+                break;
+            }
+
+            bf_sys_usleep (5000);
+        }
     }
 
     if (rc) {
@@ -539,7 +583,7 @@ int bf_pltfm_cpld_read_byte (
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
-        if (g_access_cpld_through_cp2112) {
+        if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
             rc = bf_pltfm_cp2112_reg_read_block (
                                             addr, offset, buf, 1);
         } else {
@@ -594,7 +638,7 @@ int bf_pltfm_cpld_write_byte (
 
     MASTER_I2C_LOCK;
     if (!select_cpld (cpld_index)) {
-        if (g_access_cpld_through_cp2112) {
+        if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
             rc = bf_pltfm_cp2112_reg_write_byte (
                                     addr, offset, val);
         } else {
@@ -1150,8 +1194,8 @@ int bf_pltfm_syscpld_init()
     fprintf (stdout,
              "\n\n================== CPLDs INIT ==================\n");
 
-    if (g_access_cpld_through_cp2112) {
-        /* get cp2112 handler. */
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
+        /* get cp2112 handler for CPLD access ONLY . */
         g_cpld_cp2112_hndl =
          bf_pltfm_cp2112_get_handle (CP2112_ID_2);
         BUG_ON (g_cpld_cp2112_hndl == NULL);

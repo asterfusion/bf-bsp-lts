@@ -594,7 +594,10 @@ void *onlp_mntr_init (void *arg)
             /* clear flags and wait health monitor's update.
              * by tsihang, 2022-06-02. */
             UPDATE_LOCK;
-            ul_update_flags = 0;
+            ul_update_flags &= ~AF_PLAT_MNTR_POWER;
+            ul_update_flags &= ~AF_PLAT_MNTR_FAN;
+            ul_update_flags &= ~AF_PLAT_MNTR_TMP;
+            ul_update_flags &= ~AF_PLAT_MNTR_MODULE;
             UPDATE_UNLOCK;
         }
     }

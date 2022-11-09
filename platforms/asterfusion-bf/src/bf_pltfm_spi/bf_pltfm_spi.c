@@ -15,12 +15,101 @@
 #include <lld/lld_spi_if.h>
 #include <bf_pltfm_spi.h>
 
-#if 0
 #define SPI_DEBUG 0 /* Make this 1 for debugging */
-
-#define LOG_ERROR printf
-#define LOG_DEBUG \
+#define logerr printf
+#define logdebug \
   if (SPI_DEBUG) printf
+
+static size_t bf_pltfm_get_file_size (const char *file) {
+    size_t size;
+    FILE *fd;
+
+    fd = fopen (file, "rb");
+    if (!fd) {
+        return -1;
+    }
+
+    fseek (fd, 0, SEEK_END);
+    size = (size_t)ftell (fd);
+    fseek (fd, 0, SEEK_SET);
+    fclose (fd);
+
+    return size;
+}
+
+static size_t bf_pltfm_get_file_context (const char *file, void **context) {
+    size_t size;
+    FILE *fd;
+    char *buf;
+
+    *context = NULL;
+
+    size = bf_pltfm_get_file_size (file);
+    if ((int)size < 0) {
+        return -1;
+    }
+
+    buf = malloc (BF_SPI_EEPROM_SIZE);
+    if (!buf) {
+        logerr ("error in malloc\n");
+        return -1;
+    }
+
+    fd = fopen (file, "rb");
+    if (!fd) {
+        logerr ("error opening %s\n", file);
+        free (buf);
+        return -1;
+    }
+
+    if (fread (buf, 1, size, fd) != (size_t)size) {
+        logerr ("error reading %s\n", file);
+        free (buf);
+        fclose (fd);
+        return -1;
+    }
+    logdebug ("%s : %lu\n", file, size);
+    *context = buf;
+    fclose (fd);
+    return size;
+}
+
+static int bf_pltfm_spi_cmp (const char *fname0, const char *fname1)
+{
+    size_t size0, size1;
+    char *buf0, *buf1;
+
+    buf0 = buf1 = NULL;
+
+    size0 = bf_pltfm_get_file_context (fname0, (void **)&buf0);
+    if (size0 <= 0) {
+        goto err;
+    }
+
+    size1 = bf_pltfm_get_file_context (fname1, (void **)&buf1);
+    if (size1 <= 0) {
+        goto err;
+    }
+
+    if (size0 != size1 || (buf0 == NULL || buf1 == NULL)) {
+        goto err;
+    }
+
+    if (strncmp ((const char *)buf0, (const char *)buf1, size0)) {
+        goto err;
+    }
+
+    /* Finally everything seems fine. */
+    if (buf0) free (buf0);
+    if (buf1) free (buf1);
+    return 0;
+
+err:
+    if (buf0) free (buf0);
+    if (buf1) free (buf1);
+    return -1;
+}
+
 
 /** Tofino SPI eeprom write
  *
@@ -65,7 +154,9 @@ int bf_pltfm_spi_wr (int chip_id,
         return -1;
     }
     err = 0;
-    if (bf_spi_eeprom_wr (chip_id, offset, buf,
+    /* This API comes from pkgsrc\bf-drivers\src\lld\lld_spi_if.c.
+     * by tsihang, 2022-11-07. */
+    if (bfn_spi_eeprom_wr (chip_id, sub_devid, offset, buf,
                           size) != BF_SUCCESS) {
         LOG_ERROR ("error writing to SPI EEPROM\n");
         err = -1;
@@ -112,7 +203,9 @@ int bf_pltfm_spi_rd (int chip_id,
         return -1;
     }
     err = 0;
-    if (bf_spi_eeprom_rd (chip_id, offset, buf,
+    /* This API comes from pkgsrc\bf-drivers\src\lld\lld_spi_if.c.
+     * by tsihang, 2022-11-07. */
+    if (bfn_spi_eeprom_rd (chip_id, sub_devid, offset, buf,
                           size) == BF_SUCCESS) {
         if (fwrite (buf, 1, size, fd) != (size_t)size) {
             LOG_ERROR ("error writing %s\n", fname);
@@ -199,10 +292,76 @@ static ucli_status_t bf_pltfm_ucli_ucli__spi_rd_
     return 0;
 }
 
+/* Update PCIe firmware. by tsihang, 2022-11-07. */
+static ucli_status_t bf_pltfm_ucli_ucli__spi_update_
+(ucli_context_t *uc)
+{
+    bf_dev_id_t dev = 0;
+    char fname0[512] = {0}, fname1[1024] = {0};
+    int offset;
+    int size;
+
+    UCLI_COMMAND_INFO (
+        uc, "spi-update", 2,
+        "spi-update <dev> <file name>");
+
+    dev = atoi (uc->pargs->args[0]);
+    strncpy (fname0, uc->pargs->args[1],
+             sizeof (fname0) - 1);
+    fname0[sizeof (fname0) - 1] = '\0';
+    offset = 0;
+    size = bf_pltfm_get_file_size (fname0);
+    if (size <= 0) {
+        /* no such file, then return fail. */
+        aim_printf (
+            &uc->pvs,
+            "Target PCIe firmware is invalid : %s\n", fname0);
+        return 0;
+    }
+
+    aim_printf (
+        &uc->pvs,
+        "bf_pltfm_spi: spi-update <dev=%d> <file name=%s> <offset=%d> <size=%d>\n",
+        dev,
+        fname0,
+        offset,
+        size);
+
+    aim_printf (
+        &uc->pvs,
+        "\nWating for 30+ secs ...\n\n");
+
+    if (bf_pltfm_spi_wr (dev, fname0, offset, size)) {
+        aim_printf (&uc->pvs,
+                    "error writing to SPI eeprom\n");
+    } else {
+        aim_printf (&uc->pvs, "SPI eeprom write OK\n");
+        sprintf (fname1, "%s.bak", fname0);
+        if (bf_pltfm_spi_rd (dev, fname1, offset, size)) {
+            aim_printf (&uc->pvs,
+                        "error reading from SPI eeprom\n");
+        } else {
+            aim_printf (&uc->pvs, "SPI eeprom read OK\n");
+            aim_printf (&uc->pvs, "Compare ... \n");
+            if (bf_pltfm_spi_cmp (fname0, fname1)) {
+                aim_printf (&uc->pvs,
+                            "error updating to SPI eeprom\n");
+            } else {
+                aim_printf (&uc->pvs, "SPI eeprom update OK\n");
+            }
+        }
+        /* Remove firmware file comes from reading SPI EEPROM back. */
+        if ((0 == access (fname1, F_OK))) {
+            remove (fname1);
+        }
+    }
+    return 0;
+}
+
 /* <auto.ucli.handlers.start> */
 static ucli_command_handler_f
 bf_pltfm_spi_ucli_ucli_handlers__[] = {
-    bf_pltfm_ucli_ucli__spi_wr_, bf_pltfm_ucli_ucli__spi_rd_, NULL,
+    bf_pltfm_ucli_ucli__spi_wr_, bf_pltfm_ucli_ucli__spi_rd_, bf_pltfm_ucli_ucli__spi_update_, NULL,
 };
 
 /* <auto.ucli.handlers.end> */
@@ -229,4 +388,4 @@ int bf_pltfm_spi_init (void *arg)
     (void)arg;
     return 0;
 }
-#endif
+

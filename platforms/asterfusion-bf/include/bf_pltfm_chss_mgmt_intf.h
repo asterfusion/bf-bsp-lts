@@ -376,9 +376,9 @@ struct x86_carrier_board_t {
     COME_type type;
 };
 
-extern COME_type global_come_type;
 extern char bmc_i2c_bus;
 extern unsigned char bmc_i2c_addr;
+extern COME_type global_come_type;
 
 /* Porting CMEXXX, by tsihang, 2019-09-18. */
 #define is_HVXXX (\
@@ -399,8 +399,6 @@ extern unsigned char bmc_i2c_addr;
 #define is_S02XXX (\
     (global_come_type == S021508) ||\
     (global_come_type == S021527))
-
-extern bool g_access_cpld_through_cp2112;
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_pltfm_chss_mgmt_ucli_node_create (

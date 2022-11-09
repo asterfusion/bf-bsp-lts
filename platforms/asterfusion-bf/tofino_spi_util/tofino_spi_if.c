@@ -476,7 +476,7 @@ static void print_usage (char *cmd)
 {
     TOFINO_PORTING_LOG_ERR ("Usage:  \n");
     TOFINO_PORTING_LOG_ERR (
-        "%s <dev_id> <rd/wr> <custom-init-string 0: montara 1 : mavericks>\n"
+        "%s <dev_id> <rd/wr> <custom-init-string 0: X532P-T 1: X564P-T 2: X308P-T>\n"
         "<file_name> [eeprom_offset (default 0] [size "
         "(default : file size when writing and eeprom size when reading)]\n",
         cmd);
@@ -554,5 +554,9 @@ int main (int argc, char *argv[])
         TOFINO_PORTING_LOG_ERR ("SPI %s OK\n",
                                 (wr_sel ? "write" : "read"));
     }
+
+    /* A bug ? */
+    fclose (fp);
+
     return rc;
 }

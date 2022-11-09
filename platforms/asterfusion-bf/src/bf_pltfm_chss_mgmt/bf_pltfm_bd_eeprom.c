@@ -886,7 +886,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
 
         // Must give bmc more time to prepare data
         usec_delay = BMC_COMM_INTERVAL_US;
-        if (g_access_bmc_through_uart) {
+        if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
             err = bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                                 2, rd_buf, 128 - 1, usec_delay);
         } else {
@@ -899,7 +899,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
         }
 
         if (err != -1) {
-            if (g_access_bmc_through_uart) {
+            if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
                 l = strlen ((char *)&rd_buf[0]);
                 offset = 0;
             } else {

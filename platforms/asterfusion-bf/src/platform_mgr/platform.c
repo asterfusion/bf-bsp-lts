@@ -10,8 +10,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
-#define __USE_GNU /* See feature_test_macros(7) */
-#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <sys/types.h>
@@ -83,24 +81,6 @@ static bf_dev_init_mode_t g_switchd_init_mode = BF_DEV_INIT_COLD;
 
 extern ucli_node_t
 *bf_pltfm_cpld_ucli_node_create (ucli_node_t *m);
-
-/* global */
-static pltfm_mgr_info_t pltfm_mgr_info = {
-    .np_name = "pltfm_mgr",
-    .health_mntr_t_id = 0,
-    .np_onlp_mntr_name = "pltfm_mgr_onlp",
-    .onlp_mntr_t_id = 0,
-    .flags = 0,
-
-    .pltfm_type = INVALID_TYPE,
-    .pltfm_subtype = INVALID_SUBTYPE,
-
-    .psu_count = 0,
-    .sensor_count = 0,
-    .fan_group_count = 0,
-    .fan_per_group = 0,
-    .cpld_count = 0,
-};
 
 static ucli_node_t *bf_pltfm_ucli_node;
 static bf_sys_rmutex_t
@@ -224,11 +204,6 @@ static void pltfm_mgr_stop_health_mntr (void)
         __func__);
 }
 
-pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
-{
-    return &pltfm_mgr_info;
-}
-
 static bf_pltfm_status_t chss_mgmt_init()
 {
     bf_pltfm_status_t sts;
@@ -253,7 +228,7 @@ static bf_pltfm_status_t chss_mgmt_init()
         exit (0);
     } else {
         if (platform_type_equal (X564P)) {
-            bf_pltfm_mgr_ctx()->flags = (
+            bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
@@ -264,7 +239,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->sensor_count = 6;
             bf_pltfm_mgr_ctx()->cpld_count = 3;
         } else if (platform_type_equal (X532P)) {
-            bf_pltfm_mgr_ctx()->flags = (
+            bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
@@ -275,7 +250,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->sensor_count = 6;
             bf_pltfm_mgr_ctx()->cpld_count = 2;
         } else if (platform_type_equal (X308P)) {
-            bf_pltfm_mgr_ctx()->flags = (
+            bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
@@ -286,7 +261,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->sensor_count = 10;
             bf_pltfm_mgr_ctx()->cpld_count = 2;
         } else if (platform_type_equal (X312P)) {
-            bf_pltfm_mgr_ctx()->flags = (
+            bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
@@ -305,7 +280,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             }
             bf_pltfm_mgr_ctx()->cpld_count = 5;
         } else if (platform_type_equal (HC)) {
-            bf_pltfm_mgr_ctx()->flags = (
+            bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
@@ -1458,6 +1433,16 @@ static void bf_pltfm_ucli_dump_panel(ucli_context_t
     }
 }
 
+static void
+bf_pltfm_convert_uptime(double diffsec,
+    uint32_t *days, uint32_t *hours, uint32_t *mins, uint32_t *secs) {
+    *days = *hours = *mins = *secs = 0;
+    *days  = (uint32_t)diffsec / (3600 * 24);
+    *hours = ((uint32_t)diffsec % (3600 * 24)) / 3600;
+    *mins  = (((uint32_t)diffsec % (3600 * 24)) % 3600) / 60;
+    *secs  = (uint32_t)diffsec % 60;
+}
+
 static ucli_status_t
 bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                            *uc)
@@ -1506,15 +1491,28 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     aim_printf (&uc->pvs, "    BMC   : %s\n",
                fmt);
 
+    uint32_t days, hours, mins, secs;
     time(&g_tm_end);
     diff = difftime(g_tm_end, g_tm_start);
-    uint32_t days  = (uint32_t)diff / (3600 * 24);
-    uint32_t hours = ((uint32_t)diff % (3600 * 24)) / 3600;
-    uint32_t min   = (((uint32_t)diff % (3600 * 24)) % 3600) / 60;
-    uint32_t sec   = (uint32_t)diff % 60;
-    aim_printf (&uc->pvs, "Uptime    : %u %u %u, %u sec(s)\n",
-                days, hours, min, sec);
+    bf_pltfm_convert_uptime (diff, &days, &hours, &mins, &secs);
+    aim_printf (&uc->pvs, "    Uptime: ");
+    if (days) aim_printf (&uc->pvs, "%3u days, ", days);
+    if (hours || mins) aim_printf (&uc->pvs, "%2u:%2u, ", hours, mins);
+    aim_printf (&uc->pvs, "%2u sec(s)\n", secs);
 
+    FILE *fp = fopen ("/proc/uptime", "r");
+    if (fp) {
+        if (fgets (fmt, 128 - 1, fp)) {
+            if (sscanf (fmt, "%lf ", &diff)) {
+                bf_pltfm_convert_uptime (diff, &days, &hours, &mins, &secs);
+                aim_printf (&uc->pvs, "Sys Uptime: ");
+                if (days) aim_printf (&uc->pvs, "%3u days, ", days);
+                if (hours || mins) aim_printf (&uc->pvs, "%2u:%2u, ", hours, mins);
+                aim_printf (&uc->pvs, "%2u sec(s)\n", secs);
+            }
+        }
+        fclose (fp);
+    }
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
     bf_pltfm_ucli_dump_panel(uc);
@@ -1574,7 +1572,7 @@ ucli_node_t *bf_pltfm_ucli_node_create (void)
     //bf_pltfm_rtmr_ucli_node_create(n);
     //bf_pltfm_si5342_ucli_node_create(n);
     //bf_pltfm_slave_i2c_ucli_node_create(n);
-    //bf_pltfm_spi_ucli_node_create(n);
+    bf_pltfm_spi_ucli_node_create(n);
     pltfm_mgrs_ucli_node_create (n);
     bf_pltfm_cpld_ucli_node_create (n);
 

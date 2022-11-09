@@ -27,8 +27,6 @@ static bf_sys_rmutex_t uart_lock;
     bf_sys_rmutex_unlock(&uart_lock)
 
 bool uart_debug = true;
-/* Access BMC through UART or IIC. */
-bool g_access_bmc_through_uart = false;
 
 struct bf_pltfm_uart_ctx_t uart_ctx = {
     .fd = -1,
@@ -512,7 +510,7 @@ int bf_pltfm_uart_util_init (struct bf_pltfm_uart_ctx_t *ctx)
         return -1;
     }
 
-    g_access_bmc_through_uart = true;
+    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_BMC_UART;
     LOG_WARNING ("Seems that you want to access BMC thru Uart.");
 
     if (bf_sys_rmutex_init (&uart_lock) != 0) {
@@ -532,7 +530,7 @@ int bf_pltfm_uart_util_de_init (struct bf_pltfm_uart_ctx_t *ctx)
     }
     uart_close(ctx);
     bf_sys_rmutex_del (&uart_lock);
-    g_access_bmc_through_uart = false;
+    bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_BMC_UART;
     return 0;
 }
 
@@ -568,7 +566,7 @@ int bf_pltfm_uart_init ()
     LOG_DEBUG ("Uart %s init done !",
                ctx->dev);
 
-    g_access_bmc_through_uart = true;
+    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_BMC_UART;
     LOG_WARNING ("Seems that you want to access BMC thru Uart.");
 
     if (bf_sys_rmutex_init (&uart_lock) != 0) {

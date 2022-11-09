@@ -17823,10 +17823,9 @@ fi
 fi
 
 # Generate makefiles
-ac_config_files="$ac_config_files Makefile drivers/Makefile drivers/include/Makefile drivers/src/Makefile platforms/Makefile platforms/include/Makefile platforms/asterfusion-bf/Makefile platforms/asterfusion-bf/include/Makefile platforms/asterfusion-bf/src/Makefile platforms/asterfusion-bf/cp2112_util/Makefile platforms/asterfusion-bf/uart_util/Makefile platforms/asterfusion-bf/thrift/Makefile"
+ac_config_files="$ac_config_files Makefile drivers/Makefile drivers/include/Makefile drivers/src/Makefile platforms/Makefile platforms/include/Makefile platforms/asterfusion-bf/Makefile platforms/asterfusion-bf/include/Makefile platforms/asterfusion-bf/src/Makefile platforms/asterfusion-bf/cp2112_util/Makefile platforms/asterfusion-bf/uart_util/Makefile platforms/asterfusion-bf/thrift/Makefile platforms/asterfusion-bf/tofino_spi_util/Makefile"
 
 		 #platforms/asterfusion-bf/tcl_server/Makefile
-		 #platforms/asterfusion-bf/tofino_spi_util/Makefile
 		 #platforms/asterfusion-bf/diags/Makefile
 		 #platforms/asterfusion-bf/diags/mavericks/Makefile
 		 #platforms/asterfusion-bf/diags/mavericks/targets/Makefile
@@ -18996,6 +18995,7 @@ do
     "platforms/asterfusion-bf/cp2112_util/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/cp2112_util/Makefile" ;;
     "platforms/asterfusion-bf/uart_util/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/uart_util/Makefile" ;;
     "platforms/asterfusion-bf/thrift/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/thrift/Makefile" ;;
+    "platforms/asterfusion-bf/tofino_spi_util/Makefile") CONFIG_FILES="$CONFIG_FILES platforms/asterfusion-bf/tofino_spi_util/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

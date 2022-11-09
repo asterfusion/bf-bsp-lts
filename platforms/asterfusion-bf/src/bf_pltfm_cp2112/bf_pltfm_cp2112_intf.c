@@ -928,7 +928,7 @@ static int differentiate_cp2112_devices (
     /* We can select correct channel by a detecting method for CGT CM,
      * while we can not do that when ADV15xx installed.
      * So here we have to point it case by case. */
-    if (g_access_cpld_through_cp2112) {
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
         cp2112_id_map[CP2112_ID_1] = 1;
         cp2112_id_map[CP2112_ID_2] = 0;
     }
@@ -1480,14 +1480,18 @@ bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
     if (platform_type_equal (X564P) ||
         platform_type_equal (X532P) ||
         platform_type_equal (X308P)) {
-        uint8_t rd_buf[128];
-        uint8_t cmd = 0x10;
-        uint8_t wr_buf[2] = {0x01, 0xAA};
-        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
-        wr_buf[0] = 0x02;
-        bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
-                                      2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+        if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+            uint8_t rd_buf[128];
+            uint8_t cmd = 0x10;
+            uint8_t wr_buf[2] = {0x01, 0xAA};
+            bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                          2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+            wr_buf[0] = 0x02;
+            bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
+                                          2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+        } else {
+            /* Early Hardware with I2C interface. */
+        }
     } else if (platform_type_equal(X312P)) {
         /* TBD */
     } else if (platform_type_equal(HC)) {
@@ -1635,13 +1639,14 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
     return BF_PLTFM_SUCCESS;
 }
 
+extern void bf_pltfm_load_conf ();
 bf_pltfm_status_t bf_pltfm_cp2112_util_init (
     bf_pltfm_board_id_t board_id)
 {
     bd_id = board_id;
 
-    bf_pltfm_chss_mgmt_init();
-
+    //bf_pltfm_chss_mgmt_init();
+    bf_pltfm_load_conf ();
     // Initialize the cp2112 mutex
     int i;
     for (i = 0; i < CP2112_ID_MAX; i++) {
