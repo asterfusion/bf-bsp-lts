@@ -16,42 +16,6 @@
 extern "C" {
 #endif
 
-typedef struct pltfm_mgr_info_s {
-    const char
-    *np_name;    /* The name of health monitor thread. */
-    pthread_t health_mntr_t_id;
-    const char
-    *np_onlp_mntr_name;
-    pthread_t onlp_mntr_t_id;
-
-#define AF_PLAT_MNTR_POWER  (1 << 0)
-#define AF_PLAT_MNTR_FAN    (1 << 1)
-#define AF_PLAT_MNTR_TMP    (1 << 2)
-#define AF_PLAT_MNTR_MODULE (1 << 3)
-#define AF_PLAT_MNTR_CTRL   (1 << 31)
-    uint32_t flags;
-    uint64_t ull_mntr_ctrl_date;
-
-    uint8_t pltfm_type;
-    uint8_t pltfm_subtype;
-
-    /* Vary data based on real hardware which identified by this.pltfm_type. */
-    uint32_t psu_count;
-    /* Means sensors from BMC. */
-    uint32_t sensor_count;
-    uint32_t fan_group_count;
-    uint32_t fan_per_group;
-    /* Maximum accessiable syscplds of a platform. */
-    uint32_t cpld_count;
-} pltfm_mgr_info_t;
-
-extern pltfm_mgr_info_t *bf_pltfm_mgr_ctx();
-static inline bool bf_pltfm_equal (uint8_t pltfm)
-{
-    return (bf_pltfm_mgr_ctx()->pltfm_type == pltfm);
-}
-
-
 /* platform specific initialization for the given platform
  * this function is called before Barefoot switch Asic intiailization
  * @return

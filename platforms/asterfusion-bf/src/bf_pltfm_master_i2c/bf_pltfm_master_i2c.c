@@ -892,7 +892,7 @@ int bf_pltfm_master_i2c_init()
                 return 0;
             }
         } else {
-            if (g_access_cpld_through_cp2112 ||
+            if ((bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) ||
                 (bmc_i2c_addr == 0x7F)) {
                 fprintf (stdout, "Skip ...\n");
                 return 0;

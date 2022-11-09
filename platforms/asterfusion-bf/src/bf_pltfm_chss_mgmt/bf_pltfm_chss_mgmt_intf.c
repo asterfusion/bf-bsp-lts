@@ -26,6 +26,7 @@
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_pltfm_master_i2c.h>
 #include <bf_pltfm_uart.h>
+#include <bf_pltfm_spi.h>
 #include <bf_pltfm_syscpld.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
@@ -39,8 +40,6 @@
 #define lqe_valen  256
 
 COME_type global_come_type = COME_UNKNOWN;
-bool g_access_cpld_through_cp2112 = false;
-
 static char g_bmc_version[32] = {0};
 
 static struct x86_carrier_board_t x86_cb[] = {
@@ -57,6 +56,29 @@ static struct x86_carrier_board_t x86_cb[] = {
 
 char bmc_i2c_bus = 0x7F;
 unsigned char bmc_i2c_addr = 0x3e;
+
+/* global */
+pltfm_mgr_info_t pltfm_mgr_info = {
+    .np_name = "pltfm_mgr",
+    .health_mntr_t_id = 0,
+    .np_onlp_mntr_name = "pltfm_mgr_onlp",
+    .onlp_mntr_t_id = 0,
+    .flags = 0,
+
+    .pltfm_type = INVALID_TYPE,
+    .pltfm_subtype = INVALID_SUBTYPE,
+
+    .psu_count = 0,
+    .sensor_count = 0,
+    .fan_group_count = 0,
+    .fan_per_group = 0,
+    .cpld_count = 0,
+};
+
+pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
+{
+    return &pltfm_mgr_info;
+}
 
 static void bf_pltfm_parse_subversion (const char *subver,
     uint8_t *subtype, bool *find) {
@@ -334,7 +356,7 @@ static void access_cpld_through_cp2112()
     fprintf (stdout, "CPLD <- CP2112\n");
     bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                             2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
-    g_access_cpld_through_cp2112 = true;
+    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_CPLD_CP2112;
 }
 
 static void access_cpld_through_superio()
@@ -352,7 +374,7 @@ static void access_cpld_through_superio()
     bf_sys_usleep (100);
     bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                             2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 3);
-    g_access_cpld_through_cp2112 = false;
+    bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_CPLD_CP2112;
 }
 
 bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
@@ -392,7 +414,7 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
             /* Not Defined. */
         }
 
-        if (g_access_bmc_through_uart) {
+        if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
             ret = bf_pltfm_bmc_uart_write_read (
                                         cmd, wr_buf, 2, rd_buf, 128 - 1,
                                         BMC_COMM_INTERVAL_US * 3);
@@ -410,8 +432,8 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
     return 0;
 }
 
-bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
-{
+/* create /etc/platform.conf by running xt-cfgen.sh */
+void bf_pltfm_load_conf () {
     // Initialize all the sub modules
     FILE *fp = NULL;
     const char *cfg = "/etc/platform.conf";
@@ -425,8 +447,9 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
     if (!fp) {
         fprintf (stdout,
                  "fopen(%s) : "
-                 "%s\n", cfg, strerror (errno));
-        return -1;
+                 "%s : %s.\n", cfg, strerror (errno),
+                 (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
+        exit (0);
     } else {
         fprintf (stdout,
                  "\n\n================== %s ==================\n", cfg);
@@ -476,8 +499,13 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
          * by tsihang, 2022/08/01. */
         LOG_ERROR ("WARNING: No valid value in EEPROM(0x26/0x27/0x31) to identify current platform.\n");
         LOG_ERROR ("pltfm_mgr: Error in detecting platform.\n");
-        return BF_PLTFM_COMM_FAILED;
+        exit (0);
     }
+}
+
+bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
+{
+    bf_pltfm_load_conf ();
 
     if (bf_pltfm_master_i2c_init ()) {
         LOG_ERROR ("pltfm_mgr: Error in master-i2c init \n");
@@ -536,9 +564,6 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
             access_cpld_through_superio();
         }
     }
-
-    bf_pltfm_get_bmc_ver (&entry[0]);
-    fprintf (stdout, "BMC Version : %s\n", entry);
     // Other initializations(Fan, etc.) go here
 
     return BF_PLTFM_SUCCESS;

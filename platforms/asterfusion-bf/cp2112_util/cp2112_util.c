@@ -127,18 +127,18 @@ int read_from_socket (int sock, uint8_t *buf,
   "detect"};*/
 
 static char *usage[] = {
-    "cp2112_util <Montara->0, Mavericks->1> read <dev(Lower->0, Upper->1)> "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> read <dev(Lower->0, Upper->1)> "
     "<i2c_addr> <length>",
-    "cp2112_util <Montara->0, Mavericks->1> write <dev(Lower->0, Upper->1)> "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> write <dev(Lower->0, Upper->1)> "
     "<i2c_addr> <length> <byte1> "
     "[<byte2> ...]",
-    "cp2112_util <Montara->0, Mavericks->1> addr-read <dev(Lower->0, "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> addr-read <dev(Lower->0, "
     "Upper->1)> <i2c_addr> <read_length> "
     "<write_length> <byte1> [<byte2> ...]",
-    "cp2112_util <Montara->0, Mavericks->1> addr-read-unsafe <dev(Lower->0, "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> addr-read-unsafe <dev(Lower->0, "
     "Upper->1)> <i2c_addr> "
     "<read_length> <write_length> <byte1> [<byte2> ...]",
-    "cp2112_util <Montara->0, Mavericks->1> detect <dev(Lower->0, Upper->1)>"
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> detect <dev(Lower->0, Upper->1)>"
 };
 
 static int proc_read (int count, char *cmd[])
@@ -152,12 +152,11 @@ static int proc_read (int count, char *cmd[])
     uint8_t i2c_addr;
     uint32_t byte_buf_size;
     uint8_t *byte_buf;
-    uint8_t cp2112_id_;
+    uint8_t cp2112_id_ = 0;
     bf_pltfm_cp2112_id_t cp2112_id;
     bf_pltfm_cp2112_device_ctx_t *cp2112_dev;
     uint32_t i;
 
-    cp2112_id_ = (uint8_t)strtol (cmd[0], NULL, 16);
     i2c_addr = (uint8_t)strtol (cmd[1], NULL, 16);
     byte_buf_size = (uint8_t)strtol (cmd[2], NULL,
                                      0);
@@ -217,7 +216,7 @@ static int proc_write (int count, char *cmd[])
     uint8_t i2c_addr;
     uint32_t byte_buf_size;
     uint8_t *byte_buf;
-    uint8_t cp2112_id_;
+    uint8_t cp2112_id_ = 0;
     bf_pltfm_cp2112_id_t cp2112_id;
     bf_pltfm_cp2112_device_ctx_t *cp2112_dev;
     uint32_t i;
@@ -290,11 +289,10 @@ int proc_addr_read (int count, char *cmd[],
     uint8_t i2c_addr;
     uint32_t read_byte_buf_size, write_byte_buf_size;
     uint8_t *read_byte_buf, *write_byte_buf;
-    uint8_t cp2112_id_;
+    uint8_t cp2112_id_ = 0;
     bf_pltfm_cp2112_id_t cp2112_id;
     bf_pltfm_cp2112_device_ctx_t *cp2112_dev;
 
-    cp2112_id_ = (uint8_t)strtol (cmd[0], NULL, 16);
     i2c_addr = (uint8_t)strtol (cmd[1], NULL, 16);
     read_byte_buf_size = (uint8_t)strtol (cmd[2],
                                           NULL, 16);
@@ -401,7 +399,7 @@ static int proc_detect (int count, char *cmd[])
         return -1;
     }
 
-    uint8_t cp2112_id_;
+    uint8_t cp2112_id_ = 0;
     bf_pltfm_cp2112_id_t cp2112_id;
     bf_pltfm_cp2112_device_ctx_t *cp2112_dev;
 

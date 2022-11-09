@@ -12,11 +12,6 @@
 
 #include <bf_pltfm_uart.h>
 
-static char *usage[] = {
-    "uart_util </dev/ttySX> <BMC CMD> ",
-    "Example: uart_util /dev/ttyS1 0xd 0xaa 0xaa"
-};
-
 extern bool uart_debug;
 int bf_pltfm_uart_util_init(struct bf_pltfm_uart_ctx_t *);
 int bf_pltfm_uart_util_de_init (struct bf_pltfm_uart_ctx_t *ctx);
@@ -29,9 +24,13 @@ int bf_pltfm_bmc_uart_util_write_read (
     uint8_t rx_len,
     int usec);
 
-static void help()
+static void help(char *progname)
 {
-    fprintf (stdout, "%s\n", usage[0]);
+    fprintf (stdout, "Usage:  \n");
+    fprintf (stdout, 
+        "%s </dev/ttySX> <BMC CMD>\n"
+        "Eg: uart_util /dev/ttyS1 0xd 0xaa 0xaa\n",
+        progname);
 }
 
 static bool bf_pltfm_tty_detected (const char *path) {
@@ -62,15 +61,21 @@ int main (int argc, char **argv)
     uint8_t wr_len = 0;
     int i;
 
+    if (argc < 2) {
+        help (argv[0]);
+        return 0;
+    }
+
     /* Test cmd. */
     if (argc == 2) {
         if (!strcmp (argv[1], "help")) {
             fprintf (stdout, "Good\n");
-            help ();
+            help (argv[0]);
             return 0;
         }
         exit (0);
     }
+
     if (uart_debug) {
         for (i = 0; i < argc; i++) {
             fprintf (stdout, "argv[%d] : %s\n", i, argv[i]);

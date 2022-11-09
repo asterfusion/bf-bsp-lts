@@ -61,7 +61,8 @@ echo "" | tee -a $log
 echo "==============================================================================================================================================" | tee -a $log
 echo "5. Check the ASIC" | tee -a $log
 echo "" | tee -a $log
-lspci | grep 1d1c | tee -a $log
+lspci -vvv -d 1d1c: | tee -a $log
+lspci -xxx -d 1d1c: | awk 'NR != 1 { print }' | tee -a $log
 echo "" | tee -a $log
 echo "SDE=$SDE" | tee -a $log
 echo "SDE_INSTALL=$SDE_INSTALL" | tee -a $log
@@ -79,8 +80,14 @@ if [[ -f $LOG_DIR_PREFIX/eeprom ]];then
 else
     echo "No $LOG_DIR_PREFIX/eeprom detected" | tee -a $log
 fi
-
-
 echo "" | tee -a $log
+
+echo "==============================================================================================================================================" | tee -a $log
+echo "7. BIOS" | tee -a $log
+dmidecode | tee -a $log
+echo "" | tee -a $log
+
 echo -e "${YELLOW}Done${RES}"
+
+echo "Please see $log"
 

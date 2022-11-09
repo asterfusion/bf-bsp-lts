@@ -10,6 +10,13 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdlib.h>
+#define __USE_GNU /* See feature_test_macros(7) */
+#include <pthread.h>
 
 #ifndef EQ
 #define EQ(a, b) (!(((a) > (b)) - ((a) < (b))))
@@ -67,6 +74,11 @@
     bf_i2c_issue_stateout((devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
 #define bfn_write_stateout_buf(devid,sub_devid,pin,offset,buf,ndatabytes) \
     bf_write_stateout_buf((devid),(pin),(offset),(buf),(ndatabytes))
+/* For PCIe SPI porting with different SDE.  */
+#define bfn_spi_eeprom_wr(devid,sub_devid,addr,buf,buf_size) \
+    bf_spi_eeprom_wr((devid),(addr),(buf),(buf_size))
+#define bfn_spi_eeprom_rd(devid,sub_devid,addr,buf,buf_size) \
+        bf_spi_eeprom_rd((devid),(addr),(buf),(buf_size))
 #else
 #define bfn_io_set_mode_i2c(devid,sub_devid,pin) bf_io_set_mode_i2c((devid),(sub_devid),(pin))
 #define bfn_i2c_set_clk(devid,sub_devid,pin,clk) bf_i2c_set_clk((devid),(sub_devid),(pin),(clk))
@@ -82,6 +94,12 @@
     bf_i2c_issue_stateout((devid),(sub_devid),(pin),(i2caddr),(regaddr),(naddrbytes),(buf),(ndatabytes))
 #define bfn_write_stateout_buf(devid,sub_devid,pin,offset,buf,ndatabytes) \
         bf_write_stateout_buf((devid),(sub_devid),(pin),(offset),(buf),(ndatabytes))
+/* For PCIe SPI porting with different SDE.  */
+#define bfn_spi_eeprom_wr(devid,sub_devid,addr,buf,buf_size) \
+        bf_spi_eeprom_wr((devid),(sub_devid),(addr),(buf),(buf_size))
+#define bfn_spi_eeprom_rd(devid,sub_devid,addr,buf,buf_size) \
+            bf_spi_eeprom_rd((devid),(sub_devid),(addr),(buf),(buf_size))
+
 #endif
 
 
@@ -303,6 +321,44 @@ struct st_ctx_t {
     /* bit offset of <off> */
     uint8_t off_b;   /* bit offset in off */
 };
+
+typedef struct pltfm_mgr_info_s {
+    const char
+    *np_name;    /* The name of health monitor thread. */
+    pthread_t health_mntr_t_id;
+    const char
+    *np_onlp_mntr_name;
+    pthread_t onlp_mntr_t_id;
+
+#define AF_PLAT_MNTR_POWER  (1 << 0)
+#define AF_PLAT_MNTR_FAN    (1 << 1)
+#define AF_PLAT_MNTR_TMP    (1 << 2)
+#define AF_PLAT_MNTR_MODULE (1 << 3)
+#define AF_PLAT_MNTR_CTRL   (1 << 16)
+#define AF_PLAT_CTRL_BMC_UART       (1 << 17)   /* Access BMC through UART, otherwise through i2c. */
+#define AF_PLAT_CTRL_CPLD_CP2112    (1 << 18)   /* Access CPLD through CP2112, otherwise through i2c. */
+
+    uint32_t flags;
+    uint64_t ull_mntr_ctrl_date;
+
+    uint8_t pltfm_type;
+    uint8_t pltfm_subtype;
+
+    /* Vary data based on real hardware which identified by this.pltfm_type. */
+    uint32_t psu_count;
+    /* Means sensors from BMC. */
+    uint32_t sensor_count;
+    uint32_t fan_group_count;
+    uint32_t fan_per_group;
+    /* Maximum accessiable syscplds of a platform. */
+    uint32_t cpld_count;
+} pltfm_mgr_info_t;
+
+extern pltfm_mgr_info_t *bf_pltfm_mgr_ctx();
+static inline bool bf_pltfm_equal (uint8_t pltfm)
+{
+    return (bf_pltfm_mgr_ctx()->pltfm_type == pltfm);
+}
 
 
 #ifdef __cplusplus
