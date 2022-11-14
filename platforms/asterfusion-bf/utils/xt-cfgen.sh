@@ -10,7 +10,7 @@
 source xt-setup.sh
 
 default_cme='CME3000'
-default_i2c="127"
+default_i2c="255"
 hw_platform='N/A'
 hw_version="0"
 enable_uart=0
@@ -339,12 +339,12 @@ echo "#   4. X312P-T" >> $cfgfile
 echo $xt_platform $hw_platform
 echo "platform:"$hw_platform >> $cfgfile
 echo "" >> $cfgfile
+echo "# X-T Bare Metal Hardware Version." >> $cfgfile
 echo "hwver:"$hw_version >> $cfgfile
 echo "" >> $cfgfile
 
-
-echo "# If CG15xx,ADV15xx or S0215xx selected, 'i2c:X' will not make an impact." >> $cfgfile
-echo "# Currently supported CME like below:" >> $cfgfile
+echo "# COM-Express (X86)." >> $cfgfile
+echo "# Currently supported COM-Express listed below:" >> $cfgfile
 echo "#   1. CG1508 (Default)" >> $cfgfile
 echo "#   2. CG1527"  >> $cfgfile
 echo "#   3. ADV1508" >> $cfgfile
@@ -357,9 +357,24 @@ echo $default_cme
 echo "com-e:"$default_cme >> $cfgfile
 echo "" >> $cfgfile
 
-echo "# Master I2C used to access BMC and/or CPLD." >> $cfgfile
-echo "# Here we set channel 0 by default channel for ComExpress except CG15xx/ADV15xx/S0215xx serials." >> $cfgfile
-echo "# Any other ComExpress like ComExpress 3000 may use different one." >> $cfgfile
+echo "# Master I2C which is used to access CPLD and/or BMC." >> $cfgfile
+echo "#" >> $cfgfile
+echo "#             [X312P-T V3.0 and later]      [X308P-T]           [X532P-T/X564P-T]" >> $cfgfile
+echo "#                      |                       |                        |" >> $cfgfile
+echo "#  BMC          <---- nct6779d          <---- UART               <---- UART" >> $cfgfile
+echo "#  CPLD         <---- nct6779d          <---- cp2112             <---- cp2112" >> $cfgfile
+echo "#  Transceiver  <---- cp2112            <---- cp2112             <---- cp2112" >> $cfgfile
+echo "#" >> $cfgfile
+echo "# Details" >> $cfgfile
+echo "# For X532P-T/X564P-T with ComExpress CG15xx serials, i2c-127 means CPLD forcely accessed through cgosdrv (transition scenarios)." >> $cfgfile
+echo "# For X532P-T V1.0 and V1.1, CPLD can be accessed by cgosdrv and as well by cp2112 (default by cp2112)." >> $cfgfile
+echo "# For X532P-T V2.0, CPLD can be accessed by cgosdrv and as well by cp2112 (default by cp2112)." >> $cfgfile
+echo "# For X564P-T V1.0 and V1.1, CPLD can be and only can be accessed by cgosdrv." >> $cfgfile
+echo "# For X564P-T V1.2, CPLD can be accessed by cgosdrv and as well by cp2112 (default by cp2112)." >> $cfgfile
+echo "# For X564P-T V2.0, CPLD can be and only can be accessed by cp2112." >> $cfgfile
+echo "# For X312P-T V1.0, nct6779d is used to access BMC/CPLD/Transceiver." >> $cfgfile
+echo "# For X312P-T V2.0, cp2112 is used to access BMC/CPLD/Transceiver." >> $cfgfile
+echo "#" >> $cfgfile
 if [ $enable_iic = 1 ]; then
     echo "i2c-"$default_i2c
     echo "i2c:"$default_i2c >> $cfgfile
@@ -369,9 +384,8 @@ else
     echo "" >> $cfgfile
 fi
 
-echo "# Default uart to access BMC." >> $cfgfile
-echo "# If a given uart set, BSP will access BMC through it, otherwise, using I2C instead." >> $cfgfile
-echo "# Only works on CG15xx and need a new BMC version." >> $cfgfile
+echo "# An internal console which is used to access BMC." >> $cfgfile
+echo "# If given, BSP will access BMC through this console, otherwise, use i2c instead." >> $cfgfile
 echo "# by tsihang, 2021-07-05" >> $cfgfile
 if [ $enable_uart = 1 ];then
     echo "uart enabled"

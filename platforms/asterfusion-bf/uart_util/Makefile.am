@@ -14,4 +14,13 @@ uart_util.c \
 
 uart_util_LDFLAGS = $(AM_LDFLAGS) -L$(top_builddir)/platforms/asterfusion-bf/src/
 
+# Different SDE on different OS.
+# Default to OS <= 9 and SDE < 9.9.x. by tsihang, 2022-11-09.
+# For SDE version <  9.9.x && OS <= 9
 uart_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos
+# For SDE version >= 9.9.x && OS <= 9
+#uart_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos
+# For SDE version <  9.9.x && OS >= 10
+#uart_util_LDADD =  -lbfsys -lusb-1.0 -lcurl -lcgos -li2c
+# For SDE version >= 9.9.x && OS >= 10
+#uart_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos -li2c
