@@ -54,7 +54,9 @@ static struct x86_carrier_board_t x86_cb[] = {
     {"S021527",  S021527},
 };
 
-char bmc_i2c_bus = 0x7F;
+#define INVALID_BMC_I2C 0xFF
+/* A value 0x7F means a transitional scenarios for platforms with CG15xx using cgosdrv. */
+uint8_t bmc_i2c_bus = INVALID_BMC_I2C;
 unsigned char bmc_i2c_addr = 0x3e;
 
 /* global */
@@ -273,7 +275,7 @@ static void bf_pltfm_parse_i2c (const char *str,
 
     /* I2C MUST be disabled or set to 127 for those platforms which are not used it in /etc/platform.conf. */
     bmc_i2c_bus = atoi(c);
-    if (bmc_i2c_bus != 0x7F)
+    if (bmc_i2c_bus != INVALID_BMC_I2C)
     fprintf (stdout,
              "I2C  : %d (CPLD or BMC)\n", bmc_i2c_bus);
 }
@@ -544,9 +546,13 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
             access_cpld_through_cp2112();
         }
     } else if (platform_type_equal (X532P)) {
-        if (is_CG15XX) {
+        /* There is an issue of cgoslx hung on for CG15xx COM-Express
+         * when switching installed system from SONiC to ONL or from ONL to SONiC.
+         * It is strongly recommended to access CPLD through cp2112 on X532P under all possible COM-Express.
+         * Pls upgrade BMC to v1.2.1 or later. */
+        if (is_CG15XX && (bmc_i2c_bus == 0x7F)) {
             LOG_DEBUG ("CPLD <- cgoslx\n");
-        } else if (is_ADV15XX || is_S02XXX) {
+        } else if (is_CG15XX || is_ADV15XX || is_S02XXX) {
             LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();
         } else if (is_HVXXX) {
@@ -555,7 +561,13 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
         }
     } else if (platform_type_equal (X564P)) {
         if (is_CG15XX) {
-            LOG_DEBUG ("CPLD <- cgoslx\n");
+            if (platform_subtype_equal (v1dot0) ||
+                platform_subtype_equal (v1dot1)) {
+                LOG_DEBUG ("CPLD <- cgoslx\n");
+            } else if (platform_subtype_equal (v1dot2)) {
+                LOG_DEBUG ("CPLD <- cp2112\n");
+                access_cpld_through_cp2112();
+            }
         } else if (is_ADV15XX || is_S02XXX) {
             LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();

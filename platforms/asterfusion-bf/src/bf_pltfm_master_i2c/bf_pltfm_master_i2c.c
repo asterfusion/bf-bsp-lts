@@ -882,8 +882,10 @@ int bf_pltfm_master_i2c_init()
     } else {
         fprintf (stdout,
                  "\n\n================== %s ==================\n", "IIC INIT");
-        /* X564P-T/X532P-T. */
-        if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+        /* X564P-T V1.0 & V1.1
+         * X532P-T v1.1 */
+        if (is_CG15XX && ((platform_type_equal (X564P) &&
+		    (platform_subtype_equal (v1dot0) || platform_subtype_equal (v1dot1))) || (bmc_i2c_bus == 0x7F))) {
             if (bf_cgos_init()) {
                 fprintf (stdout, "Error in cgos init\n");
                 exit (1);
@@ -892,8 +894,7 @@ int bf_pltfm_master_i2c_init()
                 return 0;
             }
         } else {
-            if ((bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) ||
-                (bmc_i2c_addr == 0x7F)) {
+            if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
                 fprintf (stdout, "Skip ...\n");
                 return 0;
             }
@@ -964,7 +965,8 @@ int bf_pltfm_master_i2c_de_init()
         fprintf (stdout, "Skip ...\n");
         goto finish;
     } else {
-        if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+        if (is_CG15XX && ((platform_type_equal (X564P) &&
+		    (platform_subtype_equal (v1dot0) || platform_subtype_equal (v1dot1))) || (bmc_i2c_bus == 0x7F))) {
             if (bf_cgos_de_init ()) {
                 fprintf (stdout, "Deinit Master i2c\n");
                 goto finish;

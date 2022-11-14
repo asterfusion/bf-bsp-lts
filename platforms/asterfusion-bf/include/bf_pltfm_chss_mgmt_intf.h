@@ -376,7 +376,7 @@ struct x86_carrier_board_t {
     COME_type type;
 };
 
-extern char bmc_i2c_bus;
+extern uint8_t bmc_i2c_bus;
 extern unsigned char bmc_i2c_addr;
 extern COME_type global_come_type;
 

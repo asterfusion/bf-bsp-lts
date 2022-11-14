@@ -887,6 +887,12 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+# For SDE version >= 9.9.x && OS <= 9
+#cp2112_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos
+# For SDE version <  9.9.x && OS >= 10
+#cp2112_util_LDADD =  -lbfsys -lusb-1.0 -lcurl -lcgos -li2c
+# For SDE version >= 9.9.x && OS >= 10
+#cp2112_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos -li2c
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
