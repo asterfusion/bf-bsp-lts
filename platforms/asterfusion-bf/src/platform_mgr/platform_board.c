@@ -40,6 +40,11 @@ pltfm_bd_map_t pltfm_board_maps[] = {
         ROWS (mavericks_P0B_bd_map_x564p)
     },
     {
+        BF_PLTFM_BD_ID_X564PT_V2DOT0,
+        mavericks_P0B_bd_map_x564p,
+        ROWS (mavericks_P0B_bd_map_x564p)
+    },
+    {
         /* X532P-T v1.0 has dropped support. */
         BF_PLTFM_BD_ID_X532PT_V1DOT0,
         mavericks_P0B_bd_map_x532p,
@@ -166,6 +171,10 @@ int platform_name_get_str (char *name,
         case BF_PLTFM_BD_ID_X564PT_V1DOT2:
             snprintf (name, name_size,
                       "BF_PLTFM_BD_ID_X564PT_V1DOT2");
+            break;
+        case BF_PLTFM_BD_ID_X564PT_V2DOT0:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X564PT_V2DOT0");
             break;
         case BF_PLTFM_BD_ID_X308PT_V1DOT0:
             snprintf (name, name_size,

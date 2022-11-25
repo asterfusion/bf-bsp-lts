@@ -18,9 +18,10 @@ int bf_pltfm_spi_wr (int chip_id,
                      const char *fname, int offset, int size);
 int bf_pltfm_spi_rd (int chip_id,
                      const char *fname, int offset, int size);
+int bf_pltfm_spi_cmp (const char *, const char *);
+
 int bf_pltfm_spi_init (void *arg);
-ucli_node_t *bf_pltfm_spi_ucli_node_create (
-    ucli_node_t *m);
+
 #ifdef __cplusplus
 }
 #endif /* C++ */

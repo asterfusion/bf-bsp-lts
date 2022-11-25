@@ -1090,6 +1090,22 @@ static void qsfp_fsm_check_alarms_after_unreset (
         status_and_alarms;
 }
 
+extern int bf_qsfp_update_monitor_value (int port);
+/*****************************************************************
+* This routine is only used in Tofino 1 implementations
+*****************************************************************/
+static void qsfp_fsm_poll_monitor (bf_dev_id_t dev_id,
+                               int conn_id)
+{
+    int rc;
+    dev_id = dev_id;
+    rc = bf_qsfp_update_monitor_value (conn_id);
+    if (rc) {
+        LOG_DEBUG ("QSFP    %2d : Error <%d> reading monitor fields",
+                   conn_id, rc);
+    }
+}
+
 /*****************************************************************
 * This routine is only used in Tofino 1 implementations
 *****************************************************************/
@@ -1357,6 +1373,7 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             if (qsfp_fsm_is_optical (conn_id)) {
                 // check LOS
                 qsfp_fsm_poll_los (dev_id, conn_id);
+                qsfp_fsm_poll_monitor (dev_id, conn_id);
             }
 
             next_st = QSFP_FSM_ST_DETECTED;

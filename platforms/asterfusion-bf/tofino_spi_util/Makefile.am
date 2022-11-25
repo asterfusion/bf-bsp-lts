@@ -1,29 +1,23 @@
-bin_PROGRAMS = spi_i2c_util
-spi_i2c_util_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS)
-spi_i2c_util_CPPFLAGS = -I$(includedir) -I$(top_srcdir)/drivers/include/ -I$(top_srcdir)/platforms/include -I$(top_srcdir)/platforms/asterfusion-bf/include/ -DDEVICE_IS_ASIC
+bin_PROGRAMS = tofino_spi_util
+tofino_spi_util_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS)
+tofino_spi_util_CPPFLAGS = -I$(includedir) -I$(top_srcdir)/drivers/include/ -I$(top_srcdir)/platforms/include -I$(top_srcdir)/platforms/asterfusion-bf/include/ -DDEVICE_IS_ASIC
 
-spi_i2c_util_SOURCES = \
-tofino_spi_if.c \
-tofino_porting_spi.c \
-../src/bf_pltfm_bmc_tty/bmc_tty.c \
-../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c \
-../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c \
-../src/bf_pltfm_uart/bf_pltfm_uart.c \
-../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c \
-../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c \
-../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c \
-../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c \
-../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.h
+tofino_spi_util_SOURCES = \
+tofino_spi_if.c 
+#../src/bf_pltfm_spi/bf_pltfm_spi.c
 
-spi_i2c_util_LDFLAGS = $(AM_LDFLAGS) -L$(top_builddir)/platforms/asterfusion-bf/src/
+tofino_spi_util_LDFLAGS = $(AM_LDFLAGS) -L$(top_builddir)/platforms/asterfusion-bf/src/
 
 # Different SDE on different OS.
 # Default to OS <= 9 and SDE < 9.9.x. by tsihang, 2022-11-09.
 # For SDE version <  9.9.x && OS <= 9
-spi_i2c_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos
+tofino_spi_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos
 # For SDE version >= 9.9.x && OS <= 9
-#spi_i2c_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos
+#tofino_spi_util_LDADD =  -ltarget_sys -ldriver -lusb-1.0 -lcurl -lcgos
 # For SDE version <  9.9.x && OS >= 10
-#spi_i2c_util_LDADD =  -lbfsys -lusb-1.0 -lcurl -lcgos -li2c
+#tofino_spi_util_LDADD =  -lbfsys -ldriver -lusb-1.0 -lcurl -lcgos -li2c
 # For SDE version >= 9.9.x && OS >= 10
-#spi_i2c_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos -li2c
+#tofino_spi_util_LDADD =  -ltarget_sys -ldriver -lusb-1.0 -lcurl -lcgos -li2c
+
+# For SDE version <  9.7.x
+#tofino_spi_util_LDADD += -lbf_switchd_lib

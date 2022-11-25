@@ -164,7 +164,8 @@ AC_CONFIG_FILES([Makefile
 		 platforms/asterfusion-bf/cp2112_util/Makefile
 		 platforms/asterfusion-bf/uart_util/Makefile
 		 platforms/asterfusion-bf/thrift/Makefile
-		 platforms/asterfusion-bf/tofino_spi_util/Makefile])
+		 platforms/asterfusion-bf/tofino_spi_util/Makefile
+		 platforms/asterfusion-bf/tofino_pci_util/Makefile])
 		 #platforms/asterfusion-bf/tcl_server/Makefile
 		 #platforms/asterfusion-bf/diags/Makefile
 		 #platforms/asterfusion-bf/diags/mavericks/Makefile

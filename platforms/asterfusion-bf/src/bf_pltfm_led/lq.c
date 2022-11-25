@@ -5,68 +5,16 @@
  * TSIHANG (tsihang@asterfusion.com)
  */
 
-#include <sched.h>
-#include <assert.h>
-#include <arpa/inet.h>
-#include <ctype.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <mntent.h>
-#include <netdb.h>
-#include <poll.h>
-#include <pwd.h>
-#include <regex.h>
-#include <syscall.h>
-#include <sched.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
-#include <semaphore.h>
-#include <sys/epoll.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
-#include <sys/syscall.h>
-#include <sys/mount.h>
-#include <sys/queue.h>
-#include <sys/shm.h>
-#include <time.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <pthread.h>
-#include <syslog.h>
-#include <signal.h>
-#include <sys/signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/un.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
+#include <errno.h>
+#include <assert.h>
 
 #if defined(HAVE_BACKTRACE)
 #include <execinfo.h>
-#endif
-
-#if !defined(HAVE_DPDK)
-#include <net/ethernet.h>
-#endif
-
-#if defined(HAVE_PCRE)
-#include <pcre.h>
 #endif
 
 #include "lq.h"

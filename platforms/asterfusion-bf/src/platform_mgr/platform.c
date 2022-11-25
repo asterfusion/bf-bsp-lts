@@ -81,6 +81,8 @@ static bf_dev_init_mode_t g_switchd_init_mode = BF_DEV_INIT_COLD;
 
 extern ucli_node_t
 *bf_pltfm_cpld_ucli_node_create (ucli_node_t *m);
+extern ucli_node_t
+*bf_pltfm_spi_ucli_node_create (ucli_node_t *m);
 
 static ucli_node_t *bf_pltfm_ucli_node;
 static bf_sys_rmutex_t
@@ -238,6 +240,9 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 6;
             bf_pltfm_mgr_ctx()->cpld_count = 3;
+            if (platform_subtype_equal(v2dot0)) {
+                bf_pltfm_mgr_ctx()->sensor_count = 8;
+            }
         } else if (platform_type_equal (X532P)) {
             bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
@@ -1526,6 +1531,175 @@ static ucli_command_handler_f
 bf_pltfm_mgr_ucli_ucli_handlers__[] = {
     pltfm_mgr_ucli_ucli__mntr__, NULL
 };
+
+static ucli_status_t bf_pltfm_ucli_ucli__spi_wr_
+(ucli_context_t *uc)
+{
+    bf_dev_id_t dev = 0;
+    char fname[64];
+    int offset;
+    int size;
+
+    UCLI_COMMAND_INFO (
+        uc, "spi-wr", 4,
+        "spi-wr <dev> <file name> <offset> <size>");
+
+    dev = atoi (uc->pargs->args[0]);
+    strncpy (fname, uc->pargs->args[1],
+             sizeof (fname) - 1);
+    fname[sizeof (fname) - 1] = '\0';
+    offset = atoi (uc->pargs->args[2]);
+    size = atoi (uc->pargs->args[3]);
+
+    aim_printf (
+        &uc->pvs,
+        "bf_pltfm_spi: spi-wr <dev=%d> <file name=%s> <offset=%d> <size=%d>\n",
+        dev,
+        fname,
+        offset,
+        size);
+
+    if (bf_pltfm_spi_wr (dev, fname, offset, size)) {
+        aim_printf (&uc->pvs,
+                    "error writing to SPI eeprom\n");
+    } else {
+        aim_printf (&uc->pvs, "SPI eeprom write OK\n");
+    }
+    return 0;
+}
+
+static ucli_status_t bf_pltfm_ucli_ucli__spi_rd_
+(ucli_context_t *uc)
+{
+    bf_dev_id_t dev = 0;
+    char fname[64];
+    int offset;
+    int size;
+
+    UCLI_COMMAND_INFO (
+        uc, "spi-rd", 4,
+        "spi-rd <dev> <file name> <offset> <size>");
+
+    dev = atoi (uc->pargs->args[0]);
+    strncpy (fname, uc->pargs->args[1],
+             sizeof (fname) - 1);
+    fname[sizeof (fname) - 1] = '\0';
+    offset = atoi (uc->pargs->args[2]);
+    size = atoi (uc->pargs->args[3]);
+
+    aim_printf (
+        &uc->pvs,
+        "bf_pltfm_spi: spi-rd <dev=%d> <file name=%s> <offset=%d> <size=%d>\n",
+        dev,
+        fname,
+        offset,
+        size);
+
+    if (bf_pltfm_spi_rd (dev, fname, offset, size)) {
+        aim_printf (&uc->pvs,
+                    "error reading from SPI eeprom\n");
+    } else {
+        aim_printf (&uc->pvs, "SPI eeprom read OK\n");
+    }
+    return 0;
+}
+
+/* Update PCIe firmware. by tsihang, 2022-11-07. */
+static ucli_status_t bf_pltfm_ucli_ucli__spi_update_
+(ucli_context_t *uc)
+{
+    bf_dev_id_t dev = 0;
+    char fname0[512] = {0}, fname1[1024] = {0};
+    int offset;
+    int size;
+    FILE *fd;
+
+    UCLI_COMMAND_INFO (
+        uc, "spi-update", 2,
+        "spi-update <dev> <file name>");
+
+    dev = atoi (uc->pargs->args[0]);
+    strncpy (fname0, uc->pargs->args[1],
+             sizeof (fname0) - 1);
+    fname0[sizeof (fname0) - 1] = '\0';
+    offset = 0;
+
+    fd = fopen (fname0, "rb");
+    if (!fd) {
+        /* no such file, then return fail. */
+        aim_printf (
+            &uc->pvs,
+            "Target PCIe firmware is invalid : %s\n", fname0);
+        return -1;
+    }
+
+    fseek (fd, 0, SEEK_END);
+    size = (size_t)ftell (fd);
+    fseek (fd, 0, SEEK_SET);
+    fclose (fd);
+
+    aim_printf (
+        &uc->pvs,
+        "bf_pltfm_spi: spi-update <dev=%d> <file name=%s> <offset=%d> <size=%d>\n",
+        dev,
+        fname0,
+        offset,
+        size);
+
+    aim_printf (
+        &uc->pvs,
+        "\nDO NOT interrupt during the upgrade. Wating for 30+ secs ...\n\n");
+
+    if (bf_pltfm_spi_wr (dev, fname0, offset, size)) {
+        aim_printf (&uc->pvs,
+                    "error writing to SPI eeprom\n");
+    } else {
+        aim_printf (&uc->pvs, "SPI eeprom write OK\n");
+        sprintf (fname1, "%s.bak", fname0);
+        if (bf_pltfm_spi_rd (dev, fname1, offset, size)) {
+            aim_printf (&uc->pvs,
+                        "error reading from SPI eeprom\n");
+        } else {
+            aim_printf (&uc->pvs, "SPI eeprom read OK\n");
+            aim_printf (&uc->pvs, "Compare ... \n");
+            if (bf_pltfm_spi_cmp (fname0, fname1)) {
+                aim_printf (&uc->pvs,
+                            "error updating to SPI eeprom\n");
+            } else {
+                aim_printf (&uc->pvs, "SPI eeprom update OK\n");
+            }
+        }
+        /* Remove firmware file comes from reading SPI EEPROM back. */
+        if ((0 == access (fname1, F_OK))) {
+            remove (fname1);
+        }
+    }
+    return 0;
+}
+
+/* <auto.ucli.handlers.start> */
+static ucli_command_handler_f
+bf_pltfm_spi_ucli_ucli_handlers__[] = {
+    bf_pltfm_ucli_ucli__spi_wr_, bf_pltfm_ucli_ucli__spi_rd_, bf_pltfm_ucli_ucli__spi_update_, NULL,
+};
+
+/* <auto.ucli.handlers.end> */
+static ucli_module_t bf_pltfm_spi_ucli_module__
+= {
+    "spi_ucli", NULL, bf_pltfm_spi_ucli_ucli_handlers__, NULL, NULL,
+};
+
+ucli_node_t *bf_pltfm_spi_ucli_node_create (
+    ucli_node_t *m)
+{
+    ucli_node_t *n;
+    ucli_module_init (&bf_pltfm_spi_ucli_module__);
+    n = ucli_node_create ("spi", m,
+                          &bf_pltfm_spi_ucli_module__);
+    ucli_node_subnode_add (n,
+                           ucli_module_log_node_create ("spi"));
+    return n;
+}
 
 static ucli_module_t
 mavericks_pltfm_mgrs_ucli_module__ = {

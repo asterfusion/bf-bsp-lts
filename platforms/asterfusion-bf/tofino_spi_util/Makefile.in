@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = spi_i2c_util$(EXEEXT)
+bin_PROGRAMS = tofino_spi_util$(EXEEXT)
 subdir = platforms/asterfusion-bf/tofino_spi_util
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/adl_recursive_eval.m4 \
@@ -105,26 +105,17 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am__dirstamp = $(am__leading_dot)dirstamp
-am_spi_i2c_util_OBJECTS = spi_i2c_util-tofino_spi_if.$(OBJEXT) \
-	spi_i2c_util-tofino_porting_spi.$(OBJEXT) \
-	../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.$(OBJEXT) \
-	../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.$(OBJEXT) \
-	../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.$(OBJEXT) \
-	../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.$(OBJEXT) \
-	../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.$(OBJEXT) \
-	../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.$(OBJEXT) \
-	../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.$(OBJEXT) \
-	../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.$(OBJEXT)
-spi_i2c_util_OBJECTS = $(am_spi_i2c_util_OBJECTS)
-spi_i2c_util_DEPENDENCIES =
+am_tofino_spi_util_OBJECTS = tofino_spi_util-tofino_spi_if.$(OBJEXT)
+tofino_spi_util_OBJECTS = $(am_tofino_spi_util_OBJECTS)
+tofino_spi_util_DEPENDENCIES =
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-spi_i2c_util_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(spi_i2c_util_CFLAGS) \
-	$(CFLAGS) $(spi_i2c_util_LDFLAGS) $(LDFLAGS) -o $@
+tofino_spi_util_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(tofino_spi_util_CFLAGS) $(CFLAGS) $(tofino_spi_util_LDFLAGS) \
+	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -159,8 +150,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(spi_i2c_util_SOURCES)
-DIST_SOURCES = $(spi_i2c_util_SOURCES)
+SOURCES = $(tofino_spi_util_SOURCES)
+DIST_SOURCES = $(tofino_spi_util_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -328,27 +319,18 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-spi_i2c_util_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS)
-spi_i2c_util_CPPFLAGS = -I$(includedir) -I$(top_srcdir)/drivers/include/ -I$(top_srcdir)/platforms/include -I$(top_srcdir)/platforms/asterfusion-bf/include/ -DDEVICE_IS_ASIC
-spi_i2c_util_SOURCES = \
-tofino_spi_if.c \
-tofino_porting_spi.c \
-../src/bf_pltfm_bmc_tty/bmc_tty.c \
-../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c \
-../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c \
-../src/bf_pltfm_uart/bf_pltfm_uart.c \
-../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c \
-../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c \
-../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c \
-../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c \
-../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.h
+tofino_spi_util_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS)
+tofino_spi_util_CPPFLAGS = -I$(includedir) -I$(top_srcdir)/drivers/include/ -I$(top_srcdir)/platforms/include -I$(top_srcdir)/platforms/asterfusion-bf/include/ -DDEVICE_IS_ASIC
+tofino_spi_util_SOURCES = \
+tofino_spi_if.c 
 
-spi_i2c_util_LDFLAGS = $(AM_LDFLAGS) -L$(top_builddir)/platforms/asterfusion-bf/src/
+#../src/bf_pltfm_spi/bf_pltfm_spi.c
+tofino_spi_util_LDFLAGS = $(AM_LDFLAGS) -L$(top_builddir)/platforms/asterfusion-bf/src/
 
 # Different SDE on different OS.
 # Default to OS <= 9 and SDE < 9.9.x. by tsihang, 2022-11-09.
 # For SDE version <  9.9.x && OS <= 9
-spi_i2c_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos
+tofino_spi_util_LDADD = -lbfsys -lusb-1.0 -lcurl -lcgos
 all: all-am
 
 .SUFFIXES:
@@ -431,93 +413,18 @@ clean-binPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
-../src/bf_pltfm_bmc_tty/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_bmc_tty
-	@: > ../src/bf_pltfm_bmc_tty/$(am__dirstamp)
-../src/bf_pltfm_bmc_tty/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_bmc_tty/$(DEPDIR)
-	@: > ../src/bf_pltfm_bmc_tty/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.$(OBJEXT):  \
-	../src/bf_pltfm_bmc_tty/$(am__dirstamp) \
-	../src/bf_pltfm_bmc_tty/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_cp2112/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_cp2112
-	@: > ../src/bf_pltfm_cp2112/$(am__dirstamp)
-../src/bf_pltfm_cp2112/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_cp2112/$(DEPDIR)
-	@: > ../src/bf_pltfm_cp2112/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.$(OBJEXT):  \
-	../src/bf_pltfm_cp2112/$(am__dirstamp) \
-	../src/bf_pltfm_cp2112/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_master_i2c/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_master_i2c
-	@: > ../src/bf_pltfm_master_i2c/$(am__dirstamp)
-../src/bf_pltfm_master_i2c/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_master_i2c/$(DEPDIR)
-	@: > ../src/bf_pltfm_master_i2c/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.$(OBJEXT):  \
-	../src/bf_pltfm_master_i2c/$(am__dirstamp) \
-	../src/bf_pltfm_master_i2c/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_uart/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_uart
-	@: > ../src/bf_pltfm_uart/$(am__dirstamp)
-../src/bf_pltfm_uart/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_uart/$(DEPDIR)
-	@: > ../src/bf_pltfm_uart/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.$(OBJEXT):  \
-	../src/bf_pltfm_uart/$(am__dirstamp) \
-	../src/bf_pltfm_uart/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.$(OBJEXT):  \
-	../src/bf_pltfm_master_i2c/$(am__dirstamp) \
-	../src/bf_pltfm_master_i2c/$(DEPDIR)/$(am__dirstamp)
-../../../drivers/src/bf_bd_cfg/$(am__dirstamp):
-	@$(MKDIR_P) ../../../drivers/src/bf_bd_cfg
-	@: > ../../../drivers/src/bf_bd_cfg/$(am__dirstamp)
-../../../drivers/src/bf_bd_cfg/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ../../../drivers/src/bf_bd_cfg/$(DEPDIR)
-	@: > ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/$(am__dirstamp)
-../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.$(OBJEXT):  \
-	../../../drivers/src/bf_bd_cfg/$(am__dirstamp) \
-	../../../drivers/src/bf_bd_cfg/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_chss_mgmt/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_chss_mgmt
-	@: > ../src/bf_pltfm_chss_mgmt/$(am__dirstamp)
-../src/bf_pltfm_chss_mgmt/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ../src/bf_pltfm_chss_mgmt/$(DEPDIR)
-	@: > ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.$(OBJEXT):  \
-	../src/bf_pltfm_chss_mgmt/$(am__dirstamp) \
-	../src/bf_pltfm_chss_mgmt/$(DEPDIR)/$(am__dirstamp)
-../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.$(OBJEXT):  \
-	../src/bf_pltfm_chss_mgmt/$(am__dirstamp) \
-	../src/bf_pltfm_chss_mgmt/$(DEPDIR)/$(am__dirstamp)
 
-spi_i2c_util$(EXEEXT): $(spi_i2c_util_OBJECTS) $(spi_i2c_util_DEPENDENCIES) $(EXTRA_spi_i2c_util_DEPENDENCIES) 
-	@rm -f spi_i2c_util$(EXEEXT)
-	$(AM_V_CCLD)$(spi_i2c_util_LINK) $(spi_i2c_util_OBJECTS) $(spi_i2c_util_LDADD) $(LIBS)
+tofino_spi_util$(EXEEXT): $(tofino_spi_util_OBJECTS) $(tofino_spi_util_DEPENDENCIES) $(EXTRA_tofino_spi_util_DEPENDENCIES) 
+	@rm -f tofino_spi_util$(EXEEXT)
+	$(AM_V_CCLD)$(tofino_spi_util_LINK) $(tofino_spi_util_OBJECTS) $(tofino_spi_util_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f ../../../drivers/src/bf_bd_cfg/*.$(OBJEXT)
-	-rm -f ../src/bf_pltfm_bmc_tty/*.$(OBJEXT)
-	-rm -f ../src/bf_pltfm_chss_mgmt/*.$(OBJEXT)
-	-rm -f ../src/bf_pltfm_cp2112/*.$(OBJEXT)
-	-rm -f ../src/bf_pltfm_master_i2c/*.$(OBJEXT)
-	-rm -f ../src/bf_pltfm_uart/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/spi_i2c_util-tofino_porting_spi.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/spi_i2c_util-tofino_spi_if.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tofino_spi_util-tofino_spi_if.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -543,145 +450,19 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
 
-spi_i2c_util-tofino_spi_if.o: tofino_spi_if.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT spi_i2c_util-tofino_spi_if.o -MD -MP -MF $(DEPDIR)/spi_i2c_util-tofino_spi_if.Tpo -c -o spi_i2c_util-tofino_spi_if.o `test -f 'tofino_spi_if.c' || echo '$(srcdir)/'`tofino_spi_if.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/spi_i2c_util-tofino_spi_if.Tpo $(DEPDIR)/spi_i2c_util-tofino_spi_if.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tofino_spi_if.c' object='spi_i2c_util-tofino_spi_if.o' libtool=no @AMDEPBACKSLASH@
+tofino_spi_util-tofino_spi_if.o: tofino_spi_if.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tofino_spi_util_CPPFLAGS) $(CPPFLAGS) $(tofino_spi_util_CFLAGS) $(CFLAGS) -MT tofino_spi_util-tofino_spi_if.o -MD -MP -MF $(DEPDIR)/tofino_spi_util-tofino_spi_if.Tpo -c -o tofino_spi_util-tofino_spi_if.o `test -f 'tofino_spi_if.c' || echo '$(srcdir)/'`tofino_spi_if.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tofino_spi_util-tofino_spi_if.Tpo $(DEPDIR)/tofino_spi_util-tofino_spi_if.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tofino_spi_if.c' object='tofino_spi_util-tofino_spi_if.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o spi_i2c_util-tofino_spi_if.o `test -f 'tofino_spi_if.c' || echo '$(srcdir)/'`tofino_spi_if.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tofino_spi_util_CPPFLAGS) $(CPPFLAGS) $(tofino_spi_util_CFLAGS) $(CFLAGS) -c -o tofino_spi_util-tofino_spi_if.o `test -f 'tofino_spi_if.c' || echo '$(srcdir)/'`tofino_spi_if.c
 
-spi_i2c_util-tofino_spi_if.obj: tofino_spi_if.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT spi_i2c_util-tofino_spi_if.obj -MD -MP -MF $(DEPDIR)/spi_i2c_util-tofino_spi_if.Tpo -c -o spi_i2c_util-tofino_spi_if.obj `if test -f 'tofino_spi_if.c'; then $(CYGPATH_W) 'tofino_spi_if.c'; else $(CYGPATH_W) '$(srcdir)/tofino_spi_if.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/spi_i2c_util-tofino_spi_if.Tpo $(DEPDIR)/spi_i2c_util-tofino_spi_if.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tofino_spi_if.c' object='spi_i2c_util-tofino_spi_if.obj' libtool=no @AMDEPBACKSLASH@
+tofino_spi_util-tofino_spi_if.obj: tofino_spi_if.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tofino_spi_util_CPPFLAGS) $(CPPFLAGS) $(tofino_spi_util_CFLAGS) $(CFLAGS) -MT tofino_spi_util-tofino_spi_if.obj -MD -MP -MF $(DEPDIR)/tofino_spi_util-tofino_spi_if.Tpo -c -o tofino_spi_util-tofino_spi_if.obj `if test -f 'tofino_spi_if.c'; then $(CYGPATH_W) 'tofino_spi_if.c'; else $(CYGPATH_W) '$(srcdir)/tofino_spi_if.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tofino_spi_util-tofino_spi_if.Tpo $(DEPDIR)/tofino_spi_util-tofino_spi_if.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tofino_spi_if.c' object='tofino_spi_util-tofino_spi_if.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o spi_i2c_util-tofino_spi_if.obj `if test -f 'tofino_spi_if.c'; then $(CYGPATH_W) 'tofino_spi_if.c'; else $(CYGPATH_W) '$(srcdir)/tofino_spi_if.c'; fi`
-
-spi_i2c_util-tofino_porting_spi.o: tofino_porting_spi.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT spi_i2c_util-tofino_porting_spi.o -MD -MP -MF $(DEPDIR)/spi_i2c_util-tofino_porting_spi.Tpo -c -o spi_i2c_util-tofino_porting_spi.o `test -f 'tofino_porting_spi.c' || echo '$(srcdir)/'`tofino_porting_spi.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/spi_i2c_util-tofino_porting_spi.Tpo $(DEPDIR)/spi_i2c_util-tofino_porting_spi.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tofino_porting_spi.c' object='spi_i2c_util-tofino_porting_spi.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o spi_i2c_util-tofino_porting_spi.o `test -f 'tofino_porting_spi.c' || echo '$(srcdir)/'`tofino_porting_spi.c
-
-spi_i2c_util-tofino_porting_spi.obj: tofino_porting_spi.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT spi_i2c_util-tofino_porting_spi.obj -MD -MP -MF $(DEPDIR)/spi_i2c_util-tofino_porting_spi.Tpo -c -o spi_i2c_util-tofino_porting_spi.obj `if test -f 'tofino_porting_spi.c'; then $(CYGPATH_W) 'tofino_porting_spi.c'; else $(CYGPATH_W) '$(srcdir)/tofino_porting_spi.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/spi_i2c_util-tofino_porting_spi.Tpo $(DEPDIR)/spi_i2c_util-tofino_porting_spi.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tofino_porting_spi.c' object='spi_i2c_util-tofino_porting_spi.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o spi_i2c_util-tofino_porting_spi.obj `if test -f 'tofino_porting_spi.c'; then $(CYGPATH_W) 'tofino_porting_spi.c'; else $(CYGPATH_W) '$(srcdir)/tofino_porting_spi.c'; fi`
-
-../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.o: ../src/bf_pltfm_bmc_tty/bmc_tty.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.o -MD -MP -MF ../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Tpo -c -o ../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.o `test -f '../src/bf_pltfm_bmc_tty/bmc_tty.c' || echo '$(srcdir)/'`../src/bf_pltfm_bmc_tty/bmc_tty.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Tpo ../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_bmc_tty/bmc_tty.c' object='../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.o `test -f '../src/bf_pltfm_bmc_tty/bmc_tty.c' || echo '$(srcdir)/'`../src/bf_pltfm_bmc_tty/bmc_tty.c
-
-../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.obj: ../src/bf_pltfm_bmc_tty/bmc_tty.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.obj -MD -MP -MF ../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Tpo -c -o ../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.obj `if test -f '../src/bf_pltfm_bmc_tty/bmc_tty.c'; then $(CYGPATH_W) '../src/bf_pltfm_bmc_tty/bmc_tty.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_bmc_tty/bmc_tty.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Tpo ../src/bf_pltfm_bmc_tty/$(DEPDIR)/spi_i2c_util-bmc_tty.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_bmc_tty/bmc_tty.c' object='../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_bmc_tty/spi_i2c_util-bmc_tty.obj `if test -f '../src/bf_pltfm_bmc_tty/bmc_tty.c'; then $(CYGPATH_W) '../src/bf_pltfm_bmc_tty/bmc_tty.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_bmc_tty/bmc_tty.c'; fi`
-
-../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.o: ../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.o -MD -MP -MF ../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Tpo -c -o ../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.o `test -f '../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c' || echo '$(srcdir)/'`../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Tpo ../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c' object='../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.o `test -f '../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c' || echo '$(srcdir)/'`../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c
-
-../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.obj: ../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.obj -MD -MP -MF ../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Tpo -c -o ../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.obj `if test -f '../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c'; then $(CYGPATH_W) '../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Tpo ../src/bf_pltfm_cp2112/$(DEPDIR)/spi_i2c_util-bf_pltfm_cp2112_intf.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c' object='../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_cp2112/spi_i2c_util-bf_pltfm_cp2112_intf.obj `if test -f '../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c'; then $(CYGPATH_W) '../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_cp2112/bf_pltfm_cp2112_intf.c'; fi`
-
-../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.o: ../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.o -MD -MP -MF ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Tpo -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.o `test -f '../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c' || echo '$(srcdir)/'`../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Tpo ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c' object='../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.o `test -f '../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c' || echo '$(srcdir)/'`../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c
-
-../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.obj: ../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.obj -MD -MP -MF ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Tpo -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.obj `if test -f '../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c'; then $(CYGPATH_W) '../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Tpo ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_master_i2c.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c' object='../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_master_i2c.obj `if test -f '../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c'; then $(CYGPATH_W) '../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_master_i2c/bf_pltfm_master_i2c.c'; fi`
-
-../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.o: ../src/bf_pltfm_uart/bf_pltfm_uart.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.o -MD -MP -MF ../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Tpo -c -o ../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.o `test -f '../src/bf_pltfm_uart/bf_pltfm_uart.c' || echo '$(srcdir)/'`../src/bf_pltfm_uart/bf_pltfm_uart.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Tpo ../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_uart/bf_pltfm_uart.c' object='../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.o `test -f '../src/bf_pltfm_uart/bf_pltfm_uart.c' || echo '$(srcdir)/'`../src/bf_pltfm_uart/bf_pltfm_uart.c
-
-../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.obj: ../src/bf_pltfm_uart/bf_pltfm_uart.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.obj -MD -MP -MF ../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Tpo -c -o ../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.obj `if test -f '../src/bf_pltfm_uart/bf_pltfm_uart.c'; then $(CYGPATH_W) '../src/bf_pltfm_uart/bf_pltfm_uart.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_uart/bf_pltfm_uart.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Tpo ../src/bf_pltfm_uart/$(DEPDIR)/spi_i2c_util-bf_pltfm_uart.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_uart/bf_pltfm_uart.c' object='../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_uart/spi_i2c_util-bf_pltfm_uart.obj `if test -f '../src/bf_pltfm_uart/bf_pltfm_uart.c'; then $(CYGPATH_W) '../src/bf_pltfm_uart/bf_pltfm_uart.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_uart/bf_pltfm_uart.c'; fi`
-
-../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.o: ../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.o -MD -MP -MF ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Tpo -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.o `test -f '../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c' || echo '$(srcdir)/'`../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Tpo ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c' object='../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.o `test -f '../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c' || echo '$(srcdir)/'`../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c
-
-../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.obj: ../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.obj -MD -MP -MF ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Tpo -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.obj `if test -f '../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c'; then $(CYGPATH_W) '../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Tpo ../src/bf_pltfm_master_i2c/$(DEPDIR)/spi_i2c_util-bf_pltfm_cgos_i2c.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c' object='../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_master_i2c/spi_i2c_util-bf_pltfm_cgos_i2c.obj `if test -f '../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c'; then $(CYGPATH_W) '../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_master_i2c/bf_pltfm_cgos_i2c.c'; fi`
-
-../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.o: ../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.o -MD -MP -MF ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Tpo -c -o ../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.o `test -f '../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c' || echo '$(srcdir)/'`../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Tpo ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c' object='../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.o `test -f '../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c' || echo '$(srcdir)/'`../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c
-
-../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.obj: ../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.obj -MD -MP -MF ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Tpo -c -o ../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.obj `if test -f '../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c'; then $(CYGPATH_W) '../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c'; else $(CYGPATH_W) '$(srcdir)/../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Tpo ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/spi_i2c_util-bf_bd_cfg_intf.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c' object='../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../../../drivers/src/bf_bd_cfg/spi_i2c_util-bf_bd_cfg_intf.obj `if test -f '../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c'; then $(CYGPATH_W) '../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c'; else $(CYGPATH_W) '$(srcdir)/../../../drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c'; fi`
-
-../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.o: ../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.o -MD -MP -MF ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Tpo -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.o `test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c' || echo '$(srcdir)/'`../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Tpo ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c' object='../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.o `test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c' || echo '$(srcdir)/'`../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c
-
-../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.obj: ../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.obj -MD -MP -MF ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Tpo -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.obj `if test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c'; then $(CYGPATH_W) '../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Tpo ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_chss_mgmt_intf.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c' object='../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_chss_mgmt_intf.obj `if test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c'; then $(CYGPATH_W) '../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_chss_mgmt/bf_pltfm_chss_mgmt_intf.c'; fi`
-
-../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.o: ../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.o -MD -MP -MF ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Tpo -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.o `test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c' || echo '$(srcdir)/'`../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Tpo ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c' object='../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.o `test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c' || echo '$(srcdir)/'`../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c
-
-../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.obj: ../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -MT ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.obj -MD -MP -MF ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Tpo -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.obj `if test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c'; then $(CYGPATH_W) '../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Tpo ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/spi_i2c_util-bf_pltfm_bd_eeprom.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c' object='../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(spi_i2c_util_CPPFLAGS) $(CPPFLAGS) $(spi_i2c_util_CFLAGS) $(CFLAGS) -c -o ../src/bf_pltfm_chss_mgmt/spi_i2c_util-bf_pltfm_bd_eeprom.obj `if test -f '../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c'; then $(CYGPATH_W) '../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c'; else $(CYGPATH_W) '$(srcdir)/../src/bf_pltfm_chss_mgmt/bf_pltfm_bd_eeprom.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tofino_spi_util_CPPFLAGS) $(CPPFLAGS) $(tofino_spi_util_CFLAGS) $(CFLAGS) -c -o tofino_spi_util-tofino_spi_if.obj `if test -f 'tofino_spi_if.c'; then $(CYGPATH_W) 'tofino_spi_if.c'; else $(CYGPATH_W) '$(srcdir)/tofino_spi_if.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -804,18 +585,6 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f ../../../drivers/src/bf_bd_cfg/$(DEPDIR)/$(am__dirstamp)
-	-rm -f ../../../drivers/src/bf_bd_cfg/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_bmc_tty/$(DEPDIR)/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_bmc_tty/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_chss_mgmt/$(DEPDIR)/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_chss_mgmt/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_cp2112/$(DEPDIR)/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_cp2112/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_master_i2c/$(DEPDIR)/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_master_i2c/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_uart/$(DEPDIR)/$(am__dirstamp)
-	-rm -f ../src/bf_pltfm_uart/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -825,7 +594,7 @@ clean: clean-am
 clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
 
 distclean: distclean-am
-	-rm -rf ../../../drivers/src/bf_bd_cfg/$(DEPDIR) ../src/bf_pltfm_bmc_tty/$(DEPDIR) ../src/bf_pltfm_chss_mgmt/$(DEPDIR) ../src/bf_pltfm_cp2112/$(DEPDIR) ../src/bf_pltfm_master_i2c/$(DEPDIR) ../src/bf_pltfm_uart/$(DEPDIR) ./$(DEPDIR)
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -871,7 +640,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-	-rm -rf ../../../drivers/src/bf_bd_cfg/$(DEPDIR) ../src/bf_pltfm_bmc_tty/$(DEPDIR) ../src/bf_pltfm_chss_mgmt/$(DEPDIR) ../src/bf_pltfm_cp2112/$(DEPDIR) ../src/bf_pltfm_master_i2c/$(DEPDIR) ../src/bf_pltfm_uart/$(DEPDIR) ./$(DEPDIR)
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -909,11 +678,14 @@ uninstall-am: uninstall-binPROGRAMS
 .PRECIOUS: Makefile
 
 # For SDE version >= 9.9.x && OS <= 9
-#spi_i2c_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos
+#tofino_spi_util_LDADD =  -ltarget_sys -ldriver -lusb-1.0 -lcurl -lcgos
 # For SDE version <  9.9.x && OS >= 10
-#spi_i2c_util_LDADD =  -lbfsys -lusb-1.0 -lcurl -lcgos -li2c
+#tofino_spi_util_LDADD =  -lbfsys -ldriver -lusb-1.0 -lcurl -lcgos -li2c
 # For SDE version >= 9.9.x && OS >= 10
-#spi_i2c_util_LDADD =  -ltarget_sys -lusb-1.0 -lcurl -lcgos -li2c
+#tofino_spi_util_LDADD =  -ltarget_sys -ldriver -lusb-1.0 -lcurl -lcgos -li2c
+
+# For SDE version <  9.7.x
+#tofino_spi_util_LDADD += -lbf_switchd_lib
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

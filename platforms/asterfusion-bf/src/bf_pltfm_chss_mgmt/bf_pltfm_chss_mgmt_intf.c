@@ -77,6 +77,29 @@ pltfm_mgr_info_t pltfm_mgr_info = {
     .cpld_count = 0,
 };
 
+typedef struct pltfm_cpld_path_t {
+    bf_pltfm_type platfm;
+    bf_pltfm_subtype ver;
+    cpld_path_e default_path;
+    cpld_path_e forced_path;
+}pltfm_cpld_path_t;
+
+/* There is an issue of cgoslx hung on for CG15xx COM-Express
+ * when switching installed system from SONiC to ONL or from ONL to SONiC.
+ * It is strongly recommended to access CPLD through cp2112 on X532P under all possible COM-Express.
+ * Pls upgrade BMC to v1.2.1 or later. */
+static pltfm_cpld_path_t pltfm_cpld_path[] = {
+    {X564P, v1dot0, VIA_CGOS,   VIA_CGOS},
+    {X564P, v1dot1, VIA_CGOS,   VIA_CGOS},
+    {X564P, v1dot2, VIA_CGOS,   VIA_CP2112},
+    {X564P, v2dot0, VIA_CP2112, VIA_CP2112},
+    {X532P, v1dot0, VIA_CGOS,   VIA_CP2112},
+    {X532P, v1dot1, VIA_CGOS,   VIA_CP2112},
+    {X532P, v2dot0, VIA_CP2112, VIA_CGOS},
+    {X308P, v1dot0, VIA_CP2112, VIA_CGOS},
+    {X308P, v1dot1, VIA_CP2112, VIA_CGOS},
+};
+
 pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
 {
     return &pltfm_mgr_info;
@@ -160,9 +183,9 @@ static void bf_pltfm_parse_platorm (const char *str,
             type, subtype);
     } else {
         fprintf (stdout,
-                 "Exit due to the type of current platform is unrecognized\n");
+                 "Exiting due to the type of current platform is unrecognized\n");
         LOG_ERROR(
-                 "Exit due to the type of current platform is unrecognized\n");
+                 "Exiting due to the type of current platform is unrecognized\n");
         exit (0);
     }
 }
@@ -197,15 +220,14 @@ static void bf_pltfm_parse_hwversion (const char *str,
 
     bf_pltfm_parse_subversion (c, &subtype, &find);
 
-    /* Overwrite for x312p-t. */
+    /* Overwrite subversion to 3.x when not given in eeprom.
+     * Overwrite subversion to 3.x as it is widely shipped for x312p-t. */
     if (platform_type_equal (X312P)) {
         /* 0x26 and 0x27. */
-        if (subtype != v3dot0 &&
-            subtype != v3dot1 &&
-            subtype != v3dot2 &&
-            subtype != v3dot3 &&
+        if (subtype != v2dot0 && subtype != v2dot1 && subtype != v2dot2 && subtype != v2dot3 &&
+            subtype != v3dot0 && subtype != v3dot1 && subtype != v3dot2 && subtype != v3dot3 &&
             subtype != v4dot0) {
-            subtype = v2dot0;
+            subtype = v3dot0;
             fprintf (stdout,
                      "WARNNING: Overwrite %02x's subversion to %02x\n", type, subtype);
             LOG_WARNING(
@@ -214,13 +236,15 @@ static void bf_pltfm_parse_hwversion (const char *str,
     } else if (platform_type_equal (X564P)) {
         /* 0x31. */
         if (subtype != v1dot1 &&
-            subtype != v1dot2) {
+            subtype != v1dot2 &&
+            subtype != v2dot0) {
             find = false;
         }
     } else if (platform_type_equal (X532P)) {
         /* 0x31. */
         if (subtype != v1dot0 &&
-            subtype != v1dot1) {
+            subtype != v1dot1 &&
+            subtype != v2dot0) {
             find = false;
         }
     } else if (platform_type_equal (X308P)) {
@@ -244,9 +268,9 @@ static void bf_pltfm_parse_hwversion (const char *str,
             type, subtype);
     } else {
         fprintf (stdout,
-                 "Exit due to the subversion of current platform is unrecognized\n");
+                 "Exiting due to the sub version of current platform is unrecognized\n");
         LOG_ERROR(
-                 "Exit due to the subversion of current platform is unrecognized\n");
+                 "Exiting due to the sub version of current platform is unrecognized\n");
         exit (0);
     }
 }
@@ -448,7 +472,11 @@ void bf_pltfm_load_conf () {
     fp = fopen (cfg, "r");
     if (!fp) {
         fprintf (stdout,
-                 "fopen(%s) : "
+                 "Exiting due to fopen(%s) : "
+                 "%s : %s.\n", cfg, strerror (errno),
+                 (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
+        LOG_ERROR (
+                 "Exiting due to fopen(%s) : "
                  "%s : %s.\n", cfg, strerror (errno),
                  (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
         exit (0);
@@ -499,10 +527,30 @@ void bf_pltfm_load_conf () {
         /* Must never reach here.
          * If so, that means there may be a risk to run bsp to init platform.
          * by tsihang, 2022/08/01. */
-        LOG_ERROR ("WARNING: No valid value in EEPROM(0x26/0x27/0x31) to identify current platform.\n");
+        fprintf (stdout, "Exiting due to no valid value in EEPROM(0x26/0x27/0x31) to identify current platform.\n");
+        LOG_ERROR ("Exiting due to no valid value in EEPROM(0x26/0x27/0x31) to identify current platform.\n");
         LOG_ERROR ("pltfm_mgr: Error in detecting platform.\n");
         exit (0);
     }
+}
+
+cpld_path_e bf_pltfm_find_path_to_cpld()
+{
+    int i;
+    cpld_path_e path = VIA_NULL;
+
+    for (i = 0; i < (int)ARRAY_LENGTH (pltfm_cpld_path); i++) {
+        if (platform_type_equal (pltfm_cpld_path[i].platfm) &&
+            platform_subtype_equal (pltfm_cpld_path[i].ver)) {
+            if (bmc_i2c_bus == 0x7F) {
+                path = pltfm_cpld_path[i].forced_path;
+            } else {
+                path = pltfm_cpld_path[i].default_path;
+            }
+        }
+    }
+
+    return path;
 }
 
 bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
@@ -540,40 +588,24 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
                    platform_subtype_equal (v4dot0)) {
             LOG_DEBUG ("CPLD <- super io\n");
         }
-    } else if (platform_type_equal (X308P)) {
-        if (is_HVXXX || is_CG15XX  || is_ADV15XX || is_S02XXX) {
+    } else if (platform_type_equal (X308P) ||
+               platform_type_equal (X532P) ||
+               platform_type_equal (X564P)) {
+        if (is_HVXXX || is_ADV15XX || is_S02XXX) {
             LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();
-        }
-    } else if (platform_type_equal (X532P)) {
-        /* There is an issue of cgoslx hung on for CG15xx COM-Express
-         * when switching installed system from SONiC to ONL or from ONL to SONiC.
-         * It is strongly recommended to access CPLD through cp2112 on X532P under all possible COM-Express.
-         * Pls upgrade BMC to v1.2.1 or later. */
-        if (is_CG15XX && (bmc_i2c_bus == 0x7F)) {
-            LOG_DEBUG ("CPLD <- cgoslx\n");
-        } else if (is_CG15XX || is_ADV15XX || is_S02XXX) {
-            LOG_DEBUG ("CPLD <- cp2112\n");
-            access_cpld_through_cp2112();
-        } else if (is_HVXXX) {
-            LOG_DEBUG ("CPLD <- super io\n");
-            access_cpld_through_superio();
-        }
-    } else if (platform_type_equal (X564P)) {
-        if (is_CG15XX) {
-            if (platform_subtype_equal (v1dot0) ||
-                platform_subtype_equal (v1dot1)) {
+        } else if (is_CG15XX){
+            cpld_path_e path = bf_pltfm_find_path_to_cpld();
+
+            if (path == VIA_CGOS) {
                 LOG_DEBUG ("CPLD <- cgoslx\n");
-            } else if (platform_subtype_equal (v1dot2)) {
+            } else if (path == VIA_CP2112) {
                 LOG_DEBUG ("CPLD <- cp2112\n");
                 access_cpld_through_cp2112();
+            } else if (path == VIA_SIO) {
+                LOG_DEBUG ("CPLD <- super io\n");
+                access_cpld_through_superio();
             }
-        } else if (is_ADV15XX || is_S02XXX) {
-            LOG_DEBUG ("CPLD <- cp2112\n");
-            access_cpld_through_cp2112();
-        } else if (is_HVXXX) {
-            LOG_DEBUG ("CPLD <- super io\n");
-            access_cpld_through_superio();
         }
     }
     // Other initializations(Fan, etc.) go here

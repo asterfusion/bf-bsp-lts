@@ -7,7 +7,7 @@ if IS_THRIFT_ENABLED
 SUBDIRS += thrift
 endif
 #SUBDIRS += include src cp2112_util tofino_spi_util uart_util
-SUBDIRS += include src cp2112_util uart_util tofino_spi_util
+SUBDIRS += include src cp2112_util uart_util tofino_spi_util tofino_pci_util
 if BUILD_ASTERFUSIONBF_DIAGS
 SUBDIRS += diags
 endif

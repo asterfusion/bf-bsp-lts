@@ -135,8 +135,11 @@ bin_SCRIPTS = \
 ../utils/tofino_i2c_rd_local.sh \
 ../utils/tofino_i2c_wr_local.sh \
 ../utils/tofino_pci_bringup.sh \
+../utils/tofino_spi_update.sh \
 ../utils/xt-cfgen.sh \
 ../utils/xt-diags.sh \
 ../utils/xt-clean.sh \
 ../utils/xt-setup.sh \
+../utils/tofino-spi-firmwares/tofino_B0_spi_gen2_rev07.bin \
+../utils/tofino-spi-firmwares/tofino_B0_spi_gen2_rev09_corrected_220815.bin \
 ../utils/credo_firmware.bin

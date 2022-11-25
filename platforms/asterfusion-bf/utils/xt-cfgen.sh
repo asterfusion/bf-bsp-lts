@@ -95,6 +95,10 @@ else
         enable_uart=1
         # Read HW version
         xt_hwver=$($uart_util /dev/ttyS1 0x1 0x31 0xaa)
+        num=`echo "$xt_hwver" | awk -F"-" '{print NF-1}'`
+        if [[ $num = 3 ]]; then
+            xt_hwver=${xt_hwver%-*}
+        fi
         hw_version=${xt_hwver: -3}
         echo "hwver:"$hw_version
     fi

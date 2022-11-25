@@ -588,7 +588,7 @@ int bf_pltfm_master_i2c_read_byte (
     int32_t val = i2c_smbus_read_byte_data (fd, offset);
     if (val < 0) {
         LOG_ERROR (
-            "Error: Could not read offset 0x%02x : %s : %d",
+            "Error: Could not read offset %02d : %s : %d",
             offset, strerror (errno), fd);
         return -3;
     }
@@ -635,8 +635,8 @@ int bf_pltfm_master_i2c_read_block (
         val = i2c_smbus_read_byte_data (fd, off);
         if (val < 0) {
             LOG_ERROR (
-                "Error: Could not read offset 0x%02x: %s : %d",
-                off, strerror (errno), fd);
+                "Error: Could not read offset [%02d : %02d] : %02d : %s : %d",
+                offset, offset + rdlen, off, strerror (errno), fd);
             return -3;
         }
         rdbuf[i ++] = val;
@@ -689,7 +689,7 @@ int bf_pltfm_master_i2c_write_byte (
                                      value);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not write offset 0x%02x : %s : %d",
+            "Error: Could not write offset %02d : %s : %d",
             offset, strerror (errno), fd);
         return -2;
     }
@@ -734,8 +734,8 @@ int bf_pltfm_master_i2c_write_block (
                                          wrbuf[i ++]);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not write offset 0x%02x : %s : %d",
-                offset, strerror (errno), fd);
+                "Error: Could not write offset [%02d : %02d] : %02d : %s : %d",
+                offset, offset + wrlen, off, strerror (errno), fd);
             return -2;
         }
         usleep (1000);
@@ -786,8 +786,8 @@ int bf_pltfm_bmc_write_read (
                                           wr_off, wr_len, wr_buf);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not write offset x%02x : %s : %d",
-                wr_off, strerror (errno), fd);
+                "Error: Could not write offset [%02d : %02d] : %02d : %s : %d",
+                wr_off, wr_off + wr_len, wr_off, strerror (errno), fd);
             err = -101;
             goto end;
         }
@@ -801,7 +801,7 @@ int bf_pltfm_bmc_write_read (
                                          rd_off, rd_buf);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not read offset 0x%02x : %s : %d",
+                "Error: Could not read offset %02d : %s : %d",
                 rd_off, strerror (errno), fd);
             err = -102;
             goto end;
@@ -882,10 +882,11 @@ int bf_pltfm_master_i2c_init()
     } else {
         fprintf (stdout,
                  "\n\n================== %s ==================\n", "IIC INIT");
-        /* X564P-T V1.0 & V1.1
+        /* X564P-T V1.0, V1.1 & V1.2
          * X532P-T v1.1 */
-        if (is_CG15XX && ((platform_type_equal (X564P) &&
-		    (platform_subtype_equal (v1dot0) || platform_subtype_equal (v1dot1))) || (bmc_i2c_bus == 0x7F))) {
+        if (is_CG15XX &&
+            (platform_type_equal (X564P) || platform_type_equal (X532P) || platform_type_equal (X308P)) &&
+            (bf_pltfm_find_path_to_cpld () == VIA_CGOS)) {
             if (bf_cgos_init()) {
                 fprintf (stdout, "Error in cgos init\n");
                 exit (1);
@@ -965,8 +966,9 @@ int bf_pltfm_master_i2c_de_init()
         fprintf (stdout, "Skip ...\n");
         goto finish;
     } else {
-        if (is_CG15XX && ((platform_type_equal (X564P) &&
-		    (platform_subtype_equal (v1dot0) || platform_subtype_equal (v1dot1))) || (bmc_i2c_bus == 0x7F))) {
+        if (is_CG15XX &&
+            (platform_type_equal (X564P) || platform_type_equal (X532P) || platform_type_equal (X308P)) &&
+            (bf_pltfm_find_path_to_cpld () == VIA_CGOS)) {
             if (bf_cgos_de_init ()) {
                 fprintf (stdout, "Deinit Master i2c\n");
                 goto finish;

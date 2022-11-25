@@ -203,9 +203,9 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
      * by tsihang, 2021-07-13. */
     if (platform_type_equal (X532P)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
-                    t.tmp1, "Far left of mainboard");
+                    t.tmp1, "Mainboard Front Left");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
-                    t.tmp2, "Far right of mainboard");
+                    t.tmp2, "Mainboard Front Right");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
                     t.tmp3, "BF Ambient  <- from BMC");
         aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
@@ -217,9 +217,9 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         /* Added more sensors. */
     } else if (platform_type_equal (X564P)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
-                    t.tmp1, "Far left of mainboard");
+                    t.tmp1, "Mainboard Front Left");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
-                    t.tmp2, "Far right of mainboard");
+                    t.tmp2, "Mainboard Front Right");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
                     t.tmp3, "BF Ambient");
         aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
@@ -228,12 +228,19 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                     t.tmp5, "Fan 1");
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
                     t.tmp6, "Fan 2");
+
+        if (platform_subtype_equal(v2dot0)) {
+            aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
+                    t.tmp7, "Mainboard Rear Left");
+            aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
+                    t.tmp8, "Mainboard Rear Right");
+        }
         /* Added more sensors. */
     } else if (platform_type_equal (X308P)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
-                    t.tmp1, "Far left of mainboard");
+                    t.tmp1, "Mainboard Front Left");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
-                    t.tmp2, "Far right of mainboard");
+                    t.tmp2, "Mainboard Front Right");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
                     t.tmp3, "Fan 1");
         // if == -100.0, means no GHC-0 installed

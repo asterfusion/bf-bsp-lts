@@ -44,8 +44,10 @@ qsfp_special_case_port[BF_PLAT_MAX_QSFP + 1];
 
 /* cached QSFP values */
 /* access is 1 based index, so zeroth index would be unused */
+/* pg0 lowwer. */
 static uint8_t bf_qsfp_idprom[BF_PLAT_MAX_QSFP +
                               1][MAX_QSFP_PAGE_SIZE];
+/* pg0 upper. */
 static uint8_t bf_qsfp_page0[BF_PLAT_MAX_QSFP +
                              1][MAX_QSFP_PAGE_SIZE];
 static uint8_t bf_qsfp_page3[BF_PLAT_MAX_QSFP +
@@ -1069,7 +1071,63 @@ bool bf_qsfp_get_module_capability (int port,
     return true;
 }
 
-/** return qsfp transceiver information
+/** read the memory of qsfp  transceiver
+ *
+ *  @param port
+ *   port
+ *  @param offset
+ *    offset into QSFP memory to read from
+ *  @param len
+ *    number of bytes to read
+ *  @param buf
+ *    buffer to read into
+ *  @return
+ *    0 on success, -1 on error
+ */
+int bf_qsfp_read_transceiver (unsigned int port,
+                              int offset,
+                              int len,
+                              uint8_t *buf)
+{
+#if 0
+    // For Tofino based system compatibility
+    if (!bf_qsfp_flat_mem[port]) &&
+        (offset >= MAX_QSFP_PAGE_SIZE) &&
+        (!bf_qsfp_cache_dirty[port])) {
+        uint8_t pg = (uint8_t)page;
+        rc = bf_pltfm_qsfp_write_module (port, 127, 1,
+                                       &pg);
+    }
+#endif
+    return (bf_pltfm_qsfp_read_module (port, offset,
+                                       len, buf));
+}
+
+/** write into the memory of qsfp  transceiver
+ *
+ *  @param port
+ *   port
+ *  @param offset
+ *    offset into QSFP memory to write into
+ *  @param len
+ *    number of bytes to write
+ *  @param buf
+ *    buffer to write
+ *  @return
+ *    0 on success, -1 on error
+ */
+int bf_qsfp_write_transceiver (unsigned int port,
+                               int offset,
+                               int len,
+                               uint8_t *buf)
+{
+    return (bf_pltfm_qsfp_write_module (port, offset,
+                                        len, buf));
+}
+
+/** return qsfp transceiver information.
+ * Realtime value of Monitor and Channel comes from bf_qsfp_update_monitor_value
+ * which called by qsfp_fsm_poll_monitor.
  *
  *  @param port
  *   port
@@ -1249,58 +1307,89 @@ int bf_qsfp_set_transceiver_lpmode (int port,
     return (bf_pltfm_qsfp_set_lpmode (port, lpmode));
 }
 
-/** read the memory of qsfp  transceiver
- *
- *  @param port
- *   port
- *  @param offset
- *    offset into QSFP memory to read from
- *  @param len
- *    number of bytes to read
- *  @param buf
- *    buffer to read into
- *  @return
- *    0 on success, -1 on error
- */
-int bf_qsfp_read_transceiver (unsigned int port,
-                              int offset,
-                              int len,
-                              uint8_t *buf)
+/** ONLY update qsfp's ddm (module and channel monitor value) for caller.
+*
+*  @param port
+*   port
+*/
+int bf_qsfp_update_monitor_value (int port)
 {
-#if 0
-    // For Tofino based system compatibility
-    if (!bf_qsfp_flat_mem[port]) &&
-        (offset >= MAX_QSFP_PAGE_SIZE) &&
-        (!bf_qsfp_cache_dirty[port])) {
-        uint8_t pg = (uint8_t)page;
-        rc = bf_pltfm_qsfp_write_module (port, 127, 1,
-                                       &pg);
+    int rc;
+    bool fatal_detected = false;
+    if (port > bf_plt_max_qsfp) {
+        return -1;
     }
-#endif
-    return (bf_pltfm_qsfp_read_module (port, offset,
-                                       len, buf));
-}
 
-/** write into the memory of qsfp  transceiver
- *
- *  @param port
- *   port
- *  @param offset
- *    offset into QSFP memory to write into
- *  @param len
- *    number of bytes to write
- *  @param buf
- *    buffer to write
- *  @return
- *    0 on success, -1 on error
- */
-int bf_qsfp_write_transceiver (unsigned int port,
-                               int offset,
-                               int len,
-                               uint8_t *buf)
-{
-    return (bf_pltfm_qsfp_write_module (port, offset,
-                                        len, buf));
+    if (bf_qsfp_present[port]) {
+        /* Module Monitor, pg0 lower, offset from 22 to 33. */
+        rc = bf_qsfp_read_transceiver (port, 22, 12,
+                &bf_qsfp_idprom[port][22]);
+        if (rc) {
+            LOG_ERROR ("Error<%d>: "
+                      "Reading QSFP %2d\n", rc, port);
+            return -1;
+        }
+        if (fatal_detected) {
+            LOG_DEBUG (
+                "QSFP    %2d : Module Monitor (Bytes 22-33) :"
+                " %02x %02x %02x %02x %02x %02x"
+                " %02x %02x %02x %02x %02x %02x",
+                port,
+                bf_qsfp_idprom[port][22],
+                bf_qsfp_idprom[port][23],
+                bf_qsfp_idprom[port][24],
+                bf_qsfp_idprom[port][25],
+                bf_qsfp_idprom[port][26],
+                bf_qsfp_idprom[port][27],
+                bf_qsfp_idprom[port][28],
+                bf_qsfp_idprom[port][29],
+                bf_qsfp_idprom[port][30],
+                bf_qsfp_idprom[port][31],
+                bf_qsfp_idprom[port][32],
+                bf_qsfp_idprom[port][33]);
+        }
+
+        /* Module Channel Monitor, pg0 lower, offset from 34 to 57. */
+        rc = bf_qsfp_read_transceiver (port, 34, 24,
+                &bf_qsfp_idprom[port][34]);
+        if (rc) {
+            LOG_ERROR ("Error<%d>: "
+                      "Reading QSFP %2d\n", rc, port);
+            return -1;
+        }
+        if (fatal_detected) {
+            LOG_DEBUG (
+                "QSFP    %2d : Module Channel Monitor (Bytes 34-57) :"
+                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x"
+                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+                port,
+                bf_qsfp_idprom[port][34],
+                bf_qsfp_idprom[port][35],
+                bf_qsfp_idprom[port][36],
+                bf_qsfp_idprom[port][37],
+                bf_qsfp_idprom[port][38],
+                bf_qsfp_idprom[port][39],
+                bf_qsfp_idprom[port][40],
+                bf_qsfp_idprom[port][41],
+                bf_qsfp_idprom[port][42],
+                bf_qsfp_idprom[port][43],
+                bf_qsfp_idprom[port][44],
+                bf_qsfp_idprom[port][45],
+                bf_qsfp_idprom[port][46],
+                bf_qsfp_idprom[port][47],
+                bf_qsfp_idprom[port][48],
+                bf_qsfp_idprom[port][49],
+                bf_qsfp_idprom[port][50],
+                bf_qsfp_idprom[port][51],
+                bf_qsfp_idprom[port][52],
+                bf_qsfp_idprom[port][53],
+                bf_qsfp_idprom[port][54],
+                bf_qsfp_idprom[port][55],
+                bf_qsfp_idprom[port][56],
+                bf_qsfp_idprom[port][57]);
+        }
+    }
+    return 0;
 }
 
 /** update qsfp data by reading qsfp memory page0 and page3

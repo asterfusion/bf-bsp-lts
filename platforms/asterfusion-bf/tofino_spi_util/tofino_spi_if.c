@@ -11,9 +11,22 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#define _GNU_SOURCE
+#include <signal.h>
+#include <pthread.h>
+#include <errno.h>
+
+/* Local includes */
+#include <bf_pltfm_types/bf_pltfm_types.h>
+#include <bf_pltfm_spi.h>
+#include <bf_switchd/bf_switchd.h>
+#include <bf_types/bf_types.h>
+#include <lld/lld_spi_if.h>
 #include "tofino_spi_if.h"
 #include "tofino_porting_spi.h"
 
+extern int bf_pltfm_spi_cmp (const char *src, const char *dst);
+#if 0
 #if 0
 static int tofino_porting_spi_reg_wr (int dev_id,
                                       uint32_t reg,
@@ -419,9 +432,10 @@ int bf_pltfm_spi_wr (int chip_id, FILE *fd,
         return -1;
     }
     err = 0;
-    if (bf_spi_eeprom_wr (chip_id, offset, buf,
-                          size) != 0) {
-        TOFINO_PORTING_LOG_ERR ("error writing to SPI EEPROM\n");
+    err = bfn_spi_eeprom_wr (chip_id, sub_devid, offset, buf,
+                          size);
+    if (err != 0) {
+        TOFINO_PORTING_LOG_ERR ("error writing to SPI EEPROM : %d\n", err);
         err = -1;
     }
     free (buf);
@@ -458,25 +472,27 @@ static int bf_pltfm_spi_rd (int chip_id, FILE *fd,
         return -1;
     }
     err = 0;
-    if (bf_spi_eeprom_rd (chip_id, offset, buf,
-                          size) == 0) {
+    err = bfn_spi_eeprom_rd (chip_id, sub_devid, offset, buf,
+                          size);
+    if (err == 0) {
         if (fwrite (buf, 1, size, fd) != (size_t)size) {
             TOFINO_PORTING_LOG_ERR ("error writing to file\n");
             err = -1;
         }
     } else {
-        TOFINO_PORTING_LOG_ERR ("error reading SPI EEPROM\n");
+        TOFINO_PORTING_LOG_ERR ("error reading SPI EEPROM : %d\n", err);
         err = -1;
     }
     free (buf);
     return err;
 }
+#endif
 
 static void print_usage (char *cmd)
 {
     TOFINO_PORTING_LOG_ERR ("Usage:  \n");
     TOFINO_PORTING_LOG_ERR (
-        "%s <dev_id> <rd/wr> <custom-init-string 0: X532P-T 1: X564P-T 2: X308P-T>\n"
+        "%s <dev_id> <rd/wr/up> <custom-init-string 0: X532P-T 1: X564P-T 2: X308P-T>\n"
         "<file_name> [eeprom_offset (default 0] [size "
         "(default : file size when writing and eeprom size when reading)]\n",
         cmd);
@@ -484,9 +500,19 @@ static void print_usage (char *cmd)
 
 int main (int argc, char *argv[])
 {
+#ifndef HAVE_TOFINO_SPI_UTIL
+    if (argc < 5) {
+        print_usage (argv[0]);
+        return -1;
+    }
+
+    TOFINO_PORTING_LOG_ERR (
+        "It is strongly recommend that update SPI firmware by command spi-update in bfshell.\n");
+    return 0;
+#else
     FILE *fp;
-    int dev_id, wr_sel, offset, size, rc;
-    char *fname, *spi_init_str;
+    int dev_id, wr_sel, up = 0, offset, size, rc;
+    char *fname, fname0[256] = {0}, *spi_init_str;
 
     if (argc < 5) {
         print_usage (argv[0]);
@@ -500,6 +526,17 @@ int main (int argc, char *argv[])
 
     if (strncmp (argv[2], "wr", 2) == 0) {
         wr_sel = 1;
+        /* Try open. */
+        fp = fopen (fname, "rb");
+        if (!fp) {
+            TOFINO_PORTING_LOG_ERR ("error opening %s\n",
+                                    fname);
+            return -1;
+        }
+    } else if (strncmp (argv[2], "up", 2) == 0) {
+        wr_sel = 1;
+        up = 1;
+        /* Try open. */
         fp = fopen (fname, "rb");
         if (!fp) {
             TOFINO_PORTING_LOG_ERR ("error opening %s\n",
@@ -528,7 +565,7 @@ int main (int argc, char *argv[])
     if (argc > 6) {
         size = strtol (argv[6], NULL, 0);
     } else {
-        if (wr_sel) {
+        if (wr_sel || up) {
             fseek (fp, 0, SEEK_END);
             size = ftell (fp);
             fseek (fp, 0, SEEK_SET);
@@ -536,27 +573,103 @@ int main (int argc, char *argv[])
             size = BF_SPI_EEPROM_SIZE;
         }
     }
-
+#if 0
     if (tofino_porting_spi_init (dev_id,
                                  spi_init_str) != 0) {
         TOFINO_PORTING_LOG_ERR ("error in spi_init\n");
         return -1;
     }
-    if (wr_sel) {
-        rc = bf_pltfm_spi_wr (dev_id, fp, offset, size);
-    } else {
-        rc = bf_pltfm_spi_rd (dev_id, fp, offset, size);
+#else
+    spi_init_str = spi_init_str;
+
+    bf_switchd_context_t *switchd_ctx;
+    if ((switchd_ctx = (bf_switchd_context_t *)calloc(
+         1, sizeof(bf_switchd_context_t))) == NULL) {
+      TOFINO_PORTING_LOG_ERR (
+          "Cannot Allocate switchd context\n");
+      exit(1);
     }
-    tofino_porting_spi_finish (dev_id);
+
+    char *install_dir = getenv ("SDE_INSTALL");
+    char diag_conf[256]  = "";
+    sprintf (diag_conf, "%s/%s", install_dir, "share/p4/targets/tofino/diag.conf");
+    TOFINO_PORTING_LOG_ERR ("Install Dir : %s\n", install_dir);
+    TOFINO_PORTING_LOG_ERR ("Config File : %s\n", diag_conf);
+    switchd_ctx->install_dir           = strdup(install_dir);
+    switchd_ctx->conf_file             = strdup(diag_conf);
+    switchd_ctx->running_in_background = true;
+    switchd_ctx->skip_p4               = true;
+    switchd_ctx->skip_port_add         = true;
+    switchd_ctx->skip_hld.port_mgr     = true;
+    switchd_ctx->skip_hld.pipe_mgr     = true;
+    switchd_ctx->skip_hld.mc_mgr       = true;
+    switchd_ctx->skip_hld.pkt_mgr      = true;
+    switchd_ctx->skip_hld.traffic_mgr  = true;
+    rc = bf_switchd_lib_init(switchd_ctx);
     if (rc) {
-        TOFINO_PORTING_LOG_ERR ("error accessing SPI eeprom\n");
-    } else {
-        TOFINO_PORTING_LOG_ERR ("SPI %s OK\n",
-                                (wr_sel ? "write" : "read"));
+      TOFINO_PORTING_LOG_ERR (
+          "Cannot init switchd (err=%d)\n", rc);
+      exit(0);
     }
+#endif
+
+    TOFINO_PORTING_LOG_ERR ("size : %d  offset : %d  wr_sel : %d  up : %d\n",
+		    size, offset, wr_sel, up);
+    if (wr_sel) {
+        if (up) {
+            TOFINO_PORTING_LOG_ERR (
+                "\nDO NOT interrupt during the upgrade. Wating for 30+ secs ...\n\n");
+            offset = 0;
+        }
+        rc = bf_pltfm_spi_wr (dev_id, fname, offset, size);
+        if (up) {
+            if (rc == 0) {
+                TOFINO_PORTING_LOG_ERR ("SPI eeprom write OK\n");
+                sprintf (fname0, "%s.bak", fname);
+		//exit (0);
+                rc = bf_pltfm_spi_rd (dev_id, fname0, offset, size);
+                if (rc == 0) {
+                    TOFINO_PORTING_LOG_ERR ("SPI eeprom read OK\n");
+                    TOFINO_PORTING_LOG_ERR ("Compare ... \n");
+                    rc = bf_pltfm_spi_cmp (fname, fname0);
+                }
+            }
+            /* Remove firmware file comes from reading SPI EEPROM back. */
+            if ((0 == access (fname0, F_OK))) {
+                remove (fname0);
+            }
+        }
+    } else {
+        rc = bf_pltfm_spi_rd (dev_id, fname, offset, size);
+    }
+
+    TOFINO_PORTING_LOG_ERR ("SPI %s %s\n",
+                            (up ? "update" : wr_sel ? "write" : "read"), rc ? "failed" : "OK");
+    TOFINO_PORTING_LOG_ERR ("Received Params -> file : %s  size : %d  offset : %d  wr_sel : %d  up : %d\n",
+        fname, size, offset, wr_sel, up);
+
+#if 0
+    tofino_porting_spi_finish (dev_id);
+#else
+    //pthread_join(switchd_ctx->tmr_t_id, NULL);
+    //pthread_join(switchd_ctx->dma_t_id, NULL);
+    //pthread_join(switchd_ctx->int_t_id, NULL);
+    //pthread_join(switchd_ctx->pkt_t_id, NULL);
+    //pthread_join(switchd_ctx->port_fsm_t_id, NULL);
+    //pthread_join(switchd_ctx->drusim_t_id, NULL);
+    //pthread_join(switchd_ctx->mav_diag_t_id, NULL);
+
+    if (switchd_ctx) {
+        if (switchd_ctx->install_dir) free(switchd_ctx->install_dir);
+        if (switchd_ctx->conf_file) free(switchd_ctx->conf_file);
+        free(switchd_ctx);
+    }
+
+#endif
 
     /* A bug ? */
-    fclose (fp);
+    if (fp) fclose (fp);
 
     return rc;
+#endif
 }
