@@ -210,7 +210,7 @@ static void bf_pltfm_cpld_decode_x532p (ucli_context_t *uc,
         aim_printf (&uc->pvs, "\n");
 
         aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "LOS", "FALUT", "PRS", "TXON");
+        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "LOS", "FAULT", "PRS", "TXON");
         aim_printf (&uc->pvs, "            ");
         aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "---", "-----", "---", "----");
         aim_printf (&uc->pvs, "         Y01");

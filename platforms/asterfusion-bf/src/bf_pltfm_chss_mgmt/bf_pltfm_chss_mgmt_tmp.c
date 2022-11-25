@@ -142,13 +142,28 @@ __bf_pltfm_chss_mgmt_temperature_get_x564p__ (
 
     }
 
-    if ((ret == 7) && (rd_buf[0] == 6)) {
+    if ((platform_subtype_equal(v1dot0) ||
+         platform_subtype_equal(v1dot1) ||
+         platform_subtype_equal(v1dot2)) &&
+        (ret == 7) && (rd_buf[0] == 6)) {
         tmp->tmp1 = (float)rd_buf[1];
         tmp->tmp2 = (float)rd_buf[2];
         tmp->tmp3 = (float)rd_buf[3];
         tmp->tmp4 = (float)rd_buf[4];
         tmp->tmp5 = (float)rd_buf[5];
         tmp->tmp6 = (float)rd_buf[6];
+
+        err = BF_PLTFM_SUCCESS;
+    } else if (platform_subtype_equal(v2dot0) &&
+               (ret == 9 && (rd_buf[0] == 8))) {
+        tmp->tmp1 = (float)rd_buf[1];
+        tmp->tmp2 = (float)rd_buf[2];
+        tmp->tmp3 = (float)rd_buf[5];
+        tmp->tmp4 = (float)rd_buf[6];
+        tmp->tmp5 = (float)rd_buf[7];
+        tmp->tmp6 = (float)rd_buf[8];
+        tmp->tmp7 = (float)rd_buf[3];
+        tmp->tmp8 = (float)rd_buf[4];
 
         err = BF_PLTFM_SUCCESS;
     }
@@ -586,12 +601,11 @@ bf_pltfm_chss_mgmt_tmp_init()
         fprintf (stdout,
                  "Error in reading temperature \n");
     } else {
-        if (platform_type_equal (X532P) ||
-            platform_type_equal (X564P)) {
+        if (platform_type_equal (X532P)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
-                     t.tmp1, "Far left of mainboard");
+                     t.tmp1, "Mainboard Front Left");
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
-                     t.tmp2, "Far right of mainboard");
+                     t.tmp2, "Mainboard Front Right");
             fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
                      t.tmp3, "ASIC Ambient");
             fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
@@ -601,13 +615,35 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
                      t.tmp6, "Fan 2");
             /* Added more sensors. */
+        } else if (platform_type_equal (X564P)) {
+            fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
+                     t.tmp1, "Mainboard Front Left");
+            fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
+                     t.tmp2, "Mainboard Front Right");
+            fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
+                     t.tmp3, "ASIC Ambient");
+            fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
+                     t.tmp4, "ASIC Junction");
+            fprintf (stdout, "tmp5    %.1f C   \"%s\"\n",
+                     t.tmp5, "Fan 1");
+            fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
+                     t.tmp6, "Fan 2");
+
+            if (platform_subtype_equal(v2dot0)) {
+                fprintf (stdout, "tmp7    %.1f C   \"%s\"\n",
+                        t.tmp7, "Mainboard Rear Left");
+                fprintf (stdout, "tmp8    %.1f C   \"%s\"\n",
+                        t.tmp8, "Mainboard Rear Right");
+            }
+
+            /* Added more sensors. */
         } else if (platform_type_equal (X308P)) {
             fprintf (stdout,
                 "tmp1    %.1f C   \"%s\"\n",
-                        t.tmp1, "Far left of mainboard");
+                        t.tmp1, "Mainboard Front Left");
             fprintf (stdout,
                 "tmp2    %.1f C   \"%s\"\n",
-                        t.tmp2, "Far right of mainboard");
+                        t.tmp2, "Mainboard Front Right");
             fprintf (stdout,
                 "tmp3    %.1f C   \"%s\"\n",
                         t.tmp3, "Fan 1");

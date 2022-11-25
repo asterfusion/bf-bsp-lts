@@ -193,14 +193,14 @@ bf_pltfm_chss_mgmt_pwr_supply_prsnc_get (
 /* Temperature sensors */
 typedef struct bf_pltfm_temperature_info_t {
     /* x312p-t -> LM75 */
-    /* x308p-t -> Far left of mainboard */
-    /* x532p-t -> Far left of mainboard */
-    /* x564p-t -> Far left of mainboard? */
+    /* x308p-t -> Mainboard Front Left */
+    /* x532p-t -> Mainboard Front Left */
+    /* x564p-t -> Mainboard Front Left */
     float tmp1;  /* tempearture of sensor 1 in C */
     /* x312p-t -> LM63 */
-    /* x308p-t -> Far right of mainboard */
-    /* x532p-t -> Far right of mainboard */
-    /* x564p-t -> Far right of mainboard */
+    /* x308p-t -> Mainboard Front Right */
+    /* x532p-t -> Mainboard Front Right */
+    /* x564p-t -> Mainboard Front Right */
     float tmp2;  /* tempearture of sensor 2 in C */
     /* x312p-t -> LM86 */
     /* x308p-t -> FAN1 <Save temp of FAN2 to temp10. > */
@@ -225,12 +225,12 @@ typedef struct bf_pltfm_temperature_info_t {
     /* x312p-t -> GHC-2 Ambient */
     /* x308p-t -> GHC-2 Ambient */
     /* x532p-t -> Not Defined */
-    /* x564p-t -> Not Defined */
+    /* x564p-t -> Mainboard Rear Left (available on V2.0) */
     float tmp7;  /* tempearture of sensor 7 in C */
     /* x312p-t -> BF Junction */
     /* x308p-t -> BF Junction */
     /* x532p-t -> Not Defined */
-    /* x564p-t -> Not Defined */
+    /* x564p-t -> Mainboard Rear Right (available on V2.0) */
     float tmp8;  /* tempearture of sensor 8 in C */
     /* x312p-t -> BF Ambient */
     /* x308p-t -> BF Ambient */
@@ -379,6 +379,15 @@ struct x86_carrier_board_t {
 extern uint8_t bmc_i2c_bus;
 extern unsigned char bmc_i2c_addr;
 extern COME_type global_come_type;
+
+typedef enum cpld_path_e {
+    VIA_NULL,
+    VIA_CGOS,
+    VIA_CP2112,
+    VIA_SIO,
+} cpld_path_e;
+
+cpld_path_e bf_pltfm_find_path_to_cpld();
 
 /* Porting CMEXXX, by tsihang, 2019-09-18. */
 #define is_HVXXX (\

@@ -969,9 +969,8 @@ static bf_pltfm_status_t bf_pltfm_cp2112_open (
     }
 
     if (platform_type_equal (X532P) ||
-        (platform_type_equal (X564P) &&
-         platform_subtype_equal (v1dot2)) ||
-         platform_type_equal (X308P) ||
+        (platform_type_equal (X564P) && (platform_subtype_equal (v1dot2) || platform_subtype_equal (v2dot0))) ||
+        platform_type_equal (X308P) ||
         platform_type_equal (HC)) {
         g_max_cp2112_num = 2;
     } else if (platform_type_equal (X312P)) {
@@ -1447,6 +1446,7 @@ bf_pltfm_cp2112_device_ctx_t
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
+        (bd_id == BF_PLTFM_BD_ID_X564PT_V2DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
         (bd_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {

@@ -127,6 +127,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X564PT_V1DOT0, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
     {BF_PLTFM_BD_ID_X564PT_V1DOT1, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
     {BF_PLTFM_BD_ID_X564PT_V1DOT2, "APNS640T-A1-V1.2", X564P, v1dot2},  // X564P-T V1.2
+    {BF_PLTFM_BD_ID_X564PT_V2DOT0, "APNS640T-A1-V2.0", X564P, v2dot0},  // X564P-T V2.0
 
     {BF_PLTFM_BD_ID_X308PT_V1DOT0, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
     {BF_PLTFM_BD_ID_X308PT_V1DOT1, "APNS320T-B1-V1.1", X308P, v1dot1},  // X308P-T V1.1
@@ -816,10 +817,11 @@ static void further_decode ()
                 }
                 if (strstr (tlv->content, "4")) {
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V4.x", eeprom.bf_pltfm_product_name);
-                } else if (strstr (tlv->content, "3")) {
-                    sprintf(eeprom.bf_pltfm_main_board_version, "%s V3.x", eeprom.bf_pltfm_product_name);
-                } else {
+                } else if (strstr (tlv->content, "2")) {
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V2.x", eeprom.bf_pltfm_product_name);
+                } else {
+				    /* default to V3.x */
+                    sprintf(eeprom.bf_pltfm_main_board_version, "%s V3.x", eeprom.bf_pltfm_product_name);
                 }
                 fprintf (stdout, "*** %s\n", eeprom.bf_pltfm_main_board_version);
             }
@@ -997,8 +999,9 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
                 break;
             default:
                 fprintf (stdout,
-                         "** Unsupported eeprom sections (0x%02x), exit right now.\n",
-                         tlv->code);
+                         "Exiting due to the sections (0x%02x) is out of scope.\n", tlv->code);
+                LOG_ERROR(
+                         "Exiting due to the sections (0x%02x) is out of scope.\n", tlv->code);
                 exit (0);
         }
     }
