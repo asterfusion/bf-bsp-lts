@@ -81,21 +81,25 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__ (
                     info.pwr_in / 1000.0);
         aim_printf (&uc->pvs, "Pout           %6.1f W\n",
                     info.pwr_out / 1000.0);
+        if (info.fvalid & PSU_INFO_VALID_TEMP) {
+            aim_printf (&uc->pvs, "Temp            %5d C\n",
+                        info.temp);
+        }
         if (info.fvalid & PSU_INFO_VALID_SERIAL) {
-            aim_printf (&uc->pvs, "SN              %s\n",
+            aim_printf (&uc->pvs, "Serial          %s\n",
                         info.serial);
         }
         if (info.fvalid & PSU_INFO_VALID_MODEL) {
             aim_printf (&uc->pvs, "Model           %s\n",
-                     info.model);
+                        info.model);
         }
         if (info.fvalid & PSU_INFO_VALID_REV) {
-            aim_printf (&uc->pvs, "Rev            %s\n",
-                     info.rev);
+            aim_printf (&uc->pvs, "Rev             %s\n",
+                        info.rev);
         }
         if (info.fvalid & PSU_INFO_VALID_FAN_ROTA) {
-            aim_printf (&uc->pvs, "Rota           %d\n",
-                     info.fspeed);
+            aim_printf (&uc->pvs, "FAN Rota        %5d rpm\n",
+                        info.fspeed);
         }
     }
 
@@ -124,29 +128,29 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_vrail_show__ (
         } else {
             /* V3 and later. */
             aim_printf (&uc->pvs,
-                     "Barefoot_Core       %5d mV\n", t.vrail1);
+                     "Barefoot_Core_0V9   %5d mV\n", t.vrail1);
             aim_printf (&uc->pvs,
-                     "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+                     "Barefoot_AVDD_0V9   %5d mV\n", t.vrail2);
             aim_printf (&uc->pvs,
-                     "Payload_2_5V        %5d mV\n", t.vrail6);
+                     "Payload_2V5         %5d mV\n", t.vrail6);
         }
     } else {
         aim_printf (&uc->pvs,
-                    "Barefoot_Core       %5d mV\n", t.vrail1);
+                    "Barefoot_Core_0V9   %5d mV\n", t.vrail1);
         aim_printf (&uc->pvs,
-                    "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+                    "Barefoot_AVDD_0V9   %5d mV\n", t.vrail2);
         aim_printf (&uc->pvs,
                     "Payload_12V         %5d mV\n", t.vrail3);
         aim_printf (&uc->pvs,
-                    "Payload_3_3V        %5d mV\n", t.vrail4);
+                    "Payload_3V3         %5d mV\n", t.vrail4);
         aim_printf (&uc->pvs,
-                    "Payload_5V          %5d mV\n", t.vrail5);
+                    "Payload_5V0         %5d mV\n", t.vrail5);
         aim_printf (&uc->pvs,
-                    "Payload_2_5V        %5d mV\n", t.vrail6);
+                    "Payload_2V5         %5d mV\n", t.vrail6);
         aim_printf (&uc->pvs,
-                    "88E6131_1_9V        %5d mV\n", t.vrail7);
+                    "88E6131_1V9         %5d mV\n", t.vrail7);
         aim_printf (&uc->pvs,
-                    "88E6131_1_2V        %5d mV\n", t.vrail8);
+                    "88E6131_1V2         %5d mV\n", t.vrail8);
     }
     return 0;
 }
@@ -325,19 +329,21 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__ (
         return 0;
     }
 
-    aim_printf (&uc->pvs,
-           "FAN   GRP FRONT-RPM  REAR-RPM    SPEED%%\n");
+    aim_printf (&uc->pvs, "%3s  %3s  %9s  %8s  %6s  %16s  %16s\n",
+                "FAN", "GRP", "FRONT-RPM", "REAR-RPM", "SPEED%", "MODEL", "SERIAL");
 
     for (uint32_t i = 0;
          i < (bf_pltfm_mgr_ctx()->fan_group_count *
               bf_pltfm_mgr_ctx()->fan_per_group); i++) {
         aim_printf (&uc->pvs,
-               "%2d     %2d     %5d     %5d      %3d%%\n",
+               "%3d  %3d  %9d  %8d  %5d%%  %16s  %16s\n",
                fdata.F[i].fan_num,
                fdata.F[i].group,
                fdata.F[i].front_speed,
                fdata.F[i].rear_speed,
-               fdata.F[i].percent);
+               fdata.F[i].percent,
+               fdata.F[i].model,
+               fdata.F[i].serial);
     }
 
     return 0;

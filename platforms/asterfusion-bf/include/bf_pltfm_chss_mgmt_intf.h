@@ -150,7 +150,7 @@ typedef enum bf_pltfm_pwr_supply_e {
     POWER_SUPPLY2 = 2
 } bf_pltfm_pwr_supply_t;
 
-#define PSU_INFO_VALID_RESV         (1 << 0)
+#define PSU_INFO_VALID_TEMP         (1 << 0)
 #define PSU_INFO_VALID_FFAULT       (1 << 1)
 #define PSU_INFO_VALID_LOAD_SHARING (1 << 2)
 #define PSU_INFO_VALID_MODEL        (1 << 3)
@@ -178,6 +178,7 @@ typedef struct bf_pltfm_pwr_supply_info_t {
     char model[32];    /* Model number */
     char serial[32];   /* Serial number */
     char rev[32];      /* Revision number */
+    uint8_t temp;      /* Temperature */
 
 } bf_pltfm_pwr_supply_info_t;
 
@@ -295,6 +296,9 @@ bf_pltfm_chss_mgmt_pwr_rails_get (
     bf_pltfm_pwr_rails_info_t *pwr_rails);
 
 /* Fan tray presence */
+#define FAN_INFO_VALID_MODEL        (1 << 0)
+#define FAN_INFO_VALID_SERIAL       (1 << 1)
+#define FAN_INFO_VALID_MAX_SPEED    (1 << 2)
 
 typedef struct bf_pltfm_fan_info_t {
     uint32_t present;     /* Fan present */
@@ -311,6 +315,11 @@ typedef struct bf_pltfm_fan_info_t {
      * left->right at rear.
      * added by tsihang, 2022-07-08. */
     uint8_t group;
+
+    uint8_t fvalid;       /* Valid flags for the following units */
+    char model[32];       /* Model number */
+    char serial[32];      /* Serial number */
+    uint32_t max_speed;   /* Max fan speed */
 } bf_pltfm_fan_info_t;
 
 typedef struct bf_pltfm_fan_data_t {

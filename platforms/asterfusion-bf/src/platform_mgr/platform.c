@@ -660,12 +660,11 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     aim_printf (&uc->pvs, "%s      ", "FAN2");
     aim_printf (&uc->pvs, "%s      ", "FAN3");
     aim_printf (&uc->pvs, "%s      ", "FAN4");
-    aim_printf (&uc->pvs, "%s      ", "    ");
     /* PSU */
     aim_printf (&uc->pvs, "%s      ", "    ");
     aim_printf (&uc->pvs, "%s      ", "    ");
     aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "PSU2");
+    aim_printf (&uc->pvs, "%s ^    ", "PSU2");
     aim_printf (&uc->pvs, "%s      ", "PSU1");
     aim_printf (&uc->pvs, "\n");
 
@@ -676,12 +675,10 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     if (!err && !fdata.fantray_present) {
         /* Pls help this consistency with real hardware. */
         aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[1].front_speed);
         aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
-        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[3].front_speed);
     } else {
-        aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
@@ -710,16 +707,16 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     aim_printf (&uc->pvs, "\n");
 
     /* Pin */
-    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
-    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    for (i = 0; i < 7; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, true);
     aim_printf (&uc->pvs, "%s", fmt);
-    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, true);
     aim_printf (&uc->pvs, "%s", fmt);
 
     aim_printf (&uc->pvs, "\n");
 
     /* Pout */
-    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    for (i = 0; i < 7; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
     bf_pltfm_ucli_format_psu_watt (&info2, fmt, false);
     aim_printf (&uc->pvs, "%s", fmt);
     bf_pltfm_ucli_format_psu_watt (&info1, fmt, false);
@@ -728,7 +725,7 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     aim_printf (&uc->pvs, "\n");
 
     /* Vin */
-    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    for (i = 0; i < 7; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
     bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
     aim_printf (&uc->pvs, "%s", fmt);
     bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
@@ -737,7 +734,7 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     aim_printf (&uc->pvs, "\n");
 
     /* Vout */
-    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    for (i = 0; i < 7; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
     bf_pltfm_ucli_format_psu_volt (&info2, fmt, false);
     aim_printf (&uc->pvs, "%s", fmt);
     bf_pltfm_ucli_format_psu_volt (&info1, fmt, false);
@@ -746,7 +743,7 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     aim_printf (&uc->pvs, "\n");
 
     /* Iin */
-    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    for (i = 0; i < 7; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
     bf_pltfm_ucli_format_psu_ampere (&info2, fmt, true);
     aim_printf (&uc->pvs, "%s", fmt);
     bf_pltfm_ucli_format_psu_ampere (&info1, fmt, true);
@@ -755,7 +752,7 @@ static void bf_pltfm_ucli_dump_x564p_panel(ucli_context_t
     aim_printf (&uc->pvs, "\n");
 
     /* Iout */
-    for (i = 0; i < 8; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
+    for (i = 0; i < 7; i ++) aim_printf (&uc->pvs, "%s      ", "    ");
     bf_pltfm_ucli_format_psu_ampere (&info2, fmt, false);
     aim_printf (&uc->pvs, "%s", fmt);
     bf_pltfm_ucli_format_psu_ampere (&info1, fmt, false);
@@ -1055,15 +1052,15 @@ static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
     /* 2nd */
     aim_printf (&uc->pvs, "%s      ", "PSU2");
     aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "FAN5");
     aim_printf (&uc->pvs, "%s      ", "FAN1");
     aim_printf (&uc->pvs, "%s      ", "FAN2");
-    aim_printf (&uc->pvs, "%s      ", "FAN3");
     aim_printf (&uc->pvs, "%s      ", "    ");
     aim_printf (&uc->pvs, "%s      ", "USB ");
     aim_printf (&uc->pvs, "%s      ", "MGT ");
     aim_printf (&uc->pvs, "%s      ", "    ");
+    aim_printf (&uc->pvs, "%s      ", "FAN3");
     aim_printf (&uc->pvs, "%s      ", "FAN4");
-    aim_printf (&uc->pvs, "%s      ", "FAN5");
     aim_printf (&uc->pvs, "%s      ", "FAN6");
     aim_printf (&uc->pvs, "%s      ", "    ");
     aim_printf (&uc->pvs, "%s      ", "PSU1");
@@ -1089,9 +1086,9 @@ static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
 
     if (!err && !fdata.fantray_present) {
         /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
         aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
         aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
     } else {
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
@@ -1114,8 +1111,8 @@ static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
 
     if (!err && !fdata.fantray_present) {
         /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
         aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
         aim_printf (&uc->pvs, "%-5u     ", fdata.F[10].front_speed);
     } else {
         aim_printf (&uc->pvs, "%s      ", "    ");
