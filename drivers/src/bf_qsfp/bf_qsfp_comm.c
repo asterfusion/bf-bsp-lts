@@ -29,8 +29,6 @@
 
 #include <bf_port_mgmt/bf_pm_priv.h>
 
-#define BF_PLAT_MAX_QSFP 65
-
 typedef double (*qsfp_conversion_fn) (
     uint16_t value);
 

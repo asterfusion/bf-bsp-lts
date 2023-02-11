@@ -196,11 +196,11 @@ struct qsfp_ctx_t   {
     /* User defined sfp ctx. */
     struct st_ctx_t pres;
     struct st_ctx_t rst;
+    struct st_ctx_t intr;
 
     /* struct st_ctx_t tx_dis; */
     /* struct st_ctx_t rx_los; */
     /* struct st_ctx_t tx_fault; */
-    /* struct st_ctx_t int; */
     /* struct st_ctx_t lpmode; */
 };
 

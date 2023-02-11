@@ -41,6 +41,10 @@
 #define BMC_CMD_FAN_SET 0x07
 #define BMC_SUB2_RPM    0x00
 #define BMC_SUB2_STATUS 0x01
+#define BMC_SUB2_SN     0x03
+#define BMC_SUB2_MODEL  0x05
+#define BMC_SUB2_MAX    0x07
+#define BMC_SUB2_DIR    0x08
 
 static bf_pltfm_fan_data_t bmc_fan_data;
 
@@ -53,7 +57,11 @@ static inline void cpy_fan_info(bf_pltfm_fan_info_t *dst, bf_pltfm_fan_info_t *s
     dst->percent     = src->percent;
     dst->present     = src->present;
     dst->rear_speed  = src->rear_speed;
+    dst->max_speed   = src->max_speed;
     dst->speed_level = src->speed_level;
+    dst->fvalid      = src->fvalid;
+    memcpy ((char *)&dst->model[0], (char *)&src->model[0], 32 - 1);
+    memcpy ((char *)&dst->serial[0], (char *)&src->serial[0], 32 - 1);
 }
 
 static inline void clr_fan_data(bf_pltfm_fan_data_t *data)
@@ -70,7 +78,11 @@ static inline void clr_fan_data(bf_pltfm_fan_data_t *data)
         dst->percent     = 0;
         dst->present     = 0;
         dst->rear_speed  = 0;
+        dst->max_speed   = 0;
         dst->speed_level = 0;
+        dst->fvalid      = 0;
+        memset ((char *)&dst->model[0], 0, 32);
+        memset ((char *)&dst->serial[0], 0, 32);
     }
     data->fantray_present = 0;
 }
@@ -195,8 +207,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
                      bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
                 fdata->F[i].fan_num     = i + 1;
                 fdata->F[i].present     = (rd_buf[1] >> i) & 0x01;
-                fdata->F[i].direction   = (rd_buf[2] >> 2 * i) &
-                                          0x03;
+                fdata->F[i].direction   = 1;
                 fdata->F[i].front_speed = (rd_buf[2 * i + 3] << 8)
                                           + rd_buf[2 * i + 4];
 
@@ -254,8 +265,8 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
-    int err = BF_PLTFM_COMM_FAILED, ret;
-    uint32_t num = 0;
+    int ret;
+    uint8_t num = 0;
 
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         wr_buf[0] = 0xAA;
@@ -289,11 +300,86 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
                 if (fdata->F[num].fan_num == 11 || fdata->F[num].fan_num == 12)
                     fdata->F[num].group = 6;
             }
-             err = BF_PLTFM_SUCCESS;
+        }
+
+        for (uint32_t i = 0; i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
+            wr_buf[0] = i + 1;
+
+            wr_buf[1] = BMC_SUB2_MODEL;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if (ret == rd_buf[0] + 1) {
+                num = i * 2;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+
+                num ++;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+            }
+
+            wr_buf[1] = BMC_SUB2_SN;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if (ret == rd_buf[0] + 1) {
+                num = i * 2;
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+
+                num ++;
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+            }
+
+            wr_buf[1] = BMC_SUB2_MAX;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == 5) && (ret == rd_buf[0] + 1)) {
+                num = i * 2;
+                fdata->F[num].max_speed  = (rd_buf[1] << 8) + rd_buf[2];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+
+                num ++;
+                fdata->F[num].max_speed  = (rd_buf[3] << 8) + rd_buf[4];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+            }
+
+            wr_buf[1] = BMC_SUB2_DIR;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == 4) && (ret == rd_buf[0] + 1)) {
+                if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
+                    num = i * 2;
+                    fdata->F[num].direction = 1;
+                    fdata->F[num + 1].direction = 1;
+                } else if (((rd_buf[1] == 'R') || (rd_buf[1] == 'B')) && (rd_buf[2] == '2') && (rd_buf[3] == 'F')) {
+                    num = i * 2;
+                    fdata->F[num].direction = 2;
+                    fdata->F[num +1].direction = 2;
+                }
+            }
         }
     }
 
-    return err;
+    return BF_PLTFM_SUCCESS;
 }
 
 static bf_pltfm_status_t
@@ -715,19 +801,21 @@ bf_pltfm_chss_mgmt_fan_init()
         return 0;
     }
 
-    fprintf (stdout,
-             "FAN   GRP FRONT-RPM  REAR-RPM    SPEED%%\n");
+    fprintf (stdout, "%3s  %3s  %9s  %8s  %6s  %16s  %16s\n",
+             "FAN", "GRP", "FRONT-RPM", "REAR-RPM", "SPEED%", "MODEL", "SERIAL");
 
     for (uint32_t i = 0;
          i < (bf_pltfm_mgr_ctx()->fan_group_count *
               bf_pltfm_mgr_ctx()->fan_per_group); i++) {
         fprintf (stdout,
-                 "%2d     %2d     %5d     %5d      %3d%%\n",
+                 "%3d  %3d  %9d  %8d  %5d%%  %16s  %16s\n",
                  fdata.F[i].fan_num,
                  fdata.F[i].group,
                  fdata.F[i].front_speed,
                  fdata.F[i].rear_speed,
-                 fdata.F[i].percent);
+                 fdata.F[i].percent,
+                 fdata.F[i].model,
+                 fdata.F[i].serial);
     }
 
     if (fdata.fantray_present) {

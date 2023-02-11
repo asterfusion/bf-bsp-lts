@@ -318,7 +318,7 @@ nobase_libpltfm_driver_include_HEADERS = bf_pltfm_slave_i2c.h \
 	bf_pltfm_master_i2c.h bf_pltfm_uart.h pltfm_types.h \
 	bf_pltfm_spi.h bf_pltfm_si5342.h bf_pltfm_cp2112_intf.h \
 	bf_pltfm_chss_mgmt_intf.h bf_pltfm_bmc_tty.h bf_pltfm_rtmr.h \
-	bf_pltfm_rptr.h bf_mav_led.h
+	bf_pltfm_rptr.h bf_mav_led.h version.h
 all: all-am
 
 .SUFFIXES:

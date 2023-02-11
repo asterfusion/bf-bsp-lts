@@ -313,29 +313,29 @@ bf_pltfm_chss_mgmt_pwr_rails_init()
         } else {
             /* V3 and later. */
             fprintf (stdout,
-                     "Barefoot_Core       %5d mV\n", t.vrail1);
+                     "Barefoot_Core_0V9   %5d mV\n", t.vrail1);
             fprintf (stdout,
-                     "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+                     "Barefoot_AVDD_0V9   %5d mV\n", t.vrail2);
             fprintf (stdout,
-                     "Payload_2_5V        %5d mV\n", t.vrail6);
+                     "Payload_2V5         %5d mV\n", t.vrail6);
         }
     } else {
         fprintf (stdout,
-                 "Barefoot_Core       %5d mV\n", t.vrail1);
+                 "Barefoot_Core_0V9   %5d mV\n", t.vrail1);
         fprintf (stdout,
-                 "Barefoot_AVDD_0_9V  %5d mV\n", t.vrail2);
+                 "Barefoot_AVDD_0V9   %5d mV\n", t.vrail2);
         fprintf (stdout,
                  "Payload_12V         %5d mV\n", t.vrail3);
         fprintf (stdout,
-                 "Payload_3_3V        %5d mV\n", t.vrail4);
+                 "Payload_3V3         %5d mV\n", t.vrail4);
         fprintf (stdout,
-                 "Payload_5V          %5d mV\n", t.vrail5);
+                 "Payload_5V0         %5d mV\n", t.vrail5);
         fprintf (stdout,
-                 "Payload_2_5V        %5d mV\n", t.vrail6);
+                 "Payload_2V5         %5d mV\n", t.vrail6);
         fprintf (stdout,
-                 "88E6131_1_9V        %5d mV\n", t.vrail7);
+                 "88E6131_1V9         %5d mV\n", t.vrail7);
         fprintf (stdout,
-                 "88E6131_1_2V        %5d mV\n", t.vrail8);
+                 "88E6131_1V2         %5d mV\n", t.vrail8);
     }
     fprintf (stdout, "\n\n");
     return BF_PLTFM_SUCCESS;

@@ -94,39 +94,77 @@ static inline void onlp_save (
 static void bf_pltfm_chss_mgmt_onlp_fan (int id,
         bf_pltfm_fan_info_t *fan)
 {
-    char fonlp[MAX_LEN];
-    char value[MAX_LEN];
+    char fonlp[MAX_LEN] = {0};
+    char value[MAX_LEN] = {0};
+    char info[MAX_LEN * 20] = {0};
+    size_t l = 0;
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
              "presence");
     sprintf (value, "%d", ! (fan->present));
+    l += sprintf (info + l, "%-10s : %s\n", "presence", fan->present ? "yes" : "no");
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
              "rpm");
     sprintf (value, "%d", fan->front_speed);
+    l += sprintf (info + l, "%-10s : %s\n", "rpm", value);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
+             "max");
+    sprintf (value, "%d", fan->max_speed);
+    l += sprintf (info + l, "%-10s : %s\n", "max_speed", value);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
+             "percent");
+    sprintf (value, "%d", fan->percent);
+    l += sprintf (info + l, "%-10s : %s\n", "percent", value);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
+             "model");
+    sprintf (value, "%s", fan->model);
+    l += sprintf (info + l, "%-10s : %s\n", "model", value);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
+             "serial");
+    sprintf (value, "%s", fan->serial);
+    l += sprintf (info + l, "%-10s : %s\n", "serial", value);
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
              "direction");
     sprintf (value, "%d", fan->direction);
+    l += sprintf (info + l, "%-10s : %s\n", "direction", (fan->direction == 1) ? "F2B" :
+                                                         (fan->direction == 2) ? "B2F" : "NULL");
     onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_FAN_PATH, id,
+             "info");
+    onlp_save (fonlp, info, strlen (info));
 }
 
 static void bf_pltfm_chss_mgmt_onlp_psu (int id,
         bf_pltfm_pwr_supply_info_t *psu)
 {
-    char fonlp[MAX_LEN];
-    char value[MAX_LEN];
+    char fonlp[MAX_LEN] = {0};
+    char value[MAX_LEN] = {0};
+    char info[MAX_LEN * 20] = {0};
+    size_t l = 0;
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "presence");
     sprintf (value, "%d", ! (psu->presence));
+    l += sprintf (info + l, "%-10s : %s\n", "presence", psu->presence ? "yes" : "no");
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "pwrgood");
     sprintf (value, "%d", psu->power);
+    l += sprintf (info + l, "%-10s : %s\n", "pwrgood", psu->power ? "yes" : "no");
     onlp_save (fonlp, value, strlen (value));
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
@@ -138,6 +176,8 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "vin_mV");
     sprintf (value, "%d", psu->vin);
     onlp_save (fonlp, value, strlen (value));
+    sprintf (value, "%1.1f", psu->vin/1000.0);
+    l += sprintf (info + l, "%-10s : %s\n", "vin", value);
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "vout");
@@ -148,6 +188,8 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "vout_mV");
     sprintf (value, "%d", psu->vout);
     onlp_save (fonlp, value, strlen (value));
+    sprintf (value, "%1.1f", psu->vout / 1000.0);
+    l += sprintf (info + l, "%-10s : %s\n", "vout", value);
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "iin");
@@ -158,6 +200,8 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "iin_mA");
     sprintf (value, "%d", psu->iin);
     onlp_save (fonlp, value, strlen (value));
+    sprintf (value, "%1.1f", psu->iin / 1000.0);
+    l += sprintf (info + l, "%-10s : %s\n", "iin", value);
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "iout");
@@ -168,6 +212,8 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "iout_mA");
     sprintf (value, "%d", psu->iout);
     onlp_save (fonlp, value, strlen (value));
+    sprintf (value, "%1.1f", psu->iout / 1000.0);
+    l += sprintf (info + l, "%-10s : %s\n", "iout", value);
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "pin");
@@ -178,6 +224,8 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "pin_mW");
     sprintf (value, "%d", psu->pwr_in);
     onlp_save (fonlp, value, strlen (value));
+    sprintf (value, "%1.1f", psu->pwr_in / 1000.0);
+    l += sprintf (info + l, "%-10s : %s\n", "pin", value);
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "pout");
@@ -188,56 +236,71 @@ static void bf_pltfm_chss_mgmt_onlp_psu (int id,
              "pout_mW");
     sprintf (value, "%d", psu->pwr_out);
     onlp_save (fonlp, value, strlen (value));
+    sprintf (value, "%1.1f", psu->pwr_out / 1000.0);
+    l += sprintf (info + l, "%-10s : %s\n", "pout", value);
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
              "power");
     sprintf (value, "%d", psu->power);
     onlp_save (fonlp, value, strlen (value));
 
-    if (psu->fvalid & PSU_INFO_VALID_SERIAL) {
-        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
-                "sn");
-        sprintf (value, "%s", psu->serial);
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "temp");
+    if (psu->fvalid & PSU_INFO_VALID_TEMP) {
+        sprintf (value, "%d", psu->temp * 1000);
         onlp_save (fonlp, value, strlen (value));
+        sprintf (value, "%d", psu->temp);
+        l += sprintf (info + l, "%-10s : %s\n", "temp", value);
+    } else {
+        sprintf (value, "%s", "NULL");
+        onlp_save (fonlp, value, strlen (value));
+        l += sprintf (info + l, "%-10s : %s\n", "temp", value);
     }
 
-    if (psu->fvalid & PSU_INFO_VALID_MODEL) {
-        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
-                "model");
-        sprintf (value, "%s", psu->model);
-        onlp_save (fonlp, value, strlen (value));
-    }
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+            "model");
+    sprintf (value, "%s", psu->model);
+    l += sprintf (info + l, "%-10s : %s\n", "model", value);
+    onlp_save (fonlp, value, strlen (value));
 
-    if (psu->fvalid & PSU_INFO_VALID_REV) {
-        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
-                "rev");
-        sprintf (value, "%s", psu->rev);
-        onlp_save (fonlp, value, strlen (value));
-    }
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+            "serial");
+    sprintf (value, "%s", psu->serial);
+    l += sprintf (info + l, "%-10s : %s\n", "serial", value);
+    onlp_save (fonlp, value, strlen (value));
 
-    if (psu->fvalid & PSU_INFO_VALID_FAN_ROTA) {
-        sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
-                "rota");
-        sprintf (value, "%d", psu->fspeed);
-        onlp_save (fonlp, value, strlen (value));
-    }
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+            "rev");
+    sprintf (value, "%s", psu->rev);
+    l += sprintf (info + l, "%-10s : %s\n", "rev", value);
+    onlp_save (fonlp, value, strlen (value));
+
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+            "fan");
+    sprintf (value, "%d", psu->fspeed);
+    l += sprintf (info + l, "%-10s : %s\n", "fan", value);
+    onlp_save (fonlp, value, strlen (value));
 
     bool psu_type = 1;  /* default AC */
     if (!(psu->fvalid & PSU_INFO_AC)) {
         psu_type = 0;
     }
     sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
-        "supptype");
+             "supptype");
     sprintf (value, "%d", psu_type);
+    l += sprintf (info + l, "%-10s : %s\n", "supptype", psu->fvalid & PSU_INFO_AC ? "AC" : "DC");
     onlp_save (fonlp, value, strlen (value));
 
+    sprintf (fonlp, ONLP_LOG_CHASSIS_PSU_PATH, id,
+             "info");
+    onlp_save (fonlp, info, strlen (info));
 }
 
 static void bf_pltfm_chss_mgmt_onlp_temp (int id,
         float temp)
 {
-    char fonlp[MAX_LEN];
-    char value[MAX_LEN];
+    char fonlp[MAX_LEN] = {0};
+    char value[MAX_LEN] = {0};
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_TMP_PATH, id);
     if (temp == -100) {
@@ -251,8 +314,8 @@ static void bf_pltfm_chss_mgmt_onlp_temp (int id,
 static void bf_pltfm_chss_mgmt_onlp_tofino_temp (
     bf_pltfm_switch_temperature_info_t *temp)
 {
-    char fonlp[MAX_LEN];
-    char value[MAX_LEN];
+    char fonlp[MAX_LEN] = {0};
+    char value[MAX_LEN] = {0};
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_TMP_PATH,
              bf_pltfm_mgr_ctx()->sensor_count + 1);
@@ -266,13 +329,23 @@ static void bf_pltfm_chss_mgmt_onlp_tofino_temp (
 }
 
 static void bf_pltfm_chss_mgmt_onlp_pwr_rails (
-    uint32_t pwr_rails)
+    bf_pltfm_pwr_rails_info_t *pwr_rails)
 {
-    char fonlp[MAX_LEN];
-    char value[MAX_LEN];
+    char fonlp[MAX_LEN] = {0};
+    char value[MAX_LEN * 8] = {0};
+    size_t l = 0;
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_VRAIL_PATH);
-    sprintf (value, "%d", pwr_rails);
+
+    l += sprintf (value + l, "BAREFOOT_CORE_0V9 : %d\n", pwr_rails->vrail1);
+    l += sprintf (value + l, "BAREFOOT_AVDD_0V9 : %d\n", pwr_rails->vrail2);
+    l += sprintf (value + l, "Payload_12V       : %d\n", pwr_rails->vrail3);
+    l += sprintf (value + l, "Payload_3V3       : %d\n", pwr_rails->vrail4);
+    l += sprintf (value + l, "Payload_5V0       : %d\n", pwr_rails->vrail5);
+    l += sprintf (value + l, "Payload_2V5       : %d\n", pwr_rails->vrail6);
+    l += sprintf (value + l, "88e6XXX_1V9       : %d\n", pwr_rails->vrail7);
+    l += sprintf (value + l, "88e6XXX_1V2       : %d\n", pwr_rails->vrail8);
+
     onlp_save (fonlp, value, strlen (value));
 }
 
@@ -307,8 +380,8 @@ static void bf_pltfm_onlp_mntr_transceiver()
     static uint32_t qsfp_pres_mask_l = 0xFFFFFFFF;
     uint32_t bit_mask;
     uint32_t *p_pres_mask;
-    char path[MAX_LEN];
-    char value[MAX_LEN];
+    char path[MAX_LEN] = {0};
+    char value[MAX_LEN] = {0};
 
     for (i = 1; i <= max_qsfp_modules; i ++) {
         qsfp = &qsfp_ctx[i - 1];
@@ -503,7 +576,7 @@ static void bf_pltfm_onlp_mntr_pwr_rails (void)
     } else {
         // save pwr_rails for onlp
         bf_pltfm_chss_mgmt_onlp_pwr_rails (
-            pwr_rails.vrail1);
+            &pwr_rails);
     }
 }
 

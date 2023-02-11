@@ -4,10 +4,10 @@ Mainline  **all-in-one** repository for all TF1 based **X-T Switch** powered by 
 
 Current supported **X-T switches**:
 
-  - `X564P-T`,  64x 100G and auxiliary 2x 25G.
-  - `X532P-T`,  32x 100G and auxiliary 2x 25G.
-  - `X312P-T`,  12x 100G, 48x 25G, and  auxiliary 2x 25G.
-  - `X308P-T`,  08x 100G, 48x 25G.
+  - `X564P-T`,  64x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
+  - `X532P-T`,  32x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
+  - `X312P-T`,  12x 100GbE QSFP28, 48x 25GbE SFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
+  - `X308P-T`,  08x 100GbE QSFP28, 48x 25GbE SFP28 and last 4 of them support 1GbE.
 
 Sometimes, we call `X564P-T` and `X532P-T` as `X5-T`, and call `X312P-T` and `X308P-T` as `X3-T`.
 
@@ -19,6 +19,14 @@ For this repository, we are focused on the higher version of P4Studio, and so we
 
 If you want to compile with P4Studio lower than `9.3`, please let BSP know your working P4Studio version by editing macro `SDE_VERSION`, which you can find in `bf-bsp-8.9.x/drivers/include/bf_pltfm_types/bf_pltfm_types.h`.
 
+Current supported **SDE**:
+
+  - `8.9.x`.
+  - `9.1.x`.
+  - `9.3.x`.
+  - `9.5.x`.
+  - `9.7.x`.
+  - `9.9.x`.
 
 ## Special dependency
 

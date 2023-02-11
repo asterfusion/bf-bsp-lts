@@ -11,3 +11,4 @@ nobase_libpltfm_driver_include_HEADERS += bf_pltfm_bmc_tty.h
 nobase_libpltfm_driver_include_HEADERS += bf_pltfm_rtmr.h
 nobase_libpltfm_driver_include_HEADERS += bf_pltfm_rptr.h
 nobase_libpltfm_driver_include_HEADERS += bf_mav_led.h
+nobase_libpltfm_driver_include_HEADERS += version.h

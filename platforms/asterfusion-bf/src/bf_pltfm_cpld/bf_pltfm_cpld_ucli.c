@@ -12,7 +12,8 @@
 #include <bf_pltfm_master_i2c.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_pltfm.h>
-
+#include <bf_pltfm_qsfp.h>
+#include <bf_pltfm_sfp.h>
 #include <pltfm_types.h>
 
 #define DEFAULT_TIMEOUT_MS 500
@@ -20,232 +21,16 @@
 /* For YH and S02 CME. */
 static bf_pltfm_cp2112_device_ctx_t *g_cpld_cp2112_hndl;
 
-static void bf_pltfm_cpld_decode_x308p (ucli_context_t *uc,
-    uint8_t cpld_index,
-    uint8_t *buf, uint8_t size) {
-    if (cpld_index == BF_MAV_SYSCPLD1) {
-        /* 48x 25G */
-        for (int i = 0; i < 48; i ++) {
-            aim_printf (&uc->pvs, " %2d", i + 1);
-        }
-        aim_printf (&uc->pvs, "\n");
+extern int bf_pltfm_get_qsfp_ctx (struct
+                                  qsfp_ctx_t
+                                  **qsfp_ctx);
 
-        /* Tx */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[26] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[25] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[24] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[23] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[22] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[21] & (1 << i) ? "*" : "");
-        }
-        aim_printf (&uc->pvs, "|     TXOFF");
-        aim_printf (&uc->pvs, "\n");
-
-        /* PRS */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[19] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[18] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[15] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[14] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[11] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[10] & (1 << i) ? "" : "*");
-        }
-        aim_printf (&uc->pvs, "|       PRS");
-        aim_printf (&uc->pvs, "\n");
-
-        /* LOS */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[17] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[16] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[13] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[12] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[9] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[8] & (1 << i) ? "*" : "");
-        }
-        aim_printf (&uc->pvs, "|       LOS");
-        aim_printf (&uc->pvs, "\n");
+extern int bf_pltfm_get_sfp_ctx (struct
+                                 sfp_ctx_t
+                                 **sfp_ctx);
 
 
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-        /* 8x 100G */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, " %2d", i + 1);
-        }
-        aim_printf (&uc->pvs, "\n");
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[20] & (1 << i) ? "*" : "");
-        }
-        aim_printf (&uc->pvs, "|       RST");
-        aim_printf (&uc->pvs, "\n");
-
-        /* Aux */
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%5s  %5s   %2s   %13s   %15s   %3s   \n", "GHC-1", "GHC-0", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC");
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%5s  %5s   %2s   %13s   %15s   %3s   \n", "-----", "-----", "--", "-------------", "---------------", "---");
-        aim_printf (&uc->pvs, "         RST");
-        aim_printf (&uc->pvs, "%5s  %5s   %2s   %13s   %15s   %3s   \n",
-            buf[2] & 0x80 ? "*" : " ",
-            buf[2] & 0x40 ? "*" : " ",
-            buf[2] & 0x20 ? "*" : " ",
-            buf[2] & 0x04 ? "*" : " ",
-            buf[2] & 0x02 ? "*" : " ",
-            buf[2] & 0x01 ? "*" : " ");
-
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-    }
-
-}
-
-static void bf_pltfm_cpld_decode_x532p (ucli_context_t *uc,
-    uint8_t cpld_index,
-    uint8_t *buf, uint8_t size) {
-    if (cpld_index == BF_MAV_SYSCPLD1) {
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n", "RST", "INT", "PRS");
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n", "---", "---", "---");
-        aim_printf (&uc->pvs, "         C31");
-        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n",
-            buf[2] & 0x01 ? "*" : " ",
-            buf[5] & 0x04 ? " " : "*",
-            buf[5] & 0x01 ? " " : "*");
-        aim_printf (&uc->pvs, "         C32");
-        aim_printf (&uc->pvs, "%3s  %3s   %3s   \n",
-            buf[2] & 0x02 ? "*" : " ",
-            buf[5] & 0x08 ? " " : "*",
-            buf[5] & 0x02 ? " " : "*");
-
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-    } else if (cpld_index == BF_MAV_SYSCPLD2) {
-        //aim_printf (&uc->pvs, "\n");
-        for (int i = 0; i < 32; i ++) {
-            aim_printf (&uc->pvs, " %2d", i + 1);
-        }
-        aim_printf (&uc->pvs, "\n");
-
-        /* RST */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[15] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[16] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[17] & (1 << i) ? "*" : "");
-        }
-        for (int i = 0; i < 6; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[18] & (1 << i) ? "*" : "");
-        }
-        aim_printf (&uc->pvs, "|       RST");
-        aim_printf (&uc->pvs, "\n");
-
-        /* PRS */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[2] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[3] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[4] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 6; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[5] & (1 << i) ? "" : "*");
-        }
-        aim_printf (&uc->pvs, "|       PRS");
-        aim_printf (&uc->pvs, "\n");
-
-        /* INT */
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[6] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[7] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 8; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[8] & (1 << i) ? "" : "*");
-        }
-        for (int i = 0; i < 6; i ++) {
-            aim_printf (&uc->pvs, "|%2s", buf[9] & (1 << i) ? "" : "*");
-        }
-        aim_printf (&uc->pvs, "|       INT");
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "LOS", "FAULT", "PRS", "TXON");
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n", "---", "-----", "---", "----");
-        aim_printf (&uc->pvs, "         Y01");
-        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n",
-            buf[10] & 0x02 ? "*" : " ",
-            buf[11] & 0x02 ? "*" : " ",
-            buf[12] & 0x02 ? " " : "*",
-            buf[13] & 0x02 ? " " : "*");
-        aim_printf (&uc->pvs, "         Y02");
-        aim_printf (&uc->pvs, "%3s  %5s   %3s   %4s\n",
-            buf[10] & 0x01 ? "*" : " ",
-            buf[11] & 0x01 ? "*" : " ",
-            buf[12] & 0x01 ? " " : "*",
-            buf[13] & 0x01 ? " " : "*");
-
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%7s  %7s   %7s   %7s\n", "C01-C08", "C09-C16", "C17-C24", "C25-C32");
-        aim_printf (&uc->pvs, "            ");
-        aim_printf (&uc->pvs, "%7s  %7s   %7s   %7s\n", "-------", "-------", "-------", "-------");
-        aim_printf (&uc->pvs, "PCA9548 RST ");
-        aim_printf (&uc->pvs, "%7s  %7s   %7s   %7s\n",
-            buf[14] & 0x01 ? "*" : " ",
-            buf[14] & 0x02 ? "*" : " ",
-            buf[14] & 0x04 ? "*" : " ",
-            buf[14] & 0x07 ? "*" : " ");
-
-        aim_printf (&uc->pvs, "\n");
-        aim_printf (&uc->pvs, "\n");
-    }
-}
-
-void bf_pltfm_cpld_decode (ucli_context_t *uc,
+static void bf_pltfm_cpld_show (ucli_context_t *uc,
     uint8_t cpld_index,
     uint8_t *buf, uint8_t size)
 {
@@ -262,12 +47,339 @@ void bf_pltfm_cpld_decode (ucli_context_t *uc,
     }
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
+}
 
-    if (platform_type_equal (X532P)) {
-        bf_pltfm_cpld_decode_x532p (uc, cpld_index, buf, size);
-    } else if (platform_type_equal (X308P)) {
-        bf_pltfm_cpld_decode_x308p (uc, cpld_index, buf, size);
+static void bf_pltfm_cpld_decode_x308p (ucli_context_t *uc) {
+    int i, j;
+    uint8_t buf[1][128];
+    uint8_t cpld_num = 1;
+    uint8_t cpld_page_size = 128;
+
+    struct st_ctx_t *st_ctx;
+    struct qsfp_ctx_t *qsfp_ctx;
+    bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
+
+    struct sfp_ctx_st_t *st_ctx_st;
+    struct sfp_ctx_t *sfp_ctx;
+    bf_pltfm_get_sfp_ctx (&sfp_ctx);
+
+    for (i = 0; i < cpld_num; i ++) {
+        for (j = 0; j < cpld_page_size; j ++) {
+            if (bf_pltfm_cpld_read_byte (i + 1, j, &buf[i][j])) {
+                break;
+            }
+        }
+
+        bf_pltfm_cpld_show (uc, i + 1, &buf[i][0], cpld_page_size);
     }
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* QSFP */
+    for (i = 0; i < 8; i ++) {
+        aim_printf (&uc->pvs, " C%-2d", i + 1);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* RST */
+    for (i = 0; i < 8; i ++) {
+        st_ctx = &qsfp_ctx[i].rst;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? '*' : ' ');
+    }
+    aim_printf (&uc->pvs, "|       RST");
+    aim_printf (&uc->pvs, "\n");
+
+    /* PRS */
+    for (i = 0; i < 8; i ++) {
+        st_ctx = &qsfp_ctx[i].pres;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       PRS");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* SFP */
+    for (i = 0; i < 48; i ++) {
+        aim_printf (&uc->pvs, " Y%-2d", i + 1);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* RX_LOS */
+    for (i = 0; i < 48; i ++) {
+        st_ctx_st = sfp_ctx[i].st;
+        st_ctx = &st_ctx_st->rx_los;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? '*' : ' ');
+    }
+    aim_printf (&uc->pvs, "|       LOS");
+    aim_printf (&uc->pvs, "\n");
+
+    /* PRS */
+    for (i = 0; i < 48; i ++) {
+        st_ctx_st = sfp_ctx[i].st;
+        st_ctx = &st_ctx_st->pres;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       PRS");
+    aim_printf (&uc->pvs, "\n");
+
+    /* TX_DIS */
+    for (i = 0; i < 48; i ++) {
+        st_ctx_st = sfp_ctx[i].st;
+        st_ctx = &st_ctx_st->tx_dis;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       TXON");
+    aim_printf (&uc->pvs, "\n");
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* Aux */
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "GHC-1", "GHC-0", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC");
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "-----", "-----", "--", "-------------", "---------------", "---");
+    aim_printf (&uc->pvs, "         RST");
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n",
+        buf[0][2] & 0x80 ? "*" : " ",
+        buf[0][2] & 0x40 ? "*" : " ",
+        buf[0][2] & 0x20 ? "*" : " ",
+        buf[0][2] & 0x04 ? "*" : " ",
+        buf[0][2] & 0x02 ? "*" : " ",
+        buf[0][2] & 0x01 ? "*" : " ");
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+}
+
+static void bf_pltfm_cpld_decode_x532p (ucli_context_t *uc) {
+    int i, j;
+    uint8_t buf[2][128];
+    uint8_t cpld_num = 2;
+    uint8_t cpld_page_size = 128;
+
+    struct st_ctx_t *st_ctx;
+    struct qsfp_ctx_t *qsfp_ctx;
+    bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
+
+    struct sfp_ctx_st_t *st_ctx_st;
+    struct sfp_ctx_t *sfp_ctx;
+    bf_pltfm_get_sfp_ctx (&sfp_ctx);
+
+    for (i = 0; i < cpld_num; i ++) {
+        for (j = 0; j < cpld_page_size; j ++) {
+            if (bf_pltfm_cpld_read_byte (i + 1, j, &buf[i][j])) {
+                break;
+            }
+        }
+
+        bf_pltfm_cpld_show (uc, i + 1, &buf[i][0], cpld_page_size);
+    }
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* QSFP */
+    for (i = 0; i < 32; i ++) {
+        aim_printf (&uc->pvs, " C%-2d", i + 1);
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* RST */
+    for (i = 0; i < 32; i ++) {
+        st_ctx = &qsfp_ctx[i].rst;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? '*' : ' ');
+    }
+    aim_printf (&uc->pvs, "|       RST");
+    aim_printf (&uc->pvs, "\n");
+
+    /* PRS */
+    for (i = 0; i < 32; i ++) {
+        st_ctx = &qsfp_ctx[i].pres;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       PRS");
+    aim_printf (&uc->pvs, "\n");
+
+    /* INT */
+    for (i = 0; i < 32; i ++) {
+        st_ctx = &qsfp_ctx[i].intr;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       INT");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* SFP */
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%3s   %5s   %3s   %4s\n", "LOS", "FAULT", "PRS", "TXON");
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%3s   %5s   %3s   %4s\n", "---", "-----", "---", "----");
+
+    for (i = 0; i < 2; i ++) {
+        aim_printf (&uc->pvs, "         Y%02d", i + 1);
+
+        st_ctx_st = sfp_ctx[i].st;
+
+        st_ctx = &st_ctx_st->rx_los;
+        aim_printf (&uc->pvs, "%3s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? "*" : " ");
+        st_ctx = &st_ctx_st->tx_fault;
+        aim_printf (&uc->pvs, "%5s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? "*" : " ");
+        st_ctx = &st_ctx_st->pres;
+        aim_printf (&uc->pvs, "%3s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? " " : "*");
+        st_ctx = &st_ctx_st->tx_dis;
+        aim_printf (&uc->pvs, "%4s\n",  buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? " " : "*");
+    }
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%7s   %7s   %7s   %7s\n", "C01-C08", "C09-C16", "C17-C24", "C25-C32");
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%7s   %7s   %7s   %7s\n", "-------", "-------", "-------", "-------");
+    aim_printf (&uc->pvs, "PCA9548 RST ");
+    aim_printf (&uc->pvs, "%7s   %7s   %7s   %7s\n",
+        buf[1][14] & 0x01 ? "*" : " ",
+        buf[1][14] & 0x02 ? "*" : " ",
+        buf[1][14] & 0x04 ? "*" : " ",
+        buf[1][14] & 0x08 ? "*" : " ");
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+}
+
+static void bf_pltfm_cpld_decode_x564p (ucli_context_t *uc) {
+    int i, j;
+    uint8_t buf[3][128];
+    uint8_t cpld_num = 3;
+    uint8_t cpld_page_size = 128;
+
+    struct st_ctx_t *st_ctx;
+    struct qsfp_ctx_t *qsfp_ctx;
+    bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
+
+    struct sfp_ctx_st_t *st_ctx_st;
+    struct sfp_ctx_t *sfp_ctx;
+    bf_pltfm_get_sfp_ctx (&sfp_ctx);
+
+    for (i = 0; i < cpld_num; i ++) {
+        for (j = 0; j < cpld_page_size; j ++) {
+            if (bf_pltfm_cpld_read_byte (i + 1, j, &buf[i][j])) {
+                break;
+            }
+        }
+
+        bf_pltfm_cpld_show (uc, i + 1, &buf[i][0], cpld_page_size);
+    }
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* QSFP */
+    for (i = 0; i < 32; i ++) {
+        aim_printf (&uc->pvs, " C%-2d", i + 1);
+    }
+    aim_printf (&uc->pvs, "\n");
+    /* RST */
+    for (i = 0; i < 32; i ++) {
+        st_ctx = &qsfp_ctx[i].rst;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? '*' : ' ');
+    }
+    aim_printf (&uc->pvs, "|       RST");
+    aim_printf (&uc->pvs, "\n");
+
+    /* PRS */
+    for (i = 0; i < 32; i ++) {
+        st_ctx = &qsfp_ctx[i].pres;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       PRS");
+    aim_printf (&uc->pvs, "\n");
+
+    /* INT */
+    for (i = 0; i < 32; i ++) {
+        st_ctx = &qsfp_ctx[i].intr;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       INT");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* QSFP */
+    for (i = 32; i < 64; i ++) {
+        aim_printf (&uc->pvs, " C%-2d", i + 1);
+    }
+    aim_printf (&uc->pvs, "\n");
+    /* RST */
+    for (i = 32; i < 64; i ++) {
+        st_ctx = &qsfp_ctx[i].rst;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? '*' : ' ');
+    }
+    aim_printf (&uc->pvs, "|       RST");
+    aim_printf (&uc->pvs, "\n");
+
+    /* PRS */
+    for (i = 32; i < 64; i ++) {
+        st_ctx = &qsfp_ctx[i].pres;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       PRS");
+    aim_printf (&uc->pvs, "\n");
+
+    /* INT */
+    for (i = 32; i < 64; i ++) {
+        st_ctx = &qsfp_ctx[i].intr;
+        aim_printf (&uc->pvs, "| %c ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? ' ' : '*');
+    }
+    aim_printf (&uc->pvs, "|       INT");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    /* SFP */
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%3s   %5s   %3s   %4s\n", "LOS", "FAULT", "PRS", "TXON");
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%3s   %5s   %3s   %4s\n", "---", "-----", "---", "----");
+
+    for (i = 0; i < 2; i ++) {
+        aim_printf (&uc->pvs, "         Y%02d", i + 1);
+
+        st_ctx_st = sfp_ctx[i].st;
+
+        st_ctx = &st_ctx_st->rx_los;
+        aim_printf (&uc->pvs, "%3s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? "*" : " ");
+        st_ctx = &st_ctx_st->tx_fault;
+        aim_printf (&uc->pvs, "%5s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? "*" : " ");
+        st_ctx = &st_ctx_st->pres;
+        aim_printf (&uc->pvs, "%3s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? " " : "*");
+        st_ctx = &st_ctx_st->tx_dis;
+        aim_printf (&uc->pvs, "%4s\n",  buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? " " : "*");
+    }
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%9s   %9s   %9s   %9s\n", "PCA9548-0", "PCA9548-1", "PCA9548-2", "PCA9548-3");
+    aim_printf (&uc->pvs, "            ");
+    aim_printf (&uc->pvs, "%9s   %9s   %9s   %9s\n", "---------", "---------", "---------", "---------");
+    aim_printf (&uc->pvs, "PCA9548 RST ");
+    aim_printf (&uc->pvs, "%9s   %9s   %9s   %9s\n",
+        buf[1][14] & 0x01 ? "*" : " ",
+        buf[1][14] & 0x02 ? "*" : " ",
+        buf[1][14] & 0x04 ? "*" : " ",
+        buf[1][14] & 0x08 ? "*" : " ");
+
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
 }
 
 /** read bytes from slave's register by cp2112.
@@ -1259,7 +1371,7 @@ bf_pltfm_cpld_ucli_ucli__read_cpld (
     }
     /* Check total */
     if (i == cpld_page_size) {
-        bf_pltfm_cpld_decode (uc, cpld_index,
+        bf_pltfm_cpld_show (uc, cpld_index,
             buf, cpld_page_size);
     }
     return 0;
@@ -1323,10 +1435,28 @@ bf_pltfm_cpld_ucli_ucli__write_cpld (
     }
 }
 
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__decode_cpld (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "decode-cpld", 0, "decode-cpld");
+
+    if (platform_type_equal (X532P)) {
+        bf_pltfm_cpld_decode_x532p (uc);
+    } else if (platform_type_equal (X564P)) {
+        bf_pltfm_cpld_decode_x564p (uc);
+    } else if (platform_type_equal (X308P)) {
+        bf_pltfm_cpld_decode_x308p (uc);
+    }
+
+    return 0;
+}
+
 static ucli_command_handler_f
 bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__read_cpld,
     bf_pltfm_cpld_ucli_ucli__write_cpld,
+    bf_pltfm_cpld_ucli_ucli__decode_cpld,
     NULL
 };
 

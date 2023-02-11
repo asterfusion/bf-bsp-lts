@@ -200,7 +200,7 @@ struct sfp_ctx_st_t {
     struct st_ctx_t tx_dis; /* enb for x312p-t. */
     struct st_ctx_t pres;
     struct st_ctx_t rx_los;
-    //struct st_ctx_t tx_fault;
+    struct st_ctx_t tx_fault;
 };
 
 /* access is 0 based index. */

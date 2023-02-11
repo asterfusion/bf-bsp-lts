@@ -36,7 +36,11 @@
 #define BMC_CMD_PSU_GET 0x0B
 #define BMC_SUB1_STATUS 0x00
 #define BMC_SUB1_INFO   0x01
-#define MAX_PSU_COUNT		2
+#define BMC_SUB1_MODEL  0x02
+#define BMC_SUB1_SN     0x03
+#define BMC_SUB1_TEMP   0x04
+#define BMC_SUB1_FAN    0x05
+#define MAX_PSU_COUNT	   2
 
 static bf_pltfm_pwr_supply_info_t
 bmc_psu_data[MAX_PSU_COUNT];
@@ -55,6 +59,7 @@ static inline void clr_psu_data(bf_pltfm_pwr_supply_info_t *info)
     info->power    = false;
     info->fvalid   = 0;
     info->ffault   = 0;
+    info->temp     = 0;
     info->load_sharing  = 0;
     memset ((char *)&info->model[0], 0, 32);
     memset ((char *)&info->serial[0], 0, 32);
@@ -74,6 +79,7 @@ static inline void cpy_psu_data(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_su
     dst->power    = src->power;
     dst->fvalid   = src->fvalid;
     dst->ffault   = src->ffault;
+    dst->temp     = src->temp;
     dst->load_sharing  = src->load_sharing;
     memcpy ((char *)&dst->model[0], (char *)&src->model[0], 32 - 1);
     memcpy ((char *)&dst->serial[0], (char *)&src->serial[0], 32 - 1);
@@ -301,45 +307,107 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
         return BF_PLTFM_SUCCESS;
     }
 
-    wr_buf[0] = BMC_SUB1_INFO;
-    wr_buf[1] = 0xAA;
-
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+
+        wr_buf[0] = BMC_SUB1_INFO;
+        wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                   BMC_COMM_INTERVAL_US *
                   3);    /* the usec may be too long. */
-    } else {
-        ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                       BMC_CMD_PSU_GET, wr_buf, 2, 0xFF, rd_buf,
-                                       BMC_COMM_INTERVAL_US);
+
+        if ((ret == 27) && (rd_buf[0] == 26)) {
+            info[0].vin        = rd_buf[1] * 1000 + rd_buf[2] * 100;
+            info[0].vout       = rd_buf[3] * 1000 + rd_buf[4] * 100;
+            info[0].iin        = rd_buf[5] * 1000 + rd_buf[6] * 100;
+            info[0].iout       = rd_buf[7] * 1000 + rd_buf[8] * 100;
+            info[0].pwr_out    = (rd_buf[9] << 8 | rd_buf[10]) * 1000;
+            info[0].pwr_in     = (rd_buf[11] << 8 | rd_buf[12])* 1000;
+            /* Default to AC as we do not have a way to detect at this moment.
+            * by tsihang, 2022-07-08. */
+            info[0].fvalid |= PSU_INFO_AC;
+
+            info[1].vin        = rd_buf[14] * 1000 + rd_buf[15] * 100;
+            info[1].vout       = rd_buf[16] * 1000 + rd_buf[17] * 100;
+            info[1].iin        = rd_buf[18] * 1000 + rd_buf[19] * 100;
+            info[1].iout       = rd_buf[20] * 1000 + rd_buf[21] * 100;
+            info[1].pwr_out    = (rd_buf[22] << 8 | rd_buf[23]) * 1000;
+            info[1].pwr_in     = (rd_buf[24] << 8 | rd_buf[25]) * 1000;
+            /* Default to AC as we do not have a way to detect at this moment.
+            * by tsihang, 2022-07-08. */
+            info[1].fvalid |= PSU_INFO_AC;
+        }
+
+        wr_buf[0] = BMC_SUB1_MODEL;
+        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret != 1)) {
+                memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
+                memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
+            }
+        }
+
+        wr_buf[0] = BMC_SUB1_SN;
+        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret != 1)) {
+                memset (info[i - 1].serial, 0x00, sizeof(info[i - 1].serial));
+                memcpy (info[i - 1].serial, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_SERIAL;
+            }
+        }
+
+        wr_buf[0] = BMC_SUB1_TEMP;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_uart_write_read (
+                BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US *
+                3);    /* the usec may be too long. */
+
+        if ((ret == 3) && (rd_buf[0] == 2)) {
+            info[0].temp  = rd_buf[1];
+            if (info[0].temp != 0) {
+                info[0].fvalid |= PSU_INFO_VALID_TEMP;
+            }
+
+            info[1].temp  = rd_buf[2];
+            if (info[1].temp != 0) {
+                info[1].fvalid |= PSU_INFO_VALID_TEMP;
+            }
+        }
+
+        wr_buf[0] = BMC_SUB1_FAN;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_uart_write_read (
+                BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US *
+                3);    /* the usec may be too long. */
+
+        if ((ret == 5) && (rd_buf[0] == 4)) {
+            info[0].fspeed  = (rd_buf[1] << 8) + rd_buf[2];
+            if (info[0].fspeed != 0) {
+                info[0].fvalid |= PSU_INFO_VALID_FAN_ROTA;
+            }
+
+            info[1].fspeed  = (rd_buf[3] << 8) + rd_buf[4];
+            if (info[1].fspeed != 0) {
+                info[1].fvalid |= PSU_INFO_VALID_FAN_ROTA;
+            }
+        }
     }
 
-    if ((ret == 27) && (rd_buf[0] == 26)) {
-        info[0].vin        = rd_buf[1] * 1000 + rd_buf[2] * 100;
-        info[0].vout       = rd_buf[3] * 1000 + rd_buf[4] * 100;
-        info[0].iin        = rd_buf[5] * 1000 + rd_buf[6] * 100;
-        info[0].iout       = rd_buf[7] * 1000 + rd_buf[8] * 100;
-        info[0].pwr_out    = (rd_buf[9] << 8 | rd_buf[10]) * 1000;
-        info[0].pwr_in     = (rd_buf[11] << 8 | rd_buf[12])* 1000;
-        /* Default to AC as we do not have a way to detect at this moment.
-         * by tsihang, 2022-07-08. */
-        info[0].fvalid |= PSU_INFO_AC;
-
-        info[1].vin        = rd_buf[14] * 1000 + rd_buf[15] * 100;
-        info[1].vout       = rd_buf[16] * 1000 + rd_buf[17] * 100;
-        info[1].iin        = rd_buf[18] * 1000 + rd_buf[19] * 100;
-        info[1].iout       = rd_buf[20] * 1000 + rd_buf[21] * 100;
-        info[1].pwr_out    = (rd_buf[22] << 8 | rd_buf[23]) * 1000;
-        info[1].pwr_in     = (rd_buf[24] << 8 | rd_buf[25]) * 1000;
-        /* Default to AC as we do not have a way to detect at this moment.
-         * by tsihang, 2022-07-08. */
-        info[1].fvalid |= PSU_INFO_AC;
-
-        err = BF_PLTFM_SUCCESS;
-    }
-
-    return err;
+    return BF_PLTFM_SUCCESS;
 }
 
 static bf_pltfm_status_t
@@ -1000,6 +1068,11 @@ bf_pltfm_chss_mgmt_pwr_init()
                      "  Pin            %6.1f W\n", info->pwr_in / 1000.0);
             fprintf (stdout,
                      "  Pout           %6.1f W\n", info->pwr_out / 1000.0);
+            if (info->fvalid & PSU_INFO_VALID_TEMP) {
+                fprintf (stdout,
+                         "  Temp            %5d C\n",
+                         info->temp);
+            }
             if (info->fvalid & PSU_INFO_VALID_SERIAL) {
                 fprintf (stdout,
                          "  SN              %s\n",
@@ -1012,12 +1085,12 @@ bf_pltfm_chss_mgmt_pwr_init()
             }
             if (info->fvalid & PSU_INFO_VALID_REV) {
                 fprintf (stdout,
-                         "  Rev            %s\n",
+                         "  Rev             %s\n",
                          info->rev);
             }
             if (info->fvalid & PSU_INFO_VALID_FAN_ROTA) {
                 fprintf (stdout,
-                         "  Rota           %d\n",
+                         "  FAN Rota        %5d rpm\n",
                          info->fspeed);
             }
         }
@@ -1051,9 +1124,14 @@ bf_pltfm_chss_mgmt_pwr_init()
                      "  Pin            %6.1f W\n", info->pwr_in / 1000.0);
             fprintf (stdout,
                      "  Pout           %6.1f W\n", info->pwr_out / 1000.0);
+            if (info->fvalid & PSU_INFO_VALID_TEMP) {
+                fprintf (stdout,
+                         "  Temp            %5d C\n",
+                         info->temp);
+            }
             if (info->fvalid & PSU_INFO_VALID_SERIAL) {
                 fprintf (stdout,
-                         "  SN              %s\n",
+                         "  Serial          %s\n",
                          info->serial);
             }
             if (info->fvalid & PSU_INFO_VALID_MODEL) {
@@ -1063,12 +1141,12 @@ bf_pltfm_chss_mgmt_pwr_init()
             }
             if (info->fvalid & PSU_INFO_VALID_REV) {
                 fprintf (stdout,
-                         "  Rev            %s\n",
+                         "  Rev             %s\n",
                          info->rev);
             }
             if (info->fvalid & PSU_INFO_VALID_FAN_ROTA) {
                 fprintf (stdout,
-                         "  Rota           %d\n",
+                         "  FAN Rota        %5d rpm\n",
                          info->fspeed);
             }
         }
