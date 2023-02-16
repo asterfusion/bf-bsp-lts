@@ -1,8 +1,8 @@
 ## About this repository
 
-Mainline  **all-in-one** repository for all TF1 based **X-T Switch** powered by Asterfusion with Long Term Support.
+Mainline  **ALL-in-ONE** repository for all TF1 based **X-T Bare Metal Switch** powered by Asterfusion with Long Term Support.
 
-Current supported **X-T switches**:
+Current supported **X-T Bare Metal Switch**:
 
   - `X564P-T`,  64x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
   - `X532P-T`,  32x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
@@ -13,12 +13,6 @@ Sometimes, we call `X564P-T` and `X532P-T` as `X5-T`, and call `X312P-T` and `X3
 
 ## About the compatibilities to different P4Studio version
 
-A few APIs, which exposed from P4Studio and called by BSP, are changed between lower version (< 9.3) of P4Studio and higher version (>= 9.3) of P4Studio.
-
-For this repository, we are focused on the higher version of P4Studio, and so we set the default P4Studio version to `9.3.2`.
-
-If you want to compile with P4Studio lower than `9.3`, please let BSP know your working P4Studio version by editing macro `SDE_VERSION`, which you can find in `bf-bsp-8.9.x/drivers/include/bf_pltfm_types/bf_pltfm_types.h`.
-
 Current supported **SDE**:
 
   - `8.9.x`.
@@ -27,6 +21,20 @@ Current supported **SDE**:
   - `9.5.x`.
   - `9.7.x`.
   - `9.9.x`.
+  - `9.11.x`.
+
+The version number of a SDE consists of three Arabic numbers, `x.y.z`, where `x` is the major version, `y` is the minor version, and `z` is the sub-version under `y`.
+It's would be a LTS version when `y` is odd, otherwise it is a non-LTS version. It's worth mentioning that we build and run the code on the top of Debian and here only list the versions which we have adapted and tested, and this does not exclude or deny that the repository does not support other non-LTS SDE versions.
+
+In order to be compatible with different SDE versions and different base systems, we have introduced two macro variables in the BSP, one is `SDE_VERSION` and the other is `OS_VERSION`.
+They are defined in `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h`.
+
+You can choose the most suitable mainline branch according to the following principle:
+ - `master`.  Mainline branch for Debian `OS_VERSION ≤ 9`.
+ - `master+`· Mainline branch for Debian `OS_VERSSON ≥ 10`.
+
+Then modify `SDE_VERSION` to which you're using.
+
 
 ## Special dependency
 
@@ -37,7 +45,7 @@ Here are the special dependencies:
   - `nct6779d`, which needed by `X312P-T`.
   - `cgoslx`, which needed by `X5-T`.
 
-Please install the dependencies first from sources before compiling the **all-in-one** repository. You can find sources in [asternos.dev](https://asternos.dev/xt).
+Please install the dependencies first from sources before compiling the **ALL-in-ONE** repository. You can find sources in [asternos.dev](https://asternos.dev/xt).
 
 ## Quick Start
 
@@ -63,7 +71,7 @@ root@localhost:~/bf-bsp-8.9.x# ​./configure --prefix=$SDE_INSTALL [--enable-th
 root@localhost:~/bf-bsp-8.9.x# ​make -j7
 ​root@localhost:~/bf-bsp-8.9.x# make install
 ```
-After make & make install done, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` and `libtcl_server*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
+After make & make install done, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
 
 Runtime environment setup:
 ```
@@ -90,6 +98,7 @@ bf_switchd: processing device configuration...
 Configuration for dev_id 0
 ...
 ```
+
 
 ## Q&A
 
