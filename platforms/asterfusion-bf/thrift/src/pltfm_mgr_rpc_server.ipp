@@ -315,7 +315,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
 
   void pltfm_mgr_sfp_info_get(std::string &_return, const int port_num) {
     bf_pltfm_status_t sts = BF_SUCCESS;
-    uint8_t buf[384] = {0};
+    uint8_t buf[512] = {0};
     uint32_t i;
     char str[1024] = {0};
 
@@ -328,7 +328,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     }
 
     /* a2h. */
-    sts = bf_sfp_get_cached_info (port_num, 1, (buf + 128));
+    sts = bf_sfp_get_cached_info (port_num, 1, (buf + 256));
     if (sts != BF_SUCCESS) {
       InvalidPltfmMgrOperation iop;
       iop.code = sts;
@@ -347,7 +347,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
       sprintf(&(str[i * 2]), "%02x", buf[i]);
     }
     for (i = 384; i < 512; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i - 128]);
+      sprintf(&(str[i * 2]), "%02x", buf[i]);
     }
 
     _return.assign((const char *)(str), sizeof(str));
