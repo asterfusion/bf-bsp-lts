@@ -363,7 +363,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
     int module;
     int max_sfp_modules;
     int max_qsfp_modules;
-    uint8_t buf[MAX_QSFP_PAGE_SIZE * 2] = {0};
+    uint8_t buf[MAX_QSFP_PAGE_SIZE * 4] = {0};
 
     struct qsfp_ctx_t *qsfp, *qsfp_ctx;
     bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
@@ -454,16 +454,18 @@ static void bf_pltfm_onlp_mntr_transceiver()
         } else {
             *p_pres_mask |= bit_mask;
         }
+
+        memset (buf, 0x00, sizeof(buf));
         if (bf_sfp_get_cached_info (i, 0,
                                     buf) ) {
             continue;
         }
         if (bf_sfp_get_cached_info (i, 1,
-                                    buf + MAX_QSFP_PAGE_SIZE) ) {
+                                    buf + 2 * MAX_QSFP_PAGE_SIZE) ) {
             continue;
         }
         onlp_save (path, (char *)buf,
-                   MAX_QSFP_PAGE_SIZE * 2);
+                   MAX_QSFP_PAGE_SIZE * 4);
     }
     sprintf (path, ONLP_LOG_SFP_PRES_PATH,
              "presence");
