@@ -24,7 +24,7 @@
 #define URL_SIZE 100
 #define EEPROM_RAW_DATA_SIZE 4096
 
-char eeprom_raw_data[EEPROM_RAW_DATA_SIZE];
+extern char eeprom_raw_data[];
 
 extern bf_pltfm_eeprom_t eeprom;
 

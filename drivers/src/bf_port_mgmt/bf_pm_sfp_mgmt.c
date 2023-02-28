@@ -662,7 +662,7 @@ static int sfp_fsm_identify_type (int module,
                                   bool *is_optical)
 {
     /* TBD. */
-    bf_pltfm_qsfp_type_t sfp_type = SFP_TYP_UNKNOWN;
+    sfp_typ_t sfp_type = SFP_TYP_UNKNOWN;
 
     /* Force to OPTICAL and return. Should identify from real. */
     sfp_state[module].sfp_type = SFP_TYP_OPTICAL;
@@ -680,7 +680,7 @@ static int sfp_fsm_identify_type (int module,
         return 0;
     }
 
-    if (sfp_type == BF_PLTFM_QSFP_OPT) {
+    if (sfp_type == SFP_TYP_OPTICAL) {
         sfp_state[module].sfp_type = SFP_TYP_OPTICAL;
         *is_optical = true;
     } else {

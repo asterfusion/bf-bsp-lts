@@ -33,6 +33,7 @@
 
 #define lqe_valen       256
 #define EEPROM_SIZE     256
+char eeprom_raw_data[EEPROM_RAW_DATA_SIZE];
 
 bf_pltfm_eeprom_t eeprom;
 
