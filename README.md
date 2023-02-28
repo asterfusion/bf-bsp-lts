@@ -55,22 +55,44 @@ Here're the steps to build and install the <bf-platforms> package:
 
 Barefoot SDK environment setup:
 ```
+# Give x and y an appropriate value to your SDE.
 root@localhost:~# vi ~/.bashrc
-export SDE=/usr/local/sde/bf-sde-9.3.2
-export SDE_INSTALL=/usr/local/sde
+export SDE=/root/bf-sde-9.x.y
+export SDE_INSTALL=$SDE/install
 export PATH=$PATH:$SDE_INSTALL/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SDE_INSTALL/lib
 root@localhost:# source ~/.bashrc
 ```
-Clone and compile `bf-bsp-8.9.x`:
+Clone `bf-bsp-8.9.x`:
 ```
 root@localhost:~# git clone https://asternos.dev/xt/bf-bsp-8.9.x.git
 root@localhost:~# cd bf-bsp-8.9.x
+```
+
+During the evolution of SDE, the installation paths of the third party dependencies have changed and the names of the generated dependencies have changed as well, so minor changes in bsp sources must be done to accommodate those path issue. For SDE version equal with `9.9.x` or higher than `9.9.x`, you should do some changes as following:
+```
+root@localhost:~# mkdir /usr/local/include
+root@localhost:~# ln -s $SDE_INSTALL/include/thrift/ /usr/local/include/thrift
+ 
+root@localhost:~# ln -s $SDE_INSTALL/lib/libtarget_sys.so $SDE_INSTALL/lib/libbfsys.so
+```
+
+Do minor changes to accommodate higher SDE in bsp sources.
+```
+root@localhost:~/bf-bsp-8.9.x# vi drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
+Modify SDE_VERSION  to value '990'/'9110'/'9120', it's would be fine to be equal with or larger than 990.
+root@localhost:~/bf-bsp-8.9.x# vi ./configure.ac
+Comment line 143 as since thrift is 0.14.1 there's no _init funciton.
+```
+
+Compile and install BSP to `$SDE_INSTALL/`.
+```
 root@localhost:~/bf-bsp-8.9.x# ./autogen.sh
 root@localhost:~/bf-bsp-8.9.x# ​./configure --prefix=$SDE_INSTALL [--enable-thrift]
 root@localhost:~/bf-bsp-8.9.x# ​make -j7
 ​root@localhost:~/bf-bsp-8.9.x# make install
 ```
+
 After make & make install done, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
 
 Runtime environment setup:

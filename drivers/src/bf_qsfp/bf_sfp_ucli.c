@@ -413,7 +413,7 @@ bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
     aim_printf (&uc->pvs, "\nA2h:\n");
     hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
 
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 
 static ucli_status_t
@@ -592,7 +592,7 @@ bf_pltfm_ucli_ucli__sfp_show_module (
     aim_printf (&uc->pvs, "\nA2h:\n");
     hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
 
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 
 static ucli_status_t
@@ -617,7 +617,7 @@ bf_pltfm_ucli_ucli__sfp_db (ucli_context_t
             sff_info_show (sff, uc);
         }
     }
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 
 static ucli_status_t
@@ -647,7 +647,7 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
         }
     }
 
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 
 #if 0
@@ -700,7 +700,7 @@ bf_pltfm_ucli_ucli__check_reg (ucli_context_t
     hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
     check_check_code (uc, a2h, 0, 94);
     // return
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 #endif
 

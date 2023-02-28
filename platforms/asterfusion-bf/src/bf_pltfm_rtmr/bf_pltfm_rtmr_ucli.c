@@ -56,7 +56,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_reg_set__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -218,7 +218,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_reg_show__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -457,7 +457,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_fware_dl__ (
     FILE *fp;
     uint8_t buffer[BF_RTMR_MAX_FW];
     uint32_t buf_size;
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
 
     bf_pltfm_port_info_t port_info;
     uint8_t port_num;
@@ -472,7 +472,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_fware_dl__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -532,7 +532,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_fware_dl_all__ (
 
     bf_pltfm_rtmr_fw_info_t fw_info;
     bf_pltfm_port_info_t port_info;
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     FILE *fp;
     uint8_t buffer[BF_RTMR_MAX_FW];
     uint32_t buf_size;
@@ -588,7 +588,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_fware_dl_all__ (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_FW_DL, (void *)&fw_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to download firmware for port: %d\n",
                        port_num);
             continue;
@@ -598,14 +598,14 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_fware_dl_all__ (
     /* Restart qsfp polling */
     bf_pltfm_pm_qsfp_scan_poll_start();
 
-    return BF_PLTFM_SUCCESS;
+    return UCLI_STATUS_OK;
 }
 
 static ucli_status_t
 bf_pltfm_rtmr_do_chk_fware_dl (ucli_context_t *uc,
                                uint8_t port_num)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t data_hi;
@@ -618,7 +618,7 @@ bf_pltfm_rtmr_do_chk_fware_dl (ucli_context_t *uc,
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Write Firmware Checksum read back code to 0x9818 */
@@ -628,7 +628,7 @@ bf_pltfm_rtmr_do_chk_fware_dl (ucli_context_t *uc,
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -640,7 +640,7 @@ bf_pltfm_rtmr_do_chk_fware_dl (ucli_context_t *uc,
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -653,7 +653,7 @@ bf_pltfm_rtmr_do_chk_fware_dl (ucli_context_t *uc,
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -663,7 +663,7 @@ bf_pltfm_rtmr_do_chk_fware_dl (ucli_context_t *uc,
     aim_printf (&uc->pvs, "Hash code: 0x%02x%04x\n",
                 (data_hi & 0xff), data_lo);
 
-    return BF_PLTFM_SUCCESS;
+    return UCLI_STATUS_OK;
 }
 
 static ucli_status_t
@@ -688,7 +688,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chk_fware_dl_all__ (
     UCLI_COMMAND_INFO (uc, "rtmr_chk_fware_dl_all", 0,
                        " ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
 
     for (port_num = MIN_MVR_RTMR_PORTS;
@@ -697,14 +697,14 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chk_fware_dl_all__ (
         aim_printf (&uc->pvs, "Port: %d: ", port_num);
         res = bf_pltfm_rtmr_do_chk_fware_dl (uc,
                                              port_num);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             /* Log error and continue */
             LOG_ERROR ("Failed to check firmware checksum.\n");
             continue;
         }
     }
 
-    return BF_PLTFM_SUCCESS;
+    return UCLI_STATUS_OK;
 }
 
 static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
@@ -714,7 +714,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
 {
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint16_t side_offset;
     uint16_t rtmr_lane;
     uint8_t chan_num;
@@ -729,7 +729,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -744,7 +744,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -764,7 +764,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_READ, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to read current register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -779,7 +779,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_WRITE, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to write new register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -792,7 +792,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_READ, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to read current register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -809,7 +809,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_WRITE, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to write new register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -822,7 +822,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_READ, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to read current register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -837,7 +837,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_WRITE, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to write new register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -850,7 +850,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_READ, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to read current register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -865,7 +865,7 @@ static ucli_status_t bf_pltfm_rtmr_set_clr_lb (
         res = bf_pltfm_rtmr_operation (&port_info,
                                        RTMR_WRITE, (void *)&reg_info);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to write new register value.\n");
             return UCLI_STATUS_E_ERROR;
         }
@@ -892,7 +892,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_host_lb__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_set_clr_lb (port_num,
@@ -906,7 +906,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_host_lb_all__ (
     UCLI_COMMAND_INFO (uc, "rtmr_host_lb_all", 1,
                        " <set_lb (0=clear 1=set)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t set_lb;
 
@@ -940,7 +940,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_line_lb__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_set_clr_lb (port_num,
@@ -954,7 +954,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_line_lb_all__ (
     UCLI_COMMAND_INFO (uc, "rtmr_line_lb_all", 1,
                        " <set_lb (0=clear 1=set)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t set_lb;
 
@@ -995,7 +995,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_dfe_show__ (
                        3,
                        " <port_id> <chan_num> <direction (0=ingress 1=egress)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint8_t port_num;
@@ -1019,18 +1019,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_dfe_show__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     side_offset = direction ? 0 : MAX_RTMR_CHAN;
@@ -1045,7 +1045,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_dfe_show__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1060,7 +1060,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_dfe_show__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1076,7 +1076,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_dfe_show__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1091,7 +1091,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_dfe_show__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1131,7 +1131,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_eye_margin_show__ (
                        3,
                        " <port_id> <chan_num> <direction (0=ingress 1=egress)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint8_t port_num;
@@ -1153,18 +1153,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_eye_margin_show__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     side_offset = direction ? 0 : MAX_RTMR_CHAN;
@@ -1179,7 +1179,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_eye_margin_show__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1195,7 +1195,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_eye_margin_show__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1217,7 +1217,7 @@ static ucli_status_t do_rtmr_eye_margin (
     uint8_t direction,
     int16_t *eye)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t rtmr_lane;
@@ -1232,18 +1232,18 @@ static ucli_status_t do_rtmr_eye_margin (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     side_offset = direction ? 0 : MAX_RTMR_CHAN;
@@ -1258,7 +1258,7 @@ static ucli_status_t do_rtmr_eye_margin (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1274,7 +1274,7 @@ static ucli_status_t do_rtmr_eye_margin (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1454,13 +1454,13 @@ bf_pltfm_rtmr_read_modify_write_reg (
     uint16_t value, uint16_t mask)
 {
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
 
     /* Read current value */
     res = bf_pltfm_rtmr_operation (port_info,
                                    RTMR_READ, (void *)reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1474,7 +1474,7 @@ bf_pltfm_rtmr_read_modify_write_reg (
     res = bf_pltfm_rtmr_operation (port_info,
                                    RTMR_WRITE, (void *)reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1488,7 +1488,7 @@ bf_pltfm_platform_ext_phy_prbs_set (
     bf_pltfm_port_info_t *port_info,
     uint8_t direction, uint16_t prbs_mode)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
     uint16_t rtmr_lane;
@@ -1500,7 +1500,7 @@ bf_pltfm_platform_ext_phy_prbs_set (
 
     /* Read current value */
     if (!port_info) {
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
     side_offset = direction ? 0 : MAX_RTMR_CHAN;
 
@@ -1513,7 +1513,7 @@ bf_pltfm_platform_ext_phy_prbs_set (
     res = bf_pltfm_rtmr_operation (port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return res;
     }
@@ -1528,12 +1528,12 @@ bf_pltfm_platform_ext_phy_prbs_set (
     res = bf_pltfm_rtmr_operation (port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return res;
     }
 
-    return BF_PLTFM_SUCCESS;
+    return UCLI_STATUS_OK;
 }
 
 static ucli_status_t
@@ -1561,23 +1561,23 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
     port_info.conn_id = port_num;
     port_info.chnl_id = channel_num;
@@ -1596,7 +1596,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_all_chan__
                        " <port_id> <direction (0=ingress 1=egress)> "
                        "<prbs_mode (0=prbs9 1=prbs15 2=prbs23 3=prbs31)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     uint8_t port_num;
     uint8_t channel_num;
@@ -1611,18 +1611,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -1631,7 +1631,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_all_chan__
         port_info.chnl_id = channel_num;
         res = bf_pltfm_platform_ext_phy_prbs_set (
                   &port_info, direction, prbs_mode);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to set prbs port: %d chan: %d dir: %d.\n",
                        port_num,
                        channel_num,
@@ -1653,7 +1653,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_port__ (
         2,
         " <port_id> <prbs_mode (0=prbs9 1=prbs15 2=prbs23 3=prbs31)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     uint8_t port_num;
     uint8_t channel_num;
@@ -1667,12 +1667,12 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_port__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -1684,7 +1684,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_port__ (
             res =
                 bf_pltfm_platform_ext_phy_prbs_set (&port_info,
                                                     direction, prbs_mode);
-            if (res != BF_PLTFM_SUCCESS) {
+            if (res != UCLI_STATUS_OK) {
                 LOG_ERROR ("Failed to set prbs port: %d chan: %d dir: %d.\n",
                            port_num,
                            channel_num,
@@ -1706,7 +1706,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_all__ (
                        1,
                        " <prbs_mode (0=prbs9 1=prbs15 2=prbs23 3=prbs31)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     uint8_t port_num;
     uint8_t channel_num;
@@ -1718,7 +1718,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_all__ (
     /* Check values passed in */
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (port_num = MIN_MVR_RTMR_PORTS;
@@ -1732,7 +1732,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_set_all__ (
                  direction++) {
                 res = bf_pltfm_platform_ext_phy_prbs_set (
                           &port_info, direction, prbs_mode);
-                if (res != BF_PLTFM_SUCCESS) {
+                if (res != UCLI_STATUS_OK) {
                     LOG_ERROR ("Failed to set prbs port: %d chan: %d dir: %d.\n",
                                port_num,
                                channel_num,
@@ -1751,7 +1751,7 @@ static ucli_status_t bf_pltfm_rtmr_prbs_clr (
     uint8_t channel_num,
     uint8_t direction)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -1772,7 +1772,7 @@ static ucli_status_t bf_pltfm_rtmr_prbs_clr (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1785,7 +1785,7 @@ static ucli_status_t bf_pltfm_rtmr_prbs_clr (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -1814,18 +1814,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_prbs_clr (port_num,
@@ -1842,7 +1842,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_all_chan__
                        2,
                        " <port_id> <direction (0=ingress 1=egress)> ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -1854,20 +1854,20 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
          channel_num++) {
         res = bf_pltfm_rtmr_prbs_clr (port_num,
                                       channel_num, direction);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to clr prbs port: %d chan: %d dir: %d.\n",
                        port_num,
                        channel_num,
@@ -1886,7 +1886,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_port__ (
     UCLI_COMMAND_INFO (uc, "rtmr_prbs_clr_port", 1,
                        " <port_id>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -1897,7 +1897,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_port__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
@@ -1906,7 +1906,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_port__ (
              direction++) {
             res = bf_pltfm_rtmr_prbs_clr (port_num,
                                           channel_num, direction);
-            if (res != BF_PLTFM_SUCCESS) {
+            if (res != UCLI_STATUS_OK) {
                 LOG_ERROR ("Failed to clr prbs port: %d chan: %d dir: %d.\n",
                            port_num,
                            channel_num,
@@ -1926,7 +1926,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_all__ (
     UCLI_COMMAND_INFO (uc, "rtmr_prbs_clr_all", 0,
                        " ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -1940,7 +1940,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_prbs_clr_all__ (
                  direction++) {
                 res = bf_pltfm_rtmr_prbs_clr (port_num,
                                               channel_num, direction);
-                if (res != BF_PLTFM_SUCCESS) {
+                if (res != UCLI_STATUS_OK) {
                     LOG_ERROR ("Failed to clr prbs port: %d chan: %d dir: %d.\n",
                                port_num,
                                channel_num,
@@ -1960,7 +1960,7 @@ static ucli_status_t bf_pltfm_rtmr_chkr_set (
     uint8_t direction,
     uint16_t prbs_mode)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -1986,7 +1986,7 @@ static ucli_status_t bf_pltfm_rtmr_chkr_set (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2001,7 +2001,7 @@ static ucli_status_t bf_pltfm_rtmr_chkr_set (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2033,23 +2033,23 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_chkr_set (port_num,
@@ -2067,7 +2067,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_all_chan__
                        " <port_id> <direction (0=ingress 1=egress)> "
                        "<prbs_mode (0=prbs9 1=prbs15 2=prbs23 3=prbs31)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2081,25 +2081,25 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
          channel_num++) {
         res = bf_pltfm_rtmr_chkr_set (port_num,
                                       channel_num, direction, prbs_mode);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to clr chkr: port: %d chan: %d dir: %d.\n",
                        port_num,
                        channel_num,
@@ -2121,7 +2121,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_port__ (
         2,
         " <port_id> <prbs_mode (0=prbs9 1=prbs15 2=prbs23 3=prbs31)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2134,12 +2134,12 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_port__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
@@ -2148,7 +2148,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_port__ (
              direction++) {
             res = bf_pltfm_rtmr_chkr_set (port_num,
                                           channel_num, direction, prbs_mode);
-            if (res != BF_PLTFM_SUCCESS) {
+            if (res != UCLI_STATUS_OK) {
                 LOG_ERROR ("Failed to set chkr: port: %d chan: %d dir: %d.\n",
                            port_num,
                            channel_num,
@@ -2170,7 +2170,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_all__ (
                        1,
                        " <prbs_mode (0=prbs9 1=prbs15 2=prbs23 3=prbs31)>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2181,7 +2181,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_all__ (
     /* Check values passed in */
     if (prbs_mode > MAX_PRBS_MODE) {
         LOG_ERROR ("Unsupported PRBS mode. <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (port_num = MIN_MVR_RTMR_PORTS;
@@ -2194,7 +2194,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_set_all__ (
                 res =
                     bf_pltfm_rtmr_chkr_set (port_num, channel_num,
                                             direction, prbs_mode);
-                if (res != BF_PLTFM_SUCCESS) {
+                if (res != UCLI_STATUS_OK) {
                     LOG_ERROR ("Failed to set chkr: port: %d chan: %d dir: %d.\n",
                                port_num,
                                channel_num,
@@ -2213,7 +2213,7 @@ static ucli_status_t bf_pltfm_rtmr_chkr_clr (
     uint8_t channel_num,
     uint8_t direction)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -2234,7 +2234,7 @@ static ucli_status_t bf_pltfm_rtmr_chkr_clr (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2247,7 +2247,7 @@ static ucli_status_t bf_pltfm_rtmr_chkr_clr (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2276,18 +2276,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_chkr_clr (port_num,
@@ -2304,7 +2304,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_all_chan__
                        2,
                        " <port_id> <direction (0=ingress 1=egress)> ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2316,20 +2316,20 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
          channel_num++) {
         res = bf_pltfm_rtmr_chkr_clr (port_num,
                                       channel_num, direction);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to clr chkr: port: %d chan: %d dir: %d.\n",
                        port_num,
                        channel_num,
@@ -2348,7 +2348,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_port__ (
     UCLI_COMMAND_INFO (uc, "rtmr_chkr_clr_port", 1,
                        " <port_id>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2359,7 +2359,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_port__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
@@ -2368,7 +2368,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_port__ (
              direction++) {
             res = bf_pltfm_rtmr_chkr_clr (port_num,
                                           channel_num, direction);
-            if (res != BF_PLTFM_SUCCESS) {
+            if (res != UCLI_STATUS_OK) {
                 LOG_ERROR ("Failed to clr chkr: port: %d chan: %d dir: %d.\n",
                            port_num,
                            channel_num,
@@ -2388,7 +2388,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_all__ (
     UCLI_COMMAND_INFO (uc, "rtmr_chkr_clr_all", 0,
                        " ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2402,7 +2402,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_clr_all__ (
                  direction++) {
                 res = bf_pltfm_rtmr_chkr_clr (port_num,
                                               channel_num, direction);
-                if (res != BF_PLTFM_SUCCESS) {
+                if (res != UCLI_STATUS_OK) {
                     LOG_ERROR ("Failed to clr chkr: port: %d chan: %d dir: %d.\n",
                                port_num,
                                channel_num,
@@ -2423,7 +2423,7 @@ bf_pltfm_rtmr_chkr_err_cnt_show (ucli_context_t
                                  uint8_t channel_num,
                                  uint8_t direction)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -2447,7 +2447,7 @@ bf_pltfm_rtmr_chkr_err_cnt_show (ucli_context_t
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2461,7 +2461,7 @@ bf_pltfm_rtmr_chkr_err_cnt_show (ucli_context_t
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2510,18 +2510,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_chkr_err_cnt_show (uc,
@@ -2538,7 +2538,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_all_chan__
                        2,
                        " <port_id> <direction (0=ingress 1=egress)> ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2550,20 +2550,20 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
          channel_num++) {
         res = bf_pltfm_rtmr_chkr_err_cnt_show (uc,
                                                port_num, channel_num, direction);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to get error count: port: %d chan: %d dir: %d.\n",
                        port_num,
                        channel_num,
@@ -2583,7 +2583,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_port__
     UCLI_COMMAND_INFO (uc,
                        "rtmr_chkr_err_cnt_show_port", 1, " <port_id>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2594,7 +2594,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_port__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
@@ -2604,7 +2604,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_port__
             res =
                 bf_pltfm_rtmr_chkr_err_cnt_show (uc, port_num,
                                                  channel_num, direction);
-            if (res != BF_PLTFM_SUCCESS) {
+            if (res != UCLI_STATUS_OK) {
                 LOG_ERROR ("Failed to get error count: port: %d chan: %d dir: %d.\n",
                            port_num,
                            channel_num,
@@ -2625,7 +2625,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_all__
     UCLI_COMMAND_INFO (uc,
                        "rtmr_chkr_err_cnt_show_all", 0, " ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2639,7 +2639,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_show_all__
                  direction++) {
                 res = bf_pltfm_rtmr_chkr_err_cnt_show (
                           uc, port_num, channel_num, direction);
-                if (res != BF_PLTFM_SUCCESS) {
+                if (res != UCLI_STATUS_OK) {
                     LOG_ERROR ("Failed to get error count: port: %d chan: %d dir: %d.\n",
                                port_num,
                                channel_num,
@@ -2659,7 +2659,7 @@ bf_pltfm_rtmr_chkr_err_cnt_clear (uint8_t
                                   uint8_t channel_num,
                                   uint8_t direction)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -2684,7 +2684,7 @@ bf_pltfm_rtmr_chkr_err_cnt_clear (uint8_t
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2698,7 +2698,7 @@ bf_pltfm_rtmr_chkr_err_cnt_clear (uint8_t
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2709,7 +2709,7 @@ bf_pltfm_rtmr_chkr_err_cnt_clear (uint8_t
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2739,18 +2739,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_chkr_err_cnt_clear (port_num,
@@ -2767,7 +2767,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_all_chan__
                        2,
                        " <port_id> <direction (0=ingress 1=egress)> ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2779,20 +2779,20 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
          channel_num++) {
         res = bf_pltfm_rtmr_chkr_err_cnt_clear (port_num,
                                                 channel_num, direction);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Failed to clear error count: port: %d chan: %d dir: %d.\n",
                        port_num,
                        channel_num,
@@ -2812,7 +2812,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_port__
     UCLI_COMMAND_INFO (uc,
                        "rtmr_chkr_err_cnt_clear_port", 1, " <port_id>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2823,7 +2823,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_port__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (channel_num = 0; channel_num < MAX_RTMR_CHAN;
@@ -2832,7 +2832,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_port__
              direction++) {
             res = bf_pltfm_rtmr_chkr_err_cnt_clear (port_num,
                                                     channel_num, direction);
-            if (res != BF_PLTFM_SUCCESS) {
+            if (res != UCLI_STATUS_OK) {
                 LOG_ERROR ("Failed to clear error count: port: %d chan: %d dir: %d.\n",
                            port_num,
                            channel_num,
@@ -2853,7 +2853,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_all__
     UCLI_COMMAND_INFO (uc,
                        "rtmr_chkr_err_cnt_clear_all", 0, " ");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t channel_num;
     uint8_t direction;
@@ -2868,7 +2868,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_chkr_err_cnt_clear_all__
                 res =
                     bf_pltfm_rtmr_chkr_err_cnt_clear (port_num,
                                                       channel_num, direction);
-                if (res != BF_PLTFM_SUCCESS) {
+                if (res != UCLI_STATUS_OK) {
                     LOG_ERROR ("Failed to clear error count: port: %d chan: %d dir: %d.\n",
                                port_num,
                                channel_num,
@@ -2886,7 +2886,7 @@ static ucli_status_t bf_pltfm_rtmr_set_tx_coeff (
     ucli_context_t *uc,
     uint16_t reg_addr)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     uint8_t port_num;
     uint8_t channel_num;
@@ -2908,7 +2908,7 @@ static ucli_status_t bf_pltfm_rtmr_set_tx_coeff (
         /* Port number is not valid */
         LOG_ERROR ("Port number is out of range <32-64> : %d\n",
                    port_num);
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* check channel_num is valid */
@@ -2916,7 +2916,7 @@ static ucli_status_t bf_pltfm_rtmr_set_tx_coeff (
         /* Channel number is not valid */
         LOG_ERROR ("Channel number is out of range <0-3> : %d\n",
                    channel_num);
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Check whether A or B side */
@@ -2935,7 +2935,7 @@ static ucli_status_t bf_pltfm_rtmr_set_tx_coeff (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -2950,7 +2950,7 @@ static ucli_status_t bf_pltfm_rtmr_set_tx_coeff (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3032,7 +3032,7 @@ static ucli_status_t bf_pltfm_rtmr_get_tx_coeff (
     ucli_context_t *uc,
     uint16_t reg_addr)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     uint8_t port_num;
     uint8_t channel_num;
@@ -3051,7 +3051,7 @@ static ucli_status_t bf_pltfm_rtmr_get_tx_coeff (
         /* Port number is not valid */
         LOG_ERROR ("Port number is out of range <33-64> : %d\n",
                    port_num);
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* check channel_num is valid */
@@ -3059,7 +3059,7 @@ static ucli_status_t bf_pltfm_rtmr_get_tx_coeff (
         /* Channel number is not valid */
         LOG_ERROR ("Channel number is out of range <0-3> : %d\n",
                    channel_num);
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Check whether A or B side */
@@ -3078,7 +3078,7 @@ static ucli_status_t bf_pltfm_rtmr_get_tx_coeff (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3163,7 +3163,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_set (
     uint8_t direction,
     uint16_t ctle_val)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -3178,23 +3178,23 @@ static ucli_status_t bf_pltfm_rtmr_ctle_set (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (ctle_val > MAX_CTLE_VAL) {
         LOG_ERROR ("Unsupported ctle value. <0-7>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     side_offset = direction ? 0 : MAX_RTMR_CHAN;
@@ -3209,7 +3209,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_set (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3225,7 +3225,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_set (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3241,7 +3241,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_set (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3255,7 +3255,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_set (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3321,7 +3321,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_show (
     uint8_t channel_num,
     uint8_t direction)
 {
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -3335,18 +3335,18 @@ static ucli_status_t bf_pltfm_rtmr_ctle_show (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     side_offset = direction ? 0 : MAX_RTMR_CHAN;
@@ -3361,7 +3361,7 @@ static ucli_status_t bf_pltfm_rtmr_ctle_show (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3439,12 +3439,12 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_swap__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (chan_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number is out of range. Retimer channel are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_set_pol (port_num, chan_num);
@@ -3458,7 +3458,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_swap_all_chan__
     UCLI_COMMAND_INFO (uc, "rtmr_set_swap_all_chan",
                        1, " <port_id>");
 
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     uint8_t port_num;
     uint8_t chan_num;
 
@@ -3468,14 +3468,14 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_swap_all_chan__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     for (chan_num = 0; chan_num < MAX_RTMR_CHAN;
          chan_num++) {
         res = bf_pltfm_rtmr_set_pol (port_num, chan_num);
 
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR ("Error setting polarity for port: %d channel %d.\n",
                        port_num,
                        chan_num);
@@ -3510,7 +3510,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_rx_swap__ (
     uint8_t channel_num;
     uint8_t direction;
     uint16_t swap;
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -3526,18 +3526,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_rx_swap__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Read current value */
@@ -3555,7 +3555,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_rx_swap__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3570,7 +3570,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_rx_swap__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3592,7 +3592,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_tx_swap__ (
     uint8_t channel_num;
     uint8_t direction;
     uint16_t swap;
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_rtmr_reg_info_t reg_info;
     uint16_t side_offset;
@@ -3608,18 +3608,18 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_tx_swap__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if (channel_num >= MAX_RTMR_CHAN) {
         LOG_ERROR ("Channel number out of range. Retimer channels are <0-3>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((direction != RTMR_DIR_INGRESS) &&
         (direction != RTMR_DIR_EGRESS)) {
         LOG_ERROR ("Invalid value for direction. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Read current value */
@@ -3637,7 +3637,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_tx_swap__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_READ, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to read current register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3652,7 +3652,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_tx_swap__ (
     res = bf_pltfm_rtmr_operation (&port_info,
                                    RTMR_WRITE, (void *)&reg_info);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to write new register value.\n");
         return UCLI_STATUS_E_ERROR;
     }
@@ -3674,7 +3674,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_port_mode__ (
     uint8_t port_num;
     uint8_t speed;
     uint16_t an_enable;
-    bf_pltfm_status_t res = BF_PLTFM_SUCCESS;
+    bf_pltfm_status_t res = UCLI_STATUS_OK;
     bf_pltfm_port_info_t port_info;
     bf_pltfm_ext_phy_cfg_t port_cfg;
 
@@ -3686,13 +3686,13 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_port_mode__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     if ((speed < BF_SPEED_10G) ||
         (speed > BF_SPEED_100G)) {
         LOG_ERROR ("Invalid value for port speed. \n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Read current value */
@@ -3705,7 +3705,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_set_port_mode__ (
     res = bf_pltfm_ext_phy_set_mode (&port_info,
                                      &port_cfg);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Failed to set mode for port: %d.\n",
                    port_num);
         return UCLI_STATUS_E_ERROR;
@@ -3732,7 +3732,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_reset__
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     return bf_pltfm_rtmr_reset (&port_info);
@@ -3765,7 +3765,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_recover__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     /* Stop qsfp polling to prevent i2c conflict */
@@ -3790,7 +3790,7 @@ static ucli_status_t bf_pltfm_rtmr_do_fw_write (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -3889,7 +3889,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_crc_show__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     port_info.conn_id = port_num;
@@ -3897,7 +3897,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_crc_show__ (
 
     res = bf_pltfm_rtmr_crc_rd (&port_info, &crc);
 
-    if (res != BF_PLTFM_SUCCESS) {
+    if (res != UCLI_STATUS_OK) {
         LOG_ERROR ("Error (%d) Failed to read crc from retimer port: %d.\n",
                    res,
                    port_num);
@@ -3928,7 +3928,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_crc_show_all__ (
         port_info.chnl_id = 0xff;
 
         res = bf_pltfm_rtmr_crc_rd (&port_info, &crc);
-        if (res != BF_PLTFM_SUCCESS) {
+        if (res != UCLI_STATUS_OK) {
             LOG_ERROR (
                 "Error (%d) Failed to read crc from port: %d.\n",
                 res, port_num);
@@ -4378,7 +4378,7 @@ bf_pltfm_rtmr_ucli_ucli__rtmr_serdes_dump__ (
     if ((port_num < MIN_MVR_RTMR_PORTS) ||
         (port_num > MAX_MVR_RTMR_PORTS)) {
         LOG_ERROR ("Port number is out of range. Retimer ports are <33-64>\n");
-        return BF_PLTFM_INVALID_ARG;
+        return UCLI_STATUS_E_PARAM;
     }
 
     aim_printf (&uc->pvs, "%s", rtmr_dump_brdr);

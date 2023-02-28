@@ -1736,7 +1736,7 @@ bf_pltfm_ucli_ucli__qsfp_db (ucli_context_t
             sff_info_show (sff, uc);
         }
     }
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 
 static ucli_status_t
@@ -1779,7 +1779,7 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
         }
     }
 
-    return BF_PLTFM_SUCCESS;
+    return 0;
 }
 
 /* <auto.ucli.handlers.start> */
