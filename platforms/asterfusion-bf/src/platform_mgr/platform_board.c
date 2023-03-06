@@ -97,6 +97,11 @@ pltfm_bd_map_t pltfm_board_maps[] = {
         ROWS (montara_P0B_bd_map_x312p)
     },
     {
+        BF_PLTFM_BD_ID_X312PT_V5DOT0,
+        montara_P0B_bd_map_x312p,
+        ROWS (montara_P0B_bd_map_x312p)
+    },
+    {
         /* HC36Y24C v1.0 has dropped support. */
         BF_PLTFM_BD_ID_HC36Y24C_V1DOT0,
         mavericks_P0B_bd_map_hc36y24c,
@@ -199,6 +204,10 @@ int platform_name_get_str (char *name,
         case BF_PLTFM_BD_ID_X312PT_V4DOT0:
             snprintf (name, name_size,
                       "BF_PLTFM_BD_ID_X312PT_V4DOT0");
+            break;
+        case BF_PLTFM_BD_ID_X312PT_V5DOT0:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X312PT_V5DOT0");
             break;
         default:
             snprintf (name, name_size, "Unknown");

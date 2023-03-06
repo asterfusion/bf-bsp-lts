@@ -56,6 +56,9 @@ class pltfm_pm_rpcHandler : virtual public pltfm_pm_rpcIf {
       case BF_PLTFM_BD_ID_X312PT_V4DOT0:
         bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V4DOT0;
         break;
+      case BF_PLTFM_BD_ID_X312PT_V5DOT0:
+        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V5DOT0;
+        break;
       case BF_PLTFM_BD_ID_X532PT_V1DOT0:
         bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V1DOT0;
         break;
