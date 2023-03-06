@@ -140,6 +140,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X312PT_V2DOT0,   "X312P-V2.x",     X312P, v2dot0},
     {BF_PLTFM_BD_ID_X312PT_V3DOT0,   "X312P-V3.x",     X312P, v3dot0},
     {BF_PLTFM_BD_ID_X312PT_V4DOT0,   "X312P-V4.x",     X312P, v4dot0},
+    {BF_PLTFM_BD_ID_X312PT_V5DOT0,   "X312P-V5.x",     X312P, v5dot0},
     /* As I know so far, product name is not a suitable way to distinguish platforms
      * from X-T to CX-T/PX-T, so how to distinguish X312P and HC ???
      * by tsihang, 2021-07-14. */
