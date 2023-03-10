@@ -1438,13 +1438,14 @@ bf_pltfm_ucli_ucli__qsfp_reset (ucli_context_t
     return 0;
 }
 
+#if 0
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_lpmode_hw (
     ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (
         uc, "qsfp-lpmode-hw", 2,
-        "qsfp-lpmode-hw <port> <1=reset, 0=unreset>");
+        "qsfp-lpmode-hw <port> <1: lpmode 0 : no lpmode>");
     int port;
     int port_begin, max_port;
     int lpmode_val;
@@ -1478,7 +1479,7 @@ bf_pltfm_ucli_ucli__qsfp_lpmode_sw (
                        "qsfp-lpmode-sw <port> <1: lpmode 0 : no lpmode>");
     int port;
     int port_begin, max_port;
-    bool lpmode;
+    int lpmode_val;
 
     port = atoi (uc->pargs->args[0]);
     if (port > 0) {
@@ -1488,15 +1489,15 @@ bf_pltfm_ucli_ucli__qsfp_lpmode_sw (
         port_begin = 1;
         max_port = bf_qsfp_get_max_qsfp_ports();
     }
-    lpmode = atoi (uc->pargs->args[1]);
+    lpmode_val = atoi (uc->pargs->args[1]);
 
     for (port = port_begin; port <= max_port;
          port++) {
-        qsfp_lpmode_sw_set (0, port, lpmode);
+        qsfp_lpmode_sw_set (0, port, lpmode_val);
     }
     return 0;
 }
-
+#endif
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_remove_all (
     ucli_context_t *uc)
@@ -1804,8 +1805,8 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_oper,
     bf_pltfm_ucli_ucli__qsfp_summary,
     bf_pltfm_ucli_ucli__qsfp_reset,
-    bf_pltfm_ucli_ucli__qsfp_lpmode_hw,
-    bf_pltfm_ucli_ucli__qsfp_lpmode_sw,
+    //bf_pltfm_ucli_ucli__qsfp_lpmode_hw,
+    //bf_pltfm_ucli_ucli__qsfp_lpmode_sw,
     bf_pltfm_ucli_ucli__qsfp_remove_all,
     bf_pltfm_ucli_ucli__qsfp_lpbk,
     bf_pltfm_ucli_ucli__qsfp_capture,

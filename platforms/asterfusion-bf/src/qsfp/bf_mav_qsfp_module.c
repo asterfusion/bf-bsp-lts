@@ -36,6 +36,11 @@ static bf_sys_mutex_t qsfp_page_mutex;
 static bf_pltfm_cp2112_device_ctx_t
 *qsfp_hndl[CP2112_ID_MAX] = {NULL, NULL};
 
+/* Added by tsihang to port lpmode routines. 2023-03-07. */
+uint32_t qsfp_lpmode_mask_l = 0,
+         qsfp_lpmode_mask_h = 0,
+         qsfp_lpmode_mask_c = 0;
+
 /** platform qsfp subsystem initialization
  *
  *  @param arg
@@ -514,30 +519,13 @@ int bf_pltfm_qsfp_get_lpmode_mask (
     uint32_t *port_32_64_lpm,
     uint32_t *port_cpu_lpm)
 {
-    int rc;
-    unsigned int sub_module;
-    bf_pltfm_cp2112_device_ctx_t *hndl;
-
-    /* get the cp2112 for lower numbered ports */
-    rc = mav_qsfp_param_get (1, &sub_module, &hndl);
-    if (rc) {
-        return -1;
-    }
-    bf_pltfm_get_sub_module_lpmode (hndl,
-                                    port_1_32_lpm);
-    bf_pltfm_get_cpu_module_lpmode (hndl,
-                                    port_cpu_lpm);
-
-    /* get the cp2112 for upper numbered ports */
-    rc = mav_qsfp_param_get (33, &sub_module, &hndl);
-    if (rc) {
-        *port_cpu_lpm = 0x0;
-        return -1;
-    }
-    rc = bf_pltfm_get_sub_module_lpmode (hndl,
-                                         port_32_64_lpm);
-    return rc;
+    *port_1_32_lpm  = qsfp_lpmode_mask_l;
+    *port_32_64_lpm = qsfp_lpmode_mask_h;
+    /* Always be non low power mode. */
+    *port_cpu_lpm   = qsfp_lpmode_mask_c;
+    return 0;
 }
+
 
 /** set qsfp lpmode
  *
@@ -552,17 +540,54 @@ int bf_pltfm_qsfp_set_lpmode (unsigned int module,
                               bool lpmode)
 {
     int rc;
-    unsigned int sub_module;
-    bf_pltfm_cp2112_device_ctx_t *hndl;
+    uint8_t val = 0;
+    uint8_t byte_93;
+    uint32_t lpmode_mask = 0;
 
-    /* get the cp2112 for lower numbered ports */
-    rc = mav_qsfp_param_get (module, &sub_module,
-                             &hndl);
+    rc = bf_pltfm_qsfp_read_module (module, 93, 1, &byte_93);
     if (rc) {
-        return -1;
+        LOG_ERROR (
+            "QSFP    %2d : Error <%d> reading Power ctrl (byte 93)",
+            module, rc);
+    } else {
+        val = POWER_OVERRIDE;
+        if (lpmode) {
+            val |= POWER_SET;  // this bit set to 1 forces LPMode
+        }
+        byte_93 = (byte_93 & ~3) | (val & 3);
+
+        rc = bf_pltfm_qsfp_write_module (module, 93, 1, &byte_93);
+        if (rc) {
+            LOG_ERROR ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
+                       module,
+                       rc,
+                       byte_93);
+        } else {
+            LOG_DEBUG ("QSFP    %2d : Power ctrl (byte 93) = %02x",
+                       module, byte_93);
+            if (module <= 32) {
+                lpmode_mask = qsfp_lpmode_mask_l;
+            } else {
+                lpmode_mask = qsfp_lpmode_mask_h;
+            }
+
+            if (lpmode) {
+                /* Set LPMode bit=1 to identify this module is in low power mode. */
+                lpmode_mask |= (1 << (module - 1));
+            } else {
+                /* Set LPMode bit=0 to identify this module is not in low power mode. */
+                lpmode_mask &= ~(1 << (module - 1));
+            }
+
+            if (module <= 32) {
+                qsfp_lpmode_mask_l = lpmode_mask;
+            } else {
+                qsfp_lpmode_mask_h = lpmode_mask;
+            }
+        }
     }
-    return (bf_pltfm_set_sub_module_lpmode (hndl,
-                                            sub_module, lpmode));
+
+    return rc;
 }
 
 /* set the i2c mux to enable the MISC channel of PCA9548. many miscellaneous

@@ -609,6 +609,7 @@ bin_SCRIPTS = \
 ../utils/tofino_i2c_wr_local.sh \
 ../utils/tofino_pci_bringup.sh \
 ../utils/tofino_spi_update.sh \
+../utils/quick-start.sh \
 ../utils/xt-cfgen.sh \
 ../utils/xt-diags.sh \
 ../utils/xt-clean.sh \

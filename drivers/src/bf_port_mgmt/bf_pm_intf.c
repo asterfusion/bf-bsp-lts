@@ -222,8 +222,9 @@ static void qsfp_detection_actions (
                 sts);
         }
     }
-     fprintf (stdout, "QSFP    %2d : inserted\n",
-                conn_id);
+
+    fprintf (stdout, "QSFP    %2d : inserted\n",
+            conn_id);
 }
 
 static void qsfp_removal_actions (bf_dev_id_t
@@ -282,8 +283,24 @@ static void qsfp_removal_actions (bf_dev_id_t
         }
     }
 
-     fprintf (stdout, "QSFP    %2d : removed\n",
+    fprintf (stdout, "QSFP    %2d : removed\n",
                 port_hdl.conn_id);
+
+    bf_pltfm_port_info_t port_info;
+    port_info.conn_id = port_hdl.conn_id;
+    port_info.chnl_id = 0; /* this is QSFP. */
+    sts = bf_port_led_set (dev_id, &port_info,
+                           BF_LED_POST_PORT_DEL);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_DEBUG (
+            "Unable to set led on port removal event for dev : %d : front port : "
+            "%d/%d : %s (%d)",
+            dev_id,
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
+    }
 
     (void)dev_id;
 }
@@ -716,6 +733,22 @@ static void sfp_removal_actions (bf_dev_id_t
                port_hdl.conn_id,
                port_hdl.chnl_id);
 
+    bf_pltfm_port_info_t port_info;
+    port_info.conn_id = port_hdl.conn_id;
+    port_info.chnl_id = port_hdl.chnl_id;
+    bf_port_led_set (dev_id, &port_info,
+                          BF_LED_POST_PORT_DEL);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_DEBUG (
+            "Unable to set led on port removal event for dev : %d : front port : "
+            "%d/%d : %s (%d)",
+            dev_id,
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
+    }
+
     (void)dev_id;
 }
 
@@ -794,7 +827,6 @@ static void sfp_detection_actions (
                module,
                port_hdl.conn_id,
                port_hdl.chnl_id);
-
 }
 
 void bf_pm_sfp_quick_removal_detected_set (

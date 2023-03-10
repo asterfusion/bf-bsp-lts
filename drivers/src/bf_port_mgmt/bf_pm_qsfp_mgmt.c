@@ -1556,7 +1556,7 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
 {
     uint8_t byte_3, byte_5;
     bf_status_t rc;
-    uint32_t lane_mask[] = {0, 1, 3, 0xF};
+    uint32_t lane_mask[] = {0, 1, 3, 0xF, 0xFF};
     int num_lanes = qsfp_num_lanes_get (conn_id, ch);
     uint32_t msk = lane_mask[num_lanes] << (ch + 4);
 
@@ -1649,7 +1649,7 @@ static void qsfp_fsm_ch_check_tx_optical_fault (
     uint8_t byte_4, byte, faults_and_alarms[16];
     bf_status_t rc;
     bool fault_or_alarm_set = false;
-    uint32_t lane_mask[] = {0, 1, 3, 0xF};
+    uint32_t lane_mask[] = {0, 1, 3, 0xF, 0xFF};
     int num_lanes = qsfp_num_lanes_get (conn_id, ch);
     uint32_t msk = lane_mask[num_lanes] << ch;
 
@@ -2297,9 +2297,11 @@ static int qsfp_num_lanes_get (int conn_id,
     if (bf_status == BF_SUCCESS) {
         return num_lanes;
     }
-    LOG_DEBUG ("QSFP    %2d : ch[%d] : Error: %d : attempting to get num_lanes",
+    LOG_DEBUG ("QSFP    %2d : ch[%d] : dp[%3d] : lanes[%d] : Result: %d : attempting to get num_lanes",
                conn_id,
                chnl_id,
+               dev_port,
+               num_lanes,
                bf_status);
     return 0;
 }
