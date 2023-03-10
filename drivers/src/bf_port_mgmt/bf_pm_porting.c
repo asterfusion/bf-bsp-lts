@@ -122,6 +122,7 @@ bf_status_t bf_pm_post_port_add_cfg_set (
     bf_pltfm_port_info_t port_info;
     bf_dev_id_t dev_id = 0;
     bf_dev_port_t dev_port;
+    bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
 
     // Safety Checks
     if (!port_hdl) {
@@ -148,6 +149,19 @@ bf_status_t bf_pm_post_port_add_cfg_set (
             (port_hdl)->conn_id, (port_hdl)->chnl_id, "Force bringup : AN may be required");
         bf_pal_pm_front_port_ready_for_bringup (dev_id,
                                                 port_hdl, true);
+    } else {
+        /* LED set to disabled state on port-add */
+        sts = bf_port_led_set(dev_id, &port_info, BF_LED_POST_PORT_DIS);
+        if (sts != BF_PLTFM_SUCCESS) {
+          LOG_ERROR(
+              "Unable to set led on port add for dev : %d : front port : %d/%d : "
+              "%s (%d)",
+              dev_id,
+              port_info.conn_id,
+              port_info.chnl_id,
+              bf_pltfm_err_str(sts),
+              sts);
+        }
     }
 
     (void)port_cfg;
@@ -220,6 +234,7 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     bf_dev_id_t dev_id = 0;
     bool is_present = false;
     bf_dev_port_t dev_port;
+    bf_led_condition_t led_cond = BF_LED_POST_PORT_DIS;
 
     // Safety Checks
     if (!port_hdl) {
@@ -235,20 +250,6 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
         // nothing todo
         return BF_SUCCESS;
     }
-
-    sts = bf_port_led_set (dev_id, &port_info,
-                           BF_LED_PRE_PORT_EN);
-    if (sts != BF_PLTFM_SUCCESS) {
-        LOG_ERROR (
-            "Unable to set led on port enable for dev : %d : front port : %d/%d : "
-            "%s (%d)",
-            dev_id,
-            port_info.conn_id,
-            port_info.chnl_id,
-            bf_pltfm_err_str (sts),
-            sts);
-    }
-
 
     pltfm_pm_port_qsfp_is_present (&port_info,
                                    &is_present);
@@ -315,6 +316,25 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
                    port_info.chnl_id,
                    dev_port,
                    is_optic ? "OPTICAL" : "COPPER");
+    }
+
+    /* TBD: Add force Tx conditions. */
+    if (is_present || dev_port_in_tx_mode[dev_port]) {
+        /* Set LED to enabled status for X564P-T/X532P-T when there's a transciever plugged-in.
+         * X312P-T/X308P-T could be keep disabled status as the led spec is different. */
+        led_cond = BF_LED_PRE_PORT_EN;
+    }
+    sts = bf_port_led_set (dev_id, &port_info,
+                           led_cond);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR (
+            "Unable to set led on port enable for dev : %d : front port : %d/%d : "
+            "%s (%d)",
+            dev_id,
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
     }
 
     (void)port_cfg;
@@ -483,7 +503,7 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
     bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_pltfm_port_info_t port_info;
     bf_dev_id_t dev_id = 0;
-    bool is_present = false;
+    bool is_present = false, port_enb = false;
 
     // Safety Checks
     if (!port_hdl) {
@@ -500,17 +520,21 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
         return BF_SUCCESS;
     }
 
-    sts = bf_port_led_set (dev_id, &port_info,
-                           BF_LED_POST_PORT_DIS);
-    if (sts != BF_PLTFM_SUCCESS) {
-        LOG_ERROR (
-            "Unable to set led on port disable for dev : %d : front port : %d/%d : "
-            "%s (%d)",
-            dev_id,
-            port_info.conn_id,
-            port_info.chnl_id,
-            bf_pltfm_err_str (sts),
-            sts);
+    sts = bf_pm_port_is_enabled(dev_id, port_hdl, &port_enb);
+    if (sts != BF_SUCCESS) return sts;
+    if (!port_enb) {
+        sts = bf_port_led_set (dev_id, &port_info,
+                               BF_LED_POST_PORT_DIS);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR (
+                "Unable to set led on port disable for dev : %d : front port : %d/%d : "
+                "%s (%d)",
+                dev_id,
+                port_info.conn_id,
+                port_info.chnl_id,
+                bf_pltfm_err_str (sts),
+                sts);
+        }
     }
 
     // Run Retimer deletion steps
@@ -649,6 +673,9 @@ bf_status_t bf_pm_port_link_down_actions (
         pltfm_pm_port_qsfp_is_present (&port_info,
                                        &is_present);
         if (!is_present) {
+            /* The removle actions is more delay than linkdown action.
+             * Light off in qsfp_removal_actions is much better.
+             * tsihang 2023-03-10. */
             led_cond = BF_LED_POST_PORT_DEL;
         }
     }
