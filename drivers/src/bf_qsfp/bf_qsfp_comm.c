@@ -1766,7 +1766,7 @@ bool bf_qsfp_is_optic (bf_pltfm_qsfp_type_t
         return false;
     }
 }
-#if 0
+
 /** return qsfp is optical/AOC
 *
 *  @param port
@@ -1776,12 +1776,37 @@ bool bf_qsfp_is_optic (bf_pltfm_qsfp_type_t
 */
 bool bf_qsfp_is_optical (int port)
 {
+    bf_pltfm_qsfp_type_t qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
+    bool is_optical = false;
+
     if (port > bf_plt_max_qsfp) {
        return false;
     }
-    return !bf_qsfp_info_arr[port].passive_cu;
+
+    if (bf_qsfp_type_get (port, &qsfp_type) != 0) {
+        qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
+    } else {
+        if (qsfp_type == BF_PLTFM_QSFP_OPT) {
+            is_optical = true;
+        }
+    }
+    return is_optical;
 }
-#endif
+
+/** return qsfp memory map flat or paged
+ *
+ *  @param port
+ *   port
+ *  @return
+ *   true if flat memory
+ */
+bool bf_qsfp_is_flat_mem(int port) {
+  if (port > bf_plt_max_qsfp) {
+    return false;
+  }
+  return bf_qsfp_flat_mem[port];
+}
+
 /** return the number of actual channels in the module
 *
 *  @param port
