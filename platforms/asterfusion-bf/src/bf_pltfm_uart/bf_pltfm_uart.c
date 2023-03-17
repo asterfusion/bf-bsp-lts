@@ -235,9 +235,10 @@ xmit (struct bf_pltfm_uart_ctx_t *ctx,
     } else if (rc == -1) {
         LOG_ERROR (
             "%s[%d], "
-            "write(%s)"
+            "read(%d) : %d : %s"
             "\n",
-            __FILE__, __LINE__, oryx_safe_strerror (errno));
+            __FILE__, __LINE__, ctx->fd, tx_len,
+            oryx_safe_strerror (errno));
     } else if (rc < (ssize_t)tx_len) {
         /* This shall never happen if tx_len{PIPE_BUF}. If it does
          * happen (with nbyte>{PIPE_BUF}), this volume of POSIX.1‐2008
@@ -263,10 +264,10 @@ recv (struct bf_pltfm_uart_ctx_t *ctx,
     } else if (rc == -1) {
         LOG_ERROR (
             "%s[%d], "
-            "read(%s) : %d : %d"
+            "read(%d) : %d : %s"
             "\n",
-            __FILE__, __LINE__, oryx_safe_strerror (errno),
-            ctx->fd, rx_len);
+            __FILE__, __LINE__, ctx->fd, rx_len,
+            oryx_safe_strerror (errno));
     }
 
     return (int)rc;
@@ -318,7 +319,8 @@ uart_send (struct bf_pltfm_uart_ctx_t *ctx,
             hex_dump (buf, l);
             fprintf (stdout, "\n---> done\n");
         }
-        return -1;
+        /* Try returning a larger number without overwrite the syscall API which called by xmit. */
+        return -100;
     }
 
     if (tx_len == 0) {
@@ -338,11 +340,7 @@ uart_send (struct bf_pltfm_uart_ctx_t *ctx,
 
     rc = xmit (ctx, buf, l);
     if (rc) {
-        LOG_ERROR (
-            "%s[%d], "
-            "uart.send(%s)"
-            "\n",
-            __FILE__, __LINE__, "Failed to write uart.");
+        /* Try to dump data to be send. */
         fprintf (stdout, "\n<--- %02x:\n", cmd);
         hex_dump (buf, l);
         fprintf (stdout, "\n<--- done\n");
@@ -362,7 +360,8 @@ uart_recv (struct bf_pltfm_uart_ctx_t *ctx,
     if (rc >= 0) {
         int cc = rx_crc (rx_buf, rc);
         if (cc) {
-            rc = -1;
+            /* Try returning a larger number without overwrite the syscall API which called by recv. */
+            rc = -100;
             goto end;
         }
         rx_buf[rc - 2] = 0;
@@ -422,7 +421,13 @@ int bf_pltfm_bmc_uart_write_read (
         goto end;
     }
 
-    if (uart_send (ctx, cmd, tx_buf, tx_len)) {
+    rc = uart_send (ctx, cmd, tx_buf, tx_len);
+    if (rc < 0) {
+        LOG_ERROR (
+            "%s[%d], "
+            "Access BMC Error: uart.write(%d) : %s"
+            "\n",
+            __FILE__, __LINE__, rc, "Failed to write to uart.");
         goto end;
     }
 
@@ -432,6 +437,13 @@ int bf_pltfm_bmc_uart_write_read (
         /* Wait for data ready. */
         usleep (usec);
         rc = uart_recv (ctx, rx_buf, rx_len);
+        if (rc < 0) {
+            LOG_ERROR (
+                "%s[%d], "
+                "Access BMC Error: uart.recv(%d) : %s"
+                "\n",
+                __FILE__, __LINE__, rc, "Failed to recv from uart.");
+        }
     }
 
 end:
@@ -466,7 +478,13 @@ int bf_pltfm_bmc_uart_util_write_read (
         goto end;
     }
 
-    if (uart_send (ctx, cmd, tx_buf, tx_len)) {
+    rc = uart_send (ctx, cmd, tx_buf, tx_len);
+    if (rc < 0) {
+        LOG_ERROR (
+            "%s[%d], "
+            "Access BMC Error: uart.send(%d) : %s"
+            "\n",
+            __FILE__, __LINE__, rc, "Failed to write to uart.");
         goto end;
     }
 
@@ -476,7 +494,13 @@ int bf_pltfm_bmc_uart_util_write_read (
         /* Wait for data ready. */
         usleep (usec);
         rc = uart_recv (ctx, rx_buf, rx_len);
-        if (uart_debug) {
+        if (rc < 0) {
+            LOG_ERROR (
+                "%s[%d], "
+                "Access BMC Error: uart.recv(%d) : %s"
+                "\n",
+                __FILE__, __LINE__, rc, "Failed to recv from uart.");
+        } else if (uart_debug && (rc >= 0)) {
             fprintf (stdout, "\n<--- %02x:\n", cmd);
             hex_dump (rx_buf, rx_len);
             fprintf (stdout, "\n<--- done\n");

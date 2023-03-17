@@ -3,15 +3,17 @@
 # @date 2023/03/09
 #
 # Environment setup and config for X-T Programmable Bare Metals.
+# This script comes from $BSP/platforms/asterfusion-bf/utils/ and
+# would be installed to $SDE_INSTALL/bin/
 #
 # TSIHANG (tsihang@asterfusion.com)
 #
 
 #!/bin/bash
 
-# You could find current ONL is "2022-11-04.05:18-4d1eb68" via 'cat /etc/onl/rootfs/manifest.json'.
-# Version of the quick-start.sh should never be changed by user.
-VERSION="23.0309"
+# You could get the version of current ONL via 'cat /etc/onl/rootfs/manifest.json'.
+# The following VERSION in quick-start.sh should never be changed by user.
+VERSION="23.0313"
 
 # Default Variables
 default_iface="ma1"
@@ -40,6 +42,7 @@ further_check()
 {
     thrift_pkg_ver=`dpkg -l | grep thrift | awk '{print $3}'`
     if [ "$thrift_pkg_ver"X == "0.11.0"X ] || [ "$thrift_pkg_ver"X == "0.13.0"X ]; then
+        # thrift-0.11.0 and thrift-0.13.0 are installed to /usr/local/
         if [[ -f  /usr/local/lib/libthrift-$thrift_pkg_ver.so ]]; then
             if [[ ! -f  $SDE_INSTALL/lib/libthrift-$thrift_pkg_ver.so ]]; then
                 ln -s /usr/local/lib/libthrift-$thrift_pkg_ver.so $SDE_INSTALL/lib/libthrift-$thrift_pkg_ver.so
@@ -47,6 +50,7 @@ further_check()
         fi
     fi
     if [ "$thrift_pkg_ver"X == "0.14.1"X ]; then
+        # thrift-0.14.1 is installed to /usr/local/
         if [[ ! -f  $SDE_INSTALL/lib/libthrift-$thrift_pkg_ver.so ]]; then
             echo "No libthrift-$thrift_pkg_ver.so found."
         fi

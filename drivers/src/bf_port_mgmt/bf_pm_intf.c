@@ -358,7 +358,7 @@ static bf_pltfm_status_t qsfp_scan_helper (
         // Find if the said qsfp module was removed or added
         int detect_st = bf_qsfp_detect_transceiver (conn_id,
                                         &is_present);
-        LOG_DEBUG ("QSFP    %2d : detect-st : %d is-present : %d\n",
+        LOG_DEBUG ("QSFP    %2d : detect-st : %d is-present : %d",
                    conn_id,
                    detect_st,
                    is_present);
@@ -944,7 +944,7 @@ static bf_pltfm_status_t sfp_scan_helper (
                    sfp_prev_st_abs);
         if (sfp_curr_st_abs) {
             if (!sfp_prev_st_abs) {
-                LOG_DEBUG (" SFP    %2d : unplugged (from plug st)\n",
+                LOG_DEBUG (" SFP    %2d : unplugged (from plug st)",
                            module);
                 is_present = false;
                 // hack to clear the states.
@@ -965,7 +965,7 @@ static bf_pltfm_status_t sfp_scan_helper (
         bf_sfp_get_conn (module, &conn_id,
                          &chnl_id);
 
-        LOG_DEBUG (" SFP    %2d :  %2d/%d : detect-st : %d is-present : %d\n",
+        LOG_DEBUG (" SFP    %2d :  %2d/%d : detect-st : %d is-present : %d",
                    module,
                    conn_id,
                    chnl_id,
@@ -981,7 +981,7 @@ static bf_pltfm_status_t sfp_scan_helper (
         // Find if so-called sfp module was removed or added
         if (detect_st) {
             // hopefully, detect it in the next iteration
-            LOG_ERROR (" SFP    %2d : error detecting SFP\n",
+            LOG_ERROR (" SFP    %2d : error detecting SFP",
                        module);
             module++;
             continue;  // back to outer while loop

@@ -101,10 +101,10 @@ int open_i2c_dev (int i2cbus, char *filename,
         if (errno == ENOENT) {
             LOG_ERROR ("Error: Could not open file "
                        "`/dev/i2c-%d' or `/dev/i2c/%d': %s",
-                       i2cbus, i2cbus, strerror (ENOENT));
+                       i2cbus, i2cbus, oryx_safe_strerror (ENOENT));
         } else {
             LOG_ERROR ("Error: Could not open file "
-                       "`%s': %s", filename, strerror (errno));
+                       "`%s': %s", filename, oryx_safe_strerror (errno));
             if (errno == EACCES) {
                 LOG_ERROR ("Run as root?");
             }
@@ -460,7 +460,7 @@ int check_funcs (int file, int size, int pec)
     /* check adapter functionality */
     if (ioctl (file, I2C_FUNCS, &funcs) < 0) {
         LOG_ERROR ("Error: Could not get the adapter "
-                   "functionality matrix: %s", strerror (errno));
+                   "functionality matrix: %s", oryx_safe_strerror (errno));
         return -1;
     }
 
@@ -561,12 +561,12 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
 
 int bf_pltfm_master_i2c_read_byte (
     uint8_t slave,
-    uint8_t offset,
+    uint8_t rd_off,
     uint8_t *value)
 {
     /* sp for COM-e: CG15XX */
     if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
-        return bf_cgos_i2c_read_byte (slave, offset,
+        return bf_cgos_i2c_read_byte (slave, rd_off,
                                       value);
     }
     int force = 0;
@@ -581,18 +581,23 @@ int bf_pltfm_master_i2c_read_byte (
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x : %s : %d",
-            slave, strerror (errno), fd);
-        return -1;
+            "%s[%d], "
+            "i2c.ioctl(%d): slave=0x%02x : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, oryx_safe_strerror (errno));
+        return -100;
     }
 
-    int32_t val = i2c_smbus_read_byte_data (fd, offset);
+    int32_t val = i2c_smbus_read_byte_data (fd, rd_off);
     if (val < 0) {
         LOG_ERROR (
-            "Error: Could not read offset %02d : %s : %d",
-            offset, strerror (errno), fd);
-        return -3;
+            "%s[%d], "
+            "i2c.read(%d): slave=0x%02x : rd_off=%d : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, rd_off, oryx_safe_strerror (errno));
+        return -200;
     }
+
     *value = val;
 
     return BF_PLTFM_SUCCESS;
@@ -600,14 +605,14 @@ int bf_pltfm_master_i2c_read_byte (
 
 int bf_pltfm_master_i2c_read_block (
     uint8_t slave,
-    uint8_t offset,
-    uint8_t *rdbuf,
-    uint8_t  rdlen)
+    uint8_t rd_off,
+    uint8_t *rd_buf,
+    uint8_t  rd_len)
 {
     /* sp for COM-e: CG15XX */
     if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
-        return bf_cgos_i2c_read_block (slave, offset,
-                                       rdbuf, rdlen);
+        return bf_cgos_i2c_read_block (slave, rd_off,
+                                       rd_buf, rd_len);
     }
     int force = 0;
     int err;
@@ -621,39 +626,81 @@ int bf_pltfm_master_i2c_read_block (
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x : %s : %d",
-            slave, strerror (errno), fd);
-        return -1;
+            "%s[%d], "
+            "i2c.ioctl(%d): slave=0x%02x : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, oryx_safe_strerror (errno));
+        return -100;
     }
 
     int i = 0;
-    int off = offset;
+    int off = rd_off;
+    int32_t val = 0;
 
 #if 1
-    int32_t val = 0;
-    for (off = offset; off < (int) (offset + rdlen);
+    for (off = rd_off; off < (int) (rd_off + rd_len);
+         off ++) {
+        val = i2c_smbus_read_byte_data (fd, off);
+        if (val < 0) {
+            LOG_WARNING (
+                "%s[%d], "
+                "i2c.read(%d): slave=0x%02x : rd_off=%d : off=%d : %s"
+                "\n",
+                __FILE__, __LINE__, fd, slave, rd_off, off, oryx_safe_strerror (errno));
+            return -200;
+        }
+        rd_buf[i ++] = val;
+        usleep (1000);
+    }
+#else
+    int times = rd_len / 32;
+    fprintf(stdout, "1. rd_off : %d, rd_len : %d, times = %d\n", rd_off, rd_len, times);
+    for (i = 0; i < times; i ++) {
+        err = i2c_smbus_read_block_data (fd, rd_off,
+                                             rd_buf);
+        if (err < 0) {
+            LOG_ERROR (
+                "%s[%d], "
+                "i2c.read(%d): slave=0x%02x : rd_off=%d : off=%d : %s"
+                "\n",
+                __FILE__, __LINE__, fd, slave, rd_off, off, oryx_safe_strerror (errno));
+            return -200;
+        }
+        rd_buf += 32;
+        rd_off += 32;
+        rd_len -= 32;
+        usleep (50000);
+    }
+
+    fprintf(stdout, "2. rd_off : %d, rd_len : %d\n", rd_off, rd_len);
+    for (off = rd_off; off < (int) (rd_off + rd_len);
          off ++) {
         val = i2c_smbus_read_byte_data (fd, off);
         if (val < 0) {
             LOG_ERROR (
-                "Error: Could not read offset [%02d : %02d] : %02d : %s : %d",
-                offset, offset + rdlen, off, strerror (errno), fd);
-            return -3;
+                "%s[%d], "
+                "i2c.read(%d): slave=0x%02x : rd_off=%d : off=%d : %s"
+                "\n",
+                __FILE__, __LINE__, fd, slave, rd_off, off, oryx_safe_strerror (errno));
+            return -200;
         }
-        rdbuf[i ++] = val;
-        usleep (1000);
+        rd_buf[i ++] = val;
+        usleep (50000);
     }
-#else
+
+#if 0
     /* Doesn't support I2C block W/R method */
-    val = i2c_smbus_read_block_data (i2c->fd, off,
-                                     &rdbuf[0]);
+    val = i2c_smbus_read_block_data (fd, off,
+                                     &rd_buf[0]);
     if (val < 0) {
-        MASTER_I2C_UNLOCK;
-        fprintf (stdout,
-                 "Error: Could not read offset 0x%02x: %s\n",
-                 off, strerror (errno));
-        return -3;
+        LOG_ERROR (
+            "%s[%d], "
+            "i2c.read(%d): slave=0x%02x : rd_off=%d : off=%d : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, rd_off, off, oryx_safe_strerror (errno));
+        return -200;
     }
+#endif
 #endif
 
     return BF_PLTFM_SUCCESS;
@@ -661,12 +708,12 @@ int bf_pltfm_master_i2c_read_block (
 
 int bf_pltfm_master_i2c_write_byte (
     uint8_t slave,
-    uint8_t offset,
+    uint8_t wr_off,
     uint8_t value)
 {
     /* sp for COM-e: CG15XX */
     if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
-        return bf_cgos_i2c_write_byte (slave, offset,
+        return bf_cgos_i2c_write_byte (slave, wr_off,
                                        value);
     }
     int force = 0;
@@ -681,18 +728,22 @@ int bf_pltfm_master_i2c_write_byte (
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x : %s : %d",
-            slave, strerror (errno), fd);
-        return -1;
+            "%s[%d], "
+            "i2c.ioctl(%d): slave=0x%02x : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, oryx_safe_strerror (errno));
+        return -100;
     }
 
-    err = i2c_smbus_write_byte_data (fd, offset,
+    err = i2c_smbus_write_byte_data (fd, wr_off,
                                      value);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not write offset %02d : %s : %d",
-            offset, strerror (errno), fd);
-        return -2;
+            "%s[%d], "
+            "i2c.write(%d): slave=0x%02x : rd_off=%d : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, wr_off, oryx_safe_strerror (errno));
+        return -200;
     }
 
     return BF_PLTFM_SUCCESS;
@@ -700,14 +751,14 @@ int bf_pltfm_master_i2c_write_byte (
 
 int bf_pltfm_master_i2c_write_block (
     uint8_t slave,
-    uint8_t offset,
-    uint8_t *wrbuf,
-    uint8_t  wrlen)
+    uint8_t wr_off,
+    uint8_t *wr_buf,
+    uint8_t  wr_len)
 {
     /* sp for COM-e: CG15XX */
     if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
-        return bf_cgos_i2c_write_block (slave, offset,
-                                        wrbuf, wrlen);
+        return bf_cgos_i2c_write_block (slave, wr_off,
+                                        wr_buf, wr_len);
     }
     int force = 0;
     int err;
@@ -721,23 +772,27 @@ int bf_pltfm_master_i2c_write_block (
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x : %s : %d",
-            slave, strerror (errno), fd);
-        return -1;
+            "%s[%d], "
+            "i2c.ioctl(%d): slave=0x%02x : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, oryx_safe_strerror (errno));
+        return -100;
     }
 
     int i = 0;
-    int off = offset;
+    int off = wr_off;
 
-    for (off = offset; off < (int) (offset + wrlen);
+    for (off = wr_off; off < (int) (wr_off + wr_len);
          off ++) {
         err = i2c_smbus_write_byte_data (fd, off,
-                                         wrbuf[i ++]);
+                                         wr_buf[i ++]);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not write offset [%02d : %02d] : %02d : %s : %d",
-                offset, offset + wrlen, off, strerror (errno), fd);
-            return -2;
+                "%s[%d], "
+                "i2c.write(%d): slave=0x%02x : wr_off=%d : off=%d : %s"
+                "\n",
+                __FILE__, __LINE__, fd, slave, wr_off, off, oryx_safe_strerror (errno));
+            return -200;
         }
         usleep (1000);
     }
@@ -775,8 +830,10 @@ int bf_pltfm_bmc_write_read (
                  force ? I2C_SLAVE_FORCE : I2C_SLAVE, slave);
     if (err < 0) {
         LOG_ERROR (
-            "Error: Could not set address to 0x%02x : %s : %d",
-            slave, strerror (errno), fd);
+            "%s[%d], "
+            "Access BMC Error: i2c.ioctl(%d): slave=0x%02x : %s"
+            "\n",
+            __FILE__, __LINE__, fd, slave, oryx_safe_strerror (errno));
         err = -100;
         goto end;
     }
@@ -787,9 +844,11 @@ int bf_pltfm_bmc_write_read (
                                           wr_off, wr_len, wr_buf);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not write offset [%02d : %02d] : %02d : %s : %d",
-                wr_off, wr_off + wr_len, wr_off, strerror (errno), fd);
-            err = -101;
+                "%s[%d], "
+                "Access BMC Error: i2c.write(%d): slave=0x%02x : wr_off=%d : wr_len=%d : %s"
+                "\n",
+                __FILE__, __LINE__, fd, slave, wr_off, wr_len, oryx_safe_strerror (errno));
+            err = -200;
             goto end;
         }
 
@@ -802,9 +861,11 @@ int bf_pltfm_bmc_write_read (
                                          rd_off, rd_buf);
         if (err < 0) {
             LOG_ERROR (
-                "Error: Could not read offset %02d : %s : %d",
-                rd_off, strerror (errno), fd);
-            err = -102;
+                "%s[%d], "
+                "Access BMC Error: i2c.read(%d): slave=0x%02x : rd_off=%d : %s"
+                "\n",
+                __FILE__, __LINE__, fd, slave, rd_off, oryx_safe_strerror (errno));
+            err = -300;
             goto end;
         }
     }

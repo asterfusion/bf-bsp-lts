@@ -1766,7 +1766,7 @@ bool bf_qsfp_is_optic (bf_pltfm_qsfp_type_t
         return false;
     }
 }
-#if 0
+
 /** return qsfp is optical/AOC
 *
 *  @param port
@@ -1776,12 +1776,37 @@ bool bf_qsfp_is_optic (bf_pltfm_qsfp_type_t
 */
 bool bf_qsfp_is_optical (int port)
 {
+    bf_pltfm_qsfp_type_t qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
+    bool is_optical = false;
+
     if (port > bf_plt_max_qsfp) {
        return false;
     }
-    return !bf_qsfp_info_arr[port].passive_cu;
+
+    if (bf_qsfp_type_get (port, &qsfp_type) != 0) {
+        qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
+    } else {
+        if (qsfp_type == BF_PLTFM_QSFP_OPT) {
+            is_optical = true;
+        }
+    }
+    return is_optical;
 }
-#endif
+
+/** return qsfp memory map flat or paged
+ *
+ *  @param port
+ *   port
+ *  @return
+ *   true if flat memory
+ */
+bool bf_qsfp_is_flat_mem(int port) {
+  if (port > bf_plt_max_qsfp) {
+    return false;
+  }
+  return bf_qsfp_flat_mem[port];
+}
+
 /** return the number of actual channels in the module
 *
 *  @param port
@@ -2007,7 +2032,7 @@ retry_begin :
      * code as well. Otherwise, we characterize the QSFP by regular compliance
      * code only.
      */
-    LOG_DEBUG ("QSFP    %2d : eth_comp : %2d\n", port,
+    LOG_DEBUG ("QSFP    %2d : eth_comp : %2d", port,
                eth_comp);
     if (eth_comp &
         0x77) {  // all except 40GBASE-CR4 and ext compliance bits
@@ -2051,7 +2076,7 @@ retry_begin :
         *qsfp_type = BF_PLTFM_QSFP_CU_LOOP;
         return 0;
     }
-    LOG_DEBUG ("QSFP    %2d : len_copp : %2d\n", port,
+    LOG_DEBUG ("QSFP    %2d : len_copp : %2d", port,
                *qsfp_length);
     switch (*qsfp_length) {
         case 0:
