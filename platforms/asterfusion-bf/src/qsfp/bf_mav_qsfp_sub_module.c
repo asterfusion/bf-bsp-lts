@@ -612,7 +612,7 @@ i2c_error_end:
      * a genuine error is the module was present
      */
     LOG_DEBUG ("Error in qsfp read port %d\n",
-               module);
+               module + 1);
     unselect_qsfp (hndl, module);
     MAV_QSFP_UNLOCK;
     return BF_PLTFM_COMM_FAILED;
@@ -720,7 +720,7 @@ int bf_pltfm_sub_module_reset (
             "%s[%d], "
             "read_cpld(%02d : %d : %s)"
             "\n",
-            __FILE__, __LINE__, module, st->off,
+            __FILE__, __LINE__, (module + 1), st->off,
             "Failed to read CPLD");
         goto end;
     }
@@ -741,7 +741,7 @@ int bf_pltfm_sub_module_reset (
             "%s[%d], "
             "write_cpld(%02d : %d : %s)"
             "\n",
-            __FILE__, __LINE__, module, st->off,
+            __FILE__, __LINE__, (module + 1), st->off,
             "Failed to write CPLD");
         goto end;
     }
@@ -753,7 +753,7 @@ int bf_pltfm_sub_module_reset (
             "%s[%d], "
             "read_cpld(%02d : %d : %s)"
             "\n",
-            __FILE__, __LINE__, module, st->off,
+            __FILE__, __LINE__, (module + 1), st->off,
             "Failed to read CPLD");
         goto end;
     }

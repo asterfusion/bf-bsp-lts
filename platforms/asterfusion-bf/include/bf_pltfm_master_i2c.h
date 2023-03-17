@@ -35,25 +35,25 @@ extern bf_sys_rmutex_t master_i2c_lock;
 
 int bf_pltfm_master_i2c_read_byte (
     uint8_t slave,
-    uint8_t offset,
+    uint8_t rd_off,
     uint8_t *value);
 
 int bf_pltfm_master_i2c_read_block (
     uint8_t slave,
-    uint8_t offset,
-    uint8_t *rdbuf,
-    uint8_t  rdlen);
+    uint8_t rd_off,
+    uint8_t *rd_buf,
+    uint8_t  rd_len);
 
 int bf_pltfm_master_i2c_write_byte (
     uint8_t slave,
-    uint8_t offset,
+    uint8_t wr_off,
     uint8_t value);
 
 int bf_pltfm_master_i2c_write_block (
     uint8_t slave,
-    uint8_t offset,
-    uint8_t *wrbuf,
-    uint8_t  wrlen);
+    uint8_t wr_off,
+    uint8_t *wr_buf,
+    uint8_t  wr_len);
 
 int bf_pltfm_bmc_write_read (
     uint8_t slave,

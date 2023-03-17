@@ -39,9 +39,11 @@ autom4te.cache/requests
 autom4te.cache/*
 *Makefile.in
 *Makefile
-platforms/asterfusion-bf/cp2112_util/cp2112_util
 platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf
 platforms/asterfusion-bf/thrift/bfplatform.ts
 platforms/asterfusion-bf/thrift/gen-cpp/
 platforms/asterfusion-bf/thrift/gen-py/
-platforms/asterfusion-bf/tofino_spi_util/spi_i2c_util
+platforms/asterfusion-bf/cp2112_util/cp2112_util
+platforms/asterfusion-bf/tofino_spi_util/tofino_spi_util
+platforms/asterfusion-bf/tofino_pci_util/tofino_pci_util
+platforms/asterfusion-bf/uart_util/uart_util

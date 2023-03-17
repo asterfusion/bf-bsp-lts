@@ -689,8 +689,8 @@ bf_pltfm_ucli_ucli__qsfp_get_ddm (ucli_context_t
                 "--------------");
 
     for (int i = port_start; i <= port_end; i++) {
-        if (!bf_qsfp_is_present (i)/* ||
-            (!bf_qsfp_is_optical (i))*/) {
+        if (!bf_qsfp_is_present (i) ||
+            (!bf_qsfp_is_optical (i))) {
             continue;
         }
 

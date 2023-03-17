@@ -233,8 +233,10 @@ int bf_qsfp_get_eth_compliance (int port,
 /* get qsfp extended compliance code */
 int bf_qsfp_get_eth_ext_compliance (int port,
                                     Ethernet_extended_compliance *code);
+bool bf_qsfp_is_flat_mem(int port);
 bool bf_qsfp_is_optic (bf_pltfm_qsfp_type_t
                        qsfp_type);
+bool bf_qsfp_is_optical(int port);
 uint8_t bf_qsfp_get_ch_cnt (int port);
 uint8_t bf_qsfp_get_media_ch_cnt (int port);
 void bf_qsfp_debug_clear_all_presence_bits (void);

@@ -1454,7 +1454,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     double diff;
 
     UCLI_COMMAND_INFO (
-        uc, "bsp", 0, " Show BSP version.");
+        uc, "bsp", 0, "Show BSP version.");
 
     platform_name_get_str (fmt, sizeof (fmt));
 
@@ -1522,6 +1522,47 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
 
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__console__ (ucli_context_t
+                           *uc)
+{
+    uint8_t buf[2] = {0x00, 0xaa};
+    uint8_t data[I2C_SMBUS_BLOCK_MAX] = {0};
+
+    /* Keep the name consistent with the document X-T Programmable Bare Metal. */
+    UCLI_COMMAND_INFO (uc, "console", 1, "Redirect console to <bmc/come/dpu1/dpu2>");
+
+    if (platform_type_equal (X312P)) {
+        if (memcmp (uc->pargs->args[0], "bmc", 3) == 0){
+            aim_printf (&uc->pvs, "Console redirects to BMC\n");
+            LOG_WARNING ("Console redirects to BMC\n");
+            buf[0] = 0x02;
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+        } else if (memcmp (uc->pargs->args[0], "come", 4) == 0){
+            aim_printf (&uc->pvs, "Console redirects to COM-E\n");
+            LOG_WARNING ("Console redirects to COM-E\n");
+            buf[0] = 0x03;
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+        } else if (memcmp (uc->pargs->args[0], "dpu1", 4) == 0){
+            aim_printf (&uc->pvs, "Console redirects to DPU-1\n");
+            LOG_WARNING ("Console redirects to DPU-1\n");
+            buf[0] = 0x00;
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+        } else if (memcmp (uc->pargs->args[0], "dpu2", 4) == 0){
+            aim_printf (&uc->pvs, "Console redirects to DPU-2\n");
+            LOG_WARNING ("Console redirects to DPU-2\n");
+            buf[0] = 0x01;
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+        } else {
+            aim_printf (&uc->pvs, "Usage: console <bmc/come/dpu1/dpu2>\n");
+        }
+    } else {
+        aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
+    }
+
     return 0;
 }
 
@@ -1719,7 +1760,9 @@ ucli_node_t *pltfm_mgrs_ucli_node_create (
 
 static ucli_command_handler_f
 bf_pltfm_ucli_ucli_handlers__[] = {
-    bf_pltfm_ucli_ucli__bsp__, NULL
+    bf_pltfm_ucli_ucli__bsp__,
+    bf_pltfm_ucli_ucli__console__,
+    NULL
 };
 
 static ucli_module_t bf_pltfm_ucli_module__ = {
