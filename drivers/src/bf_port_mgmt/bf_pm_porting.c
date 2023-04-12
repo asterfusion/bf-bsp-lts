@@ -503,7 +503,7 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
     bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_pltfm_port_info_t port_info;
     bf_dev_id_t dev_id = 0;
-    bool is_present = false, port_enb = false;
+    bool is_present = false;
 
     // Safety Checks
     if (!port_hdl) {
@@ -520,9 +520,13 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
         return BF_SUCCESS;
     }
 
+#if SDE_VERSION_GT(900)
+    bool port_enb = false;
     sts = bf_pm_port_is_enabled(dev_id, port_hdl, &port_enb);
     if (sts != BF_SUCCESS) return sts;
-    if (!port_enb) {
+    if (!port_enb)
+#endif
+    {
         sts = bf_port_led_set (dev_id, &port_info,
                                BF_LED_POST_PORT_DIS);
         if (sts != BF_PLTFM_SUCCESS) {

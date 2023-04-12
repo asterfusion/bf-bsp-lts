@@ -97,6 +97,7 @@ struct pltfm_mgr_pwr_supply_info_t {
   10 : string rev,
   11 : i32 iin,
   12 : i32 pwr_in,
+  13 : i32 temp,
 }
 
 struct pltfm_mgr_pwr_rail_info_t {
@@ -123,6 +124,8 @@ struct pltfm_mgr_fan_info_t {
   2 : i32 front_rpm,
   3 : i32 rear_rpm,
   4 : i32 percent,
+  5 : string model,
+  6 : string serial,
 }
 
 typedef i32 pltfm_mgr_fan_num

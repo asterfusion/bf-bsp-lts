@@ -233,6 +233,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     _return.model = bf_ps_info.model;
     _return.serial = bf_ps_info.serial;
     _return.rev = bf_ps_info.rev;
+    _return.temp = bf_ps_info.temp;
 
     // return ps_info;
   }
@@ -303,6 +304,8 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     _return.front_rpm = fan_data.F[fan_num - 1].front_speed;
     _return.rear_rpm  = fan_data.F[fan_num - 1].rear_speed;
     _return.percent   = fan_data.F[fan_num - 1].percent;
+    _return.model     = fan_data.F[fan_num - 1].model;
+    _return.serial    = fan_data.F[fan_num - 1].serial;
   }
 
   pltfm_mgr_max_port_t pltfm_mgr_sfp_get_max_port(void) {

@@ -173,6 +173,102 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
         err = BF_PLTFM_SUCCESS;
     }
 
+    /* If BMC version is earlier than 1.2.3(hwver == 1.x), do not read MODEL/SN/REV...
+     * If BMC version is earlier than 1.0.5(hwver == 2.0), do not read MODEL/SN/REV... */
+    if (platform_subtype_equal(v1dot0) ||
+        platform_subtype_equal(v1dot1)) {
+        if (bf_pltfm_compare_bmc_ver("v1.2.3") < 0) {
+            return BF_PLTFM_SUCCESS;
+        }
+    } else if (platform_subtype_equal(v2dot0)) {
+        if (bf_pltfm_compare_bmc_ver("v1.0.5") < 0) {
+            return BF_PLTFM_SUCCESS;
+        }
+    } else {
+        return BF_PLTFM_SUCCESS;
+    }
+
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        wr_buf[0] = BMC_SUB1_TEMP;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_uart_write_read (
+                BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US *
+                3);    /* the usec may be too long. */
+
+        if ((ret == 3) && (rd_buf[0] == 2)) {
+            info[0].temp  = rd_buf[1];
+            if (info[0].temp != 0) {
+                info[0].fvalid |= PSU_INFO_VALID_TEMP;
+            }
+
+            info[1].temp  = rd_buf[2];
+            if (info[1].temp != 0) {
+                info[1].fvalid |= PSU_INFO_VALID_TEMP;
+            }
+        }
+
+        wr_buf[0] = BMC_SUB1_FAN;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_uart_write_read (
+                BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US *
+                3);    /* the usec may be too long. */
+
+        if ((ret == 5) && (rd_buf[0] == 4)) {
+            info[0].fspeed  = (rd_buf[1] << 8) + rd_buf[2];
+            if (info[0].fspeed != 0) {
+                info[0].fvalid |= PSU_INFO_VALID_FAN_ROTA;
+            }
+
+            info[1].fspeed  = (rd_buf[3] << 8) + rd_buf[4];
+            if (info[1].fspeed != 0) {
+                info[1].fvalid |= PSU_INFO_VALID_FAN_ROTA;
+            }
+        }
+
+        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
+            wr_buf[0] = BMC_SUB1_SN;
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_psu_data[i - 1].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (info[i - 1].serial, bmc_psu_data[i - 1].serial, sizeof(info[i - 1].serial));
+                    memcpy (info[i - 1].model,  bmc_psu_data[i - 1].model,  sizeof(info[i - 1].model));
+                    info[i - 1].fvalid = bmc_psu_data[i - 1].fvalid;
+                    continue;
+                }
+
+                memset (info[i - 1].serial, 0x00, sizeof(info[i - 1].serial));
+                memcpy (info[i - 1].serial, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on PSU module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[0] = BMC_SUB1_MODEL;
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
+                memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
+            }
+        }
+
+        err = BF_PLTFM_SUCCESS;
+    }
+
     return err;
 }
 
@@ -260,6 +356,103 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
         err = BF_PLTFM_SUCCESS;
     }
 
+    /* If BMC version is earlier than 2.0.4(hwver == 1.x), do not read MODEL/SN/REV...
+     * If BMC version is earlier than 1.0.2(hwver == 2.0), do not read MODEL/SN/REV... */
+    if (platform_subtype_equal(v1dot0) ||
+        platform_subtype_equal(v1dot1) ||
+        platform_subtype_equal(v1dot2)) {
+        if (bf_pltfm_compare_bmc_ver("v2.0.4") < 0) {
+            return BF_PLTFM_SUCCESS;
+        }
+    } else if (platform_subtype_equal(v2dot0)) {
+        if (bf_pltfm_compare_bmc_ver("v1.0.2") < 0) {
+            return BF_PLTFM_SUCCESS;
+        }
+    } else {
+        return BF_PLTFM_SUCCESS;
+    }
+
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        wr_buf[0] = BMC_SUB1_TEMP;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_uart_write_read (
+                BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US *
+                3);    /* the usec may be too long. */
+
+        if ((ret == 3) && (rd_buf[0] == 2)) {
+            info[0].temp  = rd_buf[1];
+            if (info[0].temp != 0) {
+                info[0].fvalid |= PSU_INFO_VALID_TEMP;
+            }
+
+            info[1].temp  = rd_buf[2];
+            if (info[1].temp != 0) {
+                info[1].fvalid |= PSU_INFO_VALID_TEMP;
+            }
+        }
+
+        wr_buf[0] = BMC_SUB1_FAN;
+        wr_buf[1] = 0xAA;
+        ret = bf_pltfm_bmc_uart_write_read (
+                BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US *
+                3);    /* the usec may be too long. */
+
+        if ((ret == 5) && (rd_buf[0] == 4)) {
+            info[0].fspeed  = (rd_buf[1] << 8) + rd_buf[2];
+            if (info[0].fspeed != 0) {
+                info[0].fvalid |= PSU_INFO_VALID_FAN_ROTA;
+            }
+
+            info[1].fspeed  = (rd_buf[3] << 8) + rd_buf[4];
+            if (info[1].fspeed != 0) {
+                info[1].fvalid |= PSU_INFO_VALID_FAN_ROTA;
+            }
+        }
+
+        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
+            wr_buf[0] = BMC_SUB1_SN;
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_psu_data[i - 1].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (info[i - 1].serial, bmc_psu_data[i - 1].serial, sizeof(info[i - 1].serial));
+                    memcpy (info[i - 1].model,  bmc_psu_data[i - 1].model,  sizeof(info[i - 1].model));
+                    info[i - 1].fvalid = bmc_psu_data[i - 1].fvalid;
+                    continue;
+                }
+
+                memset (info[i - 1].serial, 0x00, sizeof(info[i - 1].serial));
+                memcpy (info[i - 1].serial, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on PSU module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[0] = BMC_SUB1_MODEL;
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
+                memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
+            }
+        }
+
+        err = BF_PLTFM_SUCCESS;
+    }
+
     return err;
 }
 
@@ -338,34 +531,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
             info[1].fvalid |= PSU_INFO_AC;
         }
 
-        wr_buf[0] = BMC_SUB1_MODEL;
-        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
-            wr_buf[1] = i;
-            ret = bf_pltfm_bmc_uart_write_read (
-                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
-
-            if ((ret == rd_buf[0] + 1) && (ret != 1)) {
-                memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
-                memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
-                info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
-            }
-        }
-
-        wr_buf[0] = BMC_SUB1_SN;
-        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
-            wr_buf[1] = i;
-            ret = bf_pltfm_bmc_uart_write_read (
-                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
-
-            if ((ret == rd_buf[0] + 1) && (ret != 1)) {
-                memset (info[i - 1].serial, 0x00, sizeof(info[i - 1].serial));
-                memcpy (info[i - 1].serial, &rd_buf[1], rd_buf[0]);
-                info[i - 1].fvalid |= PSU_INFO_VALID_SERIAL;
-            }
+        /* Check BMC version first.
+         * If the version is earlier than 1.0.5, do not read MODEL/SN/REV... */
+        if (bf_pltfm_compare_bmc_ver("v1.0.5") < 0) {
+            return BF_PLTFM_SUCCESS;
         }
 
         wr_buf[0] = BMC_SUB1_TEMP;
@@ -405,6 +574,45 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
                 info[1].fvalid |= PSU_INFO_VALID_FAN_ROTA;
             }
         }
+
+        for (uint32_t i = 1; i <= MAX_PSU_COUNT; i++) {
+            wr_buf[0] = BMC_SUB1_SN;
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_psu_data[i - 1].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (info[i - 1].serial, bmc_psu_data[i - 1].serial, sizeof(info[i - 1].serial));
+                    memcpy (info[i - 1].model,  bmc_psu_data[i - 1].model,  sizeof(info[i - 1].model));
+                    info[i - 1].fvalid = bmc_psu_data[i - 1].fvalid;
+                    continue;
+                }
+
+                memset (info[i - 1].serial, 0x00, sizeof(info[i - 1].serial));
+                memcpy (info[i - 1].serial, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on PSU module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[0] = BMC_SUB1_MODEL;
+            wr_buf[1] = i;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US *
+                    3);    /* the usec may be too long. */
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
+                memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
+                info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
+            }
+        }
     }
 
     return BF_PLTFM_SUCCESS;
@@ -421,6 +629,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
     float y;
     bool debug_print = false;
     int usec_delay = BMC_COMM_INTERVAL_US/25;
+
+    /* Default to AC as we do not have a way to detect at this moment.
+     * by tsihang, 2022-07-08. */
+    info->fvalid |= PSU_INFO_AC;
 
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v2dot0)) {
@@ -461,6 +673,34 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
+            return BF_PLTFM_SUCCESS;
+        }
+
+        // pin
+        buf[0] = 0x05;
+        buf[1] = (pwr == POWER_SUPPLY1) ? 0x58 : 0x59;
+        buf[2] = 0x97;
+        buf[3] = 0x2;
+        rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
+                                        4, 0xff, res, usec_delay_ps);
+        if (rdlen == 4) {
+            value = res[1] + (res[2] << 8);
+            n = (value & 0xF800) >> 11;
+            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+            y = (value & 0x07FF);
+            y = y * pow (2, (double)n) + 0.5;
+            info->pwr_in = y * 1000;
+            if (debug_print) {
+                fprintf (stdout, "pwr_in is %d\n", info->pwr_in);
+            }
+        }
+
+        /* Set power good as true if input power > 5W,
+           otherwiase, skip reading rest of the info */
+        if (info->pwr_in > 5000) {
+            info->power = true;
+        } else {
+            info->pwr_in = 0;
             return BF_PLTFM_SUCCESS;
         }
 
@@ -546,24 +786,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 fprintf (stdout, "iout is %d\n", info->iout);
             }
         }
-        // pin
-        buf[0] = 0x05;
-        buf[1] = (pwr == POWER_SUPPLY1) ? 0x58 : 0x59;
-        buf[2] = 0x97;
-        buf[3] = 0x2;
-        rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
-        if (rdlen == 4) {
-            value = res[1] + (res[2] << 8);
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.5;
-            info->pwr_in = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "pwr_in is %d\n", info->pwr_in);
-            }
-        }
         // pout
         buf[0] = 0xaa;
         buf[1] = 0xaa;
@@ -581,14 +803,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                         info->pwr_out);
             }
         }
-
-        /* Power good set as true if at least has one data. */
-        if ((info->vin) || (info->vout) ||
-            (info->iin) || (info->iout) ||
-            (info->pwr_in || (info->pwr_out))) {
-            info->power = true;
-        }
-
         // sn
         buf[0] = 0x05;
         buf[1] = (pwr == POWER_SUPPLY1) ? 0x58 : 0x59;
@@ -603,10 +817,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             }
             info->fvalid |= PSU_INFO_VALID_SERIAL;
         }
-        /* Default to AC as we do not have a way to detect at this moment.
-         * by tsihang, 2022-07-08. */
-        info->fvalid |= PSU_INFO_AC;
-
     }
 
     if (platform_subtype_equal(v3dot0) ||
@@ -674,29 +884,16 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             return BF_PLTFM_COMM_FAILED;
         }
 
+        if (psu_present_data[1] == 0) {
+            info->presence = true;
+        } else {
+            info->presence = false;
+        }
+
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
             return BF_PLTFM_SUCCESS;
-        }
-
-        /*PSU Pout 00: 02 <psu low> <psu high>*/
-        buf[2] = 0x96;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu pout error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_pout_data[2] << 8) | psu_pout_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.5;
-            info->pwr_out = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "POUT  : %d\n",
-                        info->pwr_out);
-            }
         }
 
         /*PSU Pin 00: 02 <psu low> <psu high>*/
@@ -715,6 +912,35 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             if (debug_print) {
                 fprintf (stdout, "PIN   : %d\n",
                         info->pwr_in);
+            }
+        }
+
+        /* Set power good as true if input power > 5W,
+           otherwiase, skip reading rest of the info */
+        if (info->pwr_in > 5000) {
+            info->power = true;
+        } else {
+            info->pwr_in = 0;
+            return BF_PLTFM_SUCCESS;
+        }
+
+
+        /*PSU Pout 00: 02 <psu low> <psu high>*/
+        buf[2] = 0x96;
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, usec_delay);
+        if (ret == -1) {
+            LOG_ERROR("Read psu pout error\n");
+            return BF_PLTFM_COMM_FAILED;
+        } else {
+            value = (psu_pout_data[2] << 8) | psu_pout_data[1];
+            n = (value & 0xF800) >> 11;
+            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+            y = (value & 0x07FF);
+            y = y * pow (2, (double)n) + 0.5;
+            info->pwr_out = y * 1000;
+            if (debug_print) {
+                fprintf (stdout, "POUT  : %d\n",
+                        info->pwr_out);
             }
         }
 
@@ -804,11 +1030,25 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             }
         }
 
-        /* Power good set as true if at least has one data. */
-        if ((info->vin) || (info->vout) ||
-            (info->iin) || (info->iout) ||
-            (info->pwr_in || (info->pwr_out))) {
-            info->power = true;
+        /*PSU Fan Rota 00: 02 1e 23 */
+        buf[2] = 0x90;
+        buf[3] = 0x2;
+        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rota_data, usec_delay);
+        if (ret == -1) {
+            LOG_ERROR("Read psu fan speed error\n");
+            return BF_PLTFM_COMM_FAILED;
+        } else {
+            value = (psu_fan_rota_data[2] << 8) + psu_fan_rota_data[1];
+            n = (value & 0xF800) >> 11;
+            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+            y = (value & 0x07FF);
+            y = y * pow (2, (double)n);
+            info->fspeed = y;
+            if (debug_print) {
+                fprintf (stdout, "FAN RO: %d\n",
+                        info->fspeed);
+            }
+            info->fvalid |= PSU_INFO_VALID_FAN_ROTA;
         }
 
         /*PSU sn 00: 0a 09 <1> <2> <3> <4> <5> <6> <7> <8> <9> */
@@ -818,6 +1058,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         if (ret == -1) {
             LOG_ERROR("Read psu sn error\n");
             return BF_PLTFM_COMM_FAILED;
+        } else if (memcmp (bmc_psu_data[pwr - 1].serial, &psu_sn_data[2], 9) == 0) {
+            memcpy (info->serial, bmc_psu_data[pwr - 1].serial, sizeof(info->serial));
+            memcpy (info->model,  bmc_psu_data[pwr - 1].model,  sizeof(info->model));
+            memcpy (info->rev,    bmc_psu_data[pwr - 1].rev,    sizeof(info->rev));
+            info->fvalid = bmc_psu_data[pwr - 1].fvalid;
+            return BF_PLTFM_SUCCESS;
         } else {
             memcpy (info->serial, &psu_sn_data[2], 9);
             if (debug_print) {
@@ -847,28 +1093,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             }
         }
 
-        /*PSU Fan Rota 00: 02 1e 23 */
-        buf[2] = 0x90;
-        buf[3] = 0x2;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rota_data, usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu rev error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            info->fspeed = (psu_fan_rota_data[1] + psu_fan_rota_data[2]) * 200;
-            if (debug_print) {
-                fprintf (stdout, "FAN RO: %d\n",
-                        info->fspeed);
-            }
-            info->fvalid |= PSU_INFO_VALID_FAN_ROTA;
-        }
-
         /*PSU Rev 00: 0d 19 46 41 30 30 30 32 39 31 33 30 30 31          ??FA0002913001 */
         buf[2] = 0xAD;
         buf[3] = 0x0D;
         ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rev, usec_delay);
         if (ret == -1) {
-            LOG_ERROR("Read psu sn error\n");
+            LOG_ERROR("Read psu rev error\n");
             return BF_PLTFM_COMM_FAILED;
         } else {
             memcpy (info->rev, &psu_fan_rev[2], 12);
@@ -910,12 +1140,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 //            memcpy(info->fan_rot, psu_fan_rot[1], strlen(psu_fan_rot[1]));
 //            memcpy(info->ac_dc, psu_ac_dc[1], strlen(psu_ac_dc[1]));
 //        }
-
-        if (psu_present_data[1] == 0) {
-            info->presence = true;
-        } else {
-            info->presence = false;
-        }
     }
 
     return BF_PLTFM_SUCCESS;

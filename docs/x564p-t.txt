@@ -1,0 +1,8 @@
+
+ucli
+pm port-add -/- 100G NONE
+pm port-del 65/-
+pm port-add 65/0 25G NONE
+pm port-add 65/1 25G NONE
+
+pm port-enb -/-

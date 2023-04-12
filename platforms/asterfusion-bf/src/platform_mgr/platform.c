@@ -209,6 +209,7 @@ static void pltfm_mgr_stop_health_mntr (void)
 static bf_pltfm_status_t chss_mgmt_init()
 {
     bf_pltfm_status_t sts;
+    char fmt[128];
     sts = bf_pltfm_chss_mgmt_init();
     if (sts != BF_PLTFM_SUCCESS) {
         LOG_ERROR ("pltfm_mgr: Chassis Mgmt library initialization failed\n");
@@ -315,6 +316,9 @@ static bf_pltfm_status_t chss_mgmt_init()
     if (g_switchd_init_mode != BF_DEV_INIT_COLD) {
         return BF_PLTFM_SUCCESS;
     }
+
+    bf_pltfm_get_bmc_ver (&fmt[0]);
+    fprintf (stdout, "\nBMC version : %s\n", fmt);
 
     //bf_pltfm_chss_mgmt_fan_init();
     //bf_pltfm_chss_mgmt_pwr_init();

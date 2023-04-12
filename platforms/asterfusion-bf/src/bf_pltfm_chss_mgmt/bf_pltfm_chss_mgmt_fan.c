@@ -142,6 +142,126 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             }
             err = BF_PLTFM_SUCCESS;
         }
+
+        /* If BMC version is earlier than 1.2.3(hwver == 1.x), do not read MODEL/SN/REV...
+         * If BMC version is earlier than 1.0.5(hwver == 2.0), do not read MODEL/SN/REV... */
+        if (platform_subtype_equal(v1dot0) ||
+            platform_subtype_equal(v1dot1)) {
+            if (bf_pltfm_compare_bmc_ver("v1.2.3") < 0) {
+                return BF_PLTFM_SUCCESS;
+            }
+        } else if (platform_subtype_equal(v2dot0)) {
+            if (bf_pltfm_compare_bmc_ver("v1.0.5") < 0) {
+                return BF_PLTFM_SUCCESS;
+            }
+        } else {
+            return BF_PLTFM_SUCCESS;
+        }
+
+        for (uint32_t i = 0; i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
+            wr_buf[0] = i + 1;
+
+            wr_buf[1] = BMC_SUB2_SN;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+
+                if ((strlen (bmc_fan_data.F[num].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_fan_data.F[num].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    num ++;
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    continue;
+                }
+
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+
+                num ++;
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on FAN module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[1] = BMC_SUB2_MODEL;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+
+                num ++;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+            }
+
+            wr_buf[1] = BMC_SUB2_MAX;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == 5) && (ret == rd_buf[0] + 1)) {
+                num = i * 2;
+                fdata->F[num].max_speed  = (rd_buf[1] << 8) + rd_buf[2];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+
+                num ++;
+                fdata->F[num].max_speed  = (rd_buf[3] << 8) + rd_buf[4];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+            }
+
+            wr_buf[1] = BMC_SUB2_DIR;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == 4) && (ret == rd_buf[0] + 1)) {
+                if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
+                    num = i * 2;
+                    fdata->F[num].direction = 1;
+                    fdata->F[num + 1].direction = 1;
+                } else if (((rd_buf[1] == 'R') || (rd_buf[1] == 'B')) && (rd_buf[2] == '2') && (rd_buf[3] == 'F')) {
+                    num = i * 2;
+                    fdata->F[num].direction = 2;
+                    fdata->F[num +1].direction = 2;
+                }
+            }
+        }
+
     } else {
         for (uint32_t i = 0;
              i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
@@ -219,6 +339,126 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
                     fdata->F[num].group = 2;
             }
             err = BF_PLTFM_SUCCESS;
+        }
+
+        /* If BMC version is earlier than 2.0.4(hwver == 1.x), do not read MODEL/SN/REV...
+         * If BMC version is earlier than 1.0.2(hwver == 2.0), do not read MODEL/SN/REV... */
+        if (platform_subtype_equal(v1dot0) ||
+            platform_subtype_equal(v1dot1) ||
+            platform_subtype_equal(v1dot2)) {
+            if (bf_pltfm_compare_bmc_ver("v2.0.4") < 0) {
+                return BF_PLTFM_SUCCESS;
+            }
+        } else if (platform_subtype_equal(v2dot0)) {
+            if (bf_pltfm_compare_bmc_ver("v1.0.2") < 0) {
+                return BF_PLTFM_SUCCESS;
+            }
+        } else {
+            return BF_PLTFM_SUCCESS;
+        }
+
+        for (uint32_t i = 0; i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
+            wr_buf[0] = i + 1;
+
+            wr_buf[1] = BMC_SUB2_SN;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+
+                if ((strlen (bmc_fan_data.F[num].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_fan_data.F[num].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    num ++;
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    continue;
+                }
+
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+
+                num ++;
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on FAN module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[1] = BMC_SUB2_MODEL;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+
+                num ++;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+            }
+
+            wr_buf[1] = BMC_SUB2_MAX;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == 5) && (ret == rd_buf[0] + 1)) {
+                num = i * 2;
+                fdata->F[num].max_speed  = (rd_buf[1] << 8) + rd_buf[2];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+
+                num ++;
+                fdata->F[num].max_speed  = (rd_buf[3] << 8) + rd_buf[4];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+            }
+
+            wr_buf[1] = BMC_SUB2_DIR;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == 4) && (ret == rd_buf[0] + 1)) {
+                if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
+                    num = i * 2;
+                    fdata->F[num].direction = 1;
+                    fdata->F[num + 1].direction = 1;
+                } else if (((rd_buf[1] == 'R') || (rd_buf[1] == 'B')) && (rd_buf[2] == '2') && (rd_buf[3] == 'F')) {
+                    num = i * 2;
+                    fdata->F[num].direction = 2;
+                    fdata->F[num +1].direction = 2;
+                }
+            }
         }
     } else {
         for (uint32_t i = 0;
@@ -302,41 +542,75 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
             }
         }
 
+        /* Check BMC version first.
+         * If the version is earlier than 1.0.6, do not read MODEL/SN/REV... */
+        if (bf_pltfm_compare_bmc_ver("v1.0.6") < 0) {
+            return BF_PLTFM_SUCCESS;
+        }
+
         for (uint32_t i = 0; i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
             wr_buf[0] = i + 1;
-
-            wr_buf[1] = BMC_SUB2_MODEL;
-            ret = bf_pltfm_bmc_uart_write_read (
-                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
-
-            if (ret == rd_buf[0] + 1) {
-                num = i * 2;
-                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
-                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
-                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
-
-                num ++;
-                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
-                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
-                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
-            }
 
             wr_buf[1] = BMC_SUB2_SN;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
                     BMC_COMM_INTERVAL_US);
 
-            if (ret == rd_buf[0] + 1) {
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
-                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].model));
+
+                if ((strlen (bmc_fan_data.F[num].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_fan_data.F[num].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    num ++;
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    continue;
+                }
+
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
                 memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
                 fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
 
                 num ++;
-                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].model));
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
                 memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
                 fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on FAN module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[1] = BMC_SUB2_MODEL;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+
+                num ++;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
             }
 
             wr_buf[1] = BMC_SUB2_MAX;

@@ -456,8 +456,41 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
             /* Early Hardware with I2C interface. */
         }
     }
+    memcpy (bmc_ver, g_bmc_version, 32);
 
     return 0;
+}
+
+bf_pltfm_status_t bf_pltfm_compare_bmc_ver(char *cmp_ver_str) {
+    int cmp_ver, cmp_ver_digit[3] = {0};
+    int bmc_ver, bmc_ver_digit[3] = {0};
+    char cmp_ver_char = '\0';
+    char bmc_ver_char = '\0';
+
+    if (g_bmc_version[0] == 'N') {
+        return -1;
+    }
+
+    if (platform_type_equal (X312P)) {
+        sscanf (cmp_ver_str, "v%d.%d.%d-%c", &cmp_ver_digit[0], &cmp_ver_digit[1], &cmp_ver_digit[2], &cmp_ver_char);
+        sscanf (g_bmc_version, "v%d.%d.%d-%c", &bmc_ver_digit[0], &bmc_ver_digit[1], &bmc_ver_digit[2], &bmc_ver_char);
+    } else if (platform_type_equal (X532P) ||
+               platform_type_equal (X564P) ||
+               platform_type_equal (X308P)) {
+        sscanf (cmp_ver_str, "v%d.%d.%d", &cmp_ver_digit[0], &cmp_ver_digit[1], &cmp_ver_digit[2]);
+        sscanf (g_bmc_version, "v%d.%d.%d", &bmc_ver_digit[0], &bmc_ver_digit[1], &bmc_ver_digit[2]);
+    }
+
+    cmp_ver = (cmp_ver_digit[0] << 24) + (cmp_ver_digit[1] << 16) + (cmp_ver_digit[2] << 8) + cmp_ver_char;
+    bmc_ver = (bmc_ver_digit[0] << 24) + (bmc_ver_digit[1] << 16) + (bmc_ver_digit[2] << 8) + bmc_ver_char;
+
+    if (bmc_ver == cmp_ver) {
+        return 0;
+    } else if (bmc_ver > cmp_ver) {
+        return 1;
+    } else {
+        return -1;
+    }
 }
 
 /* create /etc/platform.conf by running xt-cfgen.sh */
