@@ -1,0 +1,33 @@
+
+ucli
+
+pm port-add 1/- 100G NONE
+pm port-add 2/- 100G NONE
+pm port-add 3/- 100G NONE
+pm port-add 4/- 100G NONE
+pm port-add 5/- 100G NONE
+pm port-add 6/- 100G NONE
+pm port-add 7/- 100G NONE
+pm port-add 8/- 100G NONE
+pm port-add 9/- 100G NONE
+pm port-add 10/- 100G NONE
+pm port-add 11/- 100G NONE
+pm port-add 12/- 100G NONE
+
+pm port-add 13/- 25G NONE
+pm port-add 14/- 25G NONE
+pm port-add 15/- 25G NONE
+pm port-add 16/- 25G NONE
+pm port-add 17/- 25G NONE
+pm port-add 18/- 25G NONE
+pm port-add 19/- 25G NONE
+pm port-add 20/- 25G NONE
+pm port-add 21/- 25G NONE
+pm port-add 22/- 25G NONE
+pm port-add 23/- 25G NONE
+pm port-add 24/- 25G NONE
+
+pm port-add 33/0 25G NONE
+pm port-add 33/1 25G NONE
+
+pm port-enb -/-

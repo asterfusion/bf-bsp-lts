@@ -248,7 +248,7 @@ static uint8_t *get_qsfp_value_ptr (int port,
     }
     /* if the cached values are not correct */
     if (!cache_is_valid (port)) {
-        LOG_ERROR ("qsfp %d is not present or unread\n",
+        LOG_WARNING ("qsfp %d is not present or unread\n",
                    port);
         return NULL;
     }
@@ -272,7 +272,7 @@ static uint8_t *get_qsfp_value_ptr (int port,
                    !bf_qsfp_flat_mem[port]) {
             return (&bf_qsfp_page3[port][0] + offset);
         } else {
-            LOG_ERROR ("Invalid Page value %d\n", data_addr);
+            LOG_WARNING ("Invalid Page value %d\n", data_addr);
             return NULL;
         }
     }
@@ -830,7 +830,7 @@ int bf_pltfm_qsfp_tx_disable_single_lane (
     if (port > bf_plt_max_qsfp || channel >= 4) {
         return -1;
     }
-    LOG_ERROR ("Port %d/%d: TX_DISABLE = %d", port,
+    LOG_WARNING ("Port %d/%d: TX_DISABLE = %d", port,
                channel, disable ? 1 : 0);
 
     /* read the cached value and change qsfp memory if needed
@@ -855,7 +855,7 @@ int bf_pltfm_qsfp_tx_disable_single_lane (
         }
         if (bf_pltfm_qsfp_write_module (port, offset, 1,
                                         &val)) {
-            LOG_ERROR (
+            LOG_WARNING (
                 "Error writing tx_disable in qsfp port %d chn %d\n",
                 port, channel);
             return -1;
@@ -911,7 +911,7 @@ int bf_qsfp_tx_disable (int port,
         int rc;
         if ((rc = bf_pltfm_qsfp_write_module (port,
                                               offset, 1, &chn_disable_st))) {
-            LOG_ERROR ("Error (%d) writing tx_disable in QSFP %2d chn %2d\n",
+            LOG_WARNING ("Error (%d) writing tx_disable in QSFP %2d chn %2d\n",
                        rc,
                        port,
                        channel_mask);
@@ -923,7 +923,7 @@ int bf_qsfp_tx_disable (int port,
             bf_sys_usleep (400000);
         }
     } else {
-        LOG_ERROR (
+        LOG_WARNING (
             "Port %d: TX_DISABLE already matches: %0x\n",
             port, chn_disable_st);
     }
@@ -972,7 +972,7 @@ static int set_qsfp_idprom (int port)
         return -1;
     }
     if (!bf_qsfp_present[port]) {
-        LOG_ERROR ("QSFP %d IDProm set failed as QSFP is not present\n",
+        LOG_WARNING ("QSFP %d IDProm set failed as QSFP is not present\n",
                    port);
         return -1;
     }
@@ -1215,7 +1215,7 @@ int bf_qsfp_detect_transceiver (int port,
                  * NOTE, we do not clear IDPROM data here so that we can read
                  * whatever data it returned.
                  */
-                LOG_ERROR ("Error<%d>: "
+                LOG_WARNING ("Error<%d>: "
                            "Update data for QSFP %2d\n", err, port);
                 return -1;
             }
@@ -1323,7 +1323,7 @@ int bf_qsfp_update_monitor_value (int port)
         rc = bf_qsfp_read_transceiver (port, 22, 12,
                 &bf_qsfp_idprom[port][22]);
         if (rc) {
-            LOG_ERROR ("Error<%d>: "
+            LOG_WARNING ("Error<%d>: "
                       "Reading QSFP %2d\n", rc, port);
             return -1;
         }
@@ -1351,7 +1351,7 @@ int bf_qsfp_update_monitor_value (int port)
         rc = bf_qsfp_read_transceiver (port, 34, 24,
                 &bf_qsfp_idprom[port][34]);
         if (rc) {
-            LOG_ERROR ("Error<%d>: "
+            LOG_WARNING ("Error<%d>: "
                       "Reading QSFP %2d\n", rc, port);
             return -1;
         }
@@ -1407,14 +1407,14 @@ int bf_qsfp_update_data (int port)
                  port, 0, MAX_QSFP_PAGE_SIZE,
                  &bf_qsfp_idprom[port][0]);
         if (rc) {
-            LOG_ERROR ("Error<%d>: "
+            LOG_WARNING ("Error<%d>: "
                        "Reading QSFP %2d\n", rc, port);
             return -1;
         }
         bf_qsfp_cache_dirty[port] = false;
         rc = set_qsfp_idprom (port);
         if (rc) {
-            LOG_ERROR ("Error<%d>: "
+            LOG_WARNING ("Error<%d>: "
                        "Set IDPROM for QSFP %2d\n", rc, port);
             return -1;
         }
@@ -1434,7 +1434,7 @@ int bf_qsfp_update_data (int port)
             rc = bf_pltfm_qsfp_write_module (port, 127, 1,
                                              &page);
             if (rc) {
-                LOG_ERROR ("Error<%d>: "
+                LOG_WARNING ("Error<%d>: "
                            "Select page %2d for QSFP %2d\n", rc, page, port);
                 return -1;
             }
@@ -1444,7 +1444,7 @@ int bf_qsfp_update_data (int port)
             rc = bf_pltfm_qsfp_read_module (port, 127, 1,
                                             &page_read);
             if ( page ^ page_read) {
-                LOG_ERROR ("Error<%d>: "
+                LOG_WARNING ("Error<%d>: "
                            "Select page %2d for QSFP %2d(read check)\n", rc,
                            page, port);
                 return -1;
@@ -1455,7 +1455,7 @@ int bf_qsfp_update_data (int port)
                  port, 128, MAX_QSFP_PAGE_SIZE,
                  &bf_qsfp_page0[port][0]);
         if (rc) {
-            LOG_ERROR ("Error<%d>: "
+            LOG_WARNING ("Error<%d>: "
                        "Reading page_0 from QSFP %2d\n", rc, port);
             return -1;
         }
@@ -1464,7 +1464,7 @@ int bf_qsfp_update_data (int port)
             rc = bf_pltfm_qsfp_write_module (port, 127, 1,
                                              &page);
             if (rc) {
-                LOG_ERROR ("Error<%d>: "
+                LOG_WARNING ("Error<%d>: "
                            "Select page %2d for QSFP %2d\n", rc, page, port);
                 return -1;
             }
@@ -1473,7 +1473,7 @@ int bf_qsfp_update_data (int port)
                      port, 128, MAX_QSFP_PAGE_SIZE,
                      &bf_qsfp_page3[port][0]);
             if (rc) {
-                LOG_ERROR ("Error<%d>: "
+                LOG_WARNING ("Error<%d>: "
                            "Reading page_3 from QSFP %2d\n", rc, port);
                 return -1;
             }
@@ -1482,7 +1482,7 @@ int bf_qsfp_update_data (int port)
             rc = bf_pltfm_qsfp_read_module (port, 127, 1,
                                             &page_read);
             if ( page ^ page_read) {
-                LOG_ERROR ("Error<%d>: "
+                LOG_WARNING ("Error<%d>: "
                            "Select page %2d for QSFP %2d(read check)\n", rc,
                            page, port);
                 return -1;
@@ -1564,17 +1564,17 @@ void bf_qsfp_set_pwr_ctrl (int port)
          */
 
         if (pwr_ctrl_addr != QSFP_PAGE0_LOWER) {
-            LOG_ERROR ("Error setting qsfp POWER_CTRL, incorrect page number\n");
+            LOG_WARNING ("Error setting qsfp POWER_CTRL, incorrect page number\n");
             return;
         }
         if (pwr_ctrl_len != sizeof (power)) {
-            LOG_ERROR ("Error setting qsfp POWER_CTRL, incorrect length\n");
+            LOG_WARNING ("Error setting qsfp POWER_CTRL, incorrect length\n");
             return;
         }
 
         if (bf_pltfm_qsfp_write_module (
                 port, pwr_ctrl_offset, sizeof (power), &power)) {
-            LOG_ERROR ("Error writing POWER_CTRL to qsfp %d\n",
+            LOG_WARNING ("Error writing POWER_CTRL to qsfp %d\n",
                        port);
         }
     }

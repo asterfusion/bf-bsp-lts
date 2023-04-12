@@ -810,14 +810,17 @@ static void further_decode ()
                     tlv->content[1], tlv->content[2], tlv->content[3]);
                 memcpy(tlv->content, (uint8_t *)temp, 32);
             } else if(tlv->code == 0x26) {
-                if (!strstr (tlv->content, "4") &&
+                if (!strstr (tlv->content, "5") &&
+                    !strstr (tlv->content, "4") &&
                     !strstr (tlv->content, "3") &&
                     !strstr (tlv->content, "2")) {
                     fprintf (stdout,
                              "** Invalid data in eeprom sections (0x%02x), This may occur errors while running.\n",
                              tlv->code);
                 }
-                if (strstr (tlv->content, "4")) {
+                if (strstr (tlv->content, "5")) {
+                    sprintf(eeprom.bf_pltfm_main_board_version, "%s V5.x", eeprom.bf_pltfm_product_name);
+                } else if (strstr (tlv->content, "4")) {
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V4.x", eeprom.bf_pltfm_product_name);
                 } else if (strstr (tlv->content, "2")) {
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V2.x", eeprom.bf_pltfm_product_name);

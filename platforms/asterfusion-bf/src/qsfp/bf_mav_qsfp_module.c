@@ -546,7 +546,7 @@ int bf_pltfm_qsfp_set_lpmode (unsigned int module,
 
     rc = bf_pltfm_qsfp_read_module (module, 93, 1, &byte_93);
     if (rc) {
-        LOG_ERROR (
+        LOG_WARNING (
             "QSFP    %2d : Error <%d> reading Power ctrl (byte 93)",
             module, rc);
     } else {
@@ -558,7 +558,7 @@ int bf_pltfm_qsfp_set_lpmode (unsigned int module,
 
         rc = bf_pltfm_qsfp_write_module (module, 93, 1, &byte_93);
         if (rc) {
-            LOG_ERROR ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
+            LOG_WARNING ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
                        module,
                        rc,
                        byte_93);

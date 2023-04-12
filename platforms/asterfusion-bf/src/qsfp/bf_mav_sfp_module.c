@@ -431,7 +431,7 @@ EXPORT int bf_pltfm_sfp_read_module (
     err = g_sfp_opt->read (module, offset, len, buf);
     if (err) {
         /* Must de-select even error occured while reading. */
-        LOG_ERROR (
+        LOG_WARNING (
             "%s[%d], "
             "sfp.read(%02d : %s : %d)"
             "\n",

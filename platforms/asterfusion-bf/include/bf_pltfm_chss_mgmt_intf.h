@@ -398,6 +398,8 @@ typedef enum cpld_path_e {
 
 cpld_path_e bf_pltfm_find_path_to_cpld();
 
+bf_pltfm_status_t bf_pltfm_compare_bmc_ver(char *cmp_ver);
+
 /* Porting CMEXXX, by tsihang, 2019-09-18. */
 #define is_HVXXX (\
     (global_come_type == CME3000) ||\
