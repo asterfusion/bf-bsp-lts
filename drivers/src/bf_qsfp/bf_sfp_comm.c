@@ -17,6 +17,35 @@
 static bool sfp_debug_on = false;
 static int bf_plt_max_sfp;
 
+typedef struct bf_sfp_info_t {
+    bool present;
+    bool reset;
+    bool soft_removed;
+    bool flat_mem;
+    bool passive_cu;
+    //uint8_t num_ch;
+    MemMap_Format memmap_format;
+
+    /* cached SFP values */
+    bool cache_dirty;
+
+    /* idprom for 0xA0h byte 0-127. */
+    uint8_t idprom[MAX_SFP_PAGE_SIZE];
+    uint8_t a2h[MAX_SFP_PAGE_SIZE];
+
+    uint8_t page0[MAX_SFP_PAGE_SIZE];
+    uint8_t page1[MAX_SFP_PAGE_SIZE];
+    uint8_t page2[MAX_SFP_PAGE_SIZE];
+    uint8_t page3[MAX_SFP_PAGE_SIZE];
+
+    uint8_t media_type;
+
+    sfp_alarm_threshold_t alarm_threshold;
+
+    //bf_qsfp_special_info_t special_case_port;
+    bf_sys_mutex_t sfp_mtx;
+} bf_sfp_info_t;
+
 /*
  * Access is 1 based index, so zeroth index would be unused.
  * For any APIs mentioned in this file trying to index and
@@ -29,6 +58,9 @@ static int bf_plt_max_sfp;
 static bf_sfp_info_t
 bf_sfp_info_arr[BF_PLAT_MAX_SFP + 1];
 
+/* Big Switch Network decoding engine. */
+sff_eeprom_t bf_sfp_sff_eeprom[BF_PLAT_MAX_SFP +
+                                               1];
 
 /* by tsihang, 2021-07-29. */
 static bool bf_sfp_is_eth_ext_compliance_copper (
@@ -274,7 +306,7 @@ static int bf_sfp_set_idprom (int port)
         return rc;
     }
 
-    se = &bf_sfp_info_arr[port].se;
+    se = &bf_sfp_sff_eeprom[port];
     memset (se, 0, sizeof (sff_eeprom_t));
     rc = sff_eeprom_parse (se,
                            bf_sfp_info_arr[port].idprom);
@@ -398,8 +430,8 @@ int bf_sfp_update_cache (int port)
     // first, figure out memory map format.
     if (bf_sfp_set_idprom (port)) {
         //if (!bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_ERROR ("Error setting idprom for sfp %d\n",
-                       port);
+        LOG_ERROR ("Error setting idprom for sfp %d\n",
+                   port);
         //}
         return -1;
     }
@@ -418,7 +450,7 @@ int bf_sfp_update_cache (int port)
     sff_dom_info_t sdi;
     sff_eeprom_t *se;
     sff_info_t *sff;
-    se = &bf_sfp_info_arr[port].se;
+    se = &bf_sfp_sff_eeprom[port];
     sff = &se->info;
 
     // now that we know the memory map format, we can selectively read the
@@ -480,7 +512,7 @@ int bf_sfp_update_cache (int port)
  * NULL for other conditions
  */
 
-bf_sfp_info_t *bf_sfp_get_info (int port)
+static bf_sfp_info_t *bf_sfp_get_info (int port)
 {
     if (port > bf_plt_max_sfp) {
         return NULL;
@@ -500,7 +532,7 @@ bf_sfp_info_t *bf_sfp_get_info (int port)
 }
 
 int bf_sfp_get_cached_info (int port, int page,
-                             uint8_t *buf)
+                            uint8_t *buf)
 {
     bf_sfp_info_t *sfp;
     uint8_t *cptr;
@@ -544,8 +576,8 @@ int bf_sfp_detect_transceiver (int port,
         bf_sfp_info_arr[port].cache_dirty) {
         /* closed by tsihang. */
         //if (!bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_DEBUG (" SFP    %2d : %s",
-                port, st ? "PRESENT" : "REMOVED");
+        LOG_DEBUG (" SFP    %2d : %s",
+                   port, st ? "PRESENT" : "REMOVED");
         //}
         bf_sfp_set_present (port, st);
         *is_present = st;
@@ -842,7 +874,7 @@ static void sfp_copy_string (uint8_t *dst,
  *   sfp transceiver information struct
  */
 int bf_sfp_get_transceiver_info (int port,
-                                 qsfp_transciever_info_t *info)
+                                 sfp_transciever_info_t *info)
 {
     uint8_t *p_a0h;
     uint8_t *p_a2h;
@@ -867,10 +899,13 @@ int bf_sfp_get_transceiver_info (int port,
     info->present = bf_sfp_info_arr[port].present;
     /* module capability */
     info->module_capability = (0x80 << 8) | p_a0h[36];
+    info->_isset.mcapa = true;
     /* module type */
     info->module_type = p_a0h[0];
+    info->_isset.mtype = true;
     /* connector type */
     info->connector_type = p_a0h[2];
+    info->_isset.ctype = true;
     /* sensor info */
     info->sensor.temp.value = (double) (
                                   p_a2h[96]) + ((double)p_a2h[97] / 256);
@@ -894,20 +929,20 @@ int bf_sfp_get_transceiver_info (int port,
     info->_isset.vendor = true;
     /* rx/tx pwr */
     info->chn[0].sensors.rx_pwr.value = (double) ((
-                                            p_a2h[102] << 8) + p_a2h[103]) * 0.1 / 1000.00;
+                                         p_a2h[102] << 8) + p_a2h[103]) * 0.1 / 1000.00;
     if (info->chn[0].sensors.rx_pwr.value == 0) {
         info->chn[0].sensors.rx_pwr.value = -40;
     } else {
         info->chn[0].sensors.rx_pwr.value = 10 * log10 (
-                                                info->chn[0].sensors.rx_pwr.value);
+                                             info->chn[0].sensors.rx_pwr.value);
     }
     info->chn[0].sensors.tx_pwr.value = (double) ((
-                                            p_a2h[104] << 8) + p_a2h[105]) * 0.1 / 1000.00;
+                                         p_a2h[104] << 8) + p_a2h[105]) * 0.1 / 1000.00;
     if (info->chn[0].sensors.tx_pwr.value == 0) {
         info->chn[0].sensors.tx_pwr.value = -40;
     } else {
         info->chn[0].sensors.tx_pwr.value = 10 * log10 (
-                                                info->chn[0].sensors.tx_pwr.value);
+                                             info->chn[0].sensors.tx_pwr.value);
     }
     info->_isset.chn = true;
 

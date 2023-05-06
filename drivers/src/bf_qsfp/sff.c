@@ -494,8 +494,9 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
     se->info.sfp_type_name = sff_sfp_type_desc (
                                  se->info.sfp_type);
 
-    const uint8_t *vendor = NULL, *model = NULL, *serial = NULL,
-        *date = NULL, *rev = NULL, *oui = NULL;
+    const uint8_t *vendor = NULL, *model = NULL,
+                   *serial = NULL,
+                    *date = NULL, *rev = NULL, *oui = NULL;
 
     switch (se->info.sfp_type) {
         case SFF_SFP_TYPE_QSFP_PLUS:
@@ -520,7 +521,8 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
     const char *empty = "                ";
     if (*vendor) {
         strncpy (se->info.vendor, (char *)vendor,
-                 strlen ((char *)vendor) >= 16 ? 16 : strlen ((char *)vendor));
+                 strlen ((char *)vendor) >= 16 ? 16 : strlen ((
+                             char *)vendor));
         make_printable__ (se->info.vendor,
                           sizeof (se->info.vendor));
         se->info.vendor[16] = '\0';
@@ -531,7 +533,8 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*model) {
         strncpy (se->info.model, (char *)model,
-                 strlen ((char *)model) >= 16 ? 16 : strlen ((char *)model));
+                 strlen ((char *)model) >= 16 ? 16 : strlen ((
+                             char *)model));
         make_printable__ (se->info.model,
                           sizeof (se->info.model));
         se->info.model[16] = '\0';
@@ -542,7 +545,8 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*serial) {
         strncpy (se->info.serial, (char *)serial,
-                 strlen ((char *)serial) >= 16 ? 16 : strlen ((char *)serial));
+                 strlen ((char *)serial) >= 16 ? 16 : strlen ((
+                             char *)serial));
         make_printable__ (se->info.serial,
                           sizeof (se->info.serial));
         se->info.serial[16] = '\0';
@@ -553,7 +557,8 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*date) {
         strncpy (se->info.date, (char *)date,
-                 strlen ((char *)date) >= 8 ? 8 : strlen ((char *)date));
+                 strlen ((char *)date) >= 8 ? 8 : strlen ((
+                             char *)date));
         make_printable__ (se->info.date,
                           sizeof (se->info.date));
         se->info.date[8] = '\0';
@@ -564,7 +569,8 @@ sff_eeprom_parse_standard__ (sff_eeprom_t *se,
 
     if (*rev) {
         strncpy (se->info.rev, (char *)rev,
-                 strlen ((char *)rev) >= 4 ? 4 : strlen ((char *)rev));
+                 strlen ((char *)rev) >= 4 ? 4 : strlen ((
+                             char *)rev));
         make_printable__ (se->info.rev,
                           sizeof (se->info.rev));
         se->info.rev[4] = '\0';

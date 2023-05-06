@@ -350,22 +350,24 @@ static bf_pltfm_status_t qsfp_scan_helper (
             res_mask = res_mask >> 1;
             res_bit = res_mask & 0x01;
 
-            mask = mask >> 1;
-            conn_id ++;
+            // mask = mask >> 1;
+            conn_id++;
         }
         res_mask = res_mask >> 1;
 
         // Find if the said qsfp module was removed or added
-        int detect_st = bf_qsfp_detect_transceiver (conn_id,
-                                        &is_present);
+        int detect_st = bf_qsfp_detect_transceiver (
+                            conn_id,
+                            &is_present);
         LOG_DEBUG ("QSFP    %2d : detect-st : %d is-present : %d",
                    conn_id,
                    detect_st,
                    is_present);
-        fprintf (stdout, "QSFP    %2d : detect-st : %d is-present : %d\n",
-                   conn_id,
-                   detect_st,
-                   is_present);
+        fprintf (stdout,
+                 "QSFP    %2d : detect-st : %d is-present : %d\n",
+                 conn_id,
+                 detect_st,
+                 is_present);
         if (detect_st) {
             // hopefully, detect it in the next iteration
             LOG_ERROR ("bf_pltfm_pm: Error detetcing port %d\n",
@@ -728,16 +730,17 @@ static void sfp_removal_actions (bf_dev_id_t
             sts);
     }
 
-    fprintf (stdout, " SFP    %2d : %2d/%d : removed\n",
-               module,
-               port_hdl.conn_id,
-               port_hdl.chnl_id);
+    fprintf (stdout,
+             " SFP    %2d : %2d/%d : removed\n",
+             module,
+             port_hdl.conn_id,
+             port_hdl.chnl_id);
 
     bf_pltfm_port_info_t port_info;
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = port_hdl.chnl_id;
     bf_port_led_set (dev_id, &port_info,
-                          BF_LED_POST_PORT_DEL);
+                     BF_LED_POST_PORT_DEL);
     if (sts != BF_PLTFM_SUCCESS) {
         LOG_DEBUG (
             "Unable to set led on port removal event for dev : %d : front port : "
@@ -823,10 +826,11 @@ static void sfp_detection_actions (
             sts);
     }
 
-    fprintf (stdout, " SFP    %2d : %2d/%d : inserted\n",
-               module,
-               port_hdl.conn_id,
-               port_hdl.chnl_id);
+    fprintf (stdout,
+             " SFP    %2d : %2d/%d : inserted\n",
+             module,
+             port_hdl.conn_id,
+             port_hdl.chnl_id);
 }
 
 void bf_pm_sfp_quick_removal_detected_set (
@@ -971,12 +975,13 @@ static bf_pltfm_status_t sfp_scan_helper (
                    chnl_id,
                    detect_st,
                    is_present);
-        fprintf (stdout, " SFP    %2d : %2d/%d : detect-st : %d is-present : %d\n",
-                   module,
-                   conn_id,
-                   chnl_id,
-                   detect_st,
-                   is_present);
+        fprintf (stdout,
+                 " SFP    %2d : %2d/%d : detect-st : %d is-present : %d\n",
+                 module,
+                 conn_id,
+                 chnl_id,
+                 detect_st,
+                 is_present);
 
         // Find if so-called sfp module was removed or added
         if (detect_st) {
@@ -1426,8 +1431,9 @@ bf_pltfm_status_t bf_pltfm_pm_init (
     bf_pm_num_mac  = platform_num_ports_get ();
     LOG_DEBUG ("num of QSFPs = %2d, BF_DRV_VER %s",
                bf_pm_num_qsfp, bf_drv_get_version());
-    fprintf (stdout, "num of QSFPs = %d, BF_DRV_VER %s\n",
-               bf_pm_num_qsfp, bf_drv_get_version());
+    fprintf (stdout,
+             "num of QSFPs = %d, BF_DRV_VER %s\n",
+             bf_pm_num_qsfp, bf_drv_get_version());
 
     for (conn_id = 0; conn_id < bf_pm_num_qsfp;
          conn_id++) {
@@ -1477,8 +1483,9 @@ bf_pltfm_status_t bf_pltfm_pm_init (
     bf_pm_num_sfp = bf_sfp_get_max_sfp_ports();
     LOG_DEBUG ("num of SFPs = %d, BF_DRV_VER %s",
                bf_pm_num_sfp, bf_drv_get_version());
-    fprintf (stdout, "num of SFPs = %2d, BF_DRV_VER %s\n",
-               bf_pm_num_sfp, bf_drv_get_version());
+    fprintf (stdout,
+             "num of SFPs = %2d, BF_DRV_VER %s\n",
+             bf_pm_num_sfp, bf_drv_get_version());
 
     for (conn_id = 0; conn_id < bf_pm_num_sfp;
          conn_id++) {
@@ -1541,8 +1548,9 @@ bf_pltfm_status_t bf_pltfm_pm_deinit()
 {
     bf_sys_timer_status_t rc;
 
-    fprintf(stdout, "================== Deinit .... %48s ================== \n",
-        __func__);
+    fprintf (stdout,
+             "================== Deinit .... %48s ================== \n",
+             __func__);
 
     // Stop the timers only if the board type is not Emulator/Model
     if (platform_is_hw()) {
@@ -1605,8 +1613,9 @@ bf_pltfm_status_t bf_pltfm_pm_deinit()
         }
     }
 #endif
-    fprintf(stdout, "================== Deinit done %48s ================== \n",
-        __func__);
+    fprintf (stdout,
+             "================== Deinit done %48s ================== \n",
+             __func__);
     return BF_PLTFM_SUCCESS;
 }
 

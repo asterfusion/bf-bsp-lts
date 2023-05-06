@@ -242,7 +242,7 @@ static int qsfp_init_sub_bus (
                  hndl, ADDR_SWITCH_32 + (i * 2), 0,
                  DEFAULT_TIMEOUT_MS);
         if (rc != BF_PLTFM_SUCCESS) {
-            LOG_WARNING ("Error in initializing the PCA9548 devices itr %d, "
+            LOG_ERROR ("Error in initializing the PCA9548 devices itr %d, "
                        "addr 0x%02x", i, ADDR_SWITCH_32 + (i * 2));
             //return -1;
         }
@@ -349,7 +349,7 @@ int unselect_cpu_qsfp (
     rc = bf_pltfm_cp2112_write_byte (hndl, i2c_addr,
                                      0, DEFAULT_TIMEOUT_MS);
     if (rc != BF_PLTFM_SUCCESS) {
-        LOG_WARNING ("Error in %s\n", __func__);
+        LOG_ERROR ("Error in %s\n", __func__);
         return -1;
     }
     return 0;
@@ -368,7 +368,7 @@ int select_cpu_qsfp (bf_pltfm_cp2112_device_ctx_t
     rc = bf_pltfm_cp2112_write_byte (hndl, i2c_addr,
                                      bit, DEFAULT_TIMEOUT_MS);
     if (rc != BF_PLTFM_SUCCESS) {
-        LOG_WARNING ("Error in %s\n", __func__);
+        LOG_ERROR ("Error in %s\n", __func__);
         return -1;
     }
     return 0;
@@ -423,7 +423,7 @@ static int unselect_qsfp (
         }
     }
     if (rc != BF_PLTFM_SUCCESS) {
-        LOG_WARNING (
+        LOG_ERROR (
             "%s[%d], "
             "qsfp.disselect(%02d : %s : %d : %02x : %02x)"
             "\n",
@@ -460,7 +460,7 @@ static int select_qsfp (
                                          i2c_addr, (1 << chnl), DEFAULT_TIMEOUT_MS);
     }
     if (rc != BF_PLTFM_SUCCESS) {
-        LOG_WARNING (
+        LOG_ERROR (
             "%s[%d], "
             "qsfp.select(%02d : %s : %d : %02x : %02x)"
             "\n",
@@ -502,7 +502,7 @@ int bf_mav_lock_select_misc_chn (
                                      bit, DEFAULT_TIMEOUT_MS);
     if (rc != BF_PLTFM_SUCCESS) {
         MAV_QSFP_UNLOCK;
-        LOG_WARNING ("Error in %s\n", __func__);
+        LOG_ERROR ("Error in %s\n", __func__);
         return -1;
     }
     return 0;
@@ -525,7 +525,7 @@ int bf_mav_lock_unselect_misc_chn (
                                      bit, DEFAULT_TIMEOUT_MS);
     if (rc != BF_PLTFM_SUCCESS) {
         MAV_QSFP_UNLOCK;
-        LOG_WARNING ("Error in %s\n", __func__);
+        LOG_ERROR ("Error in %s\n", __func__);
         return -1;
     }
     return 0;
@@ -668,7 +668,7 @@ bf_pltfm_status_t bf_mav_qsfp_sub_module_write (
                  hndl, i2c_addr, out_buf, len + 1,
                  DEFAULT_TIMEOUT_MS);
         if (rc != BF_PLTFM_SUCCESS) {
-            LOG_WARNING ("Error in qsfp write port <%d>\n",
+            LOG_ERROR ("Error in qsfp write port <%d>\n",
                        module + 1);
             unselect_qsfp (hndl, module);
             MAV_QSFP_UNLOCK;
@@ -678,7 +678,7 @@ bf_pltfm_status_t bf_mav_qsfp_sub_module_write (
         rc = bf_pltfm_master_i2c_write_block (
                  i2c_addr >> 1, offset, buf, len);
         if (rc != BF_PLTFM_SUCCESS) {
-            LOG_WARNING ("Error in qsfp write port <%d>\n",
+            LOG_ERROR ("Error in qsfp write port <%d>\n",
                        module + 1);
             unselect_qsfp (hndl, module);
             MAV_QSFP_UNLOCK;
@@ -716,7 +716,7 @@ int bf_pltfm_sub_module_reset (
 
     rc = bf_pltfm_cpld_read_byte (st->cpld_sel, st->off, &val0);
     if (rc) {
-        LOG_WARNING (
+        LOG_ERROR (
             "%s[%d], "
             "read_cpld(%02d : %d : %s)"
             "\n",
@@ -737,7 +737,7 @@ int bf_pltfm_sub_module_reset (
     /* Write it back */
     rc = bf_pltfm_cpld_write_byte (st->cpld_sel, st->off, val);
     if (rc) {
-        LOG_WARNING (
+        LOG_ERROR (
             "%s[%d], "
             "write_cpld(%02d : %d : %s)"
             "\n",
@@ -749,7 +749,7 @@ int bf_pltfm_sub_module_reset (
 
     rc = bf_pltfm_cpld_read_byte (st->cpld_sel, st->off, &val1);
     if (rc) {
-        LOG_WARNING (
+        LOG_ERROR (
             "%s[%d], "
             "read_cpld(%02d : %d : %s)"
             "\n",
@@ -758,10 +758,6 @@ int bf_pltfm_sub_module_reset (
         goto end;
     }
 
-    fprintf (stdout,
-             "QSFP    %2d : %sRST : (0x%02x -> 0x%02x)\n",
-             (module + 1), original_reset ? "+" : "-", val0,
-             val1);
     LOG_DEBUG (
         "QSFP    %2d : %sRST : (0x%02x -> 0x%02x)  ",
         (module + 1), original_reset ? "+" : "-", val0,

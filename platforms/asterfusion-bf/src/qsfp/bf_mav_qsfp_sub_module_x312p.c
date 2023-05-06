@@ -150,12 +150,10 @@ int bf_pltfm_get_sub_module_pres_x312p (
     val = 0xF0 | val;
     bf_pltfm_qsfp_bitmap_x312p (&qsfp_pres_l,
                                 &qsfp_pres_h, off, val);
-
-end:
-
     *pres_l = qsfp_pres_l;
     *pres_h = qsfp_pres_h;
 
+end:
     return rc;
 }
 

@@ -256,7 +256,6 @@ sfp_get_module_pres_x5 (
     int rc;
     uint8_t val;
     uint32_t sfp_pres_mask = 0xFFFFFFFF;
-    pres_h = pres_h;
 
     /* MISC */
     rc = bf_pltfm_cpld_read_byte (
@@ -272,10 +271,10 @@ sfp_get_module_pres_x5 (
     MASKBIT (val, 7);
 
     sfp_pres_mask = ((0xFFFFFF << 8) | val);
+    *pres_l = sfp_pres_mask;
+    *pres_h = *pres_h;
 
 end:
-
-    *pres_l = sfp_pres_mask;
     return rc;
 }
 
@@ -341,9 +340,9 @@ sfp_module_tx_disable_x5 (
         goto end;
     }
 
-    fprintf (stdout,
+    LOG_DEBUG (
              " SFP    %2d : CH : 0x%02x  V : (0x%02x -> 0x%02x) "
-             " %sTx\n",
+             " %sTx",
              module,
              dis->cpld_sel, val0,
              val1, disable ? "-" : "+");

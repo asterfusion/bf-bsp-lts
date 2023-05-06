@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <ctype.h>
+#include <time.h>
 
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include "bf_pltfm_cgos_i2c.h"
@@ -30,6 +31,9 @@
 #include <pltfm_types.h>
 
 bf_sys_rmutex_t master_i2c_lock;
+
+static bool  bf_sio_dbg_enabled = true;
+static FILE *bf_sio_dbg_fp = NULL;
 
 #define MISSING_FUNC_FMT	"Error: Adapter does not have %s capability\n"
 
@@ -559,6 +563,76 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
     return fd;
 }
 
+static void bf_pltfm_master_i2c_log(
+    uint8_t rd_wr,
+    uint8_t slave,
+    uint8_t wr_off,
+    uint8_t *wr_buf,
+    uint8_t wr_len) {
+
+    char debug_str[512];
+    char rd_wr_str[16];
+    time_t tmpcal_ptr;
+    struct tm *tmp_ptr;
+    struct stat file_stat;
+    char rfile[128] = {0};
+    const char *dbg_file = LOG_DIR_PREFIX"/sio_debug.log";
+
+    if (!bf_sio_dbg_enabled ||
+        !platform_type_equal(X312P) ||
+        ((slave != 0x60) &&
+        (slave != 0x62) &&
+        (slave != 0x64) &&
+        (slave != 0x66) &&
+        (slave != 0x3E))) {
+        return;
+    }
+
+    time(&tmpcal_ptr);
+    tmp_ptr = localtime(&tmpcal_ptr);
+
+    switch (rd_wr) {
+        case 0:
+            strcpy (rd_wr_str, "RD");
+            break;
+        case 1:
+            strcpy (rd_wr_str, "WR");
+            break;
+    }
+
+    sprintf (debug_str, "%4d-%2d-%2d %2d:%2d:%2d (UTC) %s addr: 0x%02x, len:%2d, data: 0x%02x",
+                         1900+tmp_ptr->tm_year, 1+tmp_ptr->tm_mon, tmp_ptr->tm_mday,
+                         tmp_ptr->tm_hour, tmp_ptr->tm_min, tmp_ptr->tm_sec,
+                         rd_wr_str, slave, wr_len, wr_off);
+    for (int i = 0; i < wr_len; i ++) {
+        sprintf (debug_str, "%s-%02x", debug_str, wr_buf[i]);
+    }
+    sprintf (debug_str, "%s\n", debug_str);
+
+    if (bf_sio_dbg_enabled) {
+        if (bf_sio_dbg_fp == NULL) {
+            bf_sio_dbg_fp = fopen (dbg_file, "a");
+            if (bf_sio_dbg_fp == NULL) {
+                LOG_ERROR ("Warning: %s", strerror (errno));
+                exit (0);
+            }
+        }
+    }
+
+    if (bf_sio_dbg_fp) {
+        fwrite (debug_str, 1, strlen(debug_str), bf_sio_dbg_fp);
+        fflush (bf_sio_dbg_fp);
+        stat (dbg_file, &file_stat);
+        if (file_stat.st_size > 9 * 1024 * 1024) {
+            /* Create a new file next time. */
+            fclose (bf_sio_dbg_fp);
+            bf_sio_dbg_fp = NULL;
+            sprintf (rfile, "%s.%lu", dbg_file, tmpcal_ptr);
+            rename (dbg_file, rfile);
+        }
+    }
+}
+
 int bf_pltfm_master_i2c_read_byte (
     uint8_t slave,
     uint8_t rd_off,
@@ -599,6 +673,8 @@ int bf_pltfm_master_i2c_read_byte (
     }
 
     *value = val;
+
+    bf_pltfm_master_i2c_log(0, slave, rd_off, value, 1);
 
     return BF_PLTFM_SUCCESS;
 }
@@ -703,6 +779,8 @@ int bf_pltfm_master_i2c_read_block (
 #endif
 #endif
 
+    bf_pltfm_master_i2c_log(0, slave, rd_off, rd_buf, rd_len);
+
     return BF_PLTFM_SUCCESS;
 }
 
@@ -719,6 +797,8 @@ int bf_pltfm_master_i2c_write_byte (
     int force = 0;
     int err;
     int fd = -1;
+
+    bf_pltfm_master_i2c_log(1, slave, wr_off, &value, 1);
 
     fd = bf_pltfm_master_i2c_select(slave);
 
@@ -763,6 +843,8 @@ int bf_pltfm_master_i2c_write_block (
     int force = 0;
     int err;
     int fd = -1;
+
+    bf_pltfm_master_i2c_log(1, slave, wr_off, wr_buf, wr_len);
 
     fd = bf_pltfm_master_i2c_select(slave);
 
@@ -820,6 +902,8 @@ int bf_pltfm_bmc_write_read (
     int err = BF_PLTFM_SUCCESS;
     int fd = -1;
 
+    bf_pltfm_master_i2c_log(1, slave, wr_off, wr_buf, wr_len);
+
     fd = bf_pltfm_master_i2c_select(slave);
 
     MASTER_I2C_LOCK;
@@ -870,6 +954,7 @@ int bf_pltfm_bmc_write_read (
         }
     }
 
+    bf_pltfm_master_i2c_log(0, slave, rd_buf[0], &rd_buf[1], err-1);
 end:
     MASTER_I2C_UNLOCK;
     return err;
@@ -1046,6 +1131,11 @@ int bf_pltfm_master_i2c_de_init()
                 close (i2c->fd_cp2112);
                 fprintf (stdout, "Deinit CP2112 I2C ...\n");
                 i2c->fd_cp2112 = -1;
+            }
+
+            if (bf_sio_dbg_fp) {
+                fflush (bf_sio_dbg_fp);
+                fclose (bf_sio_dbg_fp);
             }
         }
     }

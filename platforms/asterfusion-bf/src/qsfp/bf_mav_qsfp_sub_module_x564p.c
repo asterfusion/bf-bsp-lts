@@ -323,11 +323,9 @@ int bf_pltfm_get_sub_module_pres_x564p (
     bf_pltfm_qsfp_bitmap_x564p (&qsfp_pres_l,
                                 &qsfp_pres_h, 8, val[8]);
 
-end:
-
     *pres_l = qsfp_pres_l;
     *pres_h = qsfp_pres_h;
-
+end:
     return rc;
 
 }

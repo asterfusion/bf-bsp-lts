@@ -1147,16 +1147,17 @@ int bf_qsfp_get_transceiver_info (int port,
     info->port = port;
     bf_qsfp_get_connector_type (port,
                                 &info->connector_type);
+    info->_isset.ctype = true;
     bf_qsfp_get_module_type (port,
                              &info->module_type);
     if (!cache_is_valid (port)) {
         return -2;
     }
-
+    info->_isset.mtype = true;
 
     if (bf_qsfp_get_module_capability (port,
                                        &info->module_capability)) {
-        info->_isset.type = true;
+        info->_isset.mcapa = true;
     }
     if (bf_qsfp_get_sensor_info (port,
                                  &info->sensor)) {
