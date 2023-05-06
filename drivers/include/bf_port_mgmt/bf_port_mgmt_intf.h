@@ -490,6 +490,81 @@ void bf_pm_qsfp_luxtera_state_capture (
     int conn_id, uint8_t arr_0x3k[0x3000]);
 int bf_pm_num_qsfp_get (void);
 
+char *qsfp_channel_fsm_st_get (int conn_id,
+                               int ch);
+void qsfp_channel_fsm_st_set (int conn_id, int ch, uint8_t state);
+char *qsfp_module_fsm_st_get (int conn_id);
+void qsfp_module_fsm_st_set (int conn_id, uint8_t state);
+
+char *sfp_channel_fsm_st_get (int port);
+char *sfp_module_fsm_st_get (int port);
+
+
+// default disabled. Only useful via ucli
+void bf_port_qsfp_mgmnt_temper_monitor_log_set (
+    bool enable);
+bool bf_port_qsfp_mgmnt_temper_monitor_log_get (
+    void);
+
+/**
+ * @brief Enable the temperature monitoring for optical modules.
+ *        a) Default disabled and Platform Specific.
+ *            Result will be cached.
+ *            Two actions are taken as noted in b) and c) below
+ *
+ *        b) Common-qsfp management code :
+ *            If module see high alarm temperature, it will be put into low
+ *            power mode. Recovery requires unplug and plug of the module.
+ *            Since this will require some analysis of hardware or module.
+ *
+ *        c) Fan-speed control :
+ *           Platform specific health monitor thread reads
+ *           from cached data and sends the highest temperature among the
+ *           modules to bmc for controlling the speed.
+ *           Temperature Profiling and hysteri is platform/hardware specific
+ *           and in handled by fan-daemon in bmc*
+ *
+ * @param enable true or false
+ *
+ * @return Void
+ */
+void bf_port_qsfp_mgmnt_temper_monitor_set (
+    bool enable);
+
+/**
+ * @brief Returns true if temperature monitoring enabled for optical modules.
+ *
+ * @return True if enabled. False otherwise
+ */
+bool bf_port_qsfp_mgmnt_temper_monitor_get (void);
+
+/**
+ * @brief Set the temperature monitoring interval. Default 5 seconds
+ *
+ * @param poll_intv_sec in 5 sec
+ *
+ * @return Void
+ */
+void bf_port_qsfp_mgmnt_temper_monitor_period_set (
+    uint32_t poll_intv_sec);
+
+/**
+ * @brief Get the temperature monitoring interval in secdons.
+ *
+ * @return Void
+ */
+uint32_t bf_port_qsfp_mgmnt_temper_monitor_period_get (
+    void);
+
+// only for cli
+bool bf_port_qsfp_mgmnt_temper_high_alarm_flag_get (
+    int port);
+
+// return recorded temperature during module high-alarm
+// only for cli
+double bf_port_qsfp_mgmnt_temper_high_record_get (
+    int port);
+
 //#if defined(HAVE_SFP)
 /**
  * @brief Return the type of the SFP connected to a port

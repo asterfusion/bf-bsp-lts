@@ -7,6 +7,7 @@
 #ifndef _BF_SFP_H
 #define _BF_SFP_H
 
+#include <bf_types/bf_types.h>
 #include <bf_qsfp/sff.h>
 #include <bf_qsfp/bf_qsfp.h>
 
@@ -16,7 +17,7 @@ extern "C" {
 #endif
 
 #define BF_PLAT_MAX_SFP        (BF_PLAT_MAX_QSFP * MAX_CHAN_PER_CONNECTOR)
-
+#define MAX_SFF_PAGE_SIZE       128
 
 #define MAX_NAME_LEN                80
 // Connector Type  from SFF-8024 */
@@ -32,72 +33,19 @@ enum {
     MAX_SFP_PAGE_SIZE_255 = 255,
 };
 
-typedef sff_flags_level_t sfp_flags_level_t;
-typedef struct {
-    sff_sensor_t rx_pwr;
-    sff_sensor_t tx_bias;
-    sff_sensor_t tx_pwr;
-} sfp_channel_sensor_t;
+typedef enum {
+    SFP_LR,
+    SFP_SR,
+    SFP_UNKNOWN
+} sfp_transceiver_type;
 
-typedef struct {
-    uint32_t chn;
-    sfp_channel_sensor_t sensors;
-} sfp_channel_t;
-
-typedef struct {
-    sff_sensor_t temp;
-    sff_sensor_t vcc;
-} sfp_global_sensor_t;
-
-typedef struct {
-    double low;
-    double high;
-} sfp_threshold_t;
-
-typedef struct {
-    sfp_threshold_t warn;
-    sfp_threshold_t alarm;
-} sfp_threshold_level_t;
-
-typedef struct {
-    sfp_threshold_level_t temp;
-    sfp_threshold_level_t vcc;
-    sfp_threshold_level_t rx_pwr;
-    sfp_threshold_level_t tx_bias;
-    sfp_threshold_level_t tx_pwr;
-} sfp_alarm_threshold_t;
-
-typedef struct bf_sfp_info_t {
-    bool present;
-    bool reset;
-    bool soft_removed;
-    bool flat_mem;
-    bool passive_cu;
-    //uint8_t num_ch;
-    MemMap_Format memmap_format;
-
-    /* cached SFP values */
-    bool cache_dirty;
-
-    /* idprom for 0xA0h byte 0-127. */
-    uint8_t idprom[MAX_SFP_PAGE_SIZE];
-    uint8_t a2h[MAX_SFP_PAGE_SIZE];
-
-    uint8_t page0[MAX_SFP_PAGE_SIZE];
-    uint8_t page1[MAX_SFP_PAGE_SIZE];
-    uint8_t page2[MAX_SFP_PAGE_SIZE];
-    uint8_t page3[MAX_SFP_PAGE_SIZE];
-
-    uint8_t media_type;
-
-    sfp_alarm_threshold_t alarm_threshold;
-
-    /* Big Switch Network decoding engine. */
-    sff_eeprom_t se;
-
-    //bf_qsfp_special_info_t special_case_port;
-    bf_sys_mutex_t sfp_mtx;
-} bf_sfp_info_t;
+typedef qsfp_channel_sensor_t sfp_channel_sensor_t;
+typedef qsfp_channel_t sfp_channel_t;
+typedef qsfp_global_sensor_t sfp_global_sensor_t;
+typedef qsfp_alarm_threshold_t sfp_alarm_threshold_t;
+typedef qsfp_cable_t sfp_cable_t;
+typedef qsfp_vendor_info_t sfp_vendor_info_t;
+typedef qsfp_transciever_info_t sfp_transciever_info_t;
 
 /* force mark a transceiver present or not-present */
 void bf_sfp_set_present (int port,
@@ -107,6 +55,8 @@ bool bf_sfp_is_present (int port);
 
 int bf_sfp_type_get (int port,
                      bf_pltfm_qsfp_type_t *qsfp_type);
+
+MemMap_Format bf_sfp_get_memmap_format (int port);
 
 bool bf_sfp_is_optical (int port);
 bool bf_sfp_is_passive_cu (int port);
@@ -125,13 +75,13 @@ int bf_sfp_set_transceiver_lpmode (int port,
                                    bool lpmode);
 
 int bf_sfp_get_transceiver_info (int port,
-                                 qsfp_transciever_info_t *info);
+                                 sfp_transciever_info_t *info);
 
 int bf_sfp_init();
 
 int bf_sfp_update_cache (int port);
 int bf_sfp_get_cached_info (int port, int page,
-                             uint8_t *buf);
+                            uint8_t *buf);
 
 int bf_sfp_detect_transceiver (int port,
                                bool *present);
@@ -148,9 +98,6 @@ int bf_sfp_get_conn (int port, uint32_t *conn,
                      uint32_t *chnl);
 int bf_sfp_get_port (uint32_t conn, uint32_t chnl,
                      int *port);
-
-// for sfp info
-bf_sfp_info_t *bf_sfp_get_info (int port);
 
 int check_sfp_module_vendor (uint32_t conn_id,
                              uint32_t chnl_id,

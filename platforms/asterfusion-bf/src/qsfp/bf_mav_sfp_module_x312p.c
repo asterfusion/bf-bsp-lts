@@ -615,11 +615,9 @@ sfp_get_module_pres_x312p (
                     (sfp_17_24 << 16) | (sfp_25_32 << 24);
         sfp_33_64 = (sfp_33_40) | (sfp_41_48 << 8) |
                     (zsfp_pres << 16) | (0xFF << 24);
+        *pres_l = sfp_01_32;
+        *pres_h = sfp_33_64;
     }
-
-    *pres_l = sfp_01_32;
-    *pres_h = sfp_33_64;
-
     return rc;
 }
 
@@ -681,9 +679,9 @@ sfp_module_tx_disable_x321p (
         goto end;
     }
 
-    fprintf (stdout,
+    LOG_DEBUG (
              " SFP    %2d : CH : 0x%02x  V : (0x%02x -> 0x%02x) "
-             " %sTx\n",
+             " %sTx",
              module,
              dis->cpld_sel, val0,
              val1, disable ? "-" : "+");

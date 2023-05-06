@@ -418,10 +418,10 @@ sfp_get_module_pres_x308p (
     if (rc == 0) {
         sfp_01_32 = sfp_01_08 + (sfp_09_16 << 8) + (sfp_17_24 << 16) + (sfp_25_32 << 24);
         sfp_33_48 = sfp_33_40 + (sfp_41_48 << 8) + 0xFFFF0000;
+        *pres_l = sfp_01_32;
+        *pres_h = sfp_33_48;
     }
 
-    *pres_l = sfp_01_32;
-    *pres_h = sfp_33_48;
     return rc;
 }
 
@@ -487,9 +487,9 @@ sfp_module_tx_disable_x308p (
         goto end;
     }
 
-    fprintf (stdout,
+    LOG_DEBUG (
              " SFP    %2d : CH : 0x%02x  V : (0x%02x -> 0x%02x) "
-             " %sTx\n",
+             " %sTx",
              module,
              dis->cpld_sel, val0,
              val1, disable ? "-" : "+");

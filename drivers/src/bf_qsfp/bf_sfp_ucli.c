@@ -18,8 +18,46 @@
 
 extern int bf_pltfm_get_sfp_ctx (struct sfp_ctx_t
                                  **sfp_ctx);
+
+#if 0
+static void check_check_code (ucli_context_t *uc,
+                           uint8_t *buf, int start, int end)
+{
+    int i;
+    uint32_t sum = 0;
+    for (i = start; i <= end; i++) {
+        sum += buf[i];
+    }
+    aim_printf (&uc->pvs,
+        "sum of Byte %d-%d is 0x%llx\n", start, end, sum);
+    aim_printf (&uc->pvs, "checksum is 0x%x\n",
+        buf[end + 1]);
+    if ((sum & 0xff) == buf[end + 1]) {
+        aim_printf (&uc->pvs, "check_code correct!\n");
+    } else {
+        aim_printf (&uc->pvs, "check_code incorrect!\n");
+    }
+    return;
+}
+#endif
+
+static void hex_dump (ucli_context_t *uc,
+                   uint8_t *buf, uint32_t len)
+{
+    uint8_t byte;
+
+    for (byte = 0; byte < len; byte++) {
+        if ((byte % 16) == 0) {
+            aim_printf (&uc->pvs, "\n%3d : ", byte);
+        }
+        aim_printf (&uc->pvs, "%02x ", buf[byte]);
+    }
+    aim_printf (&uc->pvs, "\n");
+}
+
 extern int sff_db_get (sff_db_entry_t **entries,
                        int *count);
+
 static void
 sff_info_show (sff_info_t *info,
                ucli_context_t *uc)
@@ -32,42 +70,21 @@ sff_info_show (sff_info_t *info,
                 info->length);
 }
 
-static void hex_dump (ucli_context_t *uc,
-                      uint8_t *buf, uint32_t len)
+/* see SFF-8472. */
+static char *bf_sfp_power_class (uint8_t b64)
 {
-    uint8_t byte;
-
-    for (byte = 0; byte < len; byte++) {
-        if ((byte % 16) == 0) {
-            aim_printf (&uc->pvs, "\n%3d : ", byte);
-        }
-        aim_printf (&uc->pvs, "%02x ", buf[byte]);
+    /* Maximum power is declared in A2h, byte 66. */
+    if ((b64 & 0xC0) == 0x80) {
+      return " 3 (2.0 W max.)";
     }
-    aim_printf (&uc->pvs, "\n");
-
+    if ((b64 & 0xC0) == 0x40) {
+      return " 2 (1.5 W max.)";
+    }
+    if ((b64 & 0xC0) == 0x00) {
+      return " 1 (1.0 W max.)";
+    }
+    return "...           ";
 }
-
-#if 0
-static void check_check_code (ucli_context_t *uc,
-                              uint8_t *buf, int start, int end)
-{
-    int i;
-    uint32_t sum = 0;
-    for (i = start; i <= end; i++) {
-        sum += buf[i];
-    }
-    aim_printf (&uc->pvs,
-                "sum of Byte %d-%d is 0x%llx\n", start, end, sum);
-    aim_printf (&uc->pvs, "checksum is 0x%x\n",
-                buf[end + 1]);
-    if ((sum & 0xff) == buf[end + 1]) {
-        aim_printf (&uc->pvs, "check_code correct!\n");
-    } else {
-        aim_printf (&uc->pvs, "check_code incorrect!\n");
-    }
-    return;
-}
-#endif
 
 bool bf_sfp_get_spec_rev_str (uint8_t *idprom,
                               char *rev_str)
@@ -115,6 +132,165 @@ bool bf_sfp_get_spec_rev_str (uint8_t *idprom,
     }
 
     return true;
+}
+
+static ucli_status_t
+bf_sfp_dump_info (ucli_context_t
+                                 *uc, int port, uint8_t *idprom)
+{
+  uint8_t *a0h, *a2h;
+  sff_info_t *sff;
+  sff_eeprom_t *se, eeprom;
+  sff_dom_info_t sdi;
+  int rc;
+
+  se = &eeprom;
+  sff = &se->info;
+  memset (se, 0, sizeof (sff_eeprom_t));
+  rc = sff_eeprom_parse (se, idprom);
+  if (!se->identified) {
+      aim_printf (&uc->pvs,
+                  " SFP    %02d: non-standard <rc=%d>\n",
+                  port, rc);
+      /* sff_eeprom_parse is quite an importand API for most sfp.
+       * but it is still not ready for all kind of sfps.
+       * so override the failure here and keep tracking.
+       * by tsihang, 2022-06-17. */
+      //return 0;
+  }
+
+  a0h = idprom;
+  a2h = idprom + MAX_SFP_PAGE_SIZE;
+  sff_dom_info_get (&sdi, sff, a0h, a2h);
+
+  /* keep same with qsfp dump. And the info below is quite enough for almost all scene. */
+
+  aim_printf (&uc->pvs, "%-30s = %02d(Y%d)\n",
+              "Port",
+              port, port);
+
+  aim_printf (&uc->pvs, "%-30s = %s(0x%02x)\n",
+              "Module type identifier", sff->sfp_type_name,
+              a0h[0]);
+  aim_printf (&uc->pvs, "%-30s = %02x\n",
+              "Ext. Identifer", a0h[1]);
+
+  aim_printf (
+      &uc->pvs, "%-30s = %s\n",
+      "Module", sff->module_type_name);
+  aim_printf (
+      &uc->pvs, "%-30s = %s\n",
+      "Media Type", sff->media_type_name);
+  aim_printf (
+      &uc->pvs, "%-30s = %s\n",
+      "Connector Type",
+      sff_connector_type_name (a0h[2]));
+
+  aim_printf (&uc->pvs, "\n");
+  aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Vendor name", sff->vendor);
+  aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Vendor P/N", sff->model);
+  aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Vendor S/N", sff->serial);
+  aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Vendor Rev", sff->rev);
+  aim_printf (&uc->pvs, "%-30s = %02x-%02x-%02x\n",
+              "Vendor OUI", sff->oui[0], sff->oui[1],
+              sff->oui[2]);
+
+  aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Date & lot code",
+              sff->date);
+
+  aim_printf (&uc->pvs, "%-30s = ",
+              "Memory map format");
+  if (sdi.spec == SFF_DOM_SPEC_SFF8472) {
+      aim_printf (&uc->pvs, "SFF-8472\n");
+  } else {
+      aim_printf (&uc->pvs, "Unknown\n");
+  }
+
+  char memmap_spec_rev[25];
+  bf_sfp_get_spec_rev_str (a0h, memmap_spec_rev);
+  aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Memory map spec rev", memmap_spec_rev);
+
+  aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
+              "CC_BASE", se->cc_base, a0h[63]);
+  aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
+              "CC_EXT", se->cc_ext, a0h[95]);
+
+  aim_printf (&uc->pvs, "  Length (SMF): %d km\n",
+              _sff8472_length_sm(a0h) / 1000);
+  aim_printf (&uc->pvs, "  Length (OM3): %d m\n",
+              _sff8472_length_om3(a0h));
+  aim_printf (&uc->pvs, "  Length (OM2): %d m\n",
+              _sff8472_length_om2(a0h));
+  aim_printf (&uc->pvs, "  Length (OM1): %d m\n",
+              _sff8472_length_om1(a0h));
+  aim_printf (&uc->pvs, "  Length (Copper): %d m\n",
+              _sff8472_length_cu(a0h));
+
+  aim_printf (&uc->pvs, "\n");
+  if (!bf_sfp_is_optical (port) ||
+      sdi.spec != SFF_DOM_SPEC_SFF8472) {
+      aim_printf (&uc->pvs,
+                  "Not optical or not sff-8472\n");
+  } else {
+      /* A2h */
+      aim_printf (&uc->pvs,
+                  "## MODULE EXT PROPERTIES\n");
+
+      aim_printf (&uc->pvs, "%-30s = %5d Mbps\n",
+                  "Nominal Bit Rate",
+                  a0h[12] * 100);
+
+      aim_printf (&uc->pvs, "%-30s = %02x\n",
+                  "Rate Identifier",
+                  a0h[13]);
+
+      aim_printf (&uc->pvs, "%-30s = %u nm\n",
+                  "Laser Wavelength",
+                  (a0h[60] << 8) | a0h[61]);
+
+      aim_printf (&uc->pvs, "%-30s = %.3lf C\n",
+                  "Temperature",
+                  (double) (a2h[96]) + ((double)a2h[97] / 256));
+
+      double voltage = (a2h[98] << 8) + a2h[99];
+      aim_printf (&uc->pvs, "%-30s = %.3lf V\n",
+                  "Voltage",
+                  voltage / 10000.000);
+
+      double bias_current = (a2h[100] << 8) + a2h[101];
+      aim_printf (&uc->pvs, "%-30s = %.3lf mA\n",
+                  "TX Bias",
+                  bias_current / 1000.000);
+
+
+      double tx_pwr = (a2h[102] << 8) + a2h[103];
+      aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
+                  "TX Power",
+                  (tx_pwr == 0) ? (-40) : (10 * log10 (
+                          tx_pwr * 0.1 / 1000.000)));
+
+      double rx_pwr = (a2h[104] << 8) + a2h[105];
+      aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
+                  "RX Power",
+                  (rx_pwr == 0) ? (-40) : (10 * log10 (
+                          rx_pwr * 0.1 / 1000.000)));
+
+      aim_printf (&uc->pvs, "Page: %d\n", a2h[127]);
+  }
+
+  aim_printf (&uc->pvs, "\nA0h:\n");
+  hex_dump (uc, a0h, MAX_SFP_PAGE_SIZE);
+
+  aim_printf (&uc->pvs, "\nA2h:\n");
+  hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
+
+  return 0;
 }
 
 static ucli_status_t
@@ -243,20 +419,15 @@ bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
                                    *uc)
 {
     int module;
-    uint8_t *a0h, *a2h;
-    sff_info_t *sff;
-    sff_eeprom_t *se, eeprom;
-    sff_dom_info_t sdi;
-    uint8_t idprom[256];
     int rc;
-    int max_port = bf_sfp_get_max_sfp_ports();
+    uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
     UCLI_COMMAND_INFO (uc, "dump-info", 1,
                        "dump-info <module>");
     module = strtol (uc->pargs->args[0], NULL, 0);
-    if (module < 1 || module > max_port) {
+    if (module < 1 || module > bf_sfp_get_max_sfp_ports()) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
+                    bf_sfp_get_max_sfp_ports());
         return 0;
     }
 
@@ -265,155 +436,20 @@ bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
     }
 
     /* A0h */
-    if (bf_pltfm_sfp_read_module (module, 0,
-                                  MAX_SFP_PAGE_SIZE, idprom)) {
+    rc = bf_pltfm_sfp_read_module (module, 0,
+                                      MAX_SFP_PAGE_SIZE, idprom);
+    if (rc) {
         return 0;
     }
     /* A2h, what should we do if there's no A2h ? */
-    if (bf_pltfm_sfp_read_module (module,
+    rc = bf_pltfm_sfp_read_module (module,
                                   MAX_SFP_PAGE_SIZE, MAX_SFP_PAGE_SIZE,
-                                  idprom + MAX_SFP_PAGE_SIZE)) {
+                                  idprom + MAX_SFP_PAGE_SIZE);
+    if (rc) {
         return 0;
     }
 
-    se = &eeprom;
-    sff = &se->info;
-    memset (se, 0, sizeof (sff_eeprom_t));
-    rc = sff_eeprom_parse (se, idprom);
-    /* sff_eeprom_parse is quite an importand API for most sfp.
-     * but it is still not ready for all kind of sfps.
-     * so override the failure here and keep tracking.
-     * by tsihang, 2022-06-17. */
-#if 0
-    if (!se->identified) {
-        aim_printf (&uc->pvs,
-                    " SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>\n",
-                    module, rc);
-        return 0;
-    }
-#else
-    rc = rc;
-#endif
-    a0h = idprom;
-    a2h = idprom + MAX_SFP_PAGE_SIZE;
-    sff_dom_info_get (&sdi, sff, a0h, a2h);
-
-    /* keep same with qsfp dump. And the info below is quite enough for almost all scene. */
-    aim_printf (&uc->pvs, "%-30s = %02d(Y%d)\n",
-                "Port",
-                module, module);
-
-    aim_printf (&uc->pvs, "%-30s = %s(0x%02x)\n",
-                "Module type identifier", sff->sfp_type_name,
-                a0h[0]);
-    aim_printf (&uc->pvs, "%-30s = %02x\n",
-                "Ext. Identifer", a0h[1]);
-
-    aim_printf (
-        &uc->pvs, "%-30s = %s\n",
-        "Module", sff->module_type_name);
-    aim_printf (
-        &uc->pvs, "%-30s = %s\n",
-        "Media Type", sff->media_type_name);
-    aim_printf (
-        &uc->pvs, "%-30s = %s\n",
-        "Connector Type",
-        sff_connector_type_name (a0h[2]));
-
-    aim_printf (&uc->pvs, "\n");
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor name", sff->vendor);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor P/N", sff->model);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor S/N", sff->serial);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor Rev", sff->rev);
-    aim_printf (&uc->pvs, "%-30s = %02x-%02x-%02x\n",
-                "Vendor OUI", sff->oui[0], sff->oui[1],
-                sff->oui[2]);
-
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Date & lot code",
-                sff->date);
-
-    aim_printf (&uc->pvs, "%-30s = ",
-                "Memory map format");
-    if (sdi.spec == SFF_DOM_SPEC_SFF8472) {
-        aim_printf (&uc->pvs, "SFF-8472\n");
-    } else {
-        aim_printf (&uc->pvs, "Unknown\n");
-    }
-
-    char memmap_spec_rev[25];
-    bf_sfp_get_spec_rev_str (a0h, memmap_spec_rev);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Memory map spec rev", memmap_spec_rev);
-
-    aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
-                "CC_BASE", se->cc_base, a0h[63]);
-    aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
-                "CC_EXT", se->cc_ext, a0h[95]);
-
-    aim_printf (&uc->pvs, "\n");
-    if (!bf_sfp_is_optical (module) ||
-        sdi.spec != SFF_DOM_SPEC_SFF8472) {
-        aim_printf (&uc->pvs,
-                    "Not optical or not sff-8472\n");
-    } else {
-        /* A2h */
-        aim_printf (&uc->pvs,
-                    "## MODULE EXT PROPERTIES\n");
-
-        aim_printf (&uc->pvs, "%-30s = %5d Mbps\n",
-                    "Nominal Bit Rate",
-                    a0h[12] * 100);
-
-        aim_printf (&uc->pvs, "%-30s = %02x\n",
-                    "Rate Identifier",
-                    a0h[13]);
-
-        aim_printf (&uc->pvs, "%-30s = %u nm\n",
-                    "Laser Wavelength",
-                    (a0h[60] << 8) | a0h[61]);
-
-        aim_printf (&uc->pvs, "%-30s = %.3lf C\n",
-                    "Temperature",
-                    (double) (a2h[96]) + ((double)a2h[97] / 256));
-
-        double voltage = (a2h[98] << 8) + a2h[99];
-        aim_printf (&uc->pvs, "%-30s = %.3lf V\n",
-                    "Voltage",
-                    voltage / 10000.000);
-
-        double bias_current = (a2h[100] << 8) + a2h[101];
-        aim_printf (&uc->pvs, "%-30s = %.3lf mA\n",
-                    "TX Bias",
-                    bias_current / 1000.000);
-
-
-        double tx_pwr = (a2h[102] << 8) + a2h[103];
-        aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
-                    "TX Power",
-                    (tx_pwr == 0) ? (-40) : (10 * log10 (
-                            tx_pwr * 0.1 / 1000.000)));
-
-        double rx_pwr = (a2h[104] << 8) + a2h[105];
-        aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
-                    "RX Power",
-                    (rx_pwr == 0) ? (-40) : (10 * log10 (
-                            rx_pwr * 0.1 / 1000.000)));
-
-        aim_printf (&uc->pvs, "Page: %d\n", a2h[127]);
-    }
-
-    aim_printf (&uc->pvs, "\nA0h:\n");
-    hex_dump (uc, a0h, MAX_SFP_PAGE_SIZE);
-
-    aim_printf (&uc->pvs, "\nA2h:\n");
-    hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
-
-    return 0;
+    return bf_sfp_dump_info (uc, module, idprom);
 }
 
 static ucli_status_t
@@ -422,21 +458,15 @@ bf_pltfm_ucli_ucli__sfp_show_module (
     *uc)
 {
     int module;
-    uint8_t *a0h, *a2h;
-    bf_sfp_info_t *sfp;
-    sff_info_t *sff;
-    sff_eeprom_t *se;
-    sff_dom_info_t sdi;
-    uint8_t idprom[256];
     int rc;
-    int max_port = bf_sfp_get_max_sfp_ports();
+    uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
     UCLI_COMMAND_INFO (uc, "show", 1,
                        "show <module>");
     module = strtol (uc->pargs->args[0], NULL, 0);
-    if (module < 1 || module > max_port) {
+    if (module < 1 || module > bf_sfp_get_max_sfp_ports()) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
+                    bf_sfp_get_max_sfp_ports());
         return 0;
     }
 
@@ -444,154 +474,152 @@ bf_pltfm_ucli_ucli__sfp_show_module (
         return 0;
     }
 
-    sfp = bf_sfp_get_info (module);
-    if (!sfp) {
+    rc = bf_sfp_get_cached_info (module, 0, idprom);
+    if (rc) {
         aim_printf (&uc->pvs,
                     "Unknown module : %2d\n",
                     module);
         return 0;
     }
 
-    memcpy (idprom, sfp->idprom, MAX_SFP_PAGE_SIZE);
-    memcpy (idprom + MAX_SFP_PAGE_SIZE, sfp->a2h,
-            MAX_SFP_PAGE_SIZE);
-
-    se = &sfp->se;
-    sff = &se->info;
-    memset (se, 0, sizeof (sff_eeprom_t));
-    rc = sff_eeprom_parse (se, idprom);
-    /* sff_eeprom_parse is quite an importand API for most sfp.
-     * but it is still not ready for all kind of sfps.
-     * so override the failure here.
-     * by tsihang, 2022-06-17. */
-#if 0
-    if (!se->identified) {
+    rc = bf_sfp_get_cached_info (module, 1,
+                                 idprom + MAX_SFP_PAGE_SIZE);
+    if (rc) {
         aim_printf (&uc->pvs,
-                    " SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>\n",
-                    module, rc);
+                    "Unknown module : %2d\n",
+                    module);
         return 0;
     }
-#else
-    rc = rc;
-#endif
-    a0h = idprom;
-    a2h = idprom + MAX_SFP_PAGE_SIZE;
-    sff_dom_info_get (&sdi, sff, a0h, a2h);
 
-    /* keep same with qsfp dump. And the info below is quite enough for almost all scene. */
-    aim_printf (&uc->pvs, "%-30s = %02d(Y%d)\n",
-                "Port",
-                module, module);
+    return bf_sfp_dump_info (uc, module, idprom);
+}
 
-    aim_printf (&uc->pvs, "%-30s = %s(0x%02x)\n",
-                "Module type identifier", sff->sfp_type_name,
-                a0h[0]);
-    aim_printf (&uc->pvs, "%-30s = %02x\n",
-                "Ext. Identifer", a0h[1]);
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
+                                  *uc)
+{
+    int port;
+    int rc;
+    uint8_t *a0h, *a2h;
+    sff_info_t *sff;
+    sff_eeprom_t *se, eeprom;
+    sff_dom_info_t sdi;
+    uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
-    aim_printf (
-        &uc->pvs, "%-30s = %s\n",
-        "Module", sff->module_type_name);
-    aim_printf (
-        &uc->pvs, "%-30s = %s\n",
-        "Media Type", sff->media_type_name);
-    aim_printf (
-        &uc->pvs, "%-30s = %s\n",
-        "Connector Type",
-        sff_connector_type_name (a0h[2]));
+    UCLI_COMMAND_INFO (uc, "info", 0, "info");
 
-    aim_printf (&uc->pvs, "\n");
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor name", sff->vendor);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor P/N", sff->model);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor S/N", sff->serial);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Vendor Rev", sff->rev);
-    aim_printf (&uc->pvs, "%-30s = %02x-%02x-%02x\n",
-                "Vendor OUI", sff->oui[0], sff->oui[1],
-                sff->oui[2]);
+    aim_printf (&uc->pvs, "\n================\n");
+    aim_printf (&uc->pvs, "Info for SFP  :\n");
+    aim_printf (&uc->pvs, "================\n");
+    aim_printf (&uc->pvs,
+                "-----------------------------------------------------------------"
+                "----------------------------------------------------\n");
+    aim_printf (&uc->pvs,
+                "                                                             "
+                "Date     Nominal                 Power\n");
+    aim_printf (&uc->pvs,
+                "Port  Vendor           PN               rev Serial#          "
+                "code     Bit Rate     OUI        Class            Media\n");
+    aim_printf (&uc->pvs,
+                "-----------------------------------------------------------------"
+                "----------------------------------------------------\n");
 
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Date & lot code",
-                sff->date);
+    for (port = 1; port <= bf_sfp_get_max_sfp_ports(); port++) {
+        if (!bf_sfp_is_present (port)) {
+            continue;
+        }
 
-    aim_printf (&uc->pvs, "%-30s = ",
-                "Memory map format");
-    if (sdi.spec == SFF_DOM_SPEC_SFF8472) {
-        aim_printf (&uc->pvs, "SFF-8472\n");
-    } else {
-        aim_printf (&uc->pvs, "Unknown\n");
-    }
+        /* A0h */
+        rc = bf_sfp_get_cached_info (port, 0, idprom);
+        if (rc) {
+            aim_printf (&uc->pvs,
+                        "Unknown module : %2d\n",
+                        port);
+            return 0;
+        }
 
-    char memmap_spec_rev[25];
-    bf_sfp_get_spec_rev_str (a0h, memmap_spec_rev);
-    aim_printf (&uc->pvs, "%-30s = %s\n",
-                "Memory map spec rev", memmap_spec_rev);
-
-    aim_printf (&uc->pvs, "%-30s = %5d Mbps\n",
-                "Nominal Bit Rate",
-                a0h[12] * 100);
-
-    aim_printf (&uc->pvs, "%-30s = %02x\n",
-                "Rate Identifier",
-                a0h[13]);
-
-    aim_printf (&uc->pvs, "%-30s = %u nm\n",
-                "Laser Wavelength",
-                (a0h[60] << 8) | a0h[61]);
-
-    aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
-                "CC_BASE", se->cc_base, a0h[63]);
-    aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
-                "CC_EXT", se->cc_ext, a0h[95]);
-
-    aim_printf (&uc->pvs, "\n");
-    if (!bf_sfp_is_optical (module) ||
-        sdi.spec != SFF_DOM_SPEC_SFF8472) {
-        aim_printf (&uc->pvs,
-                    "Not optical or not sff-8472\n");
-    } else {
         /* A2h */
+        rc = bf_sfp_get_cached_info (port, 1,
+                                     idprom + MAX_SFP_PAGE_SIZE);
+        if (rc) {
+            aim_printf (&uc->pvs,
+                        "Unknown module : %2d\n",
+                        port);
+            return 0;
+        }
+
+        se = &eeprom;
+        sff = &se->info;
+        memset (se, 0, sizeof (sff_eeprom_t));
+        rc = sff_eeprom_parse (se, idprom);
+        if (!se->identified) {
+            aim_printf (&uc->pvs,
+                        " SFP    %02d: non-standard <rc=%d>\n",
+                        port, rc);
+            /* sff_eeprom_parse is quite an importand API for most sfp.
+             * but it is still not ready for all kind of sfps.
+             * so override the failure here and keep tracking.
+             * by tsihang, 2022-06-17. */
+            //return 0;
+        }
+
+        a0h = idprom;
+        a2h = idprom + MAX_SFP_PAGE_SIZE;
+        sff_dom_info_get (&sdi, sff, a0h, a2h);
+
+        /* print lower page data */
+        aim_printf (&uc->pvs, " %2d:  ", port);
+
+
+        aim_printf (&uc->pvs, "%s ", sff->vendor);
+        aim_printf (&uc->pvs, "%s ", sff->model);
+        aim_printf (&uc->pvs, "%s ", sff->rev);
+        aim_printf (&uc->pvs, "%s ", sff->serial);
+        aim_printf (&uc->pvs, "%s ", sff->date);
+        aim_printf (&uc->pvs, "%5d MBps ",
+                    a0h[12] * 100);
         aim_printf (&uc->pvs,
-                    "## MODULE EXT PROPERTIES\n");
-        aim_printf (&uc->pvs, "%-30s = %.3lf C\n",
-                    "Temperature",
-                    (double) (a2h[96]) + ((double)a2h[97] / 256));
+                    "  %02x:%02x:%02x",
+                    sff->oui[0],
+                    sff->oui[1],
+                    sff->oui[2]);
+        aim_printf (&uc->pvs, "  %s ",
+                    bf_sfp_power_class (a0h[64]));
 
-        double voltage = (a2h[98] << 8) + a2h[99];
-        aim_printf (&uc->pvs, "%-30s = %.3lf V\n",
-                    "Voltage",
-                    voltage / 10000.000);
+        if (bf_sfp_is_optical (port)) {
+            if (_sff8472_length_sm(a0h)) {
+                /* a0h[14] in units km, max 254 km. */
+                /* a0h[15] in units 100m, max 25.4 km. */
+                aim_printf (&uc->pvs, "  (SMF): %d km ",
+                        _sff8472_length_sm(a0h) / 1000);
 
-        double bias_current = (a2h[100] << 8) + a2h[101];
-        aim_printf (&uc->pvs, "%-30s = %.3lf mA\n",
-                    "TX Bias",
-                    bias_current / 1000.000);
-
-
-        double tx_pwr = (a2h[102] << 8) + a2h[103];
-        aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
-                    "TX Power",
-                    (tx_pwr == 0) ? (-40) : (10 * log10 (
-                            tx_pwr * 0.1 / 1000.000)));
-
-        double rx_pwr = (a2h[104] << 8) + a2h[105];
-        aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
-                    "RX Power",
-                    (rx_pwr == 0) ? (-40) : (10 * log10 (
-                            rx_pwr * 0.1 / 1000.000)));
-
-        aim_printf (&uc->pvs, "Page: %d\n", a2h[127]);
+            }
+            if (_sff8472_length_om4 (a0h)) {
+                aim_printf (&uc->pvs, "  (OM4): %d m ",
+                            _sff8472_length_om4(a0h) * 2);
+            }
+            if (_sff8472_length_om3(a0h)) {
+                aim_printf (&uc->pvs, "  (OM3): %d m ",
+                            _sff8472_length_om3(a0h) * 2);
+            }
+            if (_sff8472_length_om2(a0h)) {
+                aim_printf (&uc->pvs, "  (OM2): %d m ",
+                            _sff8472_length_om2(a0h));
+            }
+            if (_sff8472_length_om1(a0h)) {
+                aim_printf (&uc->pvs, "  (OM1): %d m ",
+                            _sff8472_length_om1(a0h));
+            }
+        } else {
+            if (_sff8472_length_cu(a0h)) {
+                aim_printf (&uc->pvs, "  (Copper): %d m ",
+                            _sff8472_length_cu(a0h));
+            }
+        }
+        aim_printf (&uc->pvs, "\n");
     }
-
-    aim_printf (&uc->pvs, "\nA0h:\n");
-    hex_dump (uc, a0h, MAX_SFP_PAGE_SIZE);
-
-    aim_printf (&uc->pvs, "\nA2h:\n");
-    hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
-
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
     return 0;
 }
 
@@ -633,20 +661,65 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
 
     /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
     aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
-            "MODULE", "ALIAS", "PORT", "PRESENT");
+                "MODULE", "ALIAS", "PORT", "PRESENT");
 
     for (int i = 0; i < bf_sfp_get_max_sfp_ports();
          i ++) {
         module = (i + 1);
-        err = bf_pltfm_sfp_lookup_by_module (module, &conn_id, &chnl_id);
+        err = bf_pltfm_sfp_lookup_by_module (module,
+                                             &conn_id, &chnl_id);
         if (!err) {
-            sprintf(alias, "Y%d", module % (BF_PLAT_MAX_QSFP * 4));
-            sprintf(connc, "%2d/%d", (conn_id % BF_PLAT_MAX_QSFP), (chnl_id % MAX_CHAN_PER_CONNECTOR));
+            sprintf (alias, "Y%d",
+                     module % (BF_PLAT_MAX_QSFP * 4));
+            sprintf (connc, "%2d/%d",
+                     (conn_id % BF_PLAT_MAX_QSFP),
+                     (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
-                        module, alias, connc, bf_sfp_is_present (module) ? "true" : "false");
+                        module, alias, connc,
+                        bf_sfp_is_present (module) ? "true" : "false");
         }
     }
 
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_fsm (ucli_context_t *uc)
+{
+    int port, first_port, last_port, max_port;
+
+    UCLI_COMMAND_INFO (uc, "fsm", -1,
+                        "fsm <port>");
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+    } else {
+        first_port = 1;
+        last_port = bf_sfp_get_max_sfp_ports();
+    }
+
+    max_port = bf_sfp_get_max_sfp_ports();
+
+    if (first_port < 1 || last_port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                 max_port);
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "%s | ", "Port");
+    aim_printf (&uc->pvs, "%-28s | ", "Module FSM");
+    aim_printf (&uc->pvs, "%-29s | \n", "CH ");
+
+    for (port = first_port; port <= last_port;
+      port++) {
+        aim_printf (&uc->pvs, "%-4d | %s | ", port,
+                    sfp_module_fsm_st_get (port));
+        aim_printf (&uc->pvs, "%-29s | ",
+                    sfp_channel_fsm_st_get (port));
+
+        aim_printf (&uc->pvs, "\n");
+    }
     return 0;
 }
 
@@ -710,8 +783,10 @@ bf_pltfm_sfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__sfp_write_reg,
     bf_pltfm_ucli_ucli__sfp_dump_info,
     bf_pltfm_ucli_ucli__sfp_show_module,
+    bf_pltfm_ucli_ucli__sfp_summary,
     bf_pltfm_ucli_ucli__sfp_db,
     bf_pltfm_ucli_ucli__sfp_map,
+    bf_pltfm_ucli_ucli__sfp_fsm,
     /* Closed by tsihang since dump-info include the CC. */
     //bf_pltfm_ucli_ucli__check_reg,
     NULL,

@@ -26,12 +26,19 @@
 extern "C" {
 #endif
 
+#define QSFP_RXLOS_DEBOUNCE_DFLT \
+  0  // Can modify depending on if debouncing is required. This value can be set
+// in corelation with FLAG_POLL_INTERVAL_MS. If FLAG_POLL_INTERVAL_MS is
+// high enough, then debouncing can be avoided.
+
 /* As per SFF-8436, QSFP+ 10 Gbs 4X PLUGGABLE TRANSCEIVER spec */
 
 enum {
     /* Size of page read from QSFP via I2C */
     MAX_QSFP_PAGE_SIZE = 128,
-    /* Number of channels per module */
+    /* limit of memory address space in QSFP */
+    MAX_QSFP_PAGE_SIZE_255 = 255,
+    /* Maximum number of channels per module */
     CHANNEL_COUNT = 4,
     /* Maximum cable length reported */
     MAX_CABLE_LEN = 255,
@@ -117,19 +124,25 @@ typedef enum {
 
 typedef struct {
     bool present;
-    uint16_t module_capability;       //luyi:
-    //      QSFP: (Page 0 Byte 131) << 8 | (Page 0 Byte 192)  i
-    //      SFP: (0x00) | (0xA0 Byte 36)
-    uint8_t module_type;
-    uint8_t connector_type;
+    transceiver_type transceiver;
     int port;
+
+    /* The following 3 entries are extended by tsihang. 2023-03-24. */
+    uint8_t module_type;        /* See Module_identifier */
+    uint8_t connector_type;     /* See Connector_type */
+    uint16_t module_capability;
+
     qsfp_global_sensor_t sensor;
     qsfp_alarm_threshold_t thresh;
     qsfp_vendor_info_t vendor;
     qsfp_cable_t cable;
     qsfp_channel_t chn[CHANNEL_COUNT];
     struct {
-        bool type;
+        /* The following 3 entries are extended by tsihang. 2023-03-24. */
+        bool mtype;
+        bool ctype;
+        bool mcapa;
+
         bool sensor;
         bool vendor;
         bool cable;

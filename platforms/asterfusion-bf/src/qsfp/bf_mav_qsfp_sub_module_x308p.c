@@ -88,11 +88,10 @@ int bf_pltfm_get_sub_module_pres_x308p (
     }
 
     qsfp_pres_l |= val;
-
-end:
     *pres_l = qsfp_pres_l;
     *pres_h = qsfp_pres_h;
 
+end:
     return rc;
 
 }

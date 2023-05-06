@@ -453,19 +453,11 @@ int bf_pltfm_qsfp_get_presence_mask (
     uint32_t *port_cpu_pres)
 {
     bf_pltfm_cp2112_device_ctx_t *hndl = NULL;
-    /* initialize to absent */
-    uint32_t qsfp_pres_mask_l = 0xFFFFFFFF,
-             qsfp_pres_mask_h = 0xFFFFFFFF;
 
-    bf_pltfm_get_sub_module_pres (hndl,
-                                  &qsfp_pres_mask_l, &qsfp_pres_mask_h);
-
-    *port_1_32_pres  = qsfp_pres_mask_l;
-    *port_32_64_pres = qsfp_pres_mask_h;
     /* CPU mask */
     *port_cpu_pres   = *port_cpu_pres;
-
-    return 0;
+    return bf_pltfm_get_sub_module_pres (hndl,
+                                  port_1_32_pres, port_32_64_pres);
 }
 
 /** get qsfp interrupt status
@@ -546,7 +538,7 @@ int bf_pltfm_qsfp_set_lpmode (unsigned int module,
 
     rc = bf_pltfm_qsfp_read_module (module, 93, 1, &byte_93);
     if (rc) {
-        LOG_WARNING (
+        LOG_ERROR (
             "QSFP    %2d : Error <%d> reading Power ctrl (byte 93)",
             module, rc);
     } else {
@@ -558,7 +550,7 @@ int bf_pltfm_qsfp_set_lpmode (unsigned int module,
 
         rc = bf_pltfm_qsfp_write_module (module, 93, 1, &byte_93);
         if (rc) {
-            LOG_WARNING ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
+            LOG_ERROR ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
                        module,
                        rc,
                        byte_93);

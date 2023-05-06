@@ -156,7 +156,12 @@ bf_status_t bf_pm_pltfm_port_media_type_get (
  *
  * @return Status of the API call
  */
+#if SDE_VERSION_LT(9110)
 bf_status_t bf_pm_cold_init();
+#else
+bf_status_t bf_pm_cold_init (bf_dev_init_mode_t
+                             warm_init_mode);
+#endif
 
 /**
  * @brief Start making calls into the SDE only after being notified by the SDE

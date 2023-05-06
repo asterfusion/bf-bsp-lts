@@ -265,10 +265,6 @@ EXPORT int bf_pltfm_sfp_get_presence_mask (
     uint32_t *port_1_32_pres,
     uint32_t *port_32_64_pres)
 {
-    /* initialize to absent */
-    uint32_t sfp_pres_mask_l = 0xFFFFFFFF,
-             sfp_pres_mask_h = 0xFFFFFFFF;
-
     int rc = 0;
 
     g_sfp_opt->lock();
@@ -280,7 +276,7 @@ EXPORT int bf_pltfm_sfp_get_presence_mask (
     *
     * by tsihang, 2021-07-16.
     */
-    rc = g_sfp_opt->presrd (&sfp_pres_mask_l, &sfp_pres_mask_h);
+    rc = g_sfp_opt->presrd (port_1_32_pres, port_32_64_pres);
     if (rc) {
         LOG_ERROR (
             "%s[%d], "
@@ -290,9 +286,6 @@ EXPORT int bf_pltfm_sfp_get_presence_mask (
             "Failed to get present mask", rc);
     }
     g_sfp_opt->unlock();
-
-    *port_1_32_pres  = sfp_pres_mask_l;
-    *port_32_64_pres = sfp_pres_mask_h;
 
     return rc;
 }
@@ -431,7 +424,7 @@ EXPORT int bf_pltfm_sfp_read_module (
     err = g_sfp_opt->read (module, offset, len, buf);
     if (err) {
         /* Must de-select even error occured while reading. */
-        LOG_WARNING (
+        LOG_ERROR (
             "%s[%d], "
             "sfp.read(%02d : %s : %d)"
             "\n",
@@ -748,7 +741,8 @@ int bf_pltfm_sfp_init (void *arg)
                                     g_sfp_opt->sfp_ctx;
         module = (each_element + 1);
         sfp = &sfp_ctx[each_element];
-        fprintf (stdout, "Y%02d   <->   %02d/%d\n",
+        LOG_DEBUG (
+                 "Y%02d   <->   %02d/%d",
                  module, sfp->info.conn, sfp->info.chnl);
     }
 

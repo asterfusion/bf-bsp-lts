@@ -408,7 +408,7 @@ static void access_cpld_through_superio()
 bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
     uint8_t rd_buf[128] = {0};
     uint8_t cmd = 0x0D;
-    uint8_t wr_buf[2] = {0xAA, 0xAA};
+    uint8_t wr_buf[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
     int ret;
 
     /* Read cached BMC version to caller. */
@@ -441,7 +441,6 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
         } else {
             /* Not Defined. */
         }
-
         if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
             ret = bf_pltfm_bmc_uart_write_read (
                                         cmd, wr_buf, 2, rd_buf, 128 - 1,
@@ -590,6 +589,8 @@ cpld_path_e bf_pltfm_find_path_to_cpld()
 
 bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
 {
+    char fmt[128];
+
     bf_pltfm_load_conf ();
 
     if (bf_pltfm_master_i2c_init ()) {
@@ -616,7 +617,34 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
         return BF_PLTFM_COMM_FAILED;
     }
 
+    bf_pltfm_get_bmc_ver (&fmt[0]);
+    fprintf (stdout, "\nBMC version : %s\n\n", fmt);
+
     if (platform_type_equal (X312P)) {
+        uint8_t rd_buf[128] = {0};
+        uint8_t cmd = 0x0D;
+        uint8_t wr_buf[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+
+        /* If BMC version >= 1.00.02O, then set all fan LED to GREEN */
+        if (bf_pltfm_compare_bmc_ver("v1.0.2-o") >= 0) {
+            cmd = 0x31;
+            wr_buf[0] = 0x03;
+            wr_buf[1] = 0x32;
+            wr_buf[2] = 0x04;
+            wr_buf[3] = 0x01;
+            wr_buf[4] = 0xFF;
+            bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                           cmd, wr_buf, 5, 0xFF, rd_buf,
+                                           BMC_COMM_INTERVAL_US);
+        }
+        /* If BMC version >= 1.00.07O, then start I2C watchdog */
+        if (bf_pltfm_compare_bmc_ver("v1.0.7-o") >= 0) {
+            cmd = 0xd;
+            wr_buf[0] = 0x01;
+            bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                           cmd, wr_buf, 1, 0xFF, rd_buf,
+                                           BMC_COMM_INTERVAL_US);
+        }
         if (platform_subtype_equal (v2dot0)) {
             LOG_DEBUG ("CPLD <- cp2112\n");
         } else if (platform_subtype_equal (v3dot0) ||

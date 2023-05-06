@@ -30,12 +30,14 @@ typedef enum {
     SFF8472_TMR_t_reset_init = 1,  // really only 2us
     SFF8472_TMR_t_reset = 2000,    // all times in ms
 
-    /* max delay in ms defined in sff-8472 table 8-7 -
-     * I/O timeing for soft contol and status functions.
-     * by tsihang, 2021-07-29.
-     */
     SFF8472_TMR_ton_txdis = 100,
-    SFF8472_TMR_toff_txdis = 100,
+    SFF8472_TMR_toff_txdis = 400,
+
+    SFF8472_TMR_ton_lpm = 100,
+    SFF8472_TMR_toff_lpm = 300,
+
+    SFF8472_TMR_ton_rxdis = 100,
+    SFF8472_TMR_toff_rxdis = 100,
 
     SFF8472_TMR_ton_rxlos = 100,
     SFF8472_TMR_toff_rxlos = 100,
@@ -52,7 +54,6 @@ typedef enum {
     // states requiring fixed delays
     SFP_FSM_ST_WAIT_T_RESET,      // 2000ms
     SFP_FSM_ST_WAIT_TON_TXDIS,    //  100ms, SFF8472_TMR_ton_txdis
-    SFP_FSM_ST_ENA_OPTICAL_TX,  // 100ms, SFF8472_TMR_toff_txdis
     SFP_FSM_ST_DETECTED,
     SFP_FSM_ST_UPDATE,
     SFP_FSM_ST_WAIT_UPDATE,  // update-specific delay
@@ -64,7 +65,6 @@ static char *sfp_fsm_st_to_str[] = {
     "SFP_FSM_ST_INSERTED           ",
     "SFP_FSM_ST_WAIT_T_RESET       ",
     "SFP_FSM_ST_WAIT_TON_TXDIS     ",
-    "SFP_FSM_ST_ENA_OPTICAL_TX     ",
     "SFP_FSM_ST_DETECTED           ",
     "SFP_FSM_ST_UPDATE             ",
     "SFP_FSM_ST_WAIT_UPDATE        ",
@@ -72,20 +72,21 @@ static char *sfp_fsm_st_to_str[] = {
 
 /* Module CH FSM states */
 typedef enum {
-    SFP_FSM_EN_ST_DISABLED,
-    SFP_FSM_EN_ST_ENABLING,        // kick off enable sequence
-    SFP_FSM_EN_ST_NOTIFY_ENABLED,
-    SFP_FSM_EN_ST_ENABLED,
-    SFP_FSM_EN_ST_DISABLING,  // assert TX_DISABLE
-} sfp_fsm_ch_state_t;
+    SFP_CH_FSM_ST_DISABLED,
+    SFP_CH_FSM_ST_ENABLING,        // kick off enable sequence
+    SFP_CH_FSM_ST_ENA_OPTICAL_TX,  // 100ms, SFF8472_TMR_toff_txdis
+    SFP_CH_FSM_ST_NOTIFY_ENABLED,
+    SFP_CH_FSM_ST_ENABLED,
+    SFP_CH_FSM_ST_DISABLING,  // assert TX_DISABLE
+} sfp_fsm_ch_en_state_t;
 
-static char *sfp_fsm_ch_st_to_str[] = {
-    "SFP_FSM_EN_ST_DISABLED        ",
-    "SFP_FSM_EN_ST_ENABLING        ",
-    "SFP_FSM_EN_ST_ENA_OPTICAL_TX  ",
-    "SFP_FSM_EN_ST_NOTIFY_ENABLED  ",
-    "SFP_FSM_EN_ST_ENABLED         ",
-    "SFP_FSM_EN_ST_DISABLING       ",
+static char *sfp_ch_fsm_en_st_to_str[] = {
+    "SFP_CH_FSM_ST_DISABLED        ",
+    "SFP_CH_FSM_ST_ENABLING        ",
+    "SFP_CH_FSM_ST_ENA_OPTICAL_TX  ",
+    "SFP_CH_FSM_ST_NOTIFY_ENABLED  ",
+    "SFP_CH_FSM_ST_ENABLED         ",
+    "SFP_CH_FSM_ST_DISABLING       ",
 };
 
 typedef enum sfp_typ_t {
@@ -154,13 +155,14 @@ typedef struct sfp_status_and_alarms_t {
 typedef struct sfp_state_t {
     sfp_typ_t sfp_type;
     sfp_fsm_state_t fsm_st;
-    sfp_fsm_ch_state_t fsm_ch_st;
+    sfp_fsm_ch_en_state_t fsm_ch_st;
     struct timespec next_fsm_run_time;
     struct timespec next_fsm_ch_run_time;
     bool sfp_quick_removed;
-
+    bool wr_inprog;
+    bool los_detected;
+    bool immediate_enable;  // used when retrying port init
     sfp_status_and_alarms_t status_and_alarms;
-
 } sfp_state_t;
 
 /* access is 1 based index, so zeroth index would be unused */
@@ -168,17 +170,39 @@ sfp_state_t sfp_state[BF_PLAT_MAX_SFP + 1] = {
     {
         SFP_TYP_UNKNOWN,
         SFP_FSM_ST_IDLE,
-        SFP_FSM_EN_ST_DISABLED,
+        SFP_CH_FSM_ST_DISABLED,
         {0, 0},
         {0, 0},
         false,
-
+        false,
+        true,
+        false,
         sfp_status_and_alarm_init_val
     }
 };
 static sfp_status_and_alarms_t
-sfp_alarms_initial_state = { {0},0,{0},{0} };
+sfp_alarms_initial_state = { {0}, 0, {0}, {0} };
 
+
+/*****************************************************************
+ * Return the current CH FSM state desc for a transceiver.
+ *****************************************************************/
+char *sfp_channel_fsm_st_get (int port)
+{
+    return sfp_ch_fsm_en_st_to_str[sfp_state[port].fsm_ch_st];
+}
+
+/*****************************************************************
+ * Return the current FSM state desc for a transceiver.
+ *****************************************************************/
+char *sfp_module_fsm_st_get (int port)
+{
+    return sfp_fsm_st_to_str[sfp_state[port].fsm_st];
+}
+
+/*****************************************************************
+ * Setting the time for which the next state would start.
+ *****************************************************************/
 void sfp_fsm_next_run_time_set (struct timespec
                                 *next_run_time,
                                 int delay_ms)
@@ -209,8 +233,8 @@ void sfp_fsm_next_run_time_set (struct timespec
 
 
 /*****************************************************************
-* This routine is only used in Tofino 1 implementations
-*****************************************************************/
+ * This routine is only used in Tofino 1 implementations
+ *****************************************************************/
 static void sfp_log_alarms (bf_dev_id_t dev_id,
                             int module,
                             sfp_status_and_alarms_t *old,
@@ -324,9 +348,9 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
     }
 }
 
-/****************************************************
-*
-****************************************************/
+/*****************************************************************
+ * Read a SFP transceiver.
+ *****************************************************************/
 int bf_fsm_sfp_rd (
     unsigned int module, int offset,
     int len, uint8_t *buf)
@@ -343,9 +367,9 @@ int bf_fsm_sfp_rd (
     return rc;
 }
 
-/****************************************************
-*
-****************************************************/
+/*****************************************************************
+ * Write a SFP transceiver.
+ *****************************************************************/
 int bf_fsm_sfp_wr (
     unsigned int module, int offset, int len,
     uint8_t *buf)
@@ -363,9 +387,18 @@ int bf_fsm_sfp_wr (
 }
 
 /*****************************************************************
-* Make sure that the poll_los API read data as less as possible
-* thru i2c bus.
-*****************************************************************/
+ * Polling the los signal for a transceiver. The LOS signal could
+ * be provided by CPLD or just reading from transceiver itself.
+ *
+ * Try to notify the SDK driver if los detected.
+ *
+ * Also this routine will decide whether a quick removal action
+ * detected or not, if so it will set sfp_quick_removed to true
+ * by calling bf_pm_sfp_quick_removal_detected_set.
+ *
+ * Make sure that the poll_los API read data as less as possible
+ * thru i2c bus.
+ *****************************************************************/
 static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
                              int module)
 {
@@ -417,39 +450,44 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
     sfp_state[module].status_and_alarms =
         status_and_alarms;
 
-    /* Not very sure, but very helpful. */
+    /* Read LOS signal via CPLD. Not very sure, but very helpful. */
     bool los = true;
     rc = bf_pltfm_sfp_los_read (module, &los);
     if (!rc) {
-        if (los) {
-            bf_dev_port_t dev_port;
-            bf_pal_front_port_handle_t port_hdl;
+        bf_dev_port_t dev_port;
+        bf_pal_front_port_handle_t port_hdl;
 
-            bf_sfp_get_conn (
-                    (module),
-                    &port_hdl.conn_id,
-                    &port_hdl.chnl_id);
+        bf_sfp_get_conn (
+            (module),
+            &port_hdl.conn_id,
+            &port_hdl.chnl_id);
 
-            FP2DP (dev_id, &port_hdl, &dev_port);
-            bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                         true);
-            bf_port_optical_xcvr_ready_set (dev_id, dev_port,
-                                            true);
-            // If there is NO RX, SDK probably will detect link-down faster.
-            //
-            // If there is a RX and link is already UP, SDK will NOT act on this
-            // los-flag. Hence we donot have to tie to link-up here or to port-FSM
-            // states.
-            bf_port_optical_los_set (dev_id, dev_port,
-                                    los);
-            //LOG_DEBUG (" SFP    %2d : dev_port=%3d : LOS=%d",
-            //           module, dev_port, los);
-        }
+        FP2DP (dev_id, &port_hdl, &dev_port);
+
+        // hack, really need # lanes on port
+        // TBD: Move optical-type to qsfp_detection_actions
+        bf_port_is_optical_xcvr_set (dev_id, dev_port,
+                                     true);
+        bf_port_optical_xcvr_ready_set (dev_id, dev_port,
+                                        true);
+        // If there is NO RX, SDK probably will detect link-down faster.
+        //
+        // If there is a RX and link is already UP, SDK will NOT act on this
+        // los-flag. Hence we donot have to tie to link-up here or to port-FSM
+        // states.
+        bf_port_optical_los_set (dev_id, dev_port,
+                                 los);
+        sfp_state[module].los_detected = los;
+        //LOG_DEBUG (" SFP    %2d : dev_port=%3d : LOS=%d",
+        //           module, dev_port, los);
     }
 
     return rc;
 }
 
+/*****************************************************************
+ * Handle special transceiver.
+ *****************************************************************/
 static int sfp_fsm_special_case_handled (
     bf_dev_id_t dev_id,
     int module)
@@ -488,7 +526,7 @@ static int sfp_fsm_special_case_handled (
             }
             if (buf != 0xFF) {
                 if (bf_fsm_sfp_wr (module,
-                        MAX_SFP_PAGE_SIZE + 0x79, 1, &buf)) {
+                                   MAX_SFP_PAGE_SIZE + 0x79, 1, &buf)) {
                     rc = -2;
                     break;
                 }
@@ -499,6 +537,9 @@ static int sfp_fsm_special_case_handled (
     return rc;
 }
 
+/*****************************************************************
+ * Reset a transceiver
+ *****************************************************************/
 static void sfp_fsm_reset_assert (bf_dev_id_t
                                   dev_id,
                                   int module)
@@ -517,8 +558,8 @@ static void sfp_fsm_reset_assert (bf_dev_id_t
 }
 
 /*****************************************************************
-*
-*****************************************************************/
+ * Non-reset a transceiver
+ *****************************************************************/
 static void sfp_fsm_reset_de_assert (
     bf_dev_id_t dev_id,
     int module)
@@ -537,8 +578,8 @@ static void sfp_fsm_reset_de_assert (
 }
 
 /*****************************************************************
-*
-*****************************************************************/
+ * Reset and non reset all transceivers
+ *****************************************************************/
 void sfp_deassert_all_reset_pins (void)
 {
     int module;
@@ -566,6 +607,9 @@ void sfp_deassert_all_reset_pins (void)
                    1000); // takes micro-seconds
 }
 
+/*****************************************************************
+ * An insertion is detected. Ready to kick off transceiver FSM.
+ *****************************************************************/
 void sfp_fsm_inserted (int module)
 {
     fetch_by_module (module);
@@ -579,11 +623,16 @@ void sfp_fsm_inserted (int module)
     sfp_state[module].next_fsm_run_time.tv_sec = 0;
     sfp_state[module].next_fsm_run_time.tv_nsec = 0;
 
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s -->  SFP_FSM_ST_INSERTED",
+    LOG_DEBUG (" SFPMSM %2d : (%02d/%d) %s -->  SFP_FSM_ST_INSERTED",
                module, conn, chnl,
                sfp_fsm_st_to_str[prev_st]);
 }
 
+/*****************************************************************
+ * A removal is detected. Triggered by sfp_scan_helper.
+ * Tranceiver FSM will notify SDK driver that the port is not ready.
+ * The SDK driver will try to stop internal FSM.
+ *****************************************************************/
 void sfp_fsm_removed (int module)
 {
     fetch_by_module (module);
@@ -597,11 +646,16 @@ void sfp_fsm_removed (int module)
     sfp_state[module].next_fsm_run_time.tv_nsec = 0;
 
     sfp_state[module].fsm_st = SFP_FSM_ST_REMOVED;
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s -->  SFP_FSM_ST_REMOVED",
+    LOG_DEBUG (" SFPMSM %2d : (%02d/%d) %s -->  SFP_FSM_ST_REMOVED",
                module, conn, chnl,
                sfp_fsm_st_to_str[prev_st]);
 }
 
+/*****************************************************************
+ * Notify the SDK driver that the transceiver is ready.
+ * The Ready means transceiver inserted, Tx turned on and no los
+ * detected from peer.
+ *****************************************************************/
 void sfp_fsm_notify_ready (bf_dev_id_t dev_id,
                            int module)
 {
@@ -615,19 +669,15 @@ void sfp_fsm_notify_ready (bf_dev_id_t dev_id,
     FP2DP (dev_id, &port_hdl, &dev_port);
 
     bf_port_optical_los_set (dev_id, dev_port, false);
-    bf_port_optical_xcvr_ready_set (dev_id, dev_port,
-                                    true);
-    /* I have no idea where the QSFP FSM call bringup API.
-     * I have to call it here to bring the port up.
-     * by tsihang, 2021-07-30. */
-    bf_pal_pm_front_port_ready_for_bringup (
-        dev_id, &port_hdl, true);
-
+    bf_port_optical_xcvr_ready_set (dev_id, dev_port, true);
     LOG_DEBUG (
         " SFP    %2d : (%02d/%d) Ready",
         module, conn, chnl);
 }
 
+/*****************************************************************
+ * Notify the SDK driver that the transceiver is not ready.
+ *****************************************************************/
 void sfp_fsm_notify_not_ready (bf_dev_id_t dev_id,
                                int module)
 {
@@ -640,9 +690,7 @@ void sfp_fsm_notify_not_ready (bf_dev_id_t dev_id,
     port_hdl.chnl_id = chnl;
     FP2DP (dev_id, &port_hdl, &dev_port);
 
-
-    bf_port_optical_xcvr_ready_set (dev_id, dev_port,
-                                    false);
+    bf_port_optical_xcvr_ready_set (dev_id, dev_port, false);
     bf_port_optical_los_set (dev_id, dev_port, true);
 
     LOG_DEBUG (
@@ -651,13 +699,12 @@ void sfp_fsm_notify_not_ready (bf_dev_id_t dev_id,
 
 }
 
-/****************************************************
-* called by qsfp_fsm. If QSFP type has already been
-* identified, returns known type. If not, attempts
-* to determine type based on compliance and
-* extended compliance fields.
-* If any error determining type return -1
-****************************************************/
+/*****************************************************************
+ * Called by sfp_fsm. If SFP type has already been identified,
+ * returns known type. If not, attempts to determine type based on
+ * compliance and extended compliance fields. If any error
+ * determining type return -1
+ *****************************************************************/
 static int sfp_fsm_identify_type (int module,
                                   bool *is_optical)
 {
@@ -690,12 +737,11 @@ static int sfp_fsm_identify_type (int module,
     return 0;
 }
 
-/****************************************************
-* called by qsfp_fsm. If QSFP type has already been
-* identified, returns known type. If not, attempts
-* to determine type based on compliance and
-* extended compliance fields.
-****************************************************/
+/*****************************************************************
+ * Called by sfp_fsm. If SFP type has already been identified,
+ * returns known type. If not, attempts to determine type based on
+ * compliance and extended compliance fields.
+ *****************************************************************/
 bool sfp_fsm_is_optical (int module)
 {
     if (sfp_state[module].sfp_type ==
@@ -705,6 +751,10 @@ bool sfp_fsm_is_optical (int module)
     return false;
 }
 
+/*****************************************************************
+ * A removal detected and confirmed, then notify the SDK driver
+ * that the transceiver and then disable optical Tx.
+ *****************************************************************/
 static void sfp_fsm_st_removed (bf_dev_id_t
                                 dev_id, int module)
 {
@@ -726,24 +776,22 @@ static void sfp_fsm_st_removed (bf_dev_id_t
     // deassert reset, in case module was removed while reset was asserted
     sfp_fsm_reset_de_assert (dev_id, module);
 
-
     bf_port_optical_xcvr_ready_set (dev_id, dev_port,
                                     false);
     bf_port_is_optical_xcvr_set (dev_id, dev_port,
                                  false);
-
     bf_port_optical_los_set (dev_id, dev_port, true);
 
     bf_pltfm_sfp_module_tx_disable (module, true);
-
-    bf_pal_pm_front_port_ready_for_bringup (dev_id,
-                                            &port_hdl, false);
 
     LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
                module, conn, chnl, __func__);
 
 }
 
+/*****************************************************************
+ * A insertion detected and confirmed, reset it.
+ *****************************************************************/
 static void sfp_fsm_st_inserted (bf_dev_id_t
                                  dev_id, int module)
 {
@@ -755,6 +803,9 @@ static void sfp_fsm_st_inserted (bf_dev_id_t
                module, conn, chnl, __func__);
 }
 
+/*****************************************************************
+ * Turn off optical Tx.
+ *****************************************************************/
 static void sfp_fsm_st_tx_off (
     bf_dev_id_t dev_id,
     uint32_t module)
@@ -767,6 +818,9 @@ static void sfp_fsm_st_tx_off (
                module, conn, chnl, __func__);
 }
 
+/*****************************************************************
+ * Turn on optical Tx.
+ *****************************************************************/
 static void sfp_fsm_st_tx_on (
     bf_dev_id_t dev_id,
     uint32_t module)
@@ -779,44 +833,24 @@ static void sfp_fsm_st_tx_on (
                module, conn, chnl, __func__);
 }
 
-
+/*****************************************************************
+ * Stopping SFP fsm when enable a port via port-dis.
+ *****************************************************************/
 void sfp_fsm_st_disable (bf_dev_id_t dev_id,
                          int module)
 {
-    sfp_fsm_ch_state_t prev_st =
+    sfp_fsm_ch_en_state_t prev_st =
         sfp_state[module].fsm_ch_st;
     fetch_by_module (module);
     if (sfp_state[module].fsm_ch_st !=
-        SFP_FSM_EN_ST_DISABLING) {
-        LOG_DEBUG (" SFP    %2d : (%02d/%d) %s -->  %s (%dms)",
+        SFP_CH_FSM_ST_DISABLING) {
+        LOG_DEBUG (" SFPCSM %2d : (%02d/%d) %s -->  %s (%dms)",
                    module, conn, chnl,
-                   sfp_fsm_ch_st_to_str[prev_st],
-                   sfp_fsm_ch_st_to_str[SFP_FSM_EN_ST_DISABLING],
+                   sfp_ch_fsm_en_st_to_str[prev_st],
+                   sfp_ch_fsm_en_st_to_str[SFP_CH_FSM_ST_DISABLING],
                    0);
         sfp_state[module].fsm_ch_st =
-            SFP_FSM_EN_ST_DISABLING;
-        sfp_fsm_next_run_time_set (
-            &sfp_state[module].next_fsm_run_time,
-            0);
-    }
-}
-
-
-void sfp_fsm_st_enable (bf_dev_id_t dev_id,
-                        int module)
-{
-    sfp_fsm_ch_state_t prev_st =
-        sfp_state[module].fsm_ch_st;
-    fetch_by_module (module);
-    if (sfp_state[module].fsm_ch_st !=
-        SFP_FSM_EN_ST_ENABLING) {
-        LOG_DEBUG (" SFP    %2d : (%02d/%d) %s -->  %s (%dms)",
-                   module, conn, chnl,
-                   sfp_fsm_ch_st_to_str[prev_st],
-                   sfp_fsm_ch_st_to_str[SFP_FSM_EN_ST_ENABLING],
-                   0);
-        sfp_state[module].fsm_ch_st =
-            SFP_FSM_EN_ST_ENABLING;
+            SFP_CH_FSM_ST_DISABLING;
         sfp_fsm_next_run_time_set (
             &sfp_state[module].next_fsm_run_time,
             0);
@@ -824,8 +858,45 @@ void sfp_fsm_st_enable (bf_dev_id_t dev_id,
 }
 
 /*****************************************************************
-* Module FSM
-*****************************************************************/
+ * Starting SFP fsm when enable a port via port-enb.
+ * This routine is a part of bf_pm_qsfp_mgmt_cb called by SDK.
+ *****************************************************************/
+void sfp_fsm_st_enable (bf_dev_id_t dev_id,
+                        int module)
+{
+    sfp_fsm_ch_en_state_t prev_st =
+        sfp_state[module].fsm_ch_st;
+    fetch_by_module (module);
+    if (sfp_state[module].fsm_ch_st !=
+        SFP_CH_FSM_ST_ENABLING) {
+        LOG_DEBUG (" SFPCSM %2d : (%02d/%d) %s -->  %s (%dms)",
+                   module, conn, chnl,
+                   sfp_ch_fsm_en_st_to_str[prev_st],
+                   sfp_ch_fsm_en_st_to_str[SFP_CH_FSM_ST_ENABLING],
+                   0);
+        sfp_state[module].fsm_ch_st =
+            SFP_CH_FSM_ST_ENABLING;
+        sfp_fsm_next_run_time_set (
+            &sfp_state[module].next_fsm_run_time,
+            0);
+    }
+}
+
+/*****************************************************************
+ * Disables the port, and marks it to immediately enable once
+ * it have completed DISABLING
+ *****************************************************************/
+void sfp_log_port_retry (bf_dev_id_t dev_id,
+                          int module)
+{
+    sfp_state[module].immediate_enable
+        = true;
+    sfp_fsm_st_disable (dev_id, module);
+}
+
+/*****************************************************************
+ * Module FSM
+ *****************************************************************/
 static void sfp_module_fsm_run (bf_dev_id_t
                                 dev_id, int module)
 {
@@ -854,7 +925,7 @@ static void sfp_module_fsm_run (bf_dev_id_t
                 // error identifying type. Stay in this state
                 next_st = SFP_FSM_ST_INSERTED;
                 fprintf (stdout,
-                         " SFP    %2d : (%02d/%d) Unknown sfp type\n",
+                         " SFP    %2d : (%02d/%d) Unknown SFP type\n",
                          module, conn, chnl);
                 delay_ms = 1000;  // try again in 1sec
                 break;
@@ -869,6 +940,7 @@ static void sfp_module_fsm_run (bf_dev_id_t
                 fprintf (stdout,
                          " SFP    %2d : (%02d/%d) Notify platform ...\n",
                          module, conn, chnl);
+                /* Every thing ready, notify barefoot core to start PM FSM. */
                 sfp_fsm_notify_bf_pltfm (dev_id, module);
 
                 next_st = SFP_FSM_ST_DETECTED;
@@ -886,26 +958,27 @@ static void sfp_module_fsm_run (bf_dev_id_t
         case SFP_FSM_ST_WAIT_TON_TXDIS:
             /* Disable Tx */
             sfp_fsm_st_tx_off (dev_id, module);
-            next_st = SFP_FSM_ST_ENA_OPTICAL_TX;
-            delay_ms = SFF8472_TMR_ton_txdis;
-            break;
-
-        case SFP_FSM_ST_ENA_OPTICAL_TX:
-            /* Enable Tx */
-            sfp_fsm_st_tx_on (dev_id, module);
 
             /* Every thing ready, notify barefoot core to start PM FSM. */
             sfp_fsm_notify_bf_pltfm (dev_id, module);
 
             next_st = SFP_FSM_ST_DETECTED;
-            delay_ms = SFF8472_TMR_toff_txdis;
+            delay_ms = SFF8472_TMR_ton_txdis;
             break;
 
         case SFP_FSM_ST_DETECTED:
-            is_optical = sfp_fsm_is_optical (module);
-            if (is_optical) {
-                // check LOS
-                sfp_fsm_poll_los (dev_id, module);
+            // check LOS
+            if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+                if (sfp_fsm_is_optical (module) &&
+                    (bf_sfp_get_memmap_format (module) ==
+                     MMFORMAT_SFF8472)) {
+                    if (sfp_fsm_poll_los (dev_id, module) != 0) {
+                        if (sfp_state[module].sfp_quick_removed) {
+                            // keep breaking
+                            break;
+                        }
+                    }
+                }
             }
 
             next_st = SFP_FSM_ST_DETECTED;
@@ -927,12 +1000,12 @@ static void sfp_module_fsm_run (bf_dev_id_t
             break;
     }
 
-    sfp_state[module].fsm_st = next_st;
     sfp_fsm_next_run_time_set (
         &sfp_state[module].next_fsm_run_time, delay_ms);
 
     if (st != next_st) {
-        LOG_DEBUG (" SFP    %2d : (%02d/%d) %s --> %s (%dms)",
+        sfp_state[module].fsm_st = next_st;
+        LOG_DEBUG (" SFPMSM %2d : (%02d/%d) %s --> %s (%dms)",
                    module, conn, chnl,
                    sfp_fsm_st_to_str[st],
                    sfp_fsm_st_to_str[next_st],
@@ -944,45 +1017,73 @@ static void sfp_module_fsm_run (bf_dev_id_t
  * Module CH FSM
  *****************************************************************/
 static void sfp_channel_fsm_run (bf_dev_id_t
-                                dev_id, int module)
+                                 dev_id, int module)
 {
-    sfp_fsm_ch_state_t st = sfp_state[module].fsm_ch_st;
-    sfp_fsm_ch_state_t next_st = st;
+    sfp_fsm_ch_en_state_t st =
+        sfp_state[module].fsm_ch_st;
+    sfp_fsm_ch_en_state_t next_st = st;
     int delay_ms = 0;
+    bool ok = true;
     fetch_by_module (module);
 
     switch (st) {
-        case SFP_FSM_EN_ST_DISABLED:
+        case SFP_CH_FSM_ST_DISABLED:
             // waiting to start enabling
             break;
 
-        case SFP_FSM_EN_ST_ENABLING:
+        case SFP_CH_FSM_ST_ENABLING:
+            // initalize/re-initialize variables used in ch_fsm
+            sfp_state[module].immediate_enable = false;
+            sfp_state[module].los_detected = true;
+
             // notify driver
             sfp_fsm_notify_not_ready (dev_id, module);
-            next_st = SFP_FSM_EN_ST_NOTIFY_ENABLED;
+            next_st = SFP_CH_FSM_ST_ENA_OPTICAL_TX;
             delay_ms = 200;
             break;
 
-        case SFP_FSM_EN_ST_NOTIFY_ENABLED:
+        case SFP_CH_FSM_ST_ENA_OPTICAL_TX:
+            /* Enable Tx */
+            sfp_fsm_st_tx_on (dev_id, module);
+
+            next_st = SFP_CH_FSM_ST_NOTIFY_ENABLED;
+            delay_ms = SFF8472_TMR_toff_txdis;
+            break;
+
+        case SFP_CH_FSM_ST_NOTIFY_ENABLED:
             // Vendor specific case handle.
             sfp_fsm_special_case_handled (dev_id, module);
+            /* Try to do more check on transceiver. */
+            if (!ok) {
+                // we had a fault in the tx, take all lanes in the logical port back
+                // through the ch_fsm, starting in ENABLING
+                sfp_log_port_retry (dev_id, module);
+                next_st = SFP_CH_FSM_ST_DISABLING;
+            } else {
+                /* Notify BF that the SFP is ready for bringup.
+                 * Try to detect the los. */
+                sfp_fsm_notify_ready (dev_id, module);
+                next_st = SFP_CH_FSM_ST_ENABLED;
+                delay_ms = 200;
+            }
+            break;
 
-            /* Notify BF that the SFP is ready for bringup.
-             * Try to detect the los. */
-            sfp_fsm_notify_ready (dev_id, module);
-            next_st = SFP_FSM_EN_ST_ENABLED;
+        case SFP_CH_FSM_ST_ENABLED:
             delay_ms = 200;
             break;
 
-        case SFP_FSM_EN_ST_ENABLED:
-            delay_ms = 200;
-            break;
-
-        case SFP_FSM_EN_ST_DISABLING:
+        case SFP_CH_FSM_ST_DISABLING:
             sfp_fsm_notify_not_ready (dev_id, module);
 
-            next_st = SFP_FSM_EN_ST_DISABLED;
-            delay_ms = 200;
+            /* Disable Tx */
+            sfp_fsm_st_tx_off (dev_id, module);
+
+            if (sfp_state[module].immediate_enable) {
+                next_st = SFP_CH_FSM_ST_ENABLING;
+            } else {
+                next_st = SFP_CH_FSM_ST_DISABLED;
+            }
+            delay_ms = SFF8472_TMR_ton_txdis;
             break;
 
         default:
@@ -990,19 +1091,22 @@ static void sfp_channel_fsm_run (bf_dev_id_t
             break;
     }
 
-    sfp_state[module].fsm_ch_st = next_st;
     sfp_fsm_next_run_time_set (
-        &sfp_state[module].next_fsm_run_time, delay_ms);
+        &sfp_state[module].next_fsm_ch_run_time, delay_ms);
 
     if (st != next_st) {
-        LOG_DEBUG (" SFP    %2d : (%02d/%d) %s --> %s (%dms)",
+        sfp_state[module].fsm_ch_st = next_st;
+        LOG_DEBUG (" SFPCSM %2d : (%02d/%d) %s --> %s (%dms)",
                    module, conn, chnl,
-                   sfp_fsm_ch_st_to_str[st],
-                   sfp_fsm_ch_st_to_str[next_st],
+                   sfp_ch_fsm_en_st_to_str[st],
+                   sfp_ch_fsm_en_st_to_str[next_st],
                    delay_ms);
     }
 }
 
+/*****************************************************************
+ *
+ *****************************************************************/
 bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
 {
     int module;
@@ -1017,8 +1121,10 @@ bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
      */
     for (module = 1;
          module <= bf_sfp_get_max_sfp_ports(); module++) {
-        if (sfp_state[module].fsm_st ==
-            SFP_FSM_ST_DETECTED) {
+        if ((sfp_state[module].fsm_st ==
+            SFP_FSM_ST_DETECTED) ||
+            (sfp_state[module].fsm_st ==
+              SFP_FSM_ST_UPDATE)) {
 
             if (!sfp_fsm_is_optical (module)) {
                 //LOG_DEBUG (" SFP    %2d : is not optical\n",
@@ -1028,26 +1134,28 @@ bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
 
             // skip terminal states
             if (sfp_state[module].fsm_ch_st ==
-                SFP_FSM_EN_ST_DISABLED) {
+                SFP_CH_FSM_ST_DISABLED) {
+                continue;
+            }
+            if (sfp_state[module].wr_inprog) {
                 continue;
             }
 
-            //if (sfp_state[module].fsm_st == SFP_FSM_EN_ST_ENABLED)
+            //if (sfp_state[module].fsm_st == SFP_CH_FSM_ST_ENABLED)
             //  continue;
 
-            if (sfp_state[module].next_fsm_run_time.tv_sec >
+            if (sfp_state[module].next_fsm_ch_run_time.tv_sec >
                 now.tv_sec) {
                 continue;
             }
-            if ((sfp_state[module].next_fsm_run_time.tv_sec ==
+            if ((sfp_state[module].next_fsm_ch_run_time.tv_sec ==
                  now.tv_sec) &&
-                (sfp_state[module].next_fsm_run_time.tv_nsec >
+                (sfp_state[module].next_fsm_ch_run_time.tv_nsec >
                  now.tv_nsec)) {
                 continue;
             }
             // time to run this SFP (channel) state
             sfp_channel_fsm_run (dev_id, module);
-
         }
     }
 
