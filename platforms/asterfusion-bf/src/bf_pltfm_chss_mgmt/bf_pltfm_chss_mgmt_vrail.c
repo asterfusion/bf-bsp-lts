@@ -172,7 +172,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
     bf_pltfm_pwr_rails_info_t *pwr_rails)
 {
-    int usec_delay = BMC_COMM_INTERVAL_US/25;
+    int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
 
     /* Example code for a subversion in a given platform. */
     if (platform_subtype_equal(v2dot0)) {

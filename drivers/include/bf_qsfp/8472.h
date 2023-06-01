@@ -790,6 +790,7 @@ _sff8472_bitrate_gbe (const uint8_t *idprom)
     return 0;
 }
 
+/* in units meters.*/
 static inline int
 _sff8472_length_sm (const uint8_t *idprom)
 {

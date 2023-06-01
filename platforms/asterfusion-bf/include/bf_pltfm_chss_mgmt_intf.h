@@ -368,6 +368,10 @@ bool platform_subtype_equal (uint8_t subtype);
 
 #define BMC_COMM_INTERVAL_US    500000
 
+void bf_pltfm_start_312_i2c_wdt(void);
+void bf_pltfm_set_312_bmc_comm_interval(uint32_t us);
+uint32_t bf_pltfm_get_312_bmc_comm_interval(void);
+
 typedef enum COME_type {
     COME_UNKNOWN,
     CME3000,

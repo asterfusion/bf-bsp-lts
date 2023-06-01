@@ -404,6 +404,46 @@ static ucli_status_t pltfm_mgr_ucli_ucli__mntr__
     return 0;
 }
 
+static ucli_status_t pltfm_mgr_ucli_ucli__set_interval__
+(ucli_context_t *uc)
+{
+    uint32_t us;
+
+    UCLI_COMMAND_INFO (
+        uc, "set-bmc-comm-intr", 1,
+        " Set the communication interval of BMC in us");
+
+    if (platform_type_equal (X312P)) {
+        us = atoi (uc->pargs->args[0]);
+        if ((us < 1000) || (us > 10000000)) {
+            aim_printf (&uc->pvs, "Illegal value, should be 1,000 ~ 10,000,000\n");
+        } else {
+            bf_pltfm_set_312_bmc_comm_interval(us);
+        }
+    } else {
+        aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
+    }
+
+    return 0;
+}
+
+static ucli_status_t pltfm_mgr_ucli_ucli__get_interval__
+(ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (
+        uc, "get-bmc-comm-intr", 0,
+        " Get the BMC communication interval in us");
+
+    if (platform_type_equal (X312P)) {
+        aim_printf (&uc->pvs, "BMC communication interval = %dus\n",
+                    bf_pltfm_get_312_bmc_comm_interval());
+    } else {
+        aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
+    }
+
+    return 0;
+}
+
 static bool bf_pltfm_ucli_mgt_detected (bool *plugged, bool *linked) {
     int fd = 0, i;
     struct ifreq ifr;
@@ -1458,8 +1498,8 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
 
     platform_name_get_str (fmt, sizeof (fmt));
 
-    aim_printf (&uc->pvs, "Ver    %s\n",
-                VERSION_NUMBER);
+    aim_printf (&uc->pvs, "Ver    %s, %s\n",
+                VERSION_NUMBER, "8.9.x");
 
     aim_printf (&uc->pvs, "Platform  : %s\n",
                 platform_type_equal (X532P) ? "X532P-T"  :
@@ -1468,7 +1508,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                 platform_type_equal (X312P) ? "X312P-T"  :
                 platform_type_equal (HC)    ? "HC36Y24C" :
                 "Unknown");
-    aim_printf (&uc->pvs, "BD ID     : %s\n",
+    aim_printf (&uc->pvs, " BD ID    : %s\n",
                 fmt);
     aim_printf (&uc->pvs, "Max FANs  : %2d\n",
                 bf_pltfm_mgr_ctx()->fan_group_count *
@@ -1530,7 +1570,7 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
                            *uc)
 {
     uint8_t buf[2] = {0x00, 0xaa};
-    uint8_t data[I2C_SMBUS_BLOCK_MAX] = {0};
+    int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
 
     /* Keep the name consistent with the document X-T Programmable Bare Metal. */
     UCLI_COMMAND_INFO (uc, "console", 1, "Redirect console to <bmc/come/dpu1/dpu2>");
@@ -1540,22 +1580,22 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
             aim_printf (&uc->pvs, "Console redirects to BMC\n");
             LOG_WARNING ("Console redirects to BMC\n");
             buf[0] = 0x02;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
         } else if (memcmp (uc->pargs->args[0], "come", 4) == 0){
             aim_printf (&uc->pvs, "Console redirects to COM-E\n");
             LOG_WARNING ("Console redirects to COM-E\n");
             buf[0] = 0x03;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
         } else if (memcmp (uc->pargs->args[0], "dpu1", 4) == 0){
             aim_printf (&uc->pvs, "Console redirects to DPU-1\n");
             LOG_WARNING ("Console redirects to DPU-1\n");
             buf[0] = 0x00;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
         } else if (memcmp (uc->pargs->args[0], "dpu2", 4) == 0){
             aim_printf (&uc->pvs, "Console redirects to DPU-2\n");
             LOG_WARNING ("Console redirects to DPU-2\n");
             buf[0] = 0x01;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, data, 10000);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
         } else {
             aim_printf (&uc->pvs, "Usage: console <bmc/come/dpu1/dpu2>\n");
         }
@@ -1568,7 +1608,10 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
 
 static ucli_command_handler_f
 bf_pltfm_mgr_ucli_ucli_handlers__[] = {
-    pltfm_mgr_ucli_ucli__mntr__, NULL
+    pltfm_mgr_ucli_ucli__mntr__,
+    pltfm_mgr_ucli_ucli__set_interval__,
+    pltfm_mgr_ucli_ucli__get_interval__,
+    NULL
 };
 
 static ucli_status_t bf_pltfm_ucli_ucli__spi_wr_

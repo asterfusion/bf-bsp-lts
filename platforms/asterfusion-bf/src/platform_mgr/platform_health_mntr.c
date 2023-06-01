@@ -634,6 +634,11 @@ void *onlp_mntr_init (void *arg)
             fprintf (stdout, "@ %s\n",
                      ctime ((time_t *)
                             &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+
+            if (platform_type_equal (X312P)) {
+                bf_pltfm_start_312_i2c_wdt();
+            }
+
             sleep (15);
         } else {
 #if defined(HAVE_ONLP)

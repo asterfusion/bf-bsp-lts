@@ -63,11 +63,12 @@ sff_info_show (sff_info_t *info,
                ucli_context_t *uc)
 {
     aim_printf (&uc->pvs,
-                "Vendor: %s Model: %s SN: %s Type: %s Module: %s Media: %s Length: %d\n",
+                "Vendor: %s Model: %s SN: %s Type: %s Module: %s Media: %s Length: %d %s\n",
                 info->vendor, info->model, info->serial,
                 info->sfp_type_name,
                 info->module_type_name, info->media_type_name,
-                info->length);
+                info->length,
+                info->length_desc);
 }
 
 /* see SFF-8472. */
@@ -474,6 +475,7 @@ bf_pltfm_ucli_ucli__sfp_show_module (
         return 0;
     }
 
+    /* A0h */
     rc = bf_sfp_get_cached_info (module, 0, idprom);
     if (rc) {
         aim_printf (&uc->pvs,
@@ -482,6 +484,7 @@ bf_pltfm_ucli_ucli__sfp_show_module (
         return 0;
     }
 
+    /* A2h */
     rc = bf_sfp_get_cached_info (module, 1,
                                  idprom + MAX_SFP_PAGE_SIZE);
     if (rc) {
@@ -509,7 +512,7 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
     UCLI_COMMAND_INFO (uc, "info", 0, "info");
 
     aim_printf (&uc->pvs, "\n================\n");
-    aim_printf (&uc->pvs, "Info for SFP  :\n");
+    aim_printf (&uc->pvs, "Info for  SFP  :\n");
     aim_printf (&uc->pvs, "================\n");
     aim_printf (&uc->pvs,
                 "-----------------------------------------------------------------"
