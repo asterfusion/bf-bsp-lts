@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
+#include <dirent.h>
 
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include "bf_pltfm_cgos_i2c.h"
@@ -34,6 +35,8 @@ bf_sys_rmutex_t master_i2c_lock;
 
 static bool  bf_sio_dbg_enabled = true;
 static FILE *bf_sio_dbg_fp = NULL;
+#define SINGLE_LOG_SIZE     (9 * 1024 * 1024)
+#define TOTAL_LOG_NUM       50
 
 #define MISSING_FUNC_FMT	"Error: Adapter does not have %s capability\n"
 
@@ -575,6 +578,7 @@ static void bf_pltfm_master_i2c_log(
     time_t tmpcal_ptr;
     struct tm *tmp_ptr;
     struct stat file_stat;
+    char *dbgstr_ptr = debug_str;
     char rfile[128] = {0};
     const char *dbg_file = LOG_DIR_PREFIX"/sio_debug.log";
 
@@ -600,14 +604,14 @@ static void bf_pltfm_master_i2c_log(
             break;
     }
 
-    sprintf (debug_str, "%4d-%2d-%2d %2d:%2d:%2d (UTC) %s addr: 0x%02x, len:%2d, data: 0x%02x",
-                         1900+tmp_ptr->tm_year, 1+tmp_ptr->tm_mon, tmp_ptr->tm_mday,
-                         tmp_ptr->tm_hour, tmp_ptr->tm_min, tmp_ptr->tm_sec,
-                         rd_wr_str, slave, wr_len, wr_off);
+    dbgstr_ptr += sprintf (debug_str, "%4d-%2d-%2d %2d:%2d:%2d (UTC) %s addr: 0x%02x, len:%2d, data: 0x%02x",
+                                      1900+tmp_ptr->tm_year, 1+tmp_ptr->tm_mon, tmp_ptr->tm_mday,
+                                      tmp_ptr->tm_hour, tmp_ptr->tm_min, tmp_ptr->tm_sec,
+                                      rd_wr_str, slave, wr_len, wr_off);
     for (int i = 0; i < wr_len; i ++) {
-        sprintf (debug_str, "%s-%02x", debug_str, wr_buf[i]);
+        dbgstr_ptr += sprintf (dbgstr_ptr, "-%02x", wr_buf[i]);
     }
-    sprintf (debug_str, "%s\n", debug_str);
+    dbgstr_ptr += sprintf (dbgstr_ptr, "\n");
 
     if (bf_sio_dbg_enabled) {
         if (bf_sio_dbg_fp == NULL) {
@@ -623,12 +627,54 @@ static void bf_pltfm_master_i2c_log(
         fwrite (debug_str, 1, strlen(debug_str), bf_sio_dbg_fp);
         fflush (bf_sio_dbg_fp);
         stat (dbg_file, &file_stat);
-        if (file_stat.st_size > 9 * 1024 * 1024) {
+        if (file_stat.st_size > SINGLE_LOG_SIZE) {
             /* Create a new file next time. */
             fclose (bf_sio_dbg_fp);
             bf_sio_dbg_fp = NULL;
             sprintf (rfile, "%s.%lu", dbg_file, tmpcal_ptr);
             rename (dbg_file, rfile);
+
+            int i, j, file_num = 0;
+            DIR *dir;
+            struct dirent *ptr;
+            long int tmp, tmpcal[TOTAL_LOG_NUM + 5];
+
+            if ((dir = opendir (LOG_DIR_PREFIX)) == NULL) {
+                LOG_ERROR ("Open /var/asterfusion failed!");
+                return;
+            }
+
+            while ((ptr = readdir (dir)) != NULL) {
+                if (strcmp (ptr->d_name, ".") == 0 || strcmp (ptr->d_name, "..") == 0) {
+                    continue;
+                } else if (ptr->d_type == 8) {
+                    if (ptr->d_name != NULL && strstr(ptr->d_name, "sio_debug") != NULL) {
+                        sprintf (rfile, "%s/%s", LOG_DIR_PREFIX, ptr->d_name);
+                        stat (rfile, &file_stat);
+                        tmpcal[file_num++] = file_stat.st_ctime;
+                        if (file_num >= TOTAL_LOG_NUM + 5) {
+                            break;
+                        }
+                    }
+                }
+            }
+            closedir(dir);
+
+            if (file_num > TOTAL_LOG_NUM) {
+                for (i = 0; i < file_num - 1; ++i) {
+                    for (j = 0; j < file_num - 1 - i; ++j) {
+                        if (tmpcal[j] < tmpcal[j + 1]) {
+                            tmp = tmpcal[j];
+                            tmpcal[j] = tmpcal[j + 1];
+                            tmpcal[j + 1] = tmp;
+                        }
+                    }
+                }
+                for (i = TOTAL_LOG_NUM; i < file_num; i++) {
+                    sprintf (rfile, "%s.%lu", dbg_file, tmpcal[i]);
+                    remove (rfile);
+                }
+            }
         }
     }
 }
@@ -952,9 +998,10 @@ int bf_pltfm_bmc_write_read (
             err = -300;
             goto end;
         }
+
+        bf_pltfm_master_i2c_log(0, slave, rd_buf[0], &rd_buf[1], err-1);
     }
 
-    bf_pltfm_master_i2c_log(0, slave, rd_buf[0], &rd_buf[1], err-1);
 end:
     MASTER_I2C_UNLOCK;
     return err;
@@ -1136,6 +1183,7 @@ int bf_pltfm_master_i2c_de_init()
             if (bf_sio_dbg_fp) {
                 fflush (bf_sio_dbg_fp);
                 fclose (bf_sio_dbg_fp);
+                bf_sio_dbg_fp = NULL;
             }
         }
     }

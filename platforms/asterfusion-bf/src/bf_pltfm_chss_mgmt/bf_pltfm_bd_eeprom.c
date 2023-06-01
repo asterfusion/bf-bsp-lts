@@ -875,10 +875,12 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     uint8_t rd_buf[128];
     char cmd = 0x01;
     int i;
-    int err;
+    int err, err_total = 0;
     int usec_delay;
     size_t l = 0, offset = 0;
     struct tlv_t *tlv;
+    FILE *fp = NULL;
+    const char *path = LOG_DIR_PREFIX"/eeprom";
 
     fprintf (stdout,
              "\n\n================== EEPROM ==================\n");
@@ -900,7 +902,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             //usec_delay = ((tlvs[i].code == 0x21) || (tlvs[i].code == 0x22) || (tlvs[i].code == 0x23) || (tlvs[i].code == 0x24)) ?
             //       BMC_COMM_INTERVAL_US * 5 : BMC_COMM_INTERVAL_US;
             /* There're some old device such as x564p-t gets eeprom data through i2c (cgosdrv). */
-            usec_delay *= 3;
+            usec_delay = bf_pltfm_get_312_bmc_comm_interval();
             err = bf_pltfm_bmc_write_read (bmc_i2c_addr, cmd,
                                            wr_buf, 2, 0xFF, rd_buf, usec_delay);
         }
@@ -920,8 +922,40 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             LOG_DEBUG ("0x%02x %20s: %32s", tlv->code,
                        tlv->desc, tlv->content);
         }
+        err_total += err;
     }
     fprintf (stdout, "\n\n");
+
+    /* If could not get eeprom data from BMC,
+     *  try to get it from file. */
+    if (err_total <= -(int)ARRAY_LENGTH (tlvs)) {
+        fp = fopen(path, "r");
+        if (fp) {
+            char tlv_str[128];
+            char tlv_header[128];
+            char *p;
+            while (fgets (tlv_str, lqe_valen, fp)) {
+                p = strchr(tlv_str, 0x0A);
+                *p = '\0';
+                for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
+                    tlv = &tlvs[i];
+                    sprintf (tlv_header, "%s 0x%02x ", tlv->desc, tlv->code);
+                    p = strstr (tlv_str, tlv_header);
+                    if(p) {
+                        strcpy (tlv->content, p + strlen(tlv_header));
+                        fprintf (stdout, "0x%02x %20s: %32s\n",
+                                tlv->code, tlv->desc, tlv->content);
+                        LOG_DEBUG ("0x%02x %20s: %32s", tlv->code,
+                                tlv->desc, tlv->content);
+                        break;
+                    }
+                }
+            }
+            fclose(fp);
+        }
+
+        bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_CTRL;
+    }
 
     /**
      * Parse EEPROM data received from OPENBMC.
@@ -929,7 +963,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
      */
     char data[1024];
     int length;
-    FILE *fp = NULL;
 
     for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
         tlv = &tlvs[i];
@@ -1017,7 +1050,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
 
     /* Open eeprom data file, if non-exist, create it.
      * For onlp, should run BSP at least once. */
-    const char *path = LOG_DIR_PREFIX"/eeprom";
     if (unlikely (!access (path, F_OK))) {
         if (likely (remove (path))) {
             fprintf (stdout,

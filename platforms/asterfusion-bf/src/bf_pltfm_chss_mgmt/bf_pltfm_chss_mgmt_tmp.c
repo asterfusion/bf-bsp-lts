@@ -224,7 +224,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
     bf_pltfm_temperature_info_t *tmp)
 {
-    int usec_delay = BMC_COMM_INTERVAL_US/25;
+    int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
     uint8_t buf[4] = {0};
     uint8_t ghc1_temp[2][3] = {{0}};
     uint8_t ghc2_temp[2][3] = {{0}};

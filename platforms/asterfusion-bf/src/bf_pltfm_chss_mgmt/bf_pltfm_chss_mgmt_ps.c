@@ -628,7 +628,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
     int32_t n;
     float y;
     bool debug_print = false;
-    int usec_delay = BMC_COMM_INTERVAL_US/25;
+    int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
 
     /* Default to AC as we do not have a way to detect at this moment.
      * by tsihang, 2022-07-08. */
@@ -640,13 +640,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         uint8_t buf[10] = {0};
         uint8_t res[I2C_SMBUS_BLOCK_MAX + 2] = {0};
         int rdlen;
-        int usec_delay_ps = 3000000;
 
         // check precense using psu fan status
         buf[0] = 0xaa;
         buf[1] = 0xaa;
         rdlen = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                        0xf, buf, 2, 0xff, res, 100000);
+                                        0xf, buf, 2, 0xff, res, usec_delay);
         if (rdlen == 7) {
             if (pwr == POWER_SUPPLY1) {
                 *present = res[1] ? true : false;
@@ -682,7 +681,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[2] = 0x97;
         buf[3] = 0x2;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
+                                        4, 0xff, res, usec_delay);
         if (rdlen == 4) {
             value = res[1] + (res[2] << 8);
             n = (value & 0xF800) >> 11;
@@ -711,7 +710,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[2] = 0x88;
         buf[3] = 0x2;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
+                                        4, 0xff, res, usec_delay);
         if (rdlen == 4) {
             value = res[1] + (res[2] << 8);
             n = (value & 0xF800) >> 11;
@@ -729,7 +728,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[2] = 0x20;
         buf[3] = 0x2;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
+                                        4, 0xff, res, usec_delay);
         if (rdlen == 4) {
             n = res[1] & 0x1f;
             n = (n & 0x10) ? (n - 0x1F) - 1 : n;
@@ -739,7 +738,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             buf[2] = 0x8b;
             buf[3] = 0x2;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                            4, 0xff, res, usec_delay_ps);
+                                            4, 0xff, res, usec_delay);
             if (rdlen == 4) {
                 value = res[1] + (res[2] << 8);
                 y = value;
@@ -756,7 +755,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[2] = 0x89;
         buf[3] = 0x2;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
+                                        4, 0xff, res, usec_delay);
         if (rdlen == 4) {
             value = res[1] + (res[2] << 8);
             n = (value & 0xF800) >> 11;
@@ -774,7 +773,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[2] = 0x8c;
         buf[3] = 0x2;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
+                                        4, 0xff, res, usec_delay);
         if (rdlen == 4) {
             value = res[1] + (res[2] << 8);
             n = (value & 0xF800) >> 11;
@@ -790,7 +789,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[0] = 0xaa;
         buf[1] = 0xaa;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0xb, buf,
-                                        2, 0xff, res, 100000);
+                                        2, 0xff, res, usec_delay);
         if (rdlen == 5) {
             value = res[pwr * 2 - 1] + (res[pwr * 2] << 8);
             n = (value & 0xF800) >> 11;
@@ -809,7 +808,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         buf[2] = 0x9e;
         buf[3] = 0xa;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x30, buf,
-                                        4, 0xff, res, usec_delay_ps);
+                                        4, 0xff, res, usec_delay);
         if (rdlen == 12) {
             memcpy (info->serial, &res[1], 11);
             if (debug_print) {
@@ -1111,7 +1110,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 
 //        /*PSU warn 00: 02 <psu low> <psu high>*/
 //        buf[2] = 0x79;
-//        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_warn_data, 10000);
+//        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_warn_data, usec_delay);
 //        if (ret == -1) {
 //            LOG_ERROR("Read psu warning error\n");
 //            return BF_PLTFM_COMM_FAILED;
@@ -1119,7 +1118,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 //
 //        /*PSU product name 00: 02 <psu low> <psu high>*/
 //        buf[2] = 0x9a;
-//        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_prod_name_data, 10000);
+//        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_prod_name_data, usec_delay);
 //        if (ret == -1) {
 //            LOG_ERROR("Read psu product name error\n");
 //            return BF_PLTFM_COMM_FAILED;

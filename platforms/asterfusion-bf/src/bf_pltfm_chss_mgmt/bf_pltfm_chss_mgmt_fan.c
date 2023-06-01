@@ -660,7 +660,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
     bf_pltfm_fan_data_t *fdata)
 {
-    int usec_delay = BMC_COMM_INTERVAL_US/25;
+    int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
     uint32_t num = 0;
     int rdlen = 0;
     uint8_t buf[4] = {0};
@@ -675,7 +675,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             buf[0] = i;
             buf[1] = 0x01;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x6, buf,
-                                            2, 0xff, data, 100000);
+                                            2, 0xff, data, usec_delay);
             if (rdlen == 4) {
                 fdata->F[2 * i].fan_num = 2 * i + 1;
                 fdata->F[2 * i].present = data[1] ? 1 : 0;
@@ -694,7 +694,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             buf[0] = i;
             buf[1] = 0x00;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x6, buf,
-                                            2, 0xff, data, 100000);
+                                            2, 0xff, data, usec_delay);
             if (rdlen == 4) {
                 if (i < 5) {
                     fdata->F[ (i % 5) * 2 + 0].front_speed = data[2] *
@@ -726,7 +726,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         buf[1] = 0x32;
         buf[2] = 0x02;
         buf[3] = 0x01;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
         if (rdlen != 3) {
             LOG_ERROR("read fan status from bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -752,7 +752,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         buf[1] = 0x32;
         buf[2] = 0x03;
         buf[3] = 0x01;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, 10000);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
         if (rdlen != 3) {
             LOG_ERROR("read fan direction from bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -900,7 +900,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
     bf_pltfm_fan_info_t *fdata)
 {
-    int usec_delay = BMC_COMM_INTERVAL_US/25;
+    int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
     fdata = fdata;
 
     /* Example code for a subversion in a given platform. */
@@ -913,7 +913,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[0] = 0x00;
         buf[1] = fdata->speed_level;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x7, buf,
-                                        2, 0xff, res, 100000);
+                                        2, 0xff, res, usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;

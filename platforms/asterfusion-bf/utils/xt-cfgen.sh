@@ -241,7 +241,7 @@ fi
 # BMC  <- UART
 # CPLD <- cp2112 or nct6779d
 # SFP  <- cp2112
-if [ "$default_cme"X = "CME3000"X ] && [[ $xt_platform =~ "308" ]]; then
+if [[ $xt_platform =~ "308" ]]; then
     enable_iic=0
     hw_platform="X308P-T"
     echo -e "${YELLOW}${BLINK}It looks like x308p-t detected.${RES}${RES}"
