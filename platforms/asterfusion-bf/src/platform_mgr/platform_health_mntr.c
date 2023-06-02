@@ -61,6 +61,11 @@ extern bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_rails_get__ (
     bf_pltfm_pwr_rails_info_t *pwr_rails);
 
+extern bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_fan_pres_get__ ();
+extern bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_pwr_supply_pres_get__ ();
+
 #define HAVE_ONLP
 #if defined(HAVE_ONLP)
 #define MAX_LEN 256
@@ -538,7 +543,7 @@ static void bf_pltfm_onlp_mntr_fantray ()
         for (i = 0;
              i < (int) (bf_pltfm_mgr_ctx()->fan_per_group *
                         bf_pltfm_mgr_ctx()->fan_group_count); i ++) {
-            bf_pltfm_chss_mgmt_onlp_fan (fdata.F[i].fan_num,
+            bf_pltfm_chss_mgmt_onlp_fan (i + 1,
                                          & (fdata.F[i]));
         }
     }
@@ -634,11 +639,6 @@ void *onlp_mntr_init (void *arg)
             fprintf (stdout, "@ %s\n",
                      ctime ((time_t *)
                             &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
-
-            if (platform_type_equal (X312P)) {
-                bf_pltfm_start_312_i2c_wdt();
-            }
-
             sleep (15);
         } else {
 #if defined(HAVE_ONLP)
@@ -930,6 +930,29 @@ static bf_pltfm_status_t check_pwr_rails (void)
     return err;
 }
 
+static bf_pltfm_status_t check_peripheral_pres (void)
+{
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
+
+    if ((err = __bf_pltfm_chss_mgmt_fan_pres_get__ ()) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading fan pres from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
+    }
+
+    if ((err =__bf_pltfm_chss_mgmt_pwr_supply_pres_get__ ()) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading power supply pres from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
+    }
+
+    UPDATE_LOCK;
+    ul_update_flags |= (AF_PLAT_MNTR_FAN + AF_PLAT_MNTR_POWER);
+    UPDATE_UNLOCK;
+
+    return err;
+}
+
 
 /* Init function of thread */
 void *health_mntr_init (void *arg)
@@ -952,6 +975,7 @@ void *health_mntr_init (void *arg)
         if (likely (flags & AF_PLAT_MNTR_TMP) &&
             !g_rt_async_led_q_length) {
             err = check_chassis_temperature();
+            check_peripheral_pres();
             sleep (3);
 
             // Tofino temperature monitoring still needs to add FSM
@@ -964,8 +988,10 @@ void *health_mntr_init (void *arg)
                     sleep (30);
                     first_startup = false;
                 }
+                check_peripheral_pres();
                 sleep (3);
                 err |= check_tofino_temperature();
+                check_peripheral_pres();
             }
             if (!err) {
                 /* Flush TEMP files in /var/asterfusion/ ONLY when no error occures. */
@@ -978,12 +1004,19 @@ void *health_mntr_init (void *arg)
             fprintf (stdout, "@ %s\n",
                      ctime ((time_t *)
                             &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+
+            if (platform_type_equal (X312P)) {
+                bf_pltfm_start_312_i2c_wdt();
+            }
+
             sleep (15);
         } else {
             if (likely (flags & AF_PLAT_MNTR_FAN) &&
                 !g_rt_async_led_q_length) {
                 sleep (3);
+                check_peripheral_pres();
                 err = check_fantray();
+                check_peripheral_pres();
                 if (!err) {
                     /* Flush FAN files in /var/asterfusion/ ONLY when no error occures. */
                     update_flags |= AF_PLAT_MNTR_FAN;
@@ -993,9 +1026,12 @@ void *health_mntr_init (void *arg)
             if (likely (flags & AF_PLAT_MNTR_POWER) &&
                 !g_rt_async_led_q_length) {
                 sleep (3);
+                check_peripheral_pres();
                 err = check_pwr_supply();
+                check_peripheral_pres();
                 sleep (3);
-                err |= check_pwr_rails();
+                err = check_pwr_rails();
+                check_peripheral_pres();
                 if (!err) {
                     /* Flush Power files in /var/asterfusion/ ONLY when no error occures. */
                     update_flags |= AF_PLAT_MNTR_POWER;

@@ -84,14 +84,29 @@ static inline void cpy_psu_data(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_su
     memcpy ((char *)&dst->model[0], (char *)&src->model[0], 32 - 1);
     memcpy ((char *)&dst->serial[0], (char *)&src->serial[0], 32 - 1);
     memcpy ((char *)&dst->rev[0], (char *)&src->rev[0], 32 - 1);
+}
 
+static inline void update_psu_pres(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_supply_info_t *src)
+{
+    for (int i = 0; i < 2; i ++) {
+        if (dst->presence != src->presence) {
+            if (src->presence == true) {
+                dst->presence = src->presence;
+                dst->power    = src->power;
+            } else {
+                memset (dst, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+            }
+        }
+        src ++;
+        dst ++;
+    }
 }
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info)
+    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -103,8 +118,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                  BMC_COMM_INTERVAL_US *
-                  3);    /* the usec may be too long. */
+                  BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
                                        BMC_CMD_PSU_GET, wr_buf, 2, 0xFF, rd_buf,
@@ -131,7 +145,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
-        clr_psu_data(info);
+        clr_psu_data(&info[pwr - 1]);
+        return BF_PLTFM_SUCCESS;
+    }
+
+    /* If read presence only, there is no need to read more. */
+    if (pres_only) {
         return BF_PLTFM_SUCCESS;
     }
 
@@ -141,8 +160,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                  BMC_COMM_INTERVAL_US *
-                  3);    /* the usec may be too long. */
+                  BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
                                        BMC_CMD_PSU_GET, wr_buf, 2, 0xFF, rd_buf,
@@ -193,9 +211,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                 BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                BMC_COMM_INTERVAL_US *
-                3);    /* the usec may be too long. */
-
+                BMC_COMM_INTERVAL_US);
         if ((ret == 3) && (rd_buf[0] == 2)) {
             info[0].temp  = rd_buf[1];
             if (info[0].temp != 0) {
@@ -212,8 +228,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                 BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                BMC_COMM_INTERVAL_US *
-                3);    /* the usec may be too long. */
+                BMC_COMM_INTERVAL_US);
 
         if ((ret == 5) && (rd_buf[0] == 4)) {
             info[0].fspeed  = (rd_buf[1] << 8) + rd_buf[2];
@@ -232,8 +247,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
             wr_buf[1] = i;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
+                    BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
@@ -256,8 +270,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
             wr_buf[1] = i;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
+                    BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
@@ -276,7 +289,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info)
+    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -315,7 +328,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
-        clr_psu_data(info);
+        clr_psu_data(&info[pwr - 1]);
+        return BF_PLTFM_SUCCESS;
+    }
+
+    /* If read presence only, there is no need to read more. */
+    if (pres_only) {
         return BF_PLTFM_SUCCESS;
     }
 
@@ -325,7 +343,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                  BMC_COMM_INTERVAL_US * 1.5);
+                  BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
                                        BMC_CMD_PSU_GET, wr_buf, 2, 0xFF, rd_buf,
@@ -377,8 +395,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                 BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                BMC_COMM_INTERVAL_US *
-                3);    /* the usec may be too long. */
+                BMC_COMM_INTERVAL_US);
 
         if ((ret == 3) && (rd_buf[0] == 2)) {
             info[0].temp  = rd_buf[1];
@@ -396,8 +413,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                 BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                BMC_COMM_INTERVAL_US *
-                3);    /* the usec may be too long. */
+                BMC_COMM_INTERVAL_US);
 
         if ((ret == 5) && (rd_buf[0] == 4)) {
             info[0].fspeed  = (rd_buf[1] << 8) + rd_buf[2];
@@ -416,8 +432,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
             wr_buf[1] = i;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
+                    BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
@@ -440,8 +455,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
             wr_buf[1] = i;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
+                    BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
@@ -460,7 +474,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info)
+    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -472,8 +486,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                  BMC_COMM_INTERVAL_US *
-                  3);    /* the usec may be too long. */
+                  BMC_COMM_INTERVAL_US);
     }
 
     if ((ret == 7) && (rd_buf[0] == 6)) {
@@ -496,7 +509,12 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
      * Here return success.
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
-        clr_psu_data(info);
+        clr_psu_data(&info[pwr - 1]);
+        return BF_PLTFM_SUCCESS;
+    }
+
+    /* If read presence only, there is no need to read more. */
+    if (pres_only) {
         return BF_PLTFM_SUCCESS;
     }
 
@@ -506,8 +524,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                  BMC_COMM_INTERVAL_US *
-                  3);    /* the usec may be too long. */
+                  BMC_COMM_INTERVAL_US);
 
         if ((ret == 27) && (rd_buf[0] == 26)) {
             info[0].vin        = rd_buf[1] * 1000 + rd_buf[2] * 100;
@@ -541,8 +558,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                 BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                BMC_COMM_INTERVAL_US *
-                3);    /* the usec may be too long. */
+                BMC_COMM_INTERVAL_US);
 
         if ((ret == 3) && (rd_buf[0] == 2)) {
             info[0].temp  = rd_buf[1];
@@ -560,8 +576,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                 BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                BMC_COMM_INTERVAL_US *
-                3);    /* the usec may be too long. */
+                BMC_COMM_INTERVAL_US);
 
         if ((ret == 5) && (rd_buf[0] == 4)) {
             info[0].fspeed  = (rd_buf[1] << 8) + rd_buf[2];
@@ -580,8 +595,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
             wr_buf[1] = i;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
+                    BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
@@ -604,9 +618,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
             wr_buf[1] = i;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US *
-                    3);    /* the usec may be too long. */
-
+                    BMC_COMM_INTERVAL_US);
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
                 memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
@@ -622,7 +634,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info)
+    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
 {
     uint32_t value;
     int32_t n;
@@ -672,6 +684,11 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
+            return BF_PLTFM_SUCCESS;
+        }
+
+        /* If read presence only, there is no need to read more. */
+        if (pres_only) {
             return BF_PLTFM_SUCCESS;
         }
 
@@ -892,6 +909,11 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
+            return BF_PLTFM_SUCCESS;
+        }
+
+        /* If read presence only, there is no need to read more. */
+        if (pres_only) {
             return BF_PLTFM_SUCCESS;
         }
 
@@ -1148,7 +1170,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info)
+    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
 {
     pwr = pwr;
     present = present;
@@ -1179,27 +1201,27 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
     if (platform_type_equal (X532P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0]);
+               &tmp_psu_data[0], false);
         p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0]);
+               &tmp_psu_data[0], false);
         p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X308P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0]);
+               &tmp_psu_data[0], false);
         p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0]);
+               &tmp_psu_data[0], false);
         p = &tmp_psu_data[0];
     } else if (platform_type_equal (HC)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0]);
+               &tmp_psu_data[0], false);
         p = &tmp_psu_data[pwr - 1];
     }
 
@@ -1211,6 +1233,47 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
             /* Read from cache. */
             cpy_psu_data (info, &bmc_psu_data[pwr - 1]);
         }
+    }
+
+    return err;
+}
+
+bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_pwr_supply_pres_get__ ()
+{
+    int err = BF_PLTFM_COMM_FAILED;
+    bf_pltfm_pwr_supply_info_t
+    tmp_psu_data[MAX_PSU_COUNT];
+    bool present = false;
+
+    clr_psu_data (&tmp_psu_data[POWER_SUPPLY1 - 1]);
+    clr_psu_data (&tmp_psu_data[POWER_SUPPLY2 - 1]);
+
+    if (platform_type_equal (X532P)) {
+        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
+              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
+               &tmp_psu_data[0], true);
+    } else if (platform_type_equal (X564P)) {
+        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
+              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
+               &tmp_psu_data[0], true);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
+              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
+               &tmp_psu_data[0], true);
+    } else if (platform_type_equal (X312P)) {
+        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
+              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
+               &tmp_psu_data[0], true);
+    } else if (platform_type_equal (HC)) {
+        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
+              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
+               &tmp_psu_data[0], true);
+    }
+
+    if (!err) {
+        /* Write to cache. */
+        update_psu_pres (&bmc_psu_data[0], &tmp_psu_data[0]);
     }
 
     return err;

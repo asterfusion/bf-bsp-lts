@@ -100,9 +100,29 @@ static inline void cpy_fan_data(bf_pltfm_fan_data_t *dst, bf_pltfm_fan_data_t *s
     dst->fantray_present = src->fantray_present;
 }
 
+static inline void update_fan_pres(bf_pltfm_fan_data_t *dst, bf_pltfm_fan_data_t *src)
+{
+    bf_pltfm_fan_info_t *idst, *isrc;
+    int block = sizeof (dst->F) / sizeof (bf_pltfm_fan_info_t);
+
+    foreach_element(0, block) {
+        isrc = &src->F[each_element];
+        idst = &dst->F[each_element];
+
+        if (isrc->present != idst->present) {
+            if (isrc->present == true) {
+                idst->present = isrc->present;
+            } else {
+                memset (idst, 0, sizeof (bf_pltfm_fan_info_t));
+            }
+        }
+    }
+    dst->fantray_present = src->fantray_present;
+}
+
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
-    bf_pltfm_fan_data_t *fdata)
+    bf_pltfm_fan_data_t *fdata, bool pres_only)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -141,6 +161,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
                     fdata->F[num].group = 5;
             }
             err = BF_PLTFM_SUCCESS;
+        }
+
+        /* If read presence only, there is no need to read more. */
+        if (pres_only) {
+            return BF_PLTFM_SUCCESS;
         }
 
         /* If BMC version is earlier than 1.2.3(hwver == 1.x), do not read MODEL/SN/REV...
@@ -285,6 +310,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
                 err = BF_PLTFM_SUCCESS;
             }
 
+            /* If read presence only, there is no need to read more. */
+            if (pres_only) {
+                continue;
+            }
+
             // RPM
             wr_buf[0] = i + 1;
             wr_buf[1] = BMC_SUB2_RPM;
@@ -307,7 +337,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
-    bf_pltfm_fan_data_t *fdata)
+    bf_pltfm_fan_data_t *fdata, bool pres_only)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -339,6 +369,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
                     fdata->F[num].group = 2;
             }
             err = BF_PLTFM_SUCCESS;
+        }
+
+        /* If read presence only, there is no need to read more. */
+        if (pres_only) {
+            return BF_PLTFM_SUCCESS;
         }
 
         /* If BMC version is earlier than 2.0.4(hwver == 1.x), do not read MODEL/SN/REV...
@@ -481,6 +516,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
                 err = BF_PLTFM_SUCCESS;
             }
 
+            /* If read presence only, there is no need to read more. */
+            if (pres_only) {
+                continue;
+            }
+
             // RPM
             wr_buf[0] = i + 1;
             wr_buf[1] = BMC_SUB2_RPM;
@@ -501,7 +541,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
-    bf_pltfm_fan_data_t *fdata)
+    bf_pltfm_fan_data_t *fdata, bool pres_only)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -540,6 +580,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
                 if (fdata->F[num].fan_num == 11 || fdata->F[num].fan_num == 12)
                     fdata->F[num].group = 6;
             }
+        }
+
+        /* If read presence only, there is no need to read more. */
+        if (pres_only) {
+            return BF_PLTFM_SUCCESS;
         }
 
         /* Check BMC version first.
@@ -658,7 +703,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
-    bf_pltfm_fan_data_t *fdata)
+    bf_pltfm_fan_data_t *fdata, bool pres_only)
 {
     int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
     uint32_t num = 0;
@@ -685,6 +730,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
                 fdata->F[2 * i + 1].present = data[1] ? 1 : 0;
                 fdata->F[2 * i + 1].direction = data[2];
             }
+        }
+
+        /* If read pres only, there is no need to read more. */
+        if (pres_only) {
+            return BF_PLTFM_SUCCESS;
         }
 
         // fan speed
@@ -746,6 +796,11 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         /* 0x10 means group 5 (ID 5 and ID 10). */
         fdata->F[4].present = (data[2] & 0x10) ? 0 : 1;
         fdata->F[9].present = fdata->F[4].present;
+
+        /* If read pres only, there is no need to read more. */
+        if (pres_only) {
+            return BF_PLTFM_SUCCESS;
+        }
 
         // fan direction
         buf[0] = 0x03;
@@ -817,7 +872,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
 
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_hc36y24c__ (
-    bf_pltfm_fan_data_t *fdata)
+    bf_pltfm_fan_data_t *fdata, bool pres_only)
 {
     // TODO : HC support fan info get???
     fdata = fdata;
@@ -974,24 +1029,57 @@ __bf_pltfm_chss_mgmt_fan_data_get__ (
 
     if (platform_type_equal (X532P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x532p__
-              (fdata);
+              (fdata, false);
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x564p__
-              (fdata);
+              (fdata, false);
     } else if (platform_type_equal (X308P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x308p__
-              (fdata);
+              (fdata, false);
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x312p__
-              (fdata);
+              (fdata, false);
     } else if (platform_type_equal (HC)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_hc36y24c__
-              (fdata);
+              (fdata, false);
     }
 
     if (!err) {
         /* Write to cache. */
         cpy_fan_data (&bmc_fan_data, fdata);
+    }
+
+    return err;
+}
+
+bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_fan_pres_get__ ()
+{
+    int err = BF_PLTFM_COMM_FAILED;
+    bf_pltfm_fan_data_t fdata;
+
+    clr_fan_data(&fdata);
+
+    if (platform_type_equal (X532P)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_x532p__
+              (&fdata, true);
+    } else if (platform_type_equal (X564P)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_x564p__
+              (&fdata, true);
+    } else if (platform_type_equal (X308P)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_x308p__
+              (&fdata, true);
+    } else if (platform_type_equal (X312P)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_x312p__
+              (&fdata, true);
+    } else if (platform_type_equal (HC)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_hc36y24c__
+              (&fdata, true);
+    }
+
+    if (!err) {
+        /* Write to cache. */
+        update_fan_pres (&bmc_fan_data, &fdata);
     }
 
     return err;
