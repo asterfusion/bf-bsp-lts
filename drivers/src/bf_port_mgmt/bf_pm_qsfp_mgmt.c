@@ -1261,6 +1261,11 @@ static void qsfp_module_fsm_complete_update (
     qsfp_state[conn_id].wr_coalesce.data = 0;
 }
 
+char *qsfp_module_fsm_st_get (int conn_id)
+{
+    return qsfp_fsm_st_to_str[qsfp_state[conn_id].fsm_st];
+}
+
 /*****************************************************************
 * Module FSM
 *****************************************************************/
@@ -1765,6 +1770,12 @@ void qsfp_fsm_ch_first_enable_clear (
 {
     qsfp_state[conn_id].per_ch_fsm[ch].first_enable_after_reset
         = false;
+}
+
+char *qsfp_channel_fsm_st_get (int conn_id,
+                               int ch)
+{
+    return qsfp_fsm_ch_en_st_to_str[qsfp_state[conn_id].per_ch_fsm[ch].fsm_st];
 }
 
 /*****************************************************************

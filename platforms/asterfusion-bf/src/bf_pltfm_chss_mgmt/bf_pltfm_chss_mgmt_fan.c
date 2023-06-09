@@ -1104,3 +1104,130 @@ bf_pltfm_chss_mgmt_fan_init()
     return BF_PLTFM_SUCCESS;
 }
 
+bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
+{
+    uint8_t len  = p_src[0];
+    uint8_t type = p_src[1];
+    uint8_t num  = p_src[2];
+    bf_pltfm_fan_data_t temp_fan_data;
+    static bool need_read_sn[12];
+
+    if ((type != 2) || (len != num * 5 + 2))  {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    clr_fan_data(&temp_fan_data);
+
+    for (int i = 0, j = 0, k = 3; i < num; i ++, j += 2, k += 5) {
+        temp_fan_data.F[j+0].group       = i + 1;
+        temp_fan_data.F[j+0].fan_num     = j + 1;
+        temp_fan_data.F[j+0].present     = p_src[k] & 0x01;
+        temp_fan_data.F[j+0].direction   = (p_src[k] & 0x02) ? 1 : 2;
+        temp_fan_data.F[j+0].front_speed = p_src[k + 1] + (p_src[k + 2] << 8);
+        temp_fan_data.F[j+1].group       = i + 1;
+        temp_fan_data.F[j+1].fan_num     = j + 2;
+        temp_fan_data.F[j+1].present     = p_src[k] & 0x01;
+        temp_fan_data.F[j+1].direction   = (p_src[k] & 0x02) ? 1 : 2;
+        temp_fan_data.F[j+1].front_speed = p_src[k + 3] + (p_src[k + 4] << 8);
+
+        if ((temp_fan_data.F[j+0].present == true) &&
+            (bmc_fan_data.F[j+0].present == false)) {
+            need_read_sn[j+0] = true;
+        } else if (temp_fan_data.F[j+0].present == true) {
+            if (need_read_sn[j+0]) {
+                need_read_sn[j+0] = false;
+
+                uint8_t wr_buf[2];
+                uint8_t rd_buf[128];
+                int ret = BF_PLTFM_COMM_FAILED;
+
+                wr_buf[0] = i + 1;
+                wr_buf[1] = BMC_SUB2_SN;
+                ret = bf_pltfm_bmc_uart_write_read (
+                        BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                        BMC_COMM_INTERVAL_US);
+
+                if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                    memcpy (temp_fan_data.F[j+0].serial, &rd_buf[1], rd_buf[0]);
+                    temp_fan_data.F[j+0].fvalid |= FAN_INFO_VALID_SERIAL;
+                    memcpy (temp_fan_data.F[j+1].serial, &rd_buf[1], rd_buf[0]);
+                    temp_fan_data.F[j+1].fvalid |= FAN_INFO_VALID_SERIAL;
+                } else {
+                    /* If there is no SN on FAN module, then no need to read following info */
+                    continue;
+                }
+
+                wr_buf[1] = BMC_SUB2_MODEL;
+                ret = bf_pltfm_bmc_uart_write_read (
+                        BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                        BMC_COMM_INTERVAL_US);
+
+                if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                    memcpy (temp_fan_data.F[j+0].model, &rd_buf[1], rd_buf[0]);
+                    temp_fan_data.F[j+0].fvalid |= FAN_INFO_VALID_MODEL;
+                    memcpy (temp_fan_data.F[j+1].model, &rd_buf[1], rd_buf[0]);
+                    temp_fan_data.F[j+1].fvalid |= FAN_INFO_VALID_MODEL;
+                }
+
+                wr_buf[1] = BMC_SUB2_MAX;
+                ret = bf_pltfm_bmc_uart_write_read (
+                        BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                        BMC_COMM_INTERVAL_US);
+
+                if ((ret == 5) && (ret == rd_buf[0] + 1)) {
+                    temp_fan_data.F[j+0].max_speed  = (rd_buf[1] << 8) + rd_buf[2];
+                    if (temp_fan_data.F[j+0].max_speed != 0) {
+                        temp_fan_data.F[j+0].percent = temp_fan_data.F[j+0].front_speed * 100 / temp_fan_data.F[j+0].max_speed;
+                        temp_fan_data.F[j+0].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                    }
+                    temp_fan_data.F[j+1].max_speed  = (rd_buf[3] << 8) + rd_buf[4];
+                    if (temp_fan_data.F[j+1].max_speed != 0) {
+                        temp_fan_data.F[j+1].percent = temp_fan_data.F[j+1].front_speed * 100 / temp_fan_data.F[j+1].max_speed;
+                        temp_fan_data.F[j+1].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                    }
+                }
+
+                wr_buf[1] = BMC_SUB2_DIR;
+                ret = bf_pltfm_bmc_uart_write_read (
+                        BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                        BMC_COMM_INTERVAL_US);
+
+                if ((ret == 4) && (ret == rd_buf[0] + 1)) {
+                    if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
+                        temp_fan_data.F[j+0].direction = 1;
+                        temp_fan_data.F[j+1].direction = 1;
+                    } else if (((rd_buf[1] == 'R') || (rd_buf[1] == 'B')) && (rd_buf[2] == '2') && (rd_buf[3] == 'F')) {
+                        temp_fan_data.F[j+0].direction = 2;
+                        temp_fan_data.F[j+1].direction = 2;
+                    }
+                }
+            } else {
+                memcpy (temp_fan_data.F[j+0].serial, bmc_fan_data.F[j+0].serial, 32);
+                memcpy (temp_fan_data.F[j+0].model,  bmc_fan_data.F[j+0].model,  32);
+                temp_fan_data.F[j+0].direction = bmc_fan_data.F[j+0].direction;
+                temp_fan_data.F[j+0].max_speed = bmc_fan_data.F[j+0].max_speed;
+                if (temp_fan_data.F[j+0].max_speed != 0) {
+                    temp_fan_data.F[j+0].percent = temp_fan_data.F[j+0].front_speed * 100 / temp_fan_data.F[j+0].max_speed;
+                }
+                temp_fan_data.F[j+0].fvalid = bmc_fan_data.F[j+0].fvalid;
+
+                memcpy (temp_fan_data.F[j+1].serial, bmc_fan_data.F[j+1].serial, 32);
+                memcpy (temp_fan_data.F[j+1].model,  bmc_fan_data.F[j+1].model,  32);
+                temp_fan_data.F[j+1].direction = bmc_fan_data.F[j+1].direction;
+                temp_fan_data.F[j+1].max_speed = bmc_fan_data.F[j+1].max_speed;
+                if (temp_fan_data.F[j+1].max_speed != 0) {
+                    temp_fan_data.F[j+1].percent = temp_fan_data.F[j+1].front_speed * 100 / temp_fan_data.F[j+1].max_speed;
+                }
+                temp_fan_data.F[j+1].fvalid = bmc_fan_data.F[j+1].fvalid;
+            }
+        } else {
+            memset(&temp_fan_data.F[j+0], 0, sizeof (bf_pltfm_fan_info_t));
+            memset(&temp_fan_data.F[j+1], 0, sizeof (bf_pltfm_fan_info_t));
+        }
+    }
+
+    cpy_fan_data (&bmc_fan_data, &temp_fan_data);
+
+    return BF_PLTFM_SUCCESS;
+}

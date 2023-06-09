@@ -19,6 +19,7 @@
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_qsfp.h>
 #include <bf_pltfm_sfp.h>
+#include <bf_pltfm_uart.h>
 #include <pltfm_types.h>
 
 /* Local header includes */
@@ -60,6 +61,15 @@ __bf_pltfm_chss_mgmt_temperature_get__ (
 extern bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_rails_get__ (
     bf_pltfm_pwr_rails_info_t *pwr_rails);
+
+extern bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_psu_decode__ (uint8_t* p_src);
+extern bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_tmp_decode__ (uint8_t* p_src);
+extern bf_pltfm_status_t
+ __bf_pltfm_chss_mgmt_bmc_data_vrail_decode__ (uint8_t* p_src);
+extern bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src);
 
 #define HAVE_ONLP
 #if defined(HAVE_ONLP)
@@ -538,7 +548,7 @@ static void bf_pltfm_onlp_mntr_fantray ()
         for (i = 0;
              i < (int) (bf_pltfm_mgr_ctx()->fan_per_group *
                         bf_pltfm_mgr_ctx()->fan_group_count); i ++) {
-            bf_pltfm_chss_mgmt_onlp_fan (fdata.F[i].fan_num,
+            bf_pltfm_chss_mgmt_onlp_fan (i + 1,
                                          & (fdata.F[i]));
         }
     }
@@ -599,6 +609,50 @@ static void bf_pltfm_onlp_mntr_tofino_temperature (void)
 }
 #endif
 
+/* If BMC upgraded, the channel for BMC has changed to uart. */
+bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_get__ ()
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    uint8_t *rd_ptr;
+    int ret, err = BF_PLTFM_SUCCESS;
+
+    wr_buf[0] = 0xAA;
+    wr_buf[1] = 0xAA;
+
+    ret = bf_pltfm_bmc_uart_write_read (
+              0x20, wr_buf, 2, rd_buf, (128 - 1),
+              BMC_COMM_INTERVAL_US * 2);
+
+    if ((ret == rd_buf[0] + 1) && (rd_buf[0] > 3)) {
+        rd_ptr = &rd_buf[1];
+        ret --;
+        do {
+            switch (*(rd_ptr + 1)) {
+                case 1:
+                    err |= __bf_pltfm_chss_mgmt_bmc_data_tmp_decode__(rd_ptr);
+                    break;
+                case 2:
+                    err |= __bf_pltfm_chss_mgmt_bmc_data_fan_decode__(rd_ptr);
+                    break;
+                case 3:
+                    err |= __bf_pltfm_chss_mgmt_bmc_data_psu_decode__(rd_ptr);
+                    break;
+                case 4:
+                    err |= __bf_pltfm_chss_mgmt_bmc_data_vrail_decode__(rd_ptr);
+                    break;
+            }
+            ret -= *rd_ptr + 1;
+            rd_ptr += *rd_ptr + 1;
+        } while (ret > 0);
+
+        return err;
+    } else {
+        return BF_PLTFM_COMM_FAILED;
+    }
+}
+
 void health_mntr_dbg_cntrs_get (uint32_t *cntrs) {
     cntrs[0] = ul_dbg_update_times_pwr;
     cntrs[1] = ul_dbg_update_times_fan;
@@ -634,11 +688,6 @@ void *onlp_mntr_init (void *arg)
             fprintf (stdout, "@ %s\n",
                      ctime ((time_t *)
                             &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
-
-            if (platform_type_equal (X312P)) {
-                bf_pltfm_start_312_i2c_wdt();
-            }
-
             sleep (15);
         } else {
 #if defined(HAVE_ONLP)
@@ -650,12 +699,18 @@ void *onlp_mntr_init (void *arg)
                 ul_dbg_update_times_tmp ++;
                 bf_pltfm_onlp_mntr_tmp();
                 bf_pltfm_onlp_mntr_tofino_temperature();
+                UPDATE_LOCK;
+                ul_update_flags &= ~AF_PLAT_MNTR_TMP;
+                UPDATE_UNLOCK;
             }
 
             if (likely (flags & AF_PLAT_MNTR_FAN) &&
                 likely (update_flags & AF_PLAT_MNTR_FAN)) {
                 ul_dbg_update_times_fan ++;
                 bf_pltfm_onlp_mntr_fantray();
+                UPDATE_LOCK;
+                ul_update_flags &= ~AF_PLAT_MNTR_FAN;
+                UPDATE_UNLOCK;
             }
 
             if (likely (flags & AF_PLAT_MNTR_POWER) &&
@@ -663,14 +718,20 @@ void *onlp_mntr_init (void *arg)
                 ul_dbg_update_times_pwr ++;
                 bf_pltfm_onlp_mntr_pwr_supply();
                 bf_pltfm_onlp_mntr_pwr_rails();
+                UPDATE_LOCK;
+                ul_update_flags &= ~AF_PLAT_MNTR_POWER;
+                UPDATE_UNLOCK;
             }
 
             if (likely (flags & AF_PLAT_MNTR_MODULE) &&
                 likely (update_flags & AF_PLAT_MNTR_MODULE)) {
                 ul_dbg_update_times_transceiver ++;
                 bf_pltfm_onlp_mntr_transceiver ();
+                UPDATE_LOCK;
+                ul_update_flags &= ~AF_PLAT_MNTR_MODULE;
+                UPDATE_UNLOCK;
             }
-#endif
+#else
             /* clear flags and wait health monitor's update.
              * by tsihang, 2022-06-02. */
             UPDATE_LOCK;
@@ -679,6 +740,7 @@ void *onlp_mntr_init (void *arg)
             ul_update_flags &= ~AF_PLAT_MNTR_TMP;
             ul_update_flags &= ~AF_PLAT_MNTR_MODULE;
             UPDATE_UNLOCK;
+#endif
         }
     }
     printf ("====== ONLP monitor cancelled ======\n");
@@ -930,14 +992,27 @@ static bf_pltfm_status_t check_pwr_rails (void)
     return err;
 }
 
+/* for BMC V3.x and later. */
+static bf_pltfm_status_t check_bmc_data (void)
+{
+    bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
+
+    if ((err = __bf_pltfm_chss_mgmt_bmc_data_get__ ()) != BF_PLTFM_SUCCESS) {
+        LOG_ERROR ("Error in reading BMC data from hardware.\n");
+        /* This happened ONLY when hardware or communication error. */
+        return BF_PLTFM_COMM_FAILED;
+    }
+    return err;
+}
 
 /* Init function of thread */
 void *health_mntr_init (void *arg)
 {
-    int err = 0;
+    int err = 0, sec = 1;
     (void)arg;
     uint32_t flags = 0, update_flags = 0;
     static bool first_startup = true;
+    static uint64_t try_trans_poll = 0;
     extern uint64_t g_rt_async_led_q_length;
 
     printf ("Health monitor started \n");
@@ -946,68 +1021,119 @@ void *health_mntr_init (void *arg)
         flags = bf_pltfm_mgr_ctx()->flags;
         update_flags = 0;
 
-        /* Chassis temprature is quite important.
-         * Monitor this unconditionally even though Monitor Ctrl is disabled.
-         * by tsihang, 2021-07-06. */
-        if (likely (flags & AF_PLAT_MNTR_TMP) &&
-            !g_rt_async_led_q_length) {
-            err = check_chassis_temperature();
-            sleep (3);
+        if ((platform_type_equal (X532P) ||
+            platform_type_equal (X564P) ||
+            platform_type_equal (X308P)) &&
+            (bf_pltfm_compare_bmc_ver("v3.0.0") >= 0)) {
+            /* May occure error if no enough time to wait ASIC ready.
+             * by tsihang, 2021-07-06 */
+            if (first_startup) {
+                /* The more ports (reset circle), the more time to wait until ASIC ready.
+                 * Be carefull when you want to change the sleep interval. */
+                sleep (30);
+                first_startup = false;
+            }
 
-            // Tofino temperature monitoring still needs to add FSM
-            if (1) { // this info available thru check_chassis_temperature()
-                /* May occure error if no enough time to wait ASIC ready.
-                 * by tsihang, 2021-07-06 */
-                if (first_startup) {
-                    /* The more ports (reset circle), the more time to wait until ASIC ready.
-                     * Be carefull when you want to change the sleep interval. */
-                    sleep (30);
-                    first_startup = false;
+            /* A new BMC dynamic data command was imported, after BMC v3.0.0.*/
+            if (!g_rt_async_led_q_length) {
+                err = check_bmc_data();
+                if (!err) {
+                    /* Flush TEMP/FAN/Power files in /var/asterfusion/ ONLY when no error occures. */
+                    UPDATE_LOCK;
+                    ul_update_flags |= AF_PLAT_MNTR_TMP;
+                    ul_update_flags |= AF_PLAT_MNTR_FAN;
+                    ul_update_flags |= AF_PLAT_MNTR_POWER;
+                    UPDATE_UNLOCK;
                 }
-                sleep (3);
-                err |= check_tofino_temperature();
+                sleep (sec);
+                try_trans_poll ++;
             }
-            if (!err) {
-                /* Flush TEMP files in /var/asterfusion/ ONLY when no error occures. */
-                update_flags |= AF_PLAT_MNTR_TMP;
-            }
-        }
 
-        if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
-            fprintf (stdout, "Chassis Monitor is disabled\n");
-            fprintf (stdout, "@ %s\n",
-                     ctime ((time_t *)
-                            &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
-            sleep (15);
+            if ((try_trans_poll % 5) == 0) {
+                if (!g_rt_async_led_q_length) {
+                    err = check_tofino_temperature();
+                    if (!err) {
+                        /* Flush TEMP files in /var/asterfusion/ ONLY when no error occures. */
+                        UPDATE_LOCK;
+                        ul_update_flags |= AF_PLAT_MNTR_TMP;
+                        UPDATE_UNLOCK;
+                    }
+                }
+            }
+            if ((try_trans_poll % 5) == 0) {
+                UPDATE_LOCK;
+                ul_update_flags |= AF_PLAT_MNTR_MODULE;
+                UPDATE_UNLOCK;
+            }
         } else {
-            if (likely (flags & AF_PLAT_MNTR_FAN) &&
+            /* Chassis temprature is quite important.
+             * Monitor this unconditionally even though Monitor Ctrl is disabled.
+             * by tsihang, 2021-07-06. */
+            if (likely (flags & AF_PLAT_MNTR_TMP) &&
                 !g_rt_async_led_q_length) {
+                err = check_chassis_temperature();
                 sleep (3);
-                err = check_fantray();
+
+                // Tofino temperature monitoring still needs to add FSM
+                if (1) { // this info available thru check_chassis_temperature()
+                    /* May occure error if no enough time to wait ASIC ready.
+                     * by tsihang, 2021-07-06 */
+                    if (first_startup) {
+                        /* The more ports (reset circle), the more time to wait until ASIC ready.
+                         * Be carefull when you want to change the sleep interval. */
+                        sleep (30);
+                        first_startup = false;
+                    }
+                    sleep (3);
+                    err |= check_tofino_temperature();
+                }
                 if (!err) {
-                    /* Flush FAN files in /var/asterfusion/ ONLY when no error occures. */
-                    update_flags |= AF_PLAT_MNTR_FAN;
+                    /* Flush TEMP files in /var/asterfusion/ ONLY when no error occures. */
+                    update_flags |= AF_PLAT_MNTR_TMP;
                 }
             }
 
-            if (likely (flags & AF_PLAT_MNTR_POWER) &&
-                !g_rt_async_led_q_length) {
-                sleep (3);
-                err = check_pwr_supply();
-                sleep (3);
-                err |= check_pwr_rails();
-                if (!err) {
-                    /* Flush Power files in /var/asterfusion/ ONLY when no error occures. */
-                    update_flags |= AF_PLAT_MNTR_POWER;
+            if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
+                fprintf (stdout, "Chassis Monitor is disabled\n");
+                fprintf (stdout, "@ %s\n",
+                         ctime ((time_t *)
+                                &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+
+                if (platform_type_equal (X312P)) {
+                    bf_pltfm_start_312_i2c_wdt();
                 }
-                sleep (3);
+
+                sleep (15);
+            } else {
+                if (likely (flags & AF_PLAT_MNTR_FAN) &&
+                    !g_rt_async_led_q_length) {
+                    sleep (3);
+                    err = check_fantray();
+                    if (!err) {
+                        /* Flush FAN files in /var/asterfusion/ ONLY when no error occures. */
+                        update_flags |= AF_PLAT_MNTR_FAN;
+                    }
+                }
+
+                if (likely (flags & AF_PLAT_MNTR_POWER) &&
+                    !g_rt_async_led_q_length) {
+                    sleep (3);
+                    err = check_pwr_supply();
+                    sleep (3);
+                    err |= check_pwr_rails();
+                    if (!err) {
+                        /* Flush Power files in /var/asterfusion/ ONLY when no error occures. */
+                        update_flags |= AF_PLAT_MNTR_POWER;
+                    }
+                    sleep (3);
+                }
             }
+            /* Update transceivers last. */
+            update_flags |= AF_PLAT_MNTR_MODULE;
+            UPDATE_LOCK;
+            ul_update_flags = update_flags;
+            UPDATE_UNLOCK;
         }
-        /* Update transceivers last. */
-        update_flags |= AF_PLAT_MNTR_MODULE;
-        UPDATE_LOCK;
-        ul_update_flags = update_flags;
-        UPDATE_UNLOCK;
     }
     printf ("====== Health monitor cancelled ======\n");
     return NULL;

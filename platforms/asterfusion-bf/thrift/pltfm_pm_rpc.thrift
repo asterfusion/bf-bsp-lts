@@ -14,7 +14,7 @@ namespace cpp pltfm_pm_rpc
 
 typedef i32 pltfm_pm_status_t
 typedef i32 pltfm_pm_dev_port_t
-typedef byte pltfm_pm_device_t
+typedef i8 pltfm_pm_device_t
 
 exception InvalidPltfmPmOperation {
   1:i32 code

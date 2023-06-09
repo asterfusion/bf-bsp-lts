@@ -1783,6 +1783,59 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
     return 0;
 }
 
+static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_fsm (ucli_context_t *uc)
+{
+    int port, first_port, last_port, max_port;
+    int i;
+
+    UCLI_COMMAND_INFO (uc, "fsm", -1,
+                       "fsm <port>");
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+    } else {
+        first_port = 1;
+        last_port = bf_qsfp_get_max_qsfp_ports();
+    }
+
+    max_port = bf_qsfp_get_max_qsfp_ports();
+
+    if (first_port < 1 || last_port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                    max_port);
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "%s | ", "Port");
+    aim_printf (&uc->pvs, "%-28s | ", "Module FSM");
+    aim_printf (&uc->pvs, "%-29s | ", "CH0");
+    aim_printf (&uc->pvs, "%-29s | ", "CH1");
+    aim_printf (&uc->pvs, "%-29s | ", "CH2");
+    aim_printf (&uc->pvs, "%-29s | ", "CH3");
+    aim_printf (&uc->pvs, "%-29s | ", "CH4");
+    aim_printf (&uc->pvs, "%-29s | ", "CH5");
+    aim_printf (&uc->pvs, "%-29s | ", "CH6");
+    aim_printf (&uc->pvs, "%-29s | \n", "CH7");
+
+    for (port = first_port; port <= last_port;
+         port++) {
+        aim_printf (&uc->pvs, "%-4d | %s | ", port,
+                    qsfp_module_fsm_st_get (port));
+        for (i = 0; i < MAX_CHAN_PER_CONNECTOR; i++) {
+            if (i >= bf_qsfp_get_ch_cnt (port)) {
+                aim_printf (&uc->pvs, "%-29s | ", "NA");
+            } else {
+                aim_printf (&uc->pvs, "%-29s | ",
+                            qsfp_channel_fsm_st_get (port, i));
+            }
+        }
+        aim_printf (&uc->pvs, "\n");
+    }
+    return 0;
+}
+
 /* <auto.ucli.handlers.start> */
 static ucli_command_handler_f
 bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
@@ -1816,6 +1869,7 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_special_case_clear,
     bf_pltfm_ucli_ucli__qsfp_db,
     bf_pltfm_ucli_ucli__qsfp_map,
+    bf_pltfm_ucli_ucli__qsfp_fsm,
     NULL,
 };
 
