@@ -943,18 +943,22 @@ int bf_qsfp_tx_disable (int port,
  */
 int bf_qsfp_reset (int port, bool reset)
 {
-    if (port <= bf_plt_max_qsfp) {
+    int rc = -1;
+    if (port >= 0 && port <= bf_plt_max_qsfp) {
         bf_qsfp_during_reset[port] = reset;
         LOG_DEBUG("QSFP    %2d : %s", port, reset ? "True" : "False");
-        return (bf_pltfm_qsfp_module_reset (port, reset));
+        rc = bf_pltfm_qsfp_module_reset (port, reset);
+    } else if (port > bf_plt_max_qsfp) {
+        /* TBD: handle cpu port QSFP */
     } else {
-        return -1; /* TBD: handle cpu port QSFP */
+        LOG_WARNING ("QSFP    %2d : Error <%d> resetting QSFP", port, rc);
     }
+    return rc;
 }
 
 bool bf_qsfp_get_reset (int port)
 {
-    if (port <= bf_plt_max_qsfp) {
+    if (port >= 0 && port <= bf_plt_max_qsfp) {
         return bf_qsfp_during_reset[port];
     }
     return false;
@@ -1016,7 +1020,7 @@ static int set_qsfp_idprom (int port)
  */
 bool bf_qsfp_is_present (int port)
 {
-    if (port > bf_plt_max_qsfp) {
+    if (port < 0 || port > bf_plt_max_qsfp) {
         return false;
     }
     return bf_qsfp_present[port];
@@ -1600,7 +1604,7 @@ int bf_qsfp_get_cached_info (int port, int page,
 {
     uint8_t *cptr;
 
-    if (port > bf_plt_max_qsfp) {
+    if (port < 0 || port > bf_plt_max_qsfp) {
         return -1;
     }
     if (bf_qsfp_cache_dirty[port] == true) {

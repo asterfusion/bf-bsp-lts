@@ -13,10 +13,10 @@ namespace py pltfm_mgr_rpc
 namespace cpp pltfm_mgr_rpc
 
 typedef i32 pltfm_mgr_status_t
-typedef byte pltfm_mgr_device_t
-typedef i16 pltfm_mgr_ps_num_t
-typedef i32 pltfm_mgr_fan_pct_t
+typedef i8 pltfm_mgr_device_t
+typedef i32 pltfm_mgr_ps_num_t
 typedef i32 pltfm_mgr_fan_num_t
+typedef i32 pltfm_mgr_port_num_t
 typedef i32 pltfm_mgr_max_port_t
 
 struct pltfm_mgr_sys_tmp_t {

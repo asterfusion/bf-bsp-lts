@@ -118,7 +118,7 @@ int bf_sfp_get_eth_ext_compliance (int port,
 */
 bool bf_sfp_is_present (int port)
 {
-    if (port > bf_plt_max_sfp) {
+    if (port < 0 || port > bf_plt_max_sfp) {
         return false;
     }
     return bf_sfp_info_arr[port].present;
@@ -514,7 +514,7 @@ int bf_sfp_update_cache (int port)
 
 static bf_sfp_info_t *bf_sfp_get_info (int port)
 {
-    if (port > bf_plt_max_sfp) {
+    if (port < 0 || port > bf_plt_max_sfp) {
         return NULL;
     }
 

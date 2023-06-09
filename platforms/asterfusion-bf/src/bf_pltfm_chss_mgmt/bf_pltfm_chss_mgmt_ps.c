@@ -86,27 +86,11 @@ static inline void cpy_psu_data(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_su
     memcpy ((char *)&dst->rev[0], (char *)&src->rev[0], 32 - 1);
 }
 
-static inline void update_psu_pres(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_supply_info_t *src)
-{
-    for (int i = 0; i < 2; i ++) {
-        if (dst->presence != src->presence) {
-            if (src->presence == true) {
-                dst->presence = src->presence;
-                dst->power    = src->power;
-            } else {
-                memset (dst, 0, sizeof (bf_pltfm_pwr_supply_info_t));
-            }
-        }
-        src ++;
-        dst ++;
-    }
-}
-
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
+    bf_pltfm_pwr_supply_info_t *info)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -146,11 +130,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
         clr_psu_data(&info[pwr - 1]);
-        return BF_PLTFM_SUCCESS;
-    }
-
-    /* If read presence only, there is no need to read more. */
-    if (pres_only) {
         return BF_PLTFM_SUCCESS;
     }
 
@@ -289,7 +268,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
+    bf_pltfm_pwr_supply_info_t *info)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -329,11 +308,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
         clr_psu_data(&info[pwr - 1]);
-        return BF_PLTFM_SUCCESS;
-    }
-
-    /* If read presence only, there is no need to read more. */
-    if (pres_only) {
         return BF_PLTFM_SUCCESS;
     }
 
@@ -474,7 +448,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
+    bf_pltfm_pwr_supply_info_t *info)
 {
     uint8_t wr_buf[2];
     uint8_t rd_buf[128];
@@ -510,11 +484,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
      * by tsihang, 2021-07-13. */
     if (! (*present)) {
         clr_psu_data(&info[pwr - 1]);
-        return BF_PLTFM_SUCCESS;
-    }
-
-    /* If read presence only, there is no need to read more. */
-    if (pres_only) {
         return BF_PLTFM_SUCCESS;
     }
 
@@ -634,7 +603,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
+    bf_pltfm_pwr_supply_info_t *info)
 {
     uint32_t value;
     int32_t n;
@@ -684,11 +653,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
-            return BF_PLTFM_SUCCESS;
-        }
-
-        /* If read presence only, there is no need to read more. */
-        if (pres_only) {
             return BF_PLTFM_SUCCESS;
         }
 
@@ -909,11 +873,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
-            return BF_PLTFM_SUCCESS;
-        }
-
-        /* If read presence only, there is no need to read more. */
-        if (pres_only) {
             return BF_PLTFM_SUCCESS;
         }
 
@@ -1170,7 +1129,7 @@ static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
 (
     bf_pltfm_pwr_supply_t pwr, bool *present,
-    bf_pltfm_pwr_supply_info_t *info, bool pres_only)
+    bf_pltfm_pwr_supply_info_t *info)
 {
     pwr = pwr;
     present = present;
@@ -1201,27 +1160,27 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
     if (platform_type_equal (X532P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], false);
+               &tmp_psu_data[0]);
         p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X564P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], false);
+               &tmp_psu_data[0]);
         p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X308P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], false);
+               &tmp_psu_data[0]);
         p = &tmp_psu_data[pwr - 1];
     } else if (platform_type_equal (X312P)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], false);
+               &tmp_psu_data[0]);
         p = &tmp_psu_data[0];
     } else if (platform_type_equal (HC)) {
         err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
               (pwr, present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], false);
+               &tmp_psu_data[0]);
         p = &tmp_psu_data[pwr - 1];
     }
 
@@ -1237,48 +1196,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get__ (
 
     return err;
 }
-
-bf_pltfm_status_t
-__bf_pltfm_chss_mgmt_pwr_supply_pres_get__ ()
-{
-    int err = BF_PLTFM_COMM_FAILED;
-    bf_pltfm_pwr_supply_info_t
-    tmp_psu_data[MAX_PSU_COUNT];
-    bool present = false;
-
-    clr_psu_data (&tmp_psu_data[POWER_SUPPLY1 - 1]);
-    clr_psu_data (&tmp_psu_data[POWER_SUPPLY2 - 1]);
-
-    if (platform_type_equal (X532P)) {
-        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
-              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], true);
-    } else if (platform_type_equal (X564P)) {
-        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
-              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], true);
-    } else if (platform_type_equal (X308P)) {
-        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
-              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], true);
-    } else if (platform_type_equal (X312P)) {
-        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
-              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], true);
-    } else if (platform_type_equal (HC)) {
-        err = __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_hc36y24c__
-              (POWER_SUPPLY1, &present, (bf_pltfm_pwr_supply_info_t *)
-               &tmp_psu_data[0], true);
-    }
-
-    if (!err) {
-        /* Write to cache. */
-        update_psu_pres (&bmc_psu_data[0], &tmp_psu_data[0]);
-    }
-
-    return err;
-}
-
 
 bf_pltfm_status_t
 bf_pltfm_chss_mgmt_pwr_supply_prsnc_get (
@@ -1440,5 +1357,82 @@ bf_pltfm_chss_mgmt_pwr_init()
     }
 
     fprintf (stdout, "\n\n");
+    return BF_PLTFM_SUCCESS;
+}
+
+bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_psu_decode__ (uint8_t* p_src)
+{
+    uint8_t len  = p_src[0];
+    uint8_t type = p_src[1];
+    uint8_t num  = p_src[2];
+    bf_pltfm_pwr_supply_info_t temp_psu_data[2];
+
+    if ((type != 3) || (len != num * 17 + 2))  {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    memset(&temp_psu_data[0], 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    memset(&temp_psu_data[1], 0, sizeof (bf_pltfm_pwr_supply_info_t));
+
+    for (int i = 0, j = 3; i < num; i ++, j += 17) {
+        temp_psu_data[i].presence = (p_src[j] & 0x01) ? false : true;
+        temp_psu_data[i].power    = (p_src[j] & 0x02) ? true : false;
+        temp_psu_data[i].vin      = p_src[j + 1] * 1000 + p_src[j + 2] * 100;
+        temp_psu_data[i].vout     = p_src[j + 3] * 1000 + p_src[j + 4] * 100;
+        temp_psu_data[i].iin      = p_src[j + 5] * 1000 + p_src[j + 6] * 100;
+        temp_psu_data[i].iout     = p_src[j + 7] * 1000 + p_src[j + 8] * 100;
+        temp_psu_data[i].pwr_out  = (p_src[j + 9]  * 256 + p_src[j + 10]) * 1000;
+        temp_psu_data[i].pwr_in   = (p_src[j + 11] * 256 + p_src[j + 12]) * 1000;
+        temp_psu_data[i].temp     = p_src[j + 14];
+        temp_psu_data[i].fspeed   = p_src[j + 16] * 256 + p_src[j + 15];
+        temp_psu_data[i].fvalid   = PSU_INFO_AC + PSU_INFO_VALID_TEMP + PSU_INFO_VALID_FAN_ROTA;
+
+        if (!temp_psu_data[i].presence) {
+            memset(&temp_psu_data[i], 0, sizeof (bf_pltfm_pwr_supply_info_t));
+            temp_psu_data[i].fvalid   = PSU_INFO_AC;
+        } else if ((temp_psu_data[i].power == true) &&
+            ((bmc_psu_data[i].fvalid & PSU_INFO_VALID_SERIAL) == false)) {
+            uint8_t wr_buf[2];
+            uint8_t rd_buf[128];
+            int ret = BF_PLTFM_COMM_FAILED;
+
+            wr_buf[1] = i + 1;
+            wr_buf[0] = BMC_SUB1_SN;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                memcpy (temp_psu_data[i].serial, &rd_buf[1], rd_buf[0]);
+                temp_psu_data[i].fvalid |= PSU_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on PSU module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[0] = BMC_SUB1_MODEL;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                memcpy (temp_psu_data[i].model, &rd_buf[1], rd_buf[0]);
+                temp_psu_data[i].fvalid |= PSU_INFO_VALID_MODEL;
+            }
+        } else if (temp_psu_data[i].power == true) {
+            memcpy (temp_psu_data[i].serial, bmc_psu_data[i].serial, 32);
+            memcpy (temp_psu_data[i].model,  bmc_psu_data[i].model,  32);
+            temp_psu_data[i].fvalid = bmc_psu_data[i].fvalid;
+        } else {
+            memset(&temp_psu_data[i], 0, sizeof (bf_pltfm_pwr_supply_info_t));
+            temp_psu_data[i].presence = true;
+            temp_psu_data[i].fvalid   = PSU_INFO_AC;
+        }
+    }
+
+    cpy_psu_data (&bmc_psu_data[0], &temp_psu_data[0]);
+    cpy_psu_data (&bmc_psu_data[1], &temp_psu_data[1]);
+
     return BF_PLTFM_SUCCESS;
 }

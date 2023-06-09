@@ -268,8 +268,8 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     _return.vrail16 = bf_pwr_rail_info.vrail16;
   }
 
-  pltfm_mgr_status_t pltfm_mgr_fan_speed_set(
-      const pltfm_mgr_fan_num fan_num, const pltfm_mgr_fan_percent percent) {
+  pltfm_mgr_status_t pltfm_mgr_fan_speed_set(const pltfm_mgr_fan_num fan_num,
+                                             const pltfm_mgr_fan_percent percent) {
     bf_pltfm_status_t sts = BF_SUCCESS;
     bf_pltfm_fan_info_t bf_fan_info;
 
@@ -312,15 +312,22 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     return bf_sfp_get_max_sfp_ports ();
   }
 
-  bool pltfm_mgr_sfp_presence_get(const int port_num) {
+  bool pltfm_mgr_sfp_presence_get(const pltfm_mgr_port_num_t port_num) {
     return bf_sfp_is_present (port_num);
   }
 
-  void pltfm_mgr_sfp_info_get(std::string &_return, const int port_num) {
+  void pltfm_mgr_sfp_info_get(std::string &_return,
+                              const pltfm_mgr_port_num_t port_num) {
     bf_pltfm_status_t sts = BF_SUCCESS;
     uint8_t buf[512] = {0};
     uint32_t i;
     char str[1024] = {0};
+
+    if (!bf_sfp_is_present (port_num)) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+    }
 
     /* idprom */
     sts = bf_sfp_get_cached_info (port_num, 0, buf);
@@ -356,11 +363,12 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     _return.assign((const char *)(str), sizeof(str));
   }
 
-  bool pltfm_mgr_qsfp_presence_get(const int port_num) {
+  bool pltfm_mgr_qsfp_presence_get(const pltfm_mgr_port_num_t port_num) {
     return bf_qsfp_is_present (port_num);
   }
 
-  void pltfm_mgr_qsfp_info_get(std::string &_return, const int port_num) {
+  void pltfm_mgr_qsfp_info_get(std::string &_return,
+                               const pltfm_mgr_port_num_t port_num) {
     bf_pltfm_status_t sts = BF_SUCCESS;
     uint8_t buf[384] = {0};
     uint32_t i;
@@ -412,12 +420,12 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     return bf_qsfp_get_max_qsfp_ports ();
   }
 
-  pltfm_mgr_status_t pltfm_mgr_qsfp_reset(const int port_num,
+  pltfm_mgr_status_t pltfm_mgr_qsfp_reset(const pltfm_mgr_port_num_t port_num,
                                           const bool reset) {
     return bf_qsfp_reset (port_num, reset);
   }
 
-  bool pltfm_mgr_qsfp_lpmode_get(const int port_num) {
+  bool pltfm_mgr_qsfp_lpmode_get(const pltfm_mgr_port_num_t port_num) {
     bf_pltfm_status_t sts = BF_SUCCESS;
     uint32_t lower_ports = 0;
     uint32_t upper_ports = 0;
@@ -446,7 +454,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     return lp_mode;
   }
 
-  pltfm_mgr_status_t pltfm_mgr_qsfp_lpmode_set(const int port_num,
+  pltfm_mgr_status_t pltfm_mgr_qsfp_lpmode_set(const pltfm_mgr_port_num_t port_num,
                                                const bool lpmode) {
     return bf_qsfp_set_transceiver_lpmode(port_num, (lpmode ? true : false));
   }
