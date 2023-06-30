@@ -14,15 +14,32 @@
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 #include <bf_pltfm_ext_phy.h>
+#include <bf_pltfm_types/bf_pltfm_types.h>
 
 #include <bf_types/bf_types.h>
-
 #include <tofino/bf_pal/bf_pal_pltfm_porting.h>
 #include <bf_pm/bf_pm_intf.h>
 #include <bf_bd_cfg/bf_bd_cfg_porting.h>
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_pltfm_sfp.h>
 #include "bf_pm_priv.h"
+
+bool devport_state_tx_mode_chk (bf_dev_id_t dev_id,
+                    bf_pal_front_port_handle_t *port_hdl);
+bool devport_state_loopback_mode_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl);
+
+void devport_state_enabled_set(bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl, bool set);
+bool devport_state_enabled_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl);
+int devport_speed_to_led_color (bf_port_speed_t speed,
+    bf_led_condition_t *led_cond);
+
+
+static bool temper_monitor_enable = true;
+static bool temper_monitor_log_enable = false;
+static uint32_t temper_monitor_interval_ms = 5000;
 
 /* SFF-8472 delay and timing for soft control and status functions and requirements.
  * by tsihang, 2021-07-29. */
@@ -439,23 +456,21 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
         LOG_ERROR (" SFP    %2d : Error <%d> reading status fields",
                    module, rc);
         return 0;  // can't trust the data, just leave
-
     }
 
     sfp_log_alarms (dev_id, module,
                     &sfp_state[module].status_and_alarms,
                     &status_and_alarms);
 
-    // copy new alarm state into out cached struct
-    sfp_state[module].status_and_alarms =
-        status_and_alarms;
-
     /* Read LOS signal via CPLD. Not very sure, but very helpful. */
-    bool los = true;
-    rc = bf_pltfm_sfp_los_read (module, &los);
+    bool rx_los_now = false;   /* Init to false in case a misjudge to a GOOD link when i2c hang on. */
+    bool rx_los_before = sfp_state[module].los_detected;
+    rc = bf_pltfm_sfp_los_read (module, &rx_los_now);
     if (!rc) {
         bf_dev_port_t dev_port;
+        bf_status_t bf_status;
         bf_pal_front_port_handle_t port_hdl;
+        bool los = rx_los_now ? true : false;
 
         bf_sfp_get_conn (
             (module),
@@ -475,12 +490,20 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
         // If there is a RX and link is already UP, SDK will NOT act on this
         // los-flag. Hence we donot have to tie to link-up here or to port-FSM
         // states.
-        bf_port_optical_los_set (dev_id, dev_port,
+        bf_status = bf_port_optical_los_set (dev_id, dev_port,
                                  los);
-        sfp_state[module].los_detected = los;
-        //LOG_DEBUG (" SFP    %2d : dev_port=%3d : LOS=%d",
-        //           module, dev_port, los);
+        if (bf_status == BF_SUCCESS) {
+            sfp_state[module].los_detected = los;
+            if (rx_los_now ^ rx_los_before) {
+                LOG_DEBUG (" SFP    %2d : dev_port=%3d : LOS=%d",
+                           module, dev_port, los);
+            }
+        }
     }
+
+    // copy new alarm state into out cached struct
+    sfp_state[module].status_and_alarms =
+        status_and_alarms;
 
     return rc;
 }
@@ -614,7 +637,6 @@ void sfp_fsm_inserted (int module)
 {
     fetch_by_module (module);
     //sfp_fsm_reset_assert (module);
-    bf_sfp_set_present (module, true);
 
     sfp_fsm_state_t prev_st =
         sfp_state[module].fsm_st;
@@ -636,8 +658,6 @@ void sfp_fsm_inserted (int module)
 void sfp_fsm_removed (int module)
 {
     fetch_by_module (module);
-
-    bf_sfp_set_present (module, false);
 
     sfp_fsm_state_t prev_st =
         sfp_state[module].fsm_st;
@@ -932,6 +952,9 @@ static void sfp_module_fsm_run (bf_dev_id_t
             }
             sfp_state[module].sfp_quick_removed = false;
             if (is_optical) {
+                /* Insert detected, make sure the fsm_ch_st is DISABLED. */
+                sfp_state[module].fsm_ch_st = SFP_CH_FSM_ST_DISABLED;
+                sfp_state[module].los_detected = true;
                 sfp_fsm_st_inserted (dev_id, module);
 
                 next_st = SFP_FSM_ST_WAIT_T_RESET;
@@ -967,6 +990,7 @@ static void sfp_module_fsm_run (bf_dev_id_t
             break;
 
         case SFP_FSM_ST_DETECTED:
+            bf_sfp_set_detected (module, true);
             // check LOS
             if (bf_pm_intf_is_device_family_tofino (dev_id)) {
                 if (sfp_fsm_is_optical (module) &&
@@ -982,7 +1006,7 @@ static void sfp_module_fsm_run (bf_dev_id_t
             }
 
             next_st = SFP_FSM_ST_DETECTED;
-            delay_ms = 200;
+            delay_ms = 200; // 200ms poll time
             break;
 
         case SFP_FSM_ST_UPDATE:
@@ -1034,7 +1058,6 @@ static void sfp_channel_fsm_run (bf_dev_id_t
         case SFP_CH_FSM_ST_ENABLING:
             // initalize/re-initialize variables used in ch_fsm
             sfp_state[module].immediate_enable = false;
-            sfp_state[module].los_detected = true;
 
             // notify driver
             sfp_fsm_notify_not_ready (dev_id, module);
@@ -1111,8 +1134,14 @@ bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
 {
     int module;
     struct timespec now;
+    static struct timespec next_temper_monitor_time = {0, 0};
 
     clock_gettime (CLOCK_MONOTONIC, &now);
+
+    if (next_temper_monitor_time.tv_sec == 0) {
+        sfp_fsm_next_run_time_set (
+            &next_temper_monitor_time, 0);
+    }
 
     /*
      * Note: the channel FSM is run before the module FSM so any coalesced
@@ -1176,6 +1205,108 @@ bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
             sfp_module_fsm_run (dev_id, module);
         }
     }
+
+/* A thread called health monitor is charging for this. by tsihang, 2023-05-18. */
+#if 0
+    if ((next_temper_monitor_time.tv_sec < now.tv_sec) ||
+      ((next_temper_monitor_time.tv_sec == now.tv_sec) &&
+       (next_temper_monitor_time.tv_nsec < now.tv_nsec))) {
+         sfp_fsm_next_run_time_set (
+             &next_temper_monitor_time,
+             temper_monitor_interval_ms);
+         for (module = 1; module <= bf_pm_num_sfp_get();
+              module++) {
+             /* We hope this will help a lot to the boot for a new module.
+              * Skip monitor during QSFP/CH FSM running in significant STATE.
+              * by tsihang, 2023-05-18. */
+             if (!temper_monitor_enable) break;
+             // type checking also ensures module out of reset
+             // But fsm may reset the module
+             if ((!bf_bd_is_this_port_internal (module, 0)) &&
+                 (!bf_sfp_get_reset (module)) &&
+                 (sfp_fsm_is_optical(module)) &&
+                 ((sfp_state[module].fsm_st == SFP_FSM_ST_DETECTED))) {
+                  if ((sfp_state[module].fsm_ch_st !=
+                        SFP_CH_FSM_ST_ENABLED) &&
+                    (sfp_state[module].fsm_ch_st !=
+                        SFP_CH_FSM_ST_DISABLED)) {
+                        //LOG_DEBUG (" SFP    %2d : Skip temper monitor as CH in %s ",
+                        //            module, sfp_channel_fsm_st_get(module));
+                        continue;
+                  }
+
+                  sfp_global_sensor_t glob_sensor;
+                  sfp_channel_t chnl_sensor;
+
+                  bf_sfp_get_chan_tx_bias(module, &chnl_sensor);
+                  bf_sfp_get_chan_tx_pwr(module, &chnl_sensor);
+                  bf_sfp_get_chan_rx_pwr(module, &chnl_sensor);
+                  bf_sfp_get_chan_temp(module, &glob_sensor);
+                  bf_sfp_get_chan_volt(module, &glob_sensor);
+
+                 if (temper_monitor_log_enable) {
+                     LOG_DEBUG (
+                                "      %d %10.1f %15.2f %10.2f %16.2f %16.2f",
+                                module,
+                                glob_sensor.temp.value,
+                                glob_sensor.vcc.value,
+                                chnl_sensor.sensors.tx_bias.value,
+                                chnl_sensor.sensors.tx_pwr.value,
+                                chnl_sensor.sensors.rx_pwr.value);
+                }
+            }
+        }
+    }
+#endif
     return BF_PLTFM_SUCCESS;
 }
 
+void bf_port_sfp_mgmnt_temper_monitor_period_set (
+    uint32_t poll_intv_sec)
+{
+    temper_monitor_interval_ms = poll_intv_sec * 1000;
+}
+
+uint32_t bf_port_sfp_mgmnt_temper_monitor_period_get (
+    void)
+{
+    return temper_monitor_interval_ms / 1000;
+}
+
+void bf_port_sfp_mgmnt_temper_monitor_log_set (
+    bool enable)
+{
+    temper_monitor_log_enable = enable;
+}
+
+bool bf_port_sfp_mgmnt_temper_monitor_log_get (
+    void)
+{
+    return temper_monitor_log_enable;
+}
+
+void bf_port_sfp_mgmnt_temper_monitor_set (
+    bool enable)
+{
+    temper_monitor_enable = enable;
+}
+
+bool bf_port_sfp_mgmnt_temper_monitor_get (void)
+{
+    return temper_monitor_enable;
+}
+
+bool bf_port_sfp_mgmnt_temper_high_alarm_flag_get (
+    int port)
+{
+    //return qsfp_state[port].temper_high_alarm_flagged;
+    return 0;
+}
+
+// return recorded temperature during module high-alarm
+double bf_port_sfp_mgmnt_temper_high_record_get (
+    int port)
+{
+    //return qsfp_state[port].temper_high_record;
+    return 0;
+}

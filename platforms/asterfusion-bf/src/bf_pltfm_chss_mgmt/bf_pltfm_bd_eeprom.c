@@ -926,11 +926,19 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     }
     fprintf (stdout, "\n\n");
 
+    /* A high risk from this condition. by tsihang, 2023-05-26. */
     /* If could not get eeprom data from BMC,
-     *  try to get it from file. */
+     *  try to get it from file. by huachen, 2023-05-23. */
     if (err_total <= -(int)ARRAY_LENGTH (tlvs)) {
+        LOG_WARNING ("\n\nWarn : Trying to get eeprom data from %s\n\n",
+            path);
         fp = fopen(path, "r");
-        if (fp) {
+        if (!fp) {
+            LOG_ERROR ("\n\nError : Launch failed\n\n",
+                path);
+            /* First boot error, no chance to rescure, exit forcely. */
+            exit (0);
+        } else {
             char tlv_str[128];
             char tlv_header[128];
             char *p;
@@ -953,7 +961,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             }
             fclose(fp);
         }
-
+        /* An error detected from uart/sio, so here disable health montor in case of risk. */
         bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_CTRL;
     }
 

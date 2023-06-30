@@ -131,6 +131,8 @@ bf_pltfm_status_t bf_bd_cfg_port_mac_get (
     bf_pltfm_port_info_t *port_info,
     uint32_t *mac_id,
     uint32_t *mac_chnl_id);
+uint32_t bf_bd_first_conn_ch_get (uint32_t
+                                  connector);
 
 /*
  * bf_bd_cfg_port_info_get
@@ -316,6 +318,29 @@ bf_pltfm_status_t bf_bd_port_serdes_polarity_get (
 uint32_t bf_bd_get_dev_id (uint32_t conn_id,
                            uint32_t chnl_id);
 
+/*
+* Retuns num of serdes lanes per logical channel
+*/
+bf_pltfm_status_t
+bf_bd_cfg_port_nlanes_per_ch_get (
+    bf_pltfm_port_info_t *port_info,
+    uint32_t *num_lanes);
+
+/*
+* Returns whether channel has multi-lanes or not
+*/
+bf_pltfm_status_t
+bf_bd_cfg_port_is_multilane_channel_get (
+    bf_pltfm_port_info_t *port_info,
+    bool *is_multi_lane_conn);
+
+bf_pltfm_status_t bf_bd_cfg_qsfp_ch_get (
+    bf_pltfm_port_info_t *port_info,
+    uint32_t *qsfp_ch);
+
+bf_pltfm_status_t bf_bd_cfg_pin_name_get (
+    bf_pltfm_port_info_t *port_info,
+    char *pin_name);
 #ifdef __cplusplus
 }
 #endif /* C++ */

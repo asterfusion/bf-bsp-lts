@@ -427,7 +427,7 @@ int bf_pltfm_cp2112_reg_write_byte (
   wr_val[0] = reg;
   wr_val[1] = val;
   return (bf_pltfm_cp2112_write (g_cpld_cp2112_hndl,
-                      addr << 1, wr_val, 2, 100));
+                      addr << 1, wr_val, 2, 1000));
 }
 
 /** write bytes to slave's register by cp2112.

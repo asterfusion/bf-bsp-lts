@@ -293,3 +293,91 @@ bf_status_t bf_bd_cfg_serdes_info_get (
 
     return BF_SUCCESS;
 }
+
+#if SDE_VERSION_GT(970) /* since 9.9.x. */
+bf_status_t
+bf_bd_cfg_mac_to_multi_serdes_map_get (
+    bf_pal_front_port_handle_t *port_hdl,
+    bf_pal_mac_to_multi_serdes_lane_map_t
+    *mac_blk_map)
+{
+#if 0
+    bf_pltfm_status_t sts;
+    bf_pltfm_port_info_t port_info;
+
+    // Safety checks
+    if (!port_hdl) {
+        return BF_INVALID_ARG;
+    }
+    if (!mac_blk_map) {
+        return BF_INVALID_ARG;
+    }
+    if (port_hdl->chnl_id > 7) {
+        LOG_ERROR (
+            "Error getting serdes lane map: Invalid channel for front port %d/%d",
+            port_hdl->conn_id,
+            port_hdl->chnl_id);
+        return BF_INVALID_ARG;
+    }
+
+    // Derive the pltfm port info
+    port_info.conn_id = port_hdl->conn_id;
+    port_info.chnl_id = port_hdl->chnl_id;
+
+    sts = bf_bd_cfg_port_nlanes_per_ch_get (
+              &port_info, &mac_blk_map->num_serdes_per_lane);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR (
+            "Unable to get the num-serdes lane connected to front port %d/%d : %s "
+            "(%d)",
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
+        return sts;
+    }
+
+    sts = bf_bd_cfg_port_tx_phy_lane_get (&port_info,
+                                          &mac_blk_map->tx_lane[0]);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR (
+            "Unable to get the serdes Tx lane connected to front port %d/%d : %s "
+            "(%d)",
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
+        return sts;
+    }
+
+    sts = bf_bd_cfg_port_rx_phy_lane_get (&port_info,
+                                          &mac_blk_map->rx_lane[0]);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR (
+            "Unable to get the serdes Rx lane connected to front port %d/%d : %s "
+            "(%d)",
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
+        return sts;
+    }
+
+    sts = bf_bd_port_serdes_polarity_get (&port_info,
+                                          &mac_blk_map->rx_inv[0], &mac_blk_map->tx_inv[0]);
+    if (sts != BF_PLTFM_SUCCESS) {
+        LOG_ERROR (
+            "Unable to get the serdes Rx pol connected to front port %d/%d : %s "
+            "(%d)",
+            port_info.conn_id,
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
+        return sts;
+    }
+#endif
+    (void)port_hdl;
+    (void)mac_blk_map;
+    return BF_SUCCESS;
+}
+#endif

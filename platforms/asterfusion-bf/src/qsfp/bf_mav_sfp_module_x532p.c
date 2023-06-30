@@ -115,26 +115,24 @@ sfp_select_x5 (uint32_t module)
 static int
 sfp_unselect_x5 (uint32_t module)
 {
-    int rc = -1;
+    int rc = -1, last_wr_rc = 0, last_rd_rc = 0;
     int retry_times = 0;
     uint8_t pca9548_value = 0xFF;
 
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
         for (retry_times = 0; retry_times < 10; retry_times ++) {
             // unselect PCA9548
-            if (bf_pltfm_cp2112_reg_write_byte (
-                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00)) {
-                rc = -2;
-                break;
+            if ((rc = bf_pltfm_cp2112_reg_write_byte (
+                          BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00)) != BF_PLTFM_SUCCESS) {
+                last_wr_rc = (rc - 1000);
             }
 
             bf_sys_usleep (5000);
 
             // readback PCA9548 to ensure PCA9548 is closed
-            if (bf_pltfm_cp2112_reg_read_block (
-                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, &pca9548_value, 0x01)) {
-                rc = -3;
-                break;
+            if ((rc = bf_pltfm_cp2112_reg_read_block (
+                          BF_MAV_MASTER_PCA9548_ADDR, 0x00, &pca9548_value, 0x01)) != BF_PLTFM_SUCCESS) {
+                last_rd_rc = (rc - 2000);
             }
 
             if (pca9548_value == 0) {
@@ -147,19 +145,17 @@ sfp_unselect_x5 (uint32_t module)
     } else {
         for (retry_times = 0; retry_times < 10; retry_times ++) {
             // unselect PCA9548
-            if (bf_pltfm_master_i2c_write_byte (
-                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00)) {
-                rc = -2;
-                break;
+            if ((rc = bf_pltfm_master_i2c_write_byte (
+                          BF_MAV_MASTER_PCA9548_ADDR, 0x00, 0x00)) != BF_PLTFM_SUCCESS) {
+                last_wr_rc = (rc - 1000);
             }
 
             bf_sys_usleep (5000);
 
             // readback PCA9548 to ensure PCA9548 is closed
-            if (bf_pltfm_master_i2c_read_byte (
-                    BF_MAV_MASTER_PCA9548_ADDR, 0x00, &pca9548_value)) {
-                rc = -3;
-                break;
+            if ((rc = bf_pltfm_master_i2c_read_byte (
+                          BF_MAV_MASTER_PCA9548_ADDR, 0x00, &pca9548_value)) != BF_PLTFM_SUCCESS) {
+                last_rd_rc = (rc - 2000);
             }
 
             if (pca9548_value == 0) {
@@ -171,13 +167,17 @@ sfp_unselect_x5 (uint32_t module)
         }
     }
 
+    /* Anyway, an error occured during PCA9548 selection. */
     if (rc) {
         LOG_ERROR (
             "%s[%d], "
-            "i2c_write(%02d : %s)"
+            "i2c_write(%02d : %s) "
+            "last_rc = %d : retry_times = %d"
             "\n",
             __FILE__, __LINE__, module,
-            "Failed to write PCA9548");
+            "Failed to write PCA9548",
+            last_wr_rc ? last_wr_rc : (last_rd_rc ? last_rd_rc : -1000),
+            retry_times);
     }
 
     /* Avoid compile error. */

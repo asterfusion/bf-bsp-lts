@@ -83,6 +83,24 @@ bf_status_t bf_bd_cfg_serdes_info_get (
     bf_pal_front_port_handle_t *port_hdl,
     bf_pal_serdes_info_t *serdes_info);
 
+/**
+ * @brief Given a port handle, return the serdes Tx/Rx lane/lanes connected to
+ * the corresponding MAC lane. This funvtion is registered with the SDE and the
+ * SDE PM wil call this on demand. In Tofino3, there could be two serdes lanes
+ * per MAC lane. Use this for Tofino3 onwards
+ *
+ * @param port_hdl Front panel port handle
+ * @param mac_blk_map MAC lane to serdes Tx/Rx lane mapping
+ *
+ * @return Status of the API call
+ */
+#if SDE_VERSION_GT(970) /* since 9.9.x. */
+bf_status_t
+bf_bd_cfg_mac_to_multi_serdes_map_get (
+    bf_pal_front_port_handle_t *port_hdl,
+    bf_pal_mac_to_multi_serdes_lane_map_t
+    *mac_blk_map);
+#endif
 #ifdef __cplusplus
 }
 #endif /* C++ */

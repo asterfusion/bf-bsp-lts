@@ -141,6 +141,7 @@ bin_SCRIPTS = \
 ../utils/xt-diags.sh \
 ../utils/xt-clean.sh \
 ../utils/xt-setup.sh \
-../utils/tofino-spi-firmwares/tofino_B0_spi_gen2_rev07.bin \
-../utils/tofino-spi-firmwares/tofino_B0_spi_gen2_rev09_corrected_220815.bin \
-../utils/credo_firmware.bin
+../utils/firmwares/tofino_B0_spi_gen2_rev07.bin \
+../utils/firmwares/tofino_B0_spi_gen2_rev09_corrected_220815.bin \
+../utils/firmwares/rtl8168h-2.fw \
+../utils/firmwares/credo_firmware.bin

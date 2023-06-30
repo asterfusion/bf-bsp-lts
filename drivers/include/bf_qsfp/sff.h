@@ -38,45 +38,86 @@ extern "C" {
  * MicroQSFP               -> SFF-8436
  *
  */
-
-#define MAX_SFF_PAGE_SIZE 128
-
-
 typedef enum {
-    /* Shared QSFP and SFP fields: */
+    /* Shared CMIS, QSFP and SFP fields: */
     IDENTIFIER, /* Type of Transceiver */
-    STATUS,     /* Support flags for upper pages */
+    SPEC_REV,
+    STATUS, /* Support flags for upper pages */
+    SFF8636_LANE_STATUS_FLAGS,
+    SFF8636_LANE_MONITOR_FLAGS,
+    MODULE_FLAGS,
     TEMPERATURE_ALARMS,
     VCC_ALARMS, /* Voltage */
     CHANNEL_RX_PWR_ALARMS,
     CHANNEL_TX_BIAS_ALARMS,
+    CHANNEL_TX_PWR_ALARMS,
     TEMPERATURE,
     VCC, /* Voltage */
     CHANNEL_RX_PWR,
     CHANNEL_TX_BIAS,
+    CHANNEL_TX_PWR,
     CHANNEL_TX_DISABLE,
     POWER_CONTROL,
+    CDR_CONTROL, /* sff-8636 only */
     ETHERNET_COMPLIANCE,
-    EXTENDED_IDENTIFIER,
+    PWR_CLASS,
+    PWR_REQUIREMENTS,
     PAGE_SELECT_BYTE,
+    CONN_TYPE,
     LENGTH_SM_KM, /* Single mode, in km */
     LENGTH_SM,    /* Single mode in 100m (not in QSFP) */
+    LENGTH_OM5,
+    LENGTH_OM4,
     LENGTH_OM3,
     LENGTH_OM2,
     LENGTH_OM1,
-    LENGTH_COPPER,
+    LENGTH_CBLASSY,
     VENDOR_NAME,     /* QSFP Vendor Name (ASCII) */
     VENDOR_OUI,      /* QSFP Vendor IEEE company ID */
     PART_NUMBER,     /* Part NUmber provided by QSFP vendor (ASCII) */
     REVISION_NUMBER, /* Revision number */
-    ETHERNET_EXTENDED_COMPLIANCE, /* ethernet extended compliance code */
-    VENDOR_SERIAL_NUMBER,         /* Vendor Serial Number (ASCII) */
-    MFG_DATE,                     /* Manufacturing date code */
-    DIAGNOSTIC_MONITORING_TYPE,   /* Diagnostic monitoring implemented */
+    ETHERNET_EXTENDED_COMPLIANCE,  /* ethernet extended compliance code */
+    ETHERNET_SECONDARY_COMPLIANCE, /* ethernet secondary ext compliance code */
+    VENDOR_SERIAL_NUMBER,          /* Vendor Serial Number (ASCII) */
+    MFG_DATE,                      /* Manufacturing date code */
     TEMPERATURE_THRESH,
     VCC_THRESH,
     RX_PWR_THRESH,
     TX_BIAS_THRESH,
+    TX_PWR_THRESH,
+    OPTIONS,
+
+    /* CMIS-specific fields */
+    /* If these change, also update ApplicationAdversiting below */
+    MODULE_STATE,
+    FIRMWARE_VER_ACTIVE,
+    MODULE_MEDIA_TYPE,
+    APSEL1_ALL,
+    APSEL1_HOST_ID,
+    APSEL1_MEDIA_ID,
+    APSEL1_LANE_COUNTS,
+    APSEL1_HOST_LANE_OPTION_MASK,
+    FIRMWARE_VER_INACTIVE,
+    HARDWARE_VER,
+    APSEL1_MEDIA_LANE_OPTION_MASK,  // this is one contiguous list
+    APSEL9_ALL,
+    APSEL9_HOST_ID,
+    APSEL9_MEDIA_ID,
+    APSEL9_LANE_COUNTS,
+    APSEL9_HOST_LANE_OPTION_MASK,
+    DATAPATH_DEINIT,
+    APPLY_DATAPATHINIT_SS0,
+    DATAPATH_CFG_ALL_STAGED_SET0,
+    DATAPATH_CFG_ALL_STAGED_SET1,
+    DATAPATH_CFG_ALL_ACTIVE_SET,
+    APPLICATION_SELECT_LN1,
+    DATAPATH_STATE_ALL,
+    DATAPATH_STATE_LN1AND2,
+    CMIS_LANE_FLAGS,
+    MEDIA_INT_TECH,
+    DATAPATH_CFG_STATUS,
+    FLAG_SUPPORT,
+    LN1_ACTIVE_SET,
 
     /* SFP-specific Fields */
     /* 0xA0 Address Fields */
@@ -171,20 +212,39 @@ typedef enum {
     SFF_FLAG_MAX, /* keep this last on list */
 } Sff_flag;
 
-typedef enum { QSFP_PAGE0_LOWER, QSFP_PAGE0_UPPER, QSFP_PAGE3,
-               /* for SFP */
-               SFP_BASE_REG_LOWER,
-               SFP_BASE_REG_UPPER,
-               SFP_DIAG_REG_LOWER,
-               SFP_DIAG_REG_PAGE0,
-               SFP_DIAG_REG_PAGE1,
-               SFP_DIAG_REG_PAGE2,
-             } Qsfp_page;
+typedef enum {
+    QSFP_BANKNA = -2,
+    QSFP_BANKCH = -1,  // the bank number is based on the channel
+    QSFP_BANK0 = 0,
+    QSFP_BANK1,
+    QSFP_BANK2,
+    QSFP_BANK3
+} Qsfp_bank;
 
+typedef enum {
+    QSFP_PAGE0_LOWER = -1,
+    QSFP_PAGE0_UPPER,
+    QSFP_PAGE1,
+    QSFP_PAGE2,
+    QSFP_PAGE3,
+    QSFP_PAGE16 = 16,
+    QSFP_PAGE17 = 17,
+
+    /* for SFP */
+    SFP_A0 = -1,
+    SFP_A2,
+    SFP_PAGE0_LOWER,
+    SFP_PAGE0_UPPER,
+    SFP_PAGE2,
+} Qsfp_page;
+
+// this strucutre describes the byte location of memory map fields
 typedef struct {
+    Qsfp_bank bank;
     Qsfp_page page;
     int offset;
     int length;
+    bool in_cache;
 } sff_field_info_t;
 
 typedef struct {
@@ -209,9 +269,11 @@ typedef struct {
 } sff_field_mult_t;
 
 enum PowerControl {
-    POWER_OVERRIDE = 1 << 0,
-    POWER_SET = 1 << 1,
-    HIGH_POWER_OVERRIDE = 1 << 2,
+    POWER_OVERRIDE = 1 << 0,       // SFF-8636
+    POWER_SET = 1 << 1,            // SFF-8636
+    HIGH_POWER_OVERRIDE = 1 << 2,  // SFF-8636
+    FORCELOWPWR = 1 << 4,          // CMIS, all versions
+    CMIS4_LOWPWR = 1 << 6,         // CMIS 4.0 and later
 };
 
 enum ExternalIdentifer {
@@ -220,7 +282,7 @@ enum ExternalIdentifer {
     EXT_ID_HI_POWER_MASK = 0x03,
 };
 
-/* following complianbce codes are derived from SFF-8436 document */
+/* following compliance codes are derived from SFF-8436 document */
 typedef enum {
     COMPLIANCE_NONE = 0,
     ACTIVE_CABLE = 1 << 0,
@@ -262,16 +324,10 @@ typedef enum {
     AOC_100G_BER_12 = 0x18, /* 100G AOC or 25G AUI C2M AOC 10^^-12 BER */
     ACC_100G_BER_12 = 0x19, /* 100G ACC or 25G AUI C2M ACC 10^^-12 BER */
     DWDM2_100GE = 0x1A,     /* DMWM module using 1550nm, 80 km */
-
-    /* Rev 4.9, May 24, 2021.
-     * by tsihang, 2021-07-29. */
-    WDM4_100GE = 0x1B,
-    SR_10GBASE_T = 0x1C,
-    T_5GBASE = 0x1D,
-    T_2P5GBASE = 0x1E,
-    SWDM4_40G = 0x1F,
-    SWDM4_100G = 0x20,
-    PAM4_BiDi_100G = 0x21,
+    ACC_200G_BER_6 = 0x30,
+    AOC_200G_BER_6 = 0x31,
+    ACC_200G_BER_4 = 0x32,
+    AOC_200G_BER_4 = 0x33,
 } Ethernet_extended_compliance;
 
 // Commonly used QSFP variants
@@ -281,15 +337,15 @@ typedef enum {
 typedef enum {
     /* identifier byte 0x00 (SFF-8636) */
     UNKNOWN = 0,
-    SFP = 0x03,
+    SFP = 0x03,         /* SFF8472_IDENT_SFP */
     SFP_PLUS = SFP,
     SFP_28 = SFP,
-    QSFP = 0x0C,
-    QSFP_PLUS = 0x0D,
-    QSFP_28 = 0x11,
+    QSFP_DW_DM = 0x0B,  /* SFF8472_IDENT_DWDM_SFP */
+    QSFP = 0x0C,        /* SFF8436_IDENT_QSFP */
+    QSFP_PLUS = 0x0D,   /* SFF8436_IDENT_QSFP_PLUS */
+    QSFP_28 = 0x11,     /* SFF8636_IDENT_QSFP28 */
     QSFP_DD = 0x18,
     OSFP = 0x19,
-    DSFP = 0x1B,
     QSFP_CMIS = 0x1E,
 } Module_identifier;
 
@@ -297,8 +353,11 @@ typedef enum {
  * See https://www.snia.org/technology-communities/sff/specifications?field_doc_status_value=All&combine=8024&items_per_page=20
  * by tsihang, 2021-07-15. */
 typedef enum {
-    QSFP_CONN_TYPE_LC = 0x07,
-    QSFP_CONN_TYPE_MTP = 0x0C,
+    QSFP_CONN_TYPE_SC = 0x01,       /* SFF8472_CONN_SC */
+    QSFP_CONN_TYPE_LC = 0x07,       /* SFF8472_CONN_LC */
+    QSFP_CONN_TYPE_MPO_1x12 = 0x0C, /* SFF8472_CONN_MPO_1X12 */
+    QSFP_CONN_TYPE_MPO_2x16 = 0x0D, /* SFF8472_CONN_MPO_2X16 */
+    QSFP_CONN_TYPE_MPO_1x16 = 0x28, /* SFF8472_CONN_MPO_1X16 */
     QSFP_CONN_TYPE_NO_SEPARABLE_CAB = 0x23,
 } Connector_type;
 
@@ -312,28 +371,54 @@ typedef enum {
 } Media_type_enc_for_CMIS;
 
 typedef enum {
-    QSFPDD_400GBASE_AOC = 0x03,
+    HOST_TYPE_50GAUI_1_C2M = 0xA,
+    HOST_TYPE_100GAUI_2_C2M = 0xD,
+    HOST_TYPE_200GAUI_4_C2M = 0xF,
+} Host_type_interface_code;
+
+typedef enum {
     QSFPDD_400GBASE_SR8 = 0x10,
     QSFPDD_400GBASE_SR4 = 0x11,
+} Module_MMF_media_interface_code;
+
+typedef enum {
+    QSFPDD_100GBASE_DR = 0x14,
+    QSFPDD_200GBASE_DR4 = 0x17,
+    QSFPDD_200GBASE_FR4 = 0x18,
+    QSFPDD_200GBASE_LR4 = 0x19,
     QSFPDD_400GBASE_FR8 = 0x1A,
     QSFPDD_400GBASE_LR8 = 0x1B,
     QSFPDD_400GBASE_DR4 = 0x1C,
     QSFPDD_400GBASE_FR4 = 0x1D,
     QSFPDD_400GBASE_LR4 = 0x1E,
+} Module_SMF_media_interface_code;
 
-    QSFPDD_200GBASE_DR4 = 0x17,
-    QSFPDD_200GBASE_FR4 = 0x18,
-    QSFPDD_200GBASE_LR4 = 0x19,
+typedef enum {
+    MEDIA_ACTIVE_CBL_BER_12 = 0x1,
+    MEDIA_ACTIVE_CBL_BER_5 = 0x2,
+    MEDIA_ACTIVE_CBL_BER_4 = 0x3,
+    MEDIA_ACTIVE_CBL_BER_6 = 0x4,
+    MEDIA_ACTIVE_LOOPBACK = 0xBF,
+} Media_Active_cbl_interface_code;
+
+typedef enum {
+    // Innolight Specific Media ID
+    QSFPDD_200GBASE_DR2 = 0xFB,
+    QSFPDD_800GBASE_DR8 = 0xFC,
+} Custom_Module_SMF_media_interface_code;
+
+typedef enum {
+    QSFPDD_400GBASE_AOC = 0x03,
 } Module_media_interface_code;
 
 // memory map formats (IDENTIFIER_OFFSET field is used to determine this)
 typedef enum {
     MMFORMAT_UNKNOWN,
+    MMFORMAT_SFF8472,
     MMFORMAT_SFF8636,
     MMFORMAT_CMIS3P0,
     MMFORMAT_CMIS4P0,
-    MMFORMAT_SFF8472,
-
+    MMFORMAT_CMIS5P0,
     /*
      * SFF-8636        : https://www.snia.org/technology-communities/sff/specifications?field_doc_status_value=All&combine=8636&items_per_page=20
      * QSFP-DD CMIS3.0 : http://www.qsfp-dd.com/wp-content/uploads/2018/09/QSFP-DD-mgmt-rev3p0-final-9-18-18-Default-clean.pdf
@@ -362,11 +447,43 @@ typedef enum {
     DATAPATH_ST_INITIALIZED,
 } DataPath_State;
 
+// Configuration Command Status definition as per CMIS 5.0
+// Table 8-81
+typedef enum {
+    DATAPATH_CONF_UNDEF = 0x0,
+    DATAPATH_CONF_SUCCESS = 0x1,
+    DATAPATH_CONF_REJECT = 0x2,
+    DATAPATH_CONF_REJECT_INVALID_APSEL = 0x3,
+    DATAPATH_CONF_REJECT_INVALID_DP = 0x4,
+    DATAPATH_CONF_REJECT_INVALID_SI = 0x5,
+    DATAPATH_CONF_REJECT_LANE_INUSE = 0x6,
+    DATAPATH_CONF_REJECT_PARTIAL_DP = 0x7,
+    DATAPATH_CONF_REJECT_RESERVED_0x8 = 0x8,
+    DATAPATH_CONF_REJECT_RESERVED_0x9 = 0x9,
+    DATAPATH_CONF_REJECT_RESERVED_0xA = 0xA,
+    DATAPATH_CONF_REJECT_RESERVED_0xB = 0xB,
+    DATAPATH_CONF_INPROGRESS = 0xC,
+    DATAPATH_CONF_REJECT_CUSTOM_0xD = 0xD,
+    DATAPATH_CONF_REJECT_CUSTOM_0xE = 0xE,
+    DATAPATH_CONF_REJECT_CUSTOM_0xF = 0xF,
+} DataPath_Config_Status;
+
 typedef enum {
     STAGED_SET0 = 0,
     STAGED_SET1,
     ACTIVE_SET = 0XFF,
 } Control_Sets;
+
+// Media Interface Technology : Byte 212
+// Definition as per CMIS 5.1
+typedef enum {
+    MEDIA_TECH_CU_UNEQ = 0x0A,
+    MEDIA_TECH_CU_PASSIVE_EQ = 0x0B,
+    MEDIA_TECH_CU_NEAR_FAR_END_ACTIVE_EQ = 0x0C,
+    MEDIA_TECH_CU_FAR_END_ACTIVE_EQ = 0x0D,
+    MEDIA_TECH_CU_NEAR_END_ACTIVE_EQ = 0x0E,
+    MEDIA_TECH_CU_LINEAR_ACTIVE_EQ = 0x0F,
+} Media_Interface_Technology_CMIS;
 
 /* by tsihang, 2021-07-12 */
 typedef struct {

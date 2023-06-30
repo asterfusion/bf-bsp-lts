@@ -16,7 +16,6 @@
 extern "C" {
 #endif
 
-#define BF_PLAT_MAX_SFP        (BF_PLAT_MAX_QSFP * MAX_CHAN_PER_CONNECTOR)
 #define MAX_SFF_PAGE_SIZE       128
 
 #define MAX_NAME_LEN                80
@@ -46,15 +45,18 @@ typedef qsfp_alarm_threshold_t sfp_alarm_threshold_t;
 typedef qsfp_cable_t sfp_cable_t;
 typedef qsfp_vendor_info_t sfp_vendor_info_t;
 typedef qsfp_transciever_info_t sfp_transciever_info_t;
+typedef bf_pltfm_qsfp_type_t bf_pltfm_sfp_type_t;
 
 /* force mark a transceiver present or not-present */
 void bf_sfp_set_present (int port,
                          bool present);
 /* return if a transceiver is present */
 bool bf_sfp_is_present (int port);
+bool bf_sfp_is_sff8472 (int port);
+void bf_sfp_debug_clear_all_presence_bits (void);
 
 int bf_sfp_type_get (int port,
-                     bf_pltfm_qsfp_type_t *qsfp_type);
+                     bf_pltfm_sfp_type_t *sfp_type);
 
 MemMap_Format bf_sfp_get_memmap_format (int port);
 
@@ -67,6 +69,8 @@ int bf_sfp_get_max_sfp_ports (void);
 int bf_sfp_get_transceiver_pres (uint32_t
                                  *lower_ports,
                                  uint32_t *upper_ports);
+void bf_sfp_set_pwr_ctrl (int port, bool lpmode);
+
 bool bf_sfp_soft_removal_get (int port);
 void bf_sfp_soft_removal_set (int port,
                               bool removed);
@@ -78,6 +82,16 @@ int bf_sfp_get_transceiver_info (int port,
                                  sfp_transciever_info_t *info);
 
 int bf_sfp_init();
+bool bf_sfp_get_chan_tx_bias (int port,
+                               sfp_channel_t *chn);
+bool bf_sfp_get_chan_tx_pwr (int port,
+                              sfp_channel_t *chn);
+bool bf_sfp_get_chan_rx_pwr (int port,
+                              sfp_channel_t *chn);
+bool bf_sfp_get_chan_volt (int port,
+                            sfp_global_sensor_t *chn);
+bool bf_sfp_get_chan_temp (int port,
+                            sfp_global_sensor_t *chn);
 
 int bf_sfp_update_cache (int port);
 int bf_sfp_get_cached_info (int port, int page,
@@ -94,6 +108,8 @@ int bf_sfp_module_write (int port, int offset,
 bool bf_sfp_get_reset (int port);
 int bf_sfp_reset (int port, bool reset);
 
+int bf_sfp_tx_disable (int port, bool tx_dis);
+
 int bf_sfp_get_conn (int port, uint32_t *conn,
                      uint32_t *chnl);
 int bf_sfp_get_port (uint32_t conn, uint32_t chnl,
@@ -102,6 +118,10 @@ int bf_sfp_get_port (uint32_t conn, uint32_t chnl,
 int check_sfp_module_vendor (uint32_t conn_id,
                              uint32_t chnl_id,
                              char *target_vendor);
+void bf_sfp_print_ddm (int port, sfp_global_sensor_t *trans, sfp_channel_t *chnl);
+
+bool bf_sfp_is_detected (int port);
+void bf_sfp_set_detected (int port, bool detected);
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_sfp_ucli_node_create (

@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <math.h>
 #include <ctype.h>
 
@@ -41,6 +42,9 @@ static void check_check_code (ucli_context_t *uc,
 }
 #endif
 
+extern void bf_sfp_ddm_convert (const uint8_t *a2h,
+             double *temp, double *volt, double *txBias, double *txPower, double *rxPower);
+
 static void hex_dump (ucli_context_t *uc,
                    uint8_t *buf, uint32_t len)
 {
@@ -72,7 +76,7 @@ sff_info_show (sff_info_t *info,
 }
 
 /* see SFF-8472. */
-static char *bf_sfp_power_class (uint8_t b64)
+static char *sfp_power_class (uint8_t b64)
 {
     /* Maximum power is declared in A2h, byte 66. */
     if ((b64 & 0xC0) == 0x80) {
@@ -139,159 +143,264 @@ static ucli_status_t
 bf_sfp_dump_info (ucli_context_t
                                  *uc, int port, uint8_t *idprom)
 {
-  uint8_t *a0h, *a2h;
-  sff_info_t *sff;
-  sff_eeprom_t *se, eeprom;
-  sff_dom_info_t sdi;
-  int rc;
+    uint8_t *a0h, *a2h;
+    sff_info_t *sff;
+    sff_eeprom_t *se, eeprom;
+    sff_dom_info_t sdi;
+    int rc;
 
-  se = &eeprom;
-  sff = &se->info;
-  memset (se, 0, sizeof (sff_eeprom_t));
-  rc = sff_eeprom_parse (se, idprom);
-  if (!se->identified) {
-      aim_printf (&uc->pvs,
+    se = &eeprom;
+    sff = &se->info;
+    memset (se, 0, sizeof (sff_eeprom_t));
+    rc = sff_eeprom_parse (se, idprom);
+    if (!se->identified) {
+        aim_printf (&uc->pvs,
                   " SFP    %02d: non-standard <rc=%d>\n",
                   port, rc);
-      /* sff_eeprom_parse is quite an importand API for most sfp.
-       * but it is still not ready for all kind of sfps.
-       * so override the failure here and keep tracking.
-       * by tsihang, 2022-06-17. */
-      //return 0;
-  }
+        /* sff_eeprom_parse is quite an importand API for most sfp.
+         * but it is still not ready for all kind of sfps.
+         * so override the failure here and keep tracking.
+         * by tsihang, 2022-06-17. */
+        //return 0;
+    }
 
-  a0h = idprom;
-  a2h = idprom + MAX_SFP_PAGE_SIZE;
-  sff_dom_info_get (&sdi, sff, a0h, a2h);
+    a0h = idprom;
+    a2h = idprom + MAX_SFP_PAGE_SIZE;
+    sff_dom_info_get (&sdi, sff, a0h, a2h);
 
-  /* keep same with qsfp dump. And the info below is quite enough for almost all scene. */
-
-  aim_printf (&uc->pvs, "%-30s = %02d(Y%d)\n",
+    /* keep same with qsfp dump. And the info below is quite enough for almost all scene. */
+    aim_printf (&uc->pvs, "%-30s = %02d(Y%d)\n",
               "Port",
               port, port);
 
-  aim_printf (&uc->pvs, "%-30s = %s(0x%02x)\n",
+    aim_printf (&uc->pvs, "%-30s = %s(0x%02x)\n",
               "Module type identifier", sff->sfp_type_name,
               a0h[0]);
-  aim_printf (&uc->pvs, "%-30s = %02x\n",
-              "Ext. Identifer", a0h[1]);
+    aim_printf (&uc->pvs, "%-30s = %02x\n",
+               "Ext. Identifer", a0h[1]);
 
-  aim_printf (
-      &uc->pvs, "%-30s = %s\n",
-      "Module", sff->module_type_name);
-  aim_printf (
-      &uc->pvs, "%-30s = %s\n",
-      "Media Type", sff->media_type_name);
-  aim_printf (
-      &uc->pvs, "%-30s = %s\n",
-      "Connector Type",
-      sff_connector_type_name (a0h[2]));
+    aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Module", sff->module_type_name);
+    aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Media Type", sff->media_type_name);
+    aim_printf (&uc->pvs, "%-30s = %s\n",
+              "Connector Type", sff_connector_type_name (a0h[2]));
 
-  aim_printf (&uc->pvs, "\n");
-  aim_printf (&uc->pvs, "%-30s = %s\n",
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%-30s = %s\n",
               "Vendor name", sff->vendor);
-  aim_printf (&uc->pvs, "%-30s = %s\n",
+    aim_printf (&uc->pvs, "%-30s = %s\n",
               "Vendor P/N", sff->model);
-  aim_printf (&uc->pvs, "%-30s = %s\n",
+    aim_printf (&uc->pvs, "%-30s = %s\n",
               "Vendor S/N", sff->serial);
-  aim_printf (&uc->pvs, "%-30s = %s\n",
+    aim_printf (&uc->pvs, "%-30s = %s\n",
               "Vendor Rev", sff->rev);
-  aim_printf (&uc->pvs, "%-30s = %02x-%02x-%02x\n",
+    aim_printf (&uc->pvs, "%-30s = %02x-%02x-%02x\n",
               "Vendor OUI", sff->oui[0], sff->oui[1],
               sff->oui[2]);
 
-  aim_printf (&uc->pvs, "%-30s = %s\n",
+    aim_printf (&uc->pvs, "%-30s = %s\n",
               "Date & lot code",
               sff->date);
 
-  aim_printf (&uc->pvs, "%-30s = ",
+    aim_printf (&uc->pvs, "%-30s = ",
               "Memory map format");
-  if (sdi.spec == SFF_DOM_SPEC_SFF8472) {
-      aim_printf (&uc->pvs, "SFF-8472\n");
-  } else {
-      aim_printf (&uc->pvs, "Unknown\n");
-  }
+    if (sdi.spec == SFF_DOM_SPEC_SFF8472) {
+        aim_printf (&uc->pvs, "SFF-8472\n");
+    } else {
+        aim_printf (&uc->pvs, "Unknown\n");
+    }
 
-  char memmap_spec_rev[25];
-  bf_sfp_get_spec_rev_str (a0h, memmap_spec_rev);
-  aim_printf (&uc->pvs, "%-30s = %s\n",
+    char memmap_spec_rev[25] = "Unknown";
+    bf_sfp_get_spec_rev_str (a0h, memmap_spec_rev);
+    aim_printf (&uc->pvs, "%-30s = %s\n",
               "Memory map spec rev", memmap_spec_rev);
 
-  aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
+    aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
               "CC_BASE", se->cc_base, a0h[63]);
-  aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
+    aim_printf (&uc->pvs, "%-30s = %02x(%02x)\n",
               "CC_EXT", se->cc_ext, a0h[95]);
 
-  aim_printf (&uc->pvs, "  Length (SMF): %d km\n",
+    aim_printf (&uc->pvs, "  Length (SMF): %d km\n",
               _sff8472_length_sm(a0h) / 1000);
-  aim_printf (&uc->pvs, "  Length (OM3): %d m\n",
+    aim_printf (&uc->pvs, "  Length (OM3): %d m\n",
               _sff8472_length_om3(a0h));
-  aim_printf (&uc->pvs, "  Length (OM2): %d m\n",
+    aim_printf (&uc->pvs, "  Length (OM2): %d m\n",
               _sff8472_length_om2(a0h));
-  aim_printf (&uc->pvs, "  Length (OM1): %d m\n",
+    aim_printf (&uc->pvs, "  Length (OM1): %d m\n",
               _sff8472_length_om1(a0h));
-  aim_printf (&uc->pvs, "  Length (Copper): %d m\n",
+    aim_printf (&uc->pvs, "  Length (Copper): %d m\n",
               _sff8472_length_cu(a0h));
 
-  aim_printf (&uc->pvs, "\n");
-  if (!bf_sfp_is_optical (port) ||
-      sdi.spec != SFF_DOM_SPEC_SFF8472) {
-      aim_printf (&uc->pvs,
-                  "Not optical or not sff-8472\n");
-  } else {
-      /* A2h */
-      aim_printf (&uc->pvs,
+    aim_printf (&uc->pvs, "\n");
+    if (!bf_sfp_is_optical (port)) {
+        aim_printf (&uc->pvs,
+                  "Passive copper.\n");
+    } else {
+        /* A2h */
+        aim_printf (&uc->pvs,
                   "## MODULE EXT PROPERTIES\n");
 
-      aim_printf (&uc->pvs, "%-30s = %5d Mbps\n",
+        aim_printf (&uc->pvs, "%-30s = %5d Mbps\n",
                   "Nominal Bit Rate",
                   a0h[12] * 100);
 
-      aim_printf (&uc->pvs, "%-30s = %02x\n",
+        aim_printf (&uc->pvs, "%-30s = %02x\n",
                   "Rate Identifier",
                   a0h[13]);
 
-      aim_printf (&uc->pvs, "%-30s = %u nm\n",
+        aim_printf (&uc->pvs, "%-30s = %u nm\n",
                   "Laser Wavelength",
                   (a0h[60] << 8) | a0h[61]);
 
-      aim_printf (&uc->pvs, "%-30s = %.3lf C\n",
-                  "Temperature",
-                  (double) (a2h[96]) + ((double)a2h[97] / 256));
+        double temp;
+        double volt;
+        double txBias;
+        double txPower;
+        double rxPower;
+        bf_sfp_ddm_convert (a2h, &temp, &volt, &txBias, &txPower, &rxPower);
 
-      double voltage = (a2h[98] << 8) + a2h[99];
-      aim_printf (&uc->pvs, "%-30s = %.3lf V\n",
-                  "Voltage",
-                  voltage / 10000.000);
+        aim_printf (
+            &uc->pvs, " SFP DDM Info for ports %d to %d\n",
+            port, port);
+        aim_printf (&uc->pvs,
+                "%10s %10s %15s %10s %16s %16s\n",
+                "-------",
+                "--------",
+                "-----------",
+                "--------",
+                "--------------",
+                "--------------");
+        aim_printf (&uc->pvs,
+                "%10s %10s %15s %10s %16s %16s\n",
+                "Port",
+                "Temp (C)",
+                "Voltage (V)",
+                "Bias(mA)",
+                "Tx Power (dBm)",
+                "Rx Power (dBm)");
+        aim_printf (&uc->pvs,
+                "%10s %10s %15s %10s %16s %16s\n",
+                "-------",
+                "--------",
+                "-----------",
+                "--------",
+                "--------------",
+                "--------------");
 
-      double bias_current = (a2h[100] << 8) + a2h[101];
-      aim_printf (&uc->pvs, "%-30s = %.3lf mA\n",
-                  "TX Bias",
-                  bias_current / 1000.000);
+        aim_printf (&uc->pvs,
+                   "      %d %10.1f %15.2f %10.2f %16.2f %16.2f\n",
+                   port,
+                   temp,
+                   volt,
+                   txBias,
+                   txPower,
+                   rxPower);
 
+        aim_printf (&uc->pvs,
+                  "%10s %10s %15s %10s %16s %16s\n",
+                  "-------",
+                  "--------",
+                  "-----------",
+                  "--------",
+                  "--------------",
+                  "--------------");
 
-      double tx_pwr = (a2h[102] << 8) + a2h[103];
-      aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
-                  "TX Power",
-                  (tx_pwr == 0) ? (-40) : (10 * log10 (
-                          tx_pwr * 0.1 / 1000.000)));
+        aim_printf (&uc->pvs, "Page: %d\n", a2h[127]);
+    }
 
-      double rx_pwr = (a2h[104] << 8) + a2h[105];
-      aim_printf (&uc->pvs, "%-30s = %.5f dBm\n",
-                  "RX Power",
-                  (rx_pwr == 0) ? (-40) : (10 * log10 (
-                          rx_pwr * 0.1 / 1000.000)));
+    aim_printf (&uc->pvs, "\nA0h:\n");
+    hex_dump (uc, a0h, MAX_SFP_PAGE_SIZE);
 
-      aim_printf (&uc->pvs, "Page: %d\n", a2h[127]);
-  }
+    aim_printf (&uc->pvs, "\nA2h:\n");
+    hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
 
-  aim_printf (&uc->pvs, "\nA0h:\n");
-  hex_dump (uc, a0h, MAX_SFP_PAGE_SIZE);
+    return 0;
+}
 
-  aim_printf (&uc->pvs, "\nA2h:\n");
-  hex_dump (uc, a2h, MAX_SFP_PAGE_SIZE);
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_get_pres (
+ ucli_context_t *uc)
+{
+    uint32_t lower_ports, upper_ports;
 
-  return 0;
+    UCLI_COMMAND_INFO (uc, "get-pres", 0, "get-pres");
+    if (bf_sfp_get_transceiver_pres (&lower_ports,
+                                   &upper_ports)) {
+        aim_printf (&uc->pvs,
+                 "error getting sfp presence\n");
+        return 0;
+    }
+    aim_printf (&uc->pvs,
+             "qsfp presence lower: 0x%08x upper: 0x%08x\n",
+             lower_ports,
+             upper_ports);
+    return 0;
+}
+
+ static ucli_status_t
+ bf_pltfm_ucli_ucli__sfp_tx_disable_set (
+     ucli_context_t *uc)
+{
+    int port, val;
+    int max_port = bf_sfp_get_max_sfp_ports();
+
+    UCLI_COMMAND_INFO (
+        uc, "tx-disable-set", 2,
+        "tx-disable-set <port> <0:off, 1:on>");
+    port = atoi (uc->pargs->args[0]);
+    if (port < 1 || port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                 max_port);
+        return 0;
+    }
+
+    val = atoi (uc->pargs->args[1]);
+    if ((val < 0) || (val > 1)) {
+        aim_printf (&uc->pvs,
+                 "val must be 0-1 for port %d\n", port);
+        return 0;
+    }
+
+    if (val) {
+        bf_sfp_tx_disable (port, true);
+    } else {
+        bf_sfp_tx_disable (port, false);
+    }
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_reset (ucli_context_t
+                                 *uc)
+{
+    UCLI_COMMAND_INFO (
+        uc, "sfp-reset", 2,
+        "sfp-reset <port> <1=reset, 0=unreset>");
+    int port;
+    int port_begin, max_port;
+    int reset_val;
+    bool reset;
+
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        port_begin = port;
+        max_port = port;
+    } else {
+        port_begin = 1;
+        max_port = bf_sfp_get_max_sfp_ports();
+    }
+    reset_val = atoi (uc->pargs->args[1]);
+    reset = (reset_val == 0) ? false : true;
+
+    for (port = port_begin; port <= max_port;
+        port++) {
+        aim_printf (
+            &uc->pvs,
+            "Not supported.\n");
+        bf_sfp_reset (port, reset);
+    }
+    return 0;
 }
 
 static ucli_status_t
@@ -303,18 +412,18 @@ bf_pltfm_ucli_ucli__sfp_read_reg (ucli_context_t
     uint8_t addr;
     uint8_t page;
     uint8_t val;
-    int module;
+    int port;
     int max_port = bf_sfp_get_max_sfp_ports();
 
     UCLI_COMMAND_INFO (uc, "read-reg", 4,
-                       "read-reg <module> <addr> <page,0/1/2> <offset>");
+                       "read-reg <port> <addr, 0xa0/0xa2> <page,0/1/2> <offset>");
 
-    module = strtol (uc->pargs->args[0], NULL, 0);
+    port = strtol (uc->pargs->args[0], NULL, 0);
     addr = strtol (uc->pargs->args[1], NULL, 0);
     page = strtol (uc->pargs->args[2], NULL, 0);
     offset = strtol (uc->pargs->args[3], NULL, 0);
 
-    if (module < 1 || module > max_port) {
+    if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
                     max_port);
         return 0;
@@ -322,8 +431,8 @@ bf_pltfm_ucli_ucli__sfp_read_reg (ucli_context_t
 
     aim_printf (
         &uc->pvs,
-        "read-reg: read-reg <moudle=%d> <addr=0x%x> <page=%d> <offset=0x%x>\n",
-        module,
+        "read-reg: read-reg <port=%d> <addr=0x%x> <page=%d> <offset=0x%x>\n",
+        port,
         addr,
         page,
         offset);
@@ -336,7 +445,7 @@ bf_pltfm_ucli_ucli__sfp_read_reg (ucli_context_t
 
     offset = (addr == 0xa0) ? offset : offset +
              MAX_SFP_PAGE_SIZE;
-    err = bf_pltfm_sfp_read_reg (module, page, offset,
+    err = bf_pltfm_sfp_read_reg (port, page, offset,
                                  &val);
     if (err) {
         aim_printf (&uc->pvs,
@@ -346,7 +455,7 @@ bf_pltfm_ucli_ucli__sfp_read_reg (ucli_context_t
     } else {
         aim_printf (&uc->pvs,
                     "SFP%d : page %d offset 0x%x read 0x%02x\n",
-                    module, page,
+                    port, page,
                     offset, val);
     }
 
@@ -362,19 +471,19 @@ bf_pltfm_ucli_ucli__sfp_write_reg (
     uint8_t addr;
     uint8_t page;
     uint8_t val;
-    int module;
+    int port;
     int max_port = bf_sfp_get_max_sfp_ports();
 
     UCLI_COMMAND_INFO (uc, "write-reg", 5,
-                       "write-reg <module> <addr> <page,0/1/2> <offset> <val>");
+                       "write-reg <port> <addr, 0xa0/0xa2> <page,0/1/2> <offset> <val>");
 
-    module = strtol (uc->pargs->args[0], NULL, 0);
+    port = strtol (uc->pargs->args[0], NULL, 0);
     addr = strtol (uc->pargs->args[1], NULL, 0);
     page = strtol (uc->pargs->args[2], NULL, 0);
     offset = strtol (uc->pargs->args[3], NULL, 0);
     val = strtol (uc->pargs->args[4], NULL, 0);
 
-    if (module < 1 || module > max_port) {
+    if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
                     max_port);
         return 0;
@@ -382,9 +491,9 @@ bf_pltfm_ucli_ucli__sfp_write_reg (
 
     aim_printf (
         &uc->pvs,
-        "write-reg: write-reg <module=%d> <addr=0x%x> <page=%d> <offset=0x%x> "
+        "write-reg: write-reg <port=%d> <addr=0x%x> <page=%d> <offset=0x%x> "
         "<val=0x%x>\n",
-        module,
+        port,
         addr,
         page,
         offset,
@@ -398,7 +507,7 @@ bf_pltfm_ucli_ucli__sfp_write_reg (
 
     offset = (addr == 0xa0) ? offset : offset +
              MAX_SFP_PAGE_SIZE;
-    err = bf_pltfm_sfp_write_reg (module, page,
+    err = bf_pltfm_sfp_write_reg (port, page,
                                   offset, val);
     if (err) {
         aim_printf (&uc->pvs,
@@ -408,7 +517,7 @@ bf_pltfm_ucli_ucli__sfp_write_reg (
     } else {
         aim_printf (&uc->pvs,
                     "SFP%d : page %d offset 0x%x written 0x%0x\n",
-                    module, page,
+                    port, page,
                     offset, val);
     }
 
@@ -419,38 +528,64 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
                                    *uc)
 {
-    int module;
+    int port;
     int rc;
     uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
     UCLI_COMMAND_INFO (uc, "dump-info", 1,
-                       "dump-info <module>");
-    module = strtol (uc->pargs->args[0], NULL, 0);
-    if (module < 1 || module > bf_sfp_get_max_sfp_ports()) {
+                       "dump-info <port>");
+    port = strtol (uc->pargs->args[0], NULL, 0);
+    if (port < 1 || port > bf_sfp_get_max_sfp_ports()) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
                     bf_sfp_get_max_sfp_ports());
         return 0;
     }
 
-    if (!bf_sfp_is_present (module)) {
+    if (!bf_sfp_is_present (port)) {
         return 0;
     }
 
     /* A0h */
-    rc = bf_pltfm_sfp_read_module (module, 0,
+    rc = bf_pltfm_sfp_read_module (port, 0,
                                       MAX_SFP_PAGE_SIZE, idprom);
     if (rc) {
         return 0;
     }
-    /* A2h, what should we do if there's no A2h ? */
-    rc = bf_pltfm_sfp_read_module (module,
-                                  MAX_SFP_PAGE_SIZE, MAX_SFP_PAGE_SIZE,
-                                  idprom + MAX_SFP_PAGE_SIZE);
-    if (rc) {
-        return 0;
-    }
 
-    return bf_sfp_dump_info (uc, module, idprom);
+    /* A2h, what should we do if there's no A2h ? */
+    if (SFF8472_DOM_SUPPORTED (
+            idprom)) {
+        rc = bf_pltfm_sfp_read_module (port,
+                                      MAX_SFP_PAGE_SIZE, MAX_SFP_PAGE_SIZE,
+                                      idprom + MAX_SFP_PAGE_SIZE);
+        if (rc) {
+            return 0;
+        }
+    }
+    return bf_sfp_dump_info (uc, port, idprom);
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_show (ucli_context_t
+                              *uc)
+{
+   bool temper_monitor_en =
+       bf_port_sfp_mgmnt_temper_monitor_get();
+
+   UCLI_COMMAND_INFO (uc, "show", 0,
+                      "show sfp or sfp28 summary information");
+
+   aim_printf (&uc->pvs,
+               "Max ports supported  ==> %2d\n", bf_sfp_get_max_sfp_ports());
+   aim_printf (&uc->pvs,
+               "Temperature monitor enabled ==> %s",
+               temper_monitor_en ? "YES" : "NO");
+   if (temper_monitor_en) {
+       aim_printf (&uc->pvs,
+                   " (interval %d seconds)\n",
+                   bf_port_sfp_mgmnt_temper_monitor_period_get());
+   }
+   return 0;
 }
 
 static ucli_status_t
@@ -458,43 +593,43 @@ bf_pltfm_ucli_ucli__sfp_show_module (
     ucli_context_t
     *uc)
 {
-    int module;
+    int port;
     int rc;
     uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
-    UCLI_COMMAND_INFO (uc, "show", 1,
-                       "show <module>");
-    module = strtol (uc->pargs->args[0], NULL, 0);
-    if (module < 1 || module > bf_sfp_get_max_sfp_ports()) {
+    UCLI_COMMAND_INFO (uc, "module-show", 1,
+                       "module-show <port>");
+    port = strtol (uc->pargs->args[0], NULL, 0);
+    if (port < 1 || port > bf_sfp_get_max_sfp_ports()) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
                     bf_sfp_get_max_sfp_ports());
         return 0;
     }
 
-    if (!bf_sfp_is_present (module)) {
+    if (!bf_sfp_is_present (port)) {
         return 0;
     }
 
     /* A0h */
-    rc = bf_sfp_get_cached_info (module, 0, idprom);
+    rc = bf_sfp_get_cached_info (port, 0, idprom);
     if (rc) {
         aim_printf (&uc->pvs,
                     "Unknown module : %2d\n",
-                    module);
+                    port);
         return 0;
     }
 
     /* A2h */
-    rc = bf_sfp_get_cached_info (module, 1,
+    rc = bf_sfp_get_cached_info (port, 1,
                                  idprom + MAX_SFP_PAGE_SIZE);
     if (rc) {
         aim_printf (&uc->pvs,
                     "Unknown module : %2d\n",
-                    module);
+                    port);
         return 0;
     }
 
-    return bf_sfp_dump_info (uc, module, idprom);
+    return bf_sfp_dump_info (uc, port, idprom);
 }
 
 static ucli_status_t
@@ -573,7 +708,6 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
         /* print lower page data */
         aim_printf (&uc->pvs, " %2d:  ", port);
 
-
         aim_printf (&uc->pvs, "%s ", sff->vendor);
         aim_printf (&uc->pvs, "%s ", sff->model);
         aim_printf (&uc->pvs, "%s ", sff->rev);
@@ -587,7 +721,7 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
                     sff->oui[1],
                     sff->oui[2]);
         aim_printf (&uc->pvs, "  %s ",
-                    bf_sfp_power_class (a0h[64]));
+                    sfp_power_class (a0h[64]));
 
         if (bf_sfp_is_optical (port)) {
             if (_sff8472_length_sm(a0h)) {
@@ -627,6 +761,121 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
 }
 
 static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_get_ddm (ucli_context_t
+                                *uc)
+{
+    int port_start, port_end;
+    int rc;
+    uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
+    uint8_t *a2h = &idprom[MAX_SFP_PAGE_SIZE];
+    int max_port = bf_sfp_get_max_sfp_ports();
+
+    UCLI_COMMAND_INFO (uc, "get-ddm", 2,
+                     "get-ddm <port_start> <max_port>");
+    port_start = atoi (uc->pargs->args[0]);
+    port_end = atoi (uc->pargs->args[1]);
+
+    if (port_start < 1 || port_start > max_port) {
+        aim_printf (&uc->pvs, "port_start must be 1-%d\n",
+                  max_port);
+        return 0;
+    }
+
+    if (port_end < 1 || port_end > max_port) {
+        aim_printf (&uc->pvs, "max_port must be 1-%d\n",
+                  max_port);
+        return 0;
+    }
+
+    aim_printf (
+        &uc->pvs, " SFP DDM Info for ports %d to %d\n",
+        port_start, port_end);
+    aim_printf (&uc->pvs,
+              "%10s %10s %15s %10s %16s %16s\n",
+              "-------",
+              "--------",
+              "-----------",
+              "--------",
+              "--------------",
+              "--------------");
+    aim_printf (&uc->pvs,
+              "%10s %10s %15s %10s %16s %16s\n",
+              "Port",
+              "Temp (C)",
+              "Voltage (V)",
+              "Bias(mA)",
+              "Tx Power (dBm)",
+              "Rx Power (dBm)");
+    aim_printf (&uc->pvs,
+              "%10s %10s %15s %10s %16s %16s\n",
+              "-------",
+              "--------",
+              "-----------",
+              "--------",
+              "--------------",
+              "--------------");
+
+    for (int port = port_start; port <= port_end; port++) {
+        if (!bf_sfp_is_present (port) &&
+            (!bf_sfp_is_optical (port))) {
+            continue;
+        }
+
+        if (bf_sfp_is_sff8472 (port)) {
+            memset (idprom, 0, sizeof (idprom));
+
+            /* A2h, what should we do if there's no A2h ? */
+            rc = bf_pltfm_sfp_read_module (port,
+                                          MAX_SFP_PAGE_SIZE + 96, 10,
+                                          idprom + MAX_SFP_PAGE_SIZE + 96);
+            if (rc) {
+                return 0;
+            }
+
+            double temp;
+            double volt;
+            double txBias;
+            double txPower;
+            double rxPower;
+            bf_sfp_ddm_convert (a2h, &temp, &volt, &txBias, &txPower, &rxPower);
+            aim_printf (&uc->pvs,
+                       "      %d %10.1f %15.2f %10.2f %16.2f %16.2f\n",
+                       port,
+                       temp,
+                       volt,
+                       txBias,
+                       txPower,
+                       rxPower);
+/*
+            sfp_transciever_info_t info, *pinfo;
+            pinfo = &info;
+            memset (pinfo, 0, sizeof (sfp_transciever_info_t));
+            bf_sfp_get_transceiver_info (port, pinfo);
+            aim_printf (&uc->pvs,
+                   "      %d %10.1f %15.2f %10.2f %16.2f %16.2f===\n",
+                   port,
+                   pinfo->sensor.temp.value,
+                   pinfo->sensor.vcc.value,
+                   pinfo->chn[0].sensors.tx_bias.value,
+                   pinfo->chn[0].sensors.tx_pwr.value,
+                   pinfo->chn[0].sensors.rx_pwr.value);
+*/
+        }
+
+        aim_printf (&uc->pvs,
+                  "%10s %10s %15s %10s %16s %16s\n",
+                  "-------",
+                  "--------",
+                  "-----------",
+                  "--------",
+                  "--------------",
+                  "--------------");
+    }
+
+    return 0;
+}
+
+static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_db (ucli_context_t
                             *uc)
 {
@@ -655,7 +904,7 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
                              *uc)
 {
-    int module, err;
+    int port, err;
     uint32_t conn_id, chnl_id = 0;
     char alias[8] = {0}, connc[8] = {0};
 
@@ -668,18 +917,18 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
 
     for (int i = 0; i < bf_sfp_get_max_sfp_ports();
          i ++) {
-        module = (i + 1);
-        err = bf_pltfm_sfp_lookup_by_module (module,
+        port = (i + 1);
+        err = bf_pltfm_sfp_lookup_by_module (port,
                                              &conn_id, &chnl_id);
         if (!err) {
             sprintf (alias, "Y%d",
-                     module % (BF_PLAT_MAX_QSFP * 4));
+                     port % (BF_PLAT_MAX_QSFP * 4));
             sprintf (connc, "%2d/%d",
                      (conn_id % BF_PLAT_MAX_QSFP),
                      (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
-                        module, alias, connc,
-                        bf_sfp_is_present (module) ? "true" : "false");
+                        port, alias, connc,
+                        bf_sfp_is_present (port) ? "true" : "false");
         }
     }
 
@@ -723,6 +972,176 @@ bf_pltfm_ucli_ucli__sfp_fsm (ucli_context_t *uc)
 
         aim_printf (&uc->pvs, "\n");
     }
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_soft_remove (
+    ucli_context_t *uc)
+{
+    int port, port_begin, max_port;
+    int max_ports = bf_sfp_get_max_sfp_ports();
+    bool remove_flag = 0;
+    int conn_id = 0;
+
+    UCLI_COMMAND_INFO (uc,
+                       "soft-remove",
+                       2,
+                       "soft-remove <port OR -1 for all ports> <set/clear>");
+
+    conn_id = atoi (uc->pargs->args[0]);
+    if (conn_id == -1) {
+        port_begin = 1;
+        max_port = max_ports;
+    } else {
+        port_begin = max_port = conn_id;
+    }
+
+    if ((port_begin == 0) ||
+        (port_begin > max_ports ||
+         max_port > max_ports)) {
+        aim_printf (&uc->pvs,
+                    "port must between 1 and %d OR -1 for all ports\n",
+                    max_ports);
+        return 0;
+    }
+
+    if (strcmp (uc->pargs->args[1], "set") == 0) {
+        remove_flag = true;
+    } else if (strcmp (uc->pargs->args[1],
+                       "clear") == 0) {
+        remove_flag = false;
+    } else {
+        aim_printf (&uc->pvs,
+                    "Usage: front-panel port-num <1 to %d or -1 for all ports> <set "
+                    "or clear>\n",
+                    max_ports);
+        return 0;
+    }
+
+    for (port = port_begin; port <= max_port;
+         port++) {
+        if (bf_port_sfp_mgmnt_temper_high_alarm_flag_get (
+                port) &&
+            bf_sfp_is_present (port)) {
+            bf_sfp_set_pwr_ctrl (port, 0);
+        }
+        bf_sfp_soft_removal_set (port, remove_flag);
+    }
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_soft_remove_show (
+    ucli_context_t *uc)
+{
+    int port, port_begin, max_port;
+    int max_ports = bf_sfp_get_max_sfp_ports();
+    int conn_id = 0;
+
+    UCLI_COMMAND_INFO (uc,
+                       "soft-remove-show",
+                       1,
+                       " soft-remove-show <port OR -1 for all ports>");
+
+    conn_id = atoi (uc->pargs->args[0]);
+    if (conn_id == -1) {
+        port_begin = 1;
+        max_port = max_ports;
+    } else {
+        port_begin = max_port = conn_id;
+    }
+
+    if ((port_begin == 0) ||
+        (port_begin > max_ports ||
+         max_port > max_ports)) {
+        aim_printf (&uc->pvs,
+                    "port must between 1 and %d OR -1 for all ports\n",
+                    max_ports);
+        return 0;
+    }
+
+    for (port = port_begin; port <= max_port;
+         port++) {
+        aim_printf (&uc->pvs,
+                    "port %d soft-removed %s\n",
+                    port,
+                    bf_sfp_soft_removal_get (port) ? "Yes" : "No");
+    }
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_period_set (
+    ucli_context_t *uc)
+{
+    static char usage[] =
+        "sfp-temper-period-set <period in sec. min:1>";
+    UCLI_COMMAND_INFO (uc,
+                       "sfp-temper-period-set",
+                       1,
+                       "<poll period in sec. min:1> Default 5-sec");
+
+    int64_t period_secs;
+
+    if (uc->pargs->count == 1) {
+        period_secs = strtol (uc->pargs->args[0], NULL,
+                              10);
+        if ((period_secs != LONG_MIN) &&
+            (period_secs != LONG_MAX) &&
+            (period_secs > 0)) {
+            bf_port_sfp_mgmnt_temper_monitor_period_set (
+                period_secs);
+            return 0;
+        }
+    }
+
+    aim_printf (&uc->pvs,
+                "Error Usage : %s. Input valid period\n", usage);
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_log_enable (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "sfp-temper-log", 1,
+                       "<1=Enable, 0=Disable>");
+    static char usage[] =
+        "sfp-temper-log 1=enable or 0=disable";
+    bool enable;
+
+    enable = atoi (uc->pargs->args[0]);
+    if (uc->pargs->count == 1) {
+        bf_port_sfp_mgmnt_temper_monitor_log_set (
+            enable);
+    } else {
+        aim_printf (&uc->pvs,
+                    "Error  : %s. Input valid 1 or 0\n", usage);
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "sfp-temper-monit-enable",
+                       1, "<1=Enable, 0=Disable>");
+    static char usage[] =
+        "sfp-temper-monit-enable 1=enable or 0=disable";
+    bool enable;
+
+    enable = atoi (uc->pargs->args[0]);
+    if (uc->pargs->count == 1) {
+        bf_port_sfp_mgmnt_temper_monitor_set (enable);
+    } else {
+        aim_printf (&uc->pvs,
+                    "Error  : %s. Input valid 1 or 0\n", usage);
+    }
+
     return 0;
 }
 
@@ -786,10 +1205,21 @@ bf_pltfm_sfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__sfp_write_reg,
     bf_pltfm_ucli_ucli__sfp_dump_info,
     bf_pltfm_ucli_ucli__sfp_show_module,
+    bf_pltfm_ucli_ucli__sfp_show,
     bf_pltfm_ucli_ucli__sfp_summary,
     bf_pltfm_ucli_ucli__sfp_db,
     bf_pltfm_ucli_ucli__sfp_map,
     bf_pltfm_ucli_ucli__sfp_fsm,
+    bf_pltfm_ucli_ucli__sfp_get_ddm,
+    bf_pltfm_ucli_ucli__sfp_soft_remove,
+    bf_pltfm_ucli_ucli__sfp_soft_remove_show,
+    bf_pltfm_ucli_ucli__sfp_get_pres,
+    bf_pltfm_ucli_ucli__sfp_tx_disable_set,
+    bf_pltfm_ucli_ucli__sfp_reset,
+    bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_period_set,
+    bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_log_enable,
+    bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable,
+
     /* Closed by tsihang since dump-info include the CC. */
     //bf_pltfm_ucli_ucli__check_reg,
     NULL,
