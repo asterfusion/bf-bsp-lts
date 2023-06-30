@@ -14,7 +14,7 @@
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_sfp.h>
 
-static bool sfp_debug_on = false;
+static bool sfp_debug_on = true;
 static int bf_plt_max_sfp;
 
 typedef struct bf_sfp_info_t {
@@ -23,6 +23,7 @@ typedef struct bf_sfp_info_t {
     bool soft_removed;
     bool flat_mem;
     bool passive_cu;
+    bool fsm_detected;  /* by tsihang, 2023-06-26. */
     //uint8_t num_ch;
     MemMap_Format memmap_format;
 
@@ -41,6 +42,7 @@ typedef struct bf_sfp_info_t {
     uint8_t media_type;
 
     sfp_alarm_threshold_t alarm_threshold;
+    double module_temper_cache;
 
     //bf_qsfp_special_info_t special_case_port;
     bf_sys_mutex_t sfp_mtx;
@@ -61,6 +63,42 @@ bf_sfp_info_arr[BF_PLAT_MAX_SFP + 1];
 /* Big Switch Network decoding engine. */
 sff_eeprom_t bf_sfp_sff_eeprom[BF_PLAT_MAX_SFP +
                                                1];
+
+/* converts qsfp temp sensor data to absolute temperature */
+static double get_temp (const uint16_t temp)
+{
+    double data;
+    data = temp / 256.0;
+    if (data > 128) {
+        data = data - 256;
+    }
+    return data;
+}
+
+/* converts qsfp vcc sensor data to absolute voltage */
+static double get_vcc (const uint16_t temp)
+{
+    double data;
+    data = temp / 10000.0;
+    return data;
+}
+
+/* converts qsfp txbias sensor data to absolute value */
+static double get_txbias (const uint16_t temp)
+{
+    double data;
+    //data = temp * 2.0 / 1000;
+    data = (131.0 * temp) / 65535;
+    return data;
+}
+
+/* converts qsfp power sensor data to absolute power value */
+static double get_pwr (const uint16_t temp)
+{
+    double data;
+    data = temp * 0.1 / 1000;
+    return data;
+}
 
 /* by tsihang, 2021-07-29. */
 static bool bf_sfp_is_eth_ext_compliance_copper (
@@ -122,6 +160,26 @@ bool bf_sfp_is_present (int port)
         return false;
     }
     return bf_sfp_info_arr[port].present;
+}
+
+bool bf_sfp_is_detected (int port)
+{
+    if (port > bf_plt_max_sfp) {
+        return false;
+    }
+
+    return bf_sfp_info_arr[port].fsm_detected;
+}
+
+void bf_sfp_set_detected (int port, bool detected)
+{
+    if (port > bf_plt_max_sfp) {
+        return;
+    }
+    /* Set fsm_detected indicator to notify health monitor thread
+     * now it's ready to read the ddm of this port.
+     */
+    bf_sfp_info_arr[port].fsm_detected = detected;
 }
 
 bool bf_sfp_is_sff8472 (int port)
@@ -324,6 +382,7 @@ static int bf_sfp_set_idprom (int port)
     id = bf_sfp_info_arr[port].idprom[0];
     if ((id == SFP) || (id == SFP_PLUS) ||
         (id == SFP_28)) {
+        /* WANTED and just consider it following SFF-8472. */
         bf_sfp_info_arr[port].memmap_format =
             MMFORMAT_SFF8472;
     }
@@ -336,14 +395,14 @@ static int bf_sfp_set_idprom (int port)
 
 static bool bf_sfp_special_case_handled (
     int port,
-    bf_pltfm_qsfp_type_t *qsfp_type,
+    bf_pltfm_sfp_type_t *sfp_type,
     bool *type_copper)
 {
     return 0;
 }
 
 int bf_sfp_type_get (int port,
-                     bf_pltfm_qsfp_type_t *qsfp_type)
+                     bf_pltfm_sfp_type_t *sfp_type)
 {
     /* idprom already been written to cache. */
     Ethernet_extended_compliance eth_ext_comp;
@@ -357,12 +416,12 @@ int bf_sfp_type_get (int port,
      * as OPTICAL by default.
      * Please rich this API after all things done.
      * by tsihang, 2021-07-18. */
-    *qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
+    *sfp_type = BF_PLTFM_QSFP_UNKNOWN;
 
     /* there are some odd module/cable types that have inconsistent information
      * in it. We need to categorise them seperately
      */
-    if (bf_sfp_special_case_handled (port, qsfp_type,
+    if (bf_sfp_special_case_handled (port, sfp_type,
                                      &type_copper)) {
         return 0;
     }
@@ -380,7 +439,7 @@ int bf_sfp_type_get (int port,
     }
 
     if (!type_copper) {  // we are done if found optical module
-        *qsfp_type = BF_PLTFM_QSFP_OPT;
+        *sfp_type = BF_PLTFM_QSFP_OPT;
         return 0;
     }
 
@@ -411,6 +470,19 @@ int bf_sfp_type_get (int port,
     return 0;
 }
 
+void bf_sfp_debug_clear_all_presence_bits (void)
+{
+    int port;
+
+    for (port = 0; port < BF_PLAT_MAX_SFP + 1;
+        port++) {
+        if (bf_sfp_info_arr[port].present) {
+            bf_sfp_set_present (port, false);
+        }
+    }
+}
+
+
 /** update sfp cached memory map data
  *
  *  @param port
@@ -436,15 +508,35 @@ int bf_sfp_update_cache (int port)
         return -1;
     }
 
+    // judge media type SFF-8472 Rev 12.3 Page 14
+    // quite complex.
+    if (( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
+          bf_sfp_info_arr[port].idprom[8] == 0x04 &&
+          bf_sfp_info_arr[port].idprom[60] == 0x01 &&
+          bf_sfp_info_arr[port].idprom[61] == 0x00) ||
+        ( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
+          bf_sfp_info_arr[port].idprom[8] == 0x08 &&
+          bf_sfp_info_arr[port].idprom[60] == 0x01 &&
+          bf_sfp_info_arr[port].idprom[61] == 0x00) ||
+        ( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
+          bf_sfp_info_arr[port].idprom[8] == 0x08 &&
+          bf_sfp_info_arr[port].idprom[60] == 0x04 &&
+          bf_sfp_info_arr[port].idprom[61] == 0x00) ||
+        ( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
+          bf_sfp_info_arr[port].idprom[8] == 0x08 &&
+          bf_sfp_info_arr[port].idprom[60] == 0x0C &&
+          bf_sfp_info_arr[port].idprom[61] == 0x00)) {
+        bf_sfp_info_arr[port].passive_cu = true;
+    } else {
+        bf_sfp_info_arr[port].passive_cu = false;
+    }
+
     if (sfp_debug_on) {
         LOG_DEBUG (
-            " SFP    %2d : %s", port,
-            bf_sfp_is_sff8472 (port) ? "SFF-8472" :
-            "Unknown");
-
-        LOG_DEBUG (
-            " SFP    %2d : %s", port,
-            bf_sfp_is_flat_mem (port) ? "Flat" : "Paged");
+            " SFP    %2d : Spec %s : %s : %s", port,
+            bf_sfp_is_sff8472 (port)    ? "SFF-8472" : "Unknown",
+            bf_sfp_is_passive_cu (port) ? "Passive copper" : "Active/Optical",
+            bf_sfp_is_flat_mem (port)   ? "Flat" : "Paged");
     }
 
     sff_dom_info_t sdi;
@@ -471,29 +563,6 @@ int bf_sfp_update_cache (int port)
     sff_dom_info_get (&sdi, sff,
                       bf_sfp_info_arr[port].idprom,
                       bf_sfp_info_arr[port].a2h);
-
-    // judge media type SFF-8472 Rev 12.3 Page 14
-    // quite complex.
-    if (( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
-          bf_sfp_info_arr[port].idprom[8] == 0x04 &&
-          bf_sfp_info_arr[port].idprom[60] == 0x01 &&
-          bf_sfp_info_arr[port].idprom[61] == 0x00) ||
-        ( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
-          bf_sfp_info_arr[port].idprom[8] == 0x08 &&
-          bf_sfp_info_arr[port].idprom[60] == 0x01 &&
-          bf_sfp_info_arr[port].idprom[61] == 0x00) ||
-        ( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
-          bf_sfp_info_arr[port].idprom[8] == 0x08 &&
-          bf_sfp_info_arr[port].idprom[60] == 0x04 &&
-          bf_sfp_info_arr[port].idprom[61] == 0x00) ||
-        ( bf_sfp_info_arr[port].idprom[7] == 0x00 &&
-          bf_sfp_info_arr[port].idprom[8] == 0x08 &&
-          bf_sfp_info_arr[port].idprom[60] == 0x0C &&
-          bf_sfp_info_arr[port].idprom[61] == 0x00)) {
-        bf_sfp_info_arr[port].passive_cu = true;
-    } else {
-        bf_sfp_info_arr[port].passive_cu = false;
-    }
 
     if (sfp_debug_on) {
         bf_sfp_sff_info_show (sff);
@@ -551,6 +620,194 @@ int bf_sfp_get_cached_info (int port, int page,
     memcpy (buf, cptr, MAX_SFP_PAGE_SIZE);
 
     return 0;
+}
+
+void bf_sfp_ddm_convert (const uint8_t *a2h,
+             double *temp, double *volt, double *txBias, double *txPower, double *rxPower)
+{
+    double rx_p, tx_p;
+
+    *temp = get_temp(((a2h[96] << 8) | a2h[97]));
+    *volt = get_vcc(((a2h[98] << 8) | a2h[99]));
+
+    /*
+     * Measured Tx bias current is represented in mA as a 16-bit unsigned integer with the
+     * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2 µA.
+     * TX bias ranges from 0mA to 131mA.
+     */
+    *txBias = get_txbias(((a2h[100] << 8) | a2h[101]));
+    /*
+     * Measured Rx optical power and Tx optical power.
+     * RX/Tx power ranges from 0mW to 6.5535mW
+     */
+#if 0
+    *txPower = 10 * log10 (get_pwr (((a2h[102] << 8) | a2h[103])));
+    *rxPower = 10 * log10 (get_pwr (((a2h[104] << 8) | a2h[105])));
+#endif
+
+    tx_p = get_pwr ((a2h[102] << 8) | a2h[103]);
+    *txPower = (tx_p != 0) ? (10 * log10 (tx_p)) : -40;
+
+    rx_p = get_pwr ((a2h[104] << 8) | a2h[105]);
+    *rxPower = (rx_p != 0) ? (10 * log10 (rx_p)) : -40;
+}
+
+bool bf_sfp_get_chan_temp (int port,
+                            sfp_global_sensor_t *chn)
+{
+    uint8_t data[2];
+    uint8_t offset = 96;
+    int rc;
+
+    chn->temp.value = (double)0;
+    chn->temp._isset.value = false;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    /* A2h, what should we do if there's no A2h ? */
+    rc = bf_pltfm_sfp_read_module (port,
+                             MAX_SFP_PAGE_SIZE + offset, 2,
+                             /* Update cache first. */
+                             &bf_sfp_info_arr[port].a2h[offset]);
+
+    if (rc) {
+        return 0;
+    }
+
+    data[0] = bf_sfp_info_arr[port].a2h[offset];
+    data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
+
+    uint16_t val = data[0] << 8 | data[1];
+    chn->temp.value = get_temp (val);
+    chn->temp._isset.value = true;
+
+    return true;
+}
+
+bool bf_sfp_get_chan_volt (int port,
+                            sfp_global_sensor_t *chn)
+{
+    uint8_t data[2];
+    uint8_t offset = 98;
+    int rc;
+
+    chn->vcc.value = (double)0;
+    chn->vcc._isset.value = false;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    /* A2h, what should we do if there's no A2h ? */
+    rc = bf_pltfm_sfp_read_module (port,
+                             MAX_SFP_PAGE_SIZE + offset, 2,
+                             &bf_sfp_info_arr[port].a2h[offset]);
+    if (rc) {
+        return 0;
+    }
+
+    data[0] = bf_sfp_info_arr[port].a2h[offset];
+    data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
+
+    uint16_t val = data[0] << 8 | data[1];
+    chn->vcc.value = get_vcc (val);
+    chn->vcc._isset.value = true;
+
+    return true;
+}
+
+/** update sfp real time diagnostic tx_bias value to cache.
+ *
+ *  @param port
+ *   port
+ */
+bool bf_sfp_get_chan_tx_bias (int port,
+                               sfp_channel_t *chn)
+{
+    uint8_t data[2];
+    uint8_t offset = 100;
+    int rc;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    /* A2h, what should we do if there's no A2h ? */
+    rc = bf_pltfm_sfp_read_module (port,
+                                  MAX_SFP_PAGE_SIZE + offset, 2,
+                                  &bf_sfp_info_arr[port].a2h[offset]);
+    if (rc) {
+        return 0;
+    }
+
+    data[0] = bf_sfp_info_arr[port].a2h[offset];
+    data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
+
+    uint16_t val = data[0] << 8 | data[1];
+    chn->sensors.tx_bias.value = get_txbias (val);
+    chn->sensors.tx_bias._isset.value = true;
+
+    return true;
+}
+
+bool bf_sfp_get_chan_tx_pwr (int port,
+                              sfp_channel_t *chn)
+{
+   uint8_t data[2];
+   uint8_t offset = 102;
+   int rc;
+
+   if (port > bf_plt_max_sfp) {
+       return -1;
+   }
+
+   /* A2h, what should we do if there's no A2h ? */
+   rc = bf_pltfm_sfp_read_module (port,
+                                 MAX_SFP_PAGE_SIZE + offset, 2,
+                                 &bf_sfp_info_arr[port].a2h[offset]);
+   if (rc) {
+       return 0;
+   }
+
+   data[0] = bf_sfp_info_arr[port].a2h[offset];
+   data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
+
+   uint16_t val = data[0] << 8 | data[1];
+   chn->sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (10 * log10 (get_pwr (val))));
+   chn->sensors.tx_pwr._isset.value = true;
+
+   return true;
+}
+
+bool bf_sfp_get_chan_rx_pwr (int port,
+                              sfp_channel_t *chn)
+{
+    uint8_t data[2];
+    uint8_t offset = 104;
+    int rc;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    /* A2h, what should we do if there's no A2h ? */
+    rc = bf_pltfm_sfp_read_module (port,
+                               MAX_SFP_PAGE_SIZE + offset, 2,
+                               &bf_sfp_info_arr[port].a2h[offset]);
+    if (rc) {
+        return 0;
+    }
+
+    data[0] = bf_sfp_info_arr[port].a2h[offset];
+    data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
+
+    uint16_t val = data[0] << 8 | data[1];
+    chn->sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (10 * log10 (get_pwr (val))));
+    chn->sensors.rx_pwr._isset.value = true;
+
+    return true;
 }
 
 /** detect sfp module by accessing its memory and update cached information
@@ -651,6 +908,15 @@ bool bf_sfp_get_reset (int port)
     return false;
 }
 
+int bf_sfp_tx_disable (int port, bool tx_dis)
+{
+    if (port <= bf_plt_max_sfp) {
+        return (bf_pltfm_sfp_module_tx_disable (port, tx_dis));
+    } else {
+        return -1; /* TBD: handle cpu port SFP */
+    }
+}
+
 /** Get number of SFP ports on the system
  *
  *  @param num_ports
@@ -738,6 +1004,7 @@ int bf_sfp_init()
         bf_sfp_info_arr[i].reset = false;
         bf_sfp_info_arr[i].flat_mem = false;
         bf_sfp_info_arr[i].passive_cu = true;
+        bf_sfp_info_arr[i].fsm_detected = false;
         //bf_sfp_info_arr[i].num_ch = 0;
         bf_sfp_info_arr[i].memmap_format =
             MMFORMAT_UNKNOWN;
@@ -906,14 +1173,6 @@ int bf_sfp_get_transceiver_info (int port,
     /* connector type */
     info->connector_type = p_a0h[2];
     info->_isset.ctype = true;
-    /* sensor info */
-    info->sensor.temp.value = (double) (
-                                  p_a2h[96]) + ((double)p_a2h[97] / 256);
-    info->sensor.temp._isset.value = true;
-    info->sensor.vcc.value = (double) ((
-                                           p_a2h[98] << 8) + p_a2h[99]) / 10000.000;
-    info->sensor.vcc._isset.value = true;
-    info->_isset.sensor = true;
     /* vendor info */
     sfp_copy_string ((uint8_t *)info->vendor.name,
                      p_a0h, 20, 16);
@@ -927,25 +1186,66 @@ int bf_sfp_get_transceiver_info (int port,
                      , p_a0h, 84, 8);
     memcpy (info->vendor.oui, &p_a0h[37], 3);
     info->_isset.vendor = true;
-    /* rx/tx pwr */
-    info->chn[0].sensors.rx_pwr.value = (double) ((
-                                         p_a2h[102] << 8) + p_a2h[103]) * 0.1 / 1000.00;
-    if (info->chn[0].sensors.rx_pwr.value == 0) {
-        info->chn[0].sensors.rx_pwr.value = -40;
-    } else {
-        info->chn[0].sensors.rx_pwr.value = 10 * log10 (
-                                             info->chn[0].sensors.rx_pwr.value);
-    }
-    info->chn[0].sensors.tx_pwr.value = (double) ((
-                                         p_a2h[104] << 8) + p_a2h[105]) * 0.1 / 1000.00;
-    if (info->chn[0].sensors.tx_pwr.value == 0) {
-        info->chn[0].sensors.tx_pwr.value = -40;
-    } else {
-        info->chn[0].sensors.tx_pwr.value = 10 * log10 (
-                                             info->chn[0].sensors.tx_pwr.value);
-    }
+
+    /* The value of sensors in p_a2h is updated to cache by bf_pltfm_onlp_mntr_transceiver thread.
+     * Here we just read out from cache.
+     * While at this moment bf_qsfp_get_transceiver_info gets transceiver info from a real transceiver module.
+     * by tsihang, 2023-06-25. */
+    bf_sfp_ddm_convert (p_a2h,
+        &info->sensor.temp.value,
+        &info->sensor.vcc.value,
+        &info->chn[0].sensors.tx_bias.value,
+        &info->chn[0].sensors.tx_pwr.value,
+        &info->chn[0].sensors.rx_pwr.value);
+    info->sensor.temp._isset.value = true;
+    info->sensor.vcc._isset.value = true;
+    info->_isset.sensor = true;
     info->_isset.chn = true;
 
     return 0;
 }
 
+void bf_sfp_print_ddm (int port, sfp_global_sensor_t *trans, sfp_channel_t *chnl)
+{
+      LOG_DEBUG (" SFP DDM Info for port %d",
+          port);
+      LOG_DEBUG (
+                  "%10s %10s %15s %10s %16s %16s",
+                  "-------",
+                  "--------",
+                  "-----------",
+                  "--------",
+                  "--------------",
+                  "--------------");
+      LOG_DEBUG (
+                  "%10s %10s %15s %10s %16s %16s",
+                  "Port   ",
+                  "Temp (C)",
+                  "Voltage (V)",
+                  "Bias(mA)",
+                  "Tx Power (dBm)",
+                  "Rx Power (dBm)");
+      LOG_DEBUG (
+                  "%10s %10s %15s %10s %16s %16s",
+                  "-------",
+                  "--------",
+                  "-----------",
+                  "--------",
+                  "--------------",
+                  "--------------");
+       LOG_DEBUG ("      %d   %10.1f %15.2f %10.2f %16.2f %16.2f",
+                  port,
+                  trans->temp.value,
+                  trans->vcc.value,
+                  chnl->sensors.tx_bias.value,
+                  chnl->sensors.tx_pwr.value,
+                  chnl->sensors.rx_pwr.value);
+      LOG_DEBUG (
+                  "%10s %10s %15s %10s %16s %16s",
+                  "-------",
+                  "--------",
+                  "-----------",
+                  "--------",
+                  "--------------",
+                  "--------------");
+}

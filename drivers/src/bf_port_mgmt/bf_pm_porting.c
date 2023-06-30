@@ -23,7 +23,215 @@
 // Local header includes
 #include "bf_pm_priv.h"
 
-bool dev_port_in_tx_mode[512] = {false};
+#define ENTER_DBG //fprintf(stdout, "f : %s l : %4d\n", __FILE__, __LINE__);
+
+#define BF_DEV_PORT_TO_PIPE(x) (((x) >> 7) & 3)
+#define BF_DEV_PORT_TO_LOCAL_PORT(x) ((x) & 0x7F)
+#define BF_MAKE_DEV_PORT(pipe, port) (((pipe) << 7) | (port))
+#define BF_DEV_PORT_VALIDATE(x) ((((x) & 0x7F) < 72) && !((x) & ~0x1FF))
+#define BF_LOCAL_PORT_VALIDATE(x) ((x) < 72)
+#define BF_MAX_DEV_PORT 512
+
+/* Required by Y32. by tsihang, 2021-08-30. */
+#define BF_DEVPORT_ENA      (1 << 0)
+static uint32_t bf_devport_flags[BF_MAX_DEV_PORT] = {0};
+
+bool devport_state_tx_mode_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl)
+{
+    bf_pm_port_dir_e dir_mode = PM_PORT_DIR_DEFAULT;
+
+    bf_pm_port_direction_get (dev_id, port_hdl, &dir_mode);
+    if (dir_mode == PM_PORT_DIR_TX_ONLY) {
+        return true;
+    }
+    return false;
+}
+
+bool devport_state_loopback_mode_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl)
+{
+    bf_loopback_mode_e lp_mode = BF_LPBK_NONE;
+
+    bf_pm_port_loopback_mode_get (dev_id, port_hdl, &lp_mode);
+    if (lp_mode != BF_LPBK_NONE) {
+        return true;
+    }
+    return false;
+}
+
+void devport_state_enabled_set(bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl, bool set)
+{
+    bf_dev_port_t dev_port = 0;
+    FP2DP (dev_id, port_hdl, &dev_port);
+    set ? (bf_devport_flags[dev_port % BF_MAX_DEV_PORT] |= BF_DEVPORT_ENA) :\
+          (bf_devport_flags[dev_port % BF_MAX_DEV_PORT] &= ~BF_DEVPORT_ENA);
+}
+
+bool devport_state_enabled_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl)
+{
+    bf_dev_port_t dev_port = 0;
+    FP2DP (dev_id, port_hdl, &dev_port);
+    return (bf_devport_flags[dev_port % BF_MAX_DEV_PORT] & BF_DEVPORT_ENA);
+}
+
+int devport_speed_to_led_color (bf_port_speed_t speed,
+    bf_led_condition_t *led_cond)
+{
+    /* by tsihang, 21 Nov. 2019 */
+    if ((speed & BF_SPEED_1G) ||
+        (speed & BF_SPEED_10G)) {
+        *led_cond = BF_LED_PORT_LINKUP_1G_10G;
+    } else if ((speed & BF_SPEED_25G)) {
+        *led_cond = BF_LED_PORT_LINKUP_25G;
+    } else if ((speed & BF_SPEED_40G)) {
+        *led_cond = BF_LED_PORT_LINKUP_40G;
+    } else if ((speed & BF_SPEED_50G)) {
+        *led_cond = BF_LED_PORT_LINKUP_50G;
+    } else if ((speed &
+                BF_SPEED_100G)) {
+        *led_cond = BF_LED_PORT_LINKUP_100G;
+    } else {
+        *led_cond = BF_LED_PORT_LINK_DOWN;
+    }
+    return 0;
+}
+
+// Until we integrate it with SDK
+bf_status_t bf_pm_encoding_mode_get (
+    bf_port_speed_t speed,
+    uint32_t n_lanes,
+    bf_pltfm_encoding_type_t *enc_mode)
+{
+    if (!enc_mode) {
+        return BF_INVALID_ARG;
+    }
+
+    *enc_mode = BF_PLTFM_ENCODING_NRZ;
+
+    switch (speed) {
+        case BF_SPEED_400G:
+            *enc_mode = BF_PLTFM_ENCODING_PAM4;
+            return BF_SUCCESS;
+            break;
+        case BF_SPEED_200G:
+            if (n_lanes == 8) {
+                *enc_mode = BF_PLTFM_ENCODING_NRZ;
+                return BF_SUCCESS;
+            } else if (n_lanes == 4) {
+                *enc_mode = BF_PLTFM_ENCODING_PAM4;
+                return BF_SUCCESS;
+            }
+            break;
+        case BF_SPEED_100G:
+            if (n_lanes == 2) {
+                *enc_mode = BF_PLTFM_ENCODING_PAM4;
+                return BF_SUCCESS;
+            } else if (n_lanes == 4) {
+                *enc_mode = BF_PLTFM_ENCODING_NRZ;
+                return BF_SUCCESS;
+            }
+            break;
+        case BF_SPEED_50G:
+            if (n_lanes == 1) {
+                *enc_mode = BF_PLTFM_ENCODING_PAM4;
+                return BF_SUCCESS;
+            } else if (n_lanes == 2) {
+                *enc_mode = BF_PLTFM_ENCODING_NRZ;
+                return BF_SUCCESS;
+            }
+            break;
+#if SDE_VERSION_GT(930) /* sinc 9.5.x */
+        case BF_SPEED_40G_R2:
+#endif
+        case BF_SPEED_40G:
+        case BF_SPEED_25G:
+        case BF_SPEED_10G:
+        case BF_SPEED_1G:
+            *enc_mode = BF_PLTFM_ENCODING_NRZ;
+            return BF_SUCCESS;
+        case BF_SPEED_NONE:
+            return BF_SUCCESS;
+        default:
+            // Invalid speed
+            break;
+    }
+    return BF_INVALID_ARG;
+}
+
+bf_status_t bf_pm_pre_port_add_cfg_set (
+    bf_pal_front_port_handle_t *port_hdl,
+    bf_pal_front_port_cb_cfg_t *port_cfg)
+{
+    bf_pltfm_port_info_t port_info;
+    bf_dev_id_t dev_id = 0;
+    bf_dev_id_t dev_id_of_port = 0;
+    int ch, i;
+    bf_dev_port_t dev_port;
+    bf_pltfm_encoding_type_t encoding = 0;
+
+    // Safety Checks
+    if (!port_hdl) {
+        return BF_INVALID_ARG;
+    }
+    if (!port_cfg) {
+        return BF_INVALID_ARG;
+    }
+
+    port_info.conn_id = port_hdl->conn_id;
+    port_info.chnl_id = port_hdl->chnl_id;
+
+    // Handle speed mismatch -
+    // If there is a mismatch between configured speed and platform supported,
+    // then number of channels will vary. For eg, with 100G configuration,
+    // num of channels should be four in both board-map and port-configuration.
+    // If platform supports only 25G, then board-map will have one channel.
+    // So bail-out from port-add.
+    for (i = 0; i < port_cfg->num_lanes; i++) {
+        ch = port_info.chnl_id + i;
+        if (!bf_bd_is_this_channel_valid (
+                port_info.conn_id, ch)) {
+            LOG_ERROR (
+                "%s: Unsupported speed dev : %d : front port : %d/%d "
+                "port-cfg-nlanes:%d "
+                "invalid channel:%d ",
+                __func__,
+                dev_id,
+                port_info.conn_id,
+                port_info.chnl_id,
+                port_cfg->num_lanes,
+                ch);
+
+            return BF_INVALID_ARG;
+        }
+    }
+
+    if (!bf_pm_intf_is_device_family_tofino (
+            dev_id)) {
+        FP2DP (dev_id_of_port, port_hdl, &dev_port);
+        dev_id = dev_id_of_port;
+
+        bf_pm_encoding_mode_get (
+            port_cfg->speed_cfg, port_cfg->num_lanes,
+            &encoding);
+        //bf_pm_intf_add(&port_info, dev_id, dev_port, port_cfg, encoding);
+        return BF_SUCCESS;
+    }
+
+    if (is_panel_sfp (port_info.conn_id,
+                      port_info.chnl_id)) {
+        return BF_SUCCESS;
+    } else {
+        qsfp_fsm_update_cfg (port_info.conn_id,
+                         port_info.chnl_id,
+                         port_cfg->speed_cfg,
+                         port_cfg->num_lanes,
+                         BF_PLTFM_ENCODING_NRZ);
+    }
+    return BF_SUCCESS;
+}
 
 static bf_status_t bf_pm_port_fc_mac_set (
     bf_pal_front_port_handle_t *port_hdl,
@@ -67,53 +275,6 @@ static bf_status_t bf_pm_port_fc_mac_set (
     return BF_SUCCESS;
 }
 
-bf_status_t bf_pm_pre_port_add_cfg_set (
-    bf_pal_front_port_handle_t *port_hdl,
-    bf_pal_front_port_cb_cfg_t *port_cfg)
-{
-    bf_pltfm_port_info_t port_info;
-    bf_dev_id_t dev_id = 0;
-    int ch, i;
-
-    // Safety Checks
-    if (!port_hdl) {
-        return BF_INVALID_ARG;
-    }
-    if (!port_cfg) {
-        return BF_INVALID_ARG;
-    }
-
-    port_info.conn_id = port_hdl->conn_id;
-    port_info.chnl_id = port_hdl->chnl_id;
-
-    // Handle speed mismatch -
-    // If there is a mismatch between configured speed and platform supported,
-    // then number of channels will vary. For eg, with 100G configuration,
-    // num of channels should be four in both board-map and port-configuration.
-    // If platform supports only 25G, then board-map will have one channel.
-    // So bail-out from port-add.
-    for (i = 0; i < port_cfg->num_lanes; i++) {
-        ch = port_info.chnl_id + i;
-        if (!bf_bd_is_this_channel_valid (
-                port_info.conn_id, ch)) {
-            LOG_ERROR (
-                "%s: Unsupported speed dev : %d : front port : %d/%d "
-                "port-cfg-nlanes:%d "
-                "invalid channel:%d ",
-                __func__,
-                dev_id,
-                port_info.conn_id,
-                port_info.chnl_id,
-                port_cfg->num_lanes,
-                ch);
-
-            return BF_INVALID_ARG;
-        }
-    }
-
-    return BF_SUCCESS;
-}
-
 bf_status_t bf_pm_post_port_add_cfg_set (
     bf_pal_front_port_handle_t *port_hdl,
     bf_pal_front_port_cb_cfg_t *port_cfg)
@@ -144,23 +305,25 @@ bf_status_t bf_pm_post_port_add_cfg_set (
 
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
-        fprintf(stdout,
-            "%2d/%d : %s\n",
-            (port_hdl)->conn_id, (port_hdl)->chnl_id, "Force bringup : AN may be required");
+        fprintf (stdout,
+                 "%2d/%d : %s\n",
+                 (port_hdl)->conn_id, (port_hdl)->chnl_id,
+                 "Force bringup : AN may be required");
         bf_pal_pm_front_port_ready_for_bringup (dev_id,
                                                 port_hdl, true);
     } else {
         /* LED set to disabled state on port-add */
-        sts = bf_port_led_set(dev_id, &port_info, BF_LED_POST_PORT_DIS);
+        sts = bf_port_led_set (dev_id, &port_info,
+                               BF_LED_POST_PORT_DIS);
         if (sts != BF_PLTFM_SUCCESS) {
-          LOG_ERROR(
-              "Unable to set led on port add for dev : %d : front port : %d/%d : "
-              "%s (%d)",
-              dev_id,
-              port_info.conn_id,
-              port_info.chnl_id,
-              bf_pltfm_err_str(sts),
-              sts);
+            LOG_ERROR (
+                "Unable to set led on port add for dev : %d : front port : %d/%d : "
+                "%s (%d)",
+                dev_id,
+                port_info.conn_id,
+                port_info.chnl_id,
+                bf_pltfm_err_str (sts),
+                sts);
         }
     }
 
@@ -177,6 +340,8 @@ bf_status_t bf_pm_pre_port_delete_cfg_set (
         return BF_INVALID_ARG;
     }
 
+    ENTER_DBG;
+    devport_state_enabled_set(0, port_hdl, false);
     // Currently there is nothing to be done so just return
     (void)port_cfg;
     return BF_SUCCESS;
@@ -220,6 +385,9 @@ bf_status_t bf_pm_post_port_delete_cfg_set (
     if (is_panel_sfp (port_info.conn_id,
                       port_info.chnl_id)) {
         return BF_SUCCESS;
+    } else {
+        qsfp_fsm_deinit_cfg (port_info.conn_id,
+                             port_info.chnl_id);
     }
     (void)port_cfg;
     return BF_SUCCESS;
@@ -233,8 +401,9 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     bf_pltfm_port_info_t port_info;
     bf_dev_id_t dev_id = 0;
     bool is_present = false;
-    bf_dev_port_t dev_port;
-    bf_led_condition_t led_cond = BF_LED_POST_PORT_DIS;
+    bf_dev_port_t dev_port = 0;
+    bf_led_condition_t led_cond =
+        BF_LED_POST_PORT_DIS;
 
     // Safety Checks
     if (!port_hdl) {
@@ -256,21 +425,7 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     if (is_present) {
         int ln;
         bool is_optic = false;
-        bf_pltfm_qsfp_type_t qsfp_type =
-            BF_PLTFM_QSFP_UNKNOWN;
-        sts = bf_pltfm_pm_port_qsfp_type_get (&port_info,
-                                              &qsfp_type);
-
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR (
-                "Unable to get the type of the QSFP connected to front port %d/%d : "
-                "%s (%d)",
-                port_info.conn_id,
-                port_info.chnl_id,
-                bf_pltfm_err_str (sts),
-                sts);
-        }
-        is_optic = bf_qsfp_is_optic (qsfp_type);
+        is_optic = bf_qsfp_is_optical (port_info.conn_id);
 
         if (is_optic) {
             bf_port_is_optical_xcvr_set (dev_id, dev_port,
@@ -319,7 +474,7 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     }
 
     /* TBD: Add force Tx conditions. */
-    if (is_present || dev_port_in_tx_mode[dev_port]) {
+    if (is_present || devport_state_tx_mode_chk(dev_id, port_hdl)) {
         /* Set LED to enabled status for X564P-T/X532P-T when there's a transciever plugged-in.
          * X312P-T/X308P-T could be keep disabled status as the led spec is different. */
         led_cond = BF_LED_PRE_PORT_EN;
@@ -336,7 +491,8 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
             bf_pltfm_err_str (sts),
             sts);
     }
-
+    ENTER_DBG;
+    devport_state_enabled_set(dev_id, port_hdl, true);
     (void)port_cfg;
     return BF_SUCCESS;
 }
@@ -349,8 +505,6 @@ bf_status_t bf_pm_post_port_enable_cfg_set (
     bf_pltfm_port_info_t port_info;
     bf_pltfm_ext_phy_cfg_t rtmr_cfg;
     bool is_present = false;
-    bf_pltfm_qsfp_type_t qsfp_type =
-        BF_PLTFM_QSFP_UNKNOWN;
     int num_lanes, log_lane;
     bool is_optic = false;
 
@@ -370,19 +524,7 @@ bf_status_t bf_pm_post_port_enable_cfg_set (
     pltfm_pm_port_qsfp_is_present (&port_info,
                                    &is_present);
     if (is_present) {
-        sts = bf_pltfm_pm_port_qsfp_type_get (&port_info,
-                                              &qsfp_type);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR (
-                "Unable to get the type of the QSFP connected to front port %d/%d : "
-                "%s (%d)",
-                port_info.conn_id,
-                port_info.chnl_id,
-                bf_pltfm_err_str (sts),
-                sts);
-        }
-
-        is_optic = bf_qsfp_is_optic (qsfp_type);
+        is_optic = bf_qsfp_is_optical (port_info.conn_id);
     }
     // Set Retimer mode
     bf_bd_cfg_port_has_rtmr (&port_info, &is_present);
@@ -423,6 +565,7 @@ bf_status_t bf_pm_post_port_enable_cfg_set (
         }
     }
 
+    (void)port_cfg;
     return BF_SUCCESS;
 }
 
@@ -430,12 +573,10 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
     bf_pal_front_port_handle_t *port_hdl,
     bf_pal_front_port_cb_cfg_t *port_cfg)
 {
-    bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_pltfm_port_info_t port_info;
     bool is_present = false, is_optic = false, is_sfp;
-    bf_pltfm_qsfp_type_t qsfp_type =
-        BF_PLTFM_QSFP_UNKNOWN;
     int num_lanes, log_lane;
+    bf_dev_id_t dev_id = 0;
 
     // Safety Checks
     if (!port_hdl) {
@@ -453,29 +594,24 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
 
     if (is_sfp) {
         int module = 0;
-        pltfm_pm_port_sfp_is_present (&port_info, &is_present);
-        bf_sfp_get_port (port_info.conn_id,
-                 port_info.chnl_id, &module);
-        sfp_fsm_st_disable (
-             0, module);
+        pltfm_pm_port_sfp_is_present (&port_info,
+                                      &is_present);
+        if (is_present) {
+            bf_sfp_get_port (port_info.conn_id,
+                             port_info.chnl_id, &module);
+            is_optic = bf_sfp_is_optical (module);
+            if (is_optic) {
+                sfp_fsm_st_disable (
+                    0, module);
+            }
+        }
         return BF_SUCCESS;
     }
 
     pltfm_pm_port_qsfp_is_present (&port_info,
                                    &is_present);
     if (is_present) {
-        sts = bf_pltfm_pm_port_qsfp_type_get (&port_info,
-                                              &qsfp_type);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR (
-                "Unable to get the type of the QSFP connected to front port %d/%d : "
-                "%s (%d)",
-                port_info.conn_id,
-                port_info.chnl_id,
-                bf_pltfm_err_str (sts),
-                sts);
-        }
-        is_optic = bf_qsfp_is_optic (qsfp_type);
+        is_optic = bf_qsfp_is_optical (port_info.conn_id);
 
         if (is_optic) {
             for (log_lane = 0; log_lane < num_lanes;
@@ -493,6 +629,9 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
             }
         }
     }
+    ENTER_DBG;
+    devport_state_enabled_set(dev_id, port_hdl, false);
+    (void)port_cfg;
     return BF_SUCCESS;
 }
 
@@ -522,8 +661,11 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
 
 #if SDE_VERSION_GT(900)
     bool port_enb = false;
-    sts = bf_pm_port_is_enabled(dev_id, port_hdl, &port_enb);
-    if (sts != BF_SUCCESS) return sts;
+    sts = bf_pm_port_is_enabled (dev_id, port_hdl,
+                                 &port_enb);
+    if (sts != BF_SUCCESS) {
+        return sts;
+    }
     if (!port_enb)
 #endif
     {
@@ -583,42 +725,31 @@ bf_status_t bf_pm_port_link_up_actions (
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
         // nothing todo
-        fprintf(stdout, "\n");
-        fprintf(stdout,
-            "%2d/%d : %s\n",
-            (port_hdl)->conn_id, (port_hdl)->chnl_id, "up");
+        fprintf (stdout, "\n");
+        fprintf (stdout,
+                 "%2d/%d : %s\n",
+                 (port_hdl)->conn_id, (port_hdl)->chnl_id, "up");
         return BF_SUCCESS;
-    }
-
-    /* by tsihang, 21 Nov. 2019 */
-    if ((port_cfg->speed_cfg & BF_SPEED_1G) ||
-        (port_cfg->speed_cfg & BF_SPEED_10G)) {
-        led_cond = BF_LED_PORT_LINKUP_1G_10G;
-    } else if ((port_cfg->speed_cfg & BF_SPEED_25G)) {
-        led_cond = BF_LED_PORT_LINKUP_25G;
-    } else if ((port_cfg->speed_cfg & BF_SPEED_40G)) {
-        led_cond = BF_LED_PORT_LINKUP_40G;
-    } else if ((port_cfg->speed_cfg & BF_SPEED_50G)) {
-        led_cond = BF_LED_PORT_LINKUP_50G;
-    } else if ((port_cfg->speed_cfg &
-                BF_SPEED_100G)) {
-        led_cond = BF_LED_PORT_LINKUP_100G;
     }
 
     is_sfp = is_panel_sfp (port_hdl->conn_id,
                            port_hdl->chnl_id);
     if (is_sfp) {
-        pltfm_pm_port_sfp_is_present (&port_info, &is_present);
+        pltfm_pm_port_sfp_is_present (&port_info,
+                                      &is_present);
     } else {
         pltfm_pm_port_qsfp_is_present (&port_info,
                                        &is_present);
     }
 
-    fprintf(stdout, "\n");
-    fprintf(stdout,
-        "%2d/%d : %s : is_present : %d\n",
-        (port_hdl)->conn_id, (port_hdl)->chnl_id, "up", is_present);
+    fprintf (stdout, "\n");
+    fprintf (stdout,
+             "%2d/%d : %s : is_present : %d\n",
+             (port_hdl)->conn_id, (port_hdl)->chnl_id, "up",
+             is_present);
 
+    /* by tsihang, 21 Nov. 2019 */
+    devport_speed_to_led_color (port_cfg->speed_cfg, &led_cond);
     sts = bf_port_led_set (dev_id, &port_info,
                            led_cond);
     if (sts != BF_PLTFM_SUCCESS) {
@@ -659,17 +790,18 @@ bf_status_t bf_pm_port_link_down_actions (
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
         // nothing todo
-        fprintf(stdout, "\n");
-        fprintf(stdout,
-            "%2d/%d : %s\n",
-            (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn");
+        fprintf (stdout, "\n");
+        fprintf (stdout,
+                 "%2d/%d : %s\n",
+                 (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn");
         return BF_SUCCESS;
     }
 
     is_sfp = is_panel_sfp (port_hdl->conn_id,
                            port_hdl->chnl_id);
     if (is_sfp) {
-        pltfm_pm_port_sfp_is_present (&port_info, &is_present);
+        pltfm_pm_port_sfp_is_present (&port_info,
+                                      &is_present);
     } else {
         /* Make sure the light off on the port which gonna down without transceiver.
          * This feature always present on the port in Tx mode.
@@ -684,10 +816,24 @@ bf_status_t bf_pm_port_link_down_actions (
         }
     }
 
-    fprintf(stdout, "\n");
-    fprintf(stdout,
-        "%2d/%d : %s : is_present : %d\n",
-        (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn", is_present);
+    ENTER_DBG;
+    /* Pull led off if the linkdown event caused by port-dis. */
+    if (!devport_state_enabled_chk(dev_id, port_hdl)) {
+        led_cond = BF_LED_POST_PORT_DIS;
+        LOG_DEBUG (
+                 "QSFP    %2d/%d : %s\n",
+                 (port_hdl)->conn_id, (port_hdl)->chnl_id, "Forced link dn ...");
+    } else {
+        LOG_DEBUG (
+                 "QSFP    %2d/%d : %s\n",
+                 (port_hdl)->conn_id, (port_hdl)->chnl_id, "Remote link dn ...");
+    }
+
+    fprintf (stdout, "\n");
+    fprintf (stdout,
+             "%2d/%d : %s : is_present : %d\n",
+             (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn",
+             is_present);
 
     sts = bf_port_led_set (dev_id, &port_info,
                            led_cond);
@@ -758,8 +904,6 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
     bf_status_t rc;
     int lane;
     bool is_optical = false;
-    bf_pltfm_qsfp_type_t qsfp_type =
-        BF_PLTFM_QSFP_UNKNOWN;
     bool is_sfp;
     int module;
     bf_pltfm_port_info_t port_info;
@@ -771,6 +915,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
                    rc, dev_port);
         return BF_INVALID_ARG;
     }
+
     is_sfp = is_panel_sfp (port_hdl.conn_id,
                            port_hdl.chnl_id);
     // Check type, this fn only handles optical QSFPs
@@ -788,11 +933,9 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
                    dev_port,
                    is_optical ? "OPTICAL" : "COPPER");
     } else {
-        bf_pltfm_pm_port_qsfp_type_get (&port_info,
-                                        &qsfp_type);
-        
-        is_optical = bf_qsfp_is_optic (qsfp_type);
-        
+        is_optical = bf_qsfp_is_optical (
+                         port_info.conn_id);
+
         LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
                    port_info.conn_id,
                    port_info.chnl_id,
@@ -838,6 +981,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
                    dev_port,
                    lane);
         if (!bf_pltfm_pm_is_ha_mode()) {
+            qsfp_fsm_update_cdr (dev_id, port_hdl.conn_id);
             qsfp_fsm_ch_enable (dev_id, port_hdl.conn_id,
                                 port_hdl.chnl_id + lane);
         } else {
@@ -845,7 +989,6 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
                                              port_hdl.chnl_id + lane);
         }
     }
-    dev_port_in_tx_mode[dev_port] = false;
     return BF_SUCCESS;
 }
 
@@ -865,8 +1008,6 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
     bf_status_t rc;
     int lane;
     bool is_optical = false;
-    bf_pltfm_qsfp_type_t qsfp_type =
-        BF_PLTFM_QSFP_UNKNOWN;
     bf_pltfm_port_info_t port_info;
 
     rc = bf_pm_port_dev_port_to_front_panel_port_get (
@@ -879,11 +1020,9 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
     // Check type, this fn only handles optical QSFPs
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = port_hdl.chnl_id;
-    bf_pltfm_pm_port_qsfp_type_get (&port_info,
-                                    &qsfp_type);
 
-    is_optical = bf_qsfp_is_optic (qsfp_type);
-
+    is_optical = bf_qsfp_is_optical (
+                     port_info.conn_id);
     LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
                port_info.conn_id,
                port_info.chnl_id,
@@ -931,7 +1070,6 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
                                              port_hdl.chnl_id + lane);
         }
     }
-    dev_port_in_tx_mode[dev_port] = true;
     return BF_SUCCESS;
 }
 
@@ -945,8 +1083,7 @@ bf_status_t bf_pltfm_pm_rtmr_lane_reset_cb (
     int num_lanes;
     bf_status_t rc;
     bool is_optical = false, is_rtmr = false;
-    bf_pltfm_qsfp_type_t qsfp_type =
-        BF_PLTFM_QSFP_UNKNOWN;
+
     bf_pltfm_port_info_t port_info;
     rc = bf_pm_port_dev_port_to_front_panel_port_get (
              dev_id, dev_port, &port_hdl);
@@ -963,9 +1100,9 @@ bf_status_t bf_pltfm_pm_rtmr_lane_reset_cb (
     if (!is_rtmr) {
         return BF_SUCCESS;
     }
-    bf_pltfm_pm_port_qsfp_type_get (&port_info,
-                                    &qsfp_type);
-    is_optical = bf_qsfp_is_optic (qsfp_type);
+
+    is_optical = bf_qsfp_is_optical (
+                     port_info.conn_id);
     // nothing to do here (either) if not optical
     if (!is_optical) {
         return BF_SUCCESS;
@@ -988,13 +1125,48 @@ bf_status_t bf_pltfm_pm_rtmr_lane_reset_cb (
 }
 
 int in_rtmr_init = 0;
+extern void qsfp_reset_pres_mask (void);
+extern void sfp_reset_pres_mask (void);
 
+#if SDE_VERSION_LT(9110)
 bf_status_t bf_pm_cold_init()
+#else
+bf_status_t bf_pm_cold_init (bf_dev_init_mode_t
+                             warm_init_mode)
+#endif
 {
     bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_dev_id_t dev_id = 0;
+    bool warm_init_mode_cfg;
 
-    bf_pltfm_platform_port_init (dev_id, false);
+#if SDE_VERSION_LT(9110)
+    warm_init_mode_cfg = false;
+#else
+    if (warm_init_mode != BF_DEV_INIT_COLD) {
+        //bf_pm_intf_obj_reset();
+        warm_init_mode_cfg = true;
+    } else {
+        warm_init_mode_cfg = false;
+    }
+#endif
+
+    bf_pltfm_platform_port_init (dev_id,
+                                 warm_init_mode_cfg);
+
+    // On warm-init with upgrade_agents=false, since the pltfm_mgr_init isnt
+    // called, the qsfp presence flag isnt reset. This prevents the qsfp_scan from
+    // redetecting the inserted modules. To retrigger detection, qsfp_pres_mask
+    // needs to be reset. Redection will call qsfp_state_ha_config_set which will
+    // handle the HA init for qsfp. This is Tofino1 specific.
+    if (warm_init_mode_cfg) {
+        qsfp_reset_pres_mask();
+        sfp_reset_pres_mask ();
+    }
+
+    /* I don't know why call qsfp_scan here.
+     * Disable it to perform a quick boot when transceivers already plugged-in.
+     * by tsihang, 2023-06-26. */
+#if 0
     sts = qsfp_scan (dev_id);
     if (sts != BF_PLTFM_SUCCESS) {
         LOG_ERROR ("%s:%4d: Unable to do warm init for dev : %d : %s (%d)",
@@ -1004,6 +1176,7 @@ bf_status_t bf_pm_cold_init()
                    sts);
         return sts;
     }
+#endif
 
     // Initialize retimers
     in_rtmr_init = 1;
@@ -1047,7 +1220,8 @@ bf_status_t bf_pm_cold_init()
     }
 
     fprintf (stdout,
-             "%s:%d Bind QSFP Mgmt callback Tx-only ..\n", __func__,
+             "%s:%d Bind QSFP Mgmt callback Tx-only ..\n",
+             __func__,
              __LINE__);
     /* QSFP Force Tx mode
      * by tsihang, 2020-07-24 */

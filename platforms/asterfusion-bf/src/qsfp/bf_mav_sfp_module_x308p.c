@@ -215,7 +215,7 @@ static int sfp_select_x308p (uint32_t module)
         // select PCA9548
         if (bf_pltfm_cp2112_write_byte (hndl,
                                         sfp->info.i2c_chnl_addr << 1,  1 << sfp->info.rev,
-                                        DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
+                                        DEFAULT_TIMEOUT_MS * 2) != BF_PLTFM_SUCCESS) {
             rc = -3;
             break;
         }
@@ -227,7 +227,7 @@ static int sfp_select_x308p (uint32_t module)
 
 static int sfp_unselect_x308p (uint32_t module)
 {
-    int rc = 0;
+    int rc = -1, last_wr_rc = 0, last_rd_rc = 0;
     int retry_times = 0;
     uint8_t pca9548_value = 0xFF;
     struct sfp_ctx_t *sfp;
@@ -250,21 +250,21 @@ static int sfp_unselect_x308p (uint32_t module)
         rc = -3;
         for (retry_times = 0; retry_times < 10; retry_times ++) {
             // unselect PCA9548
-            if (bf_pltfm_cp2112_write_byte (hndl,
-                                            sfp->info.i2c_chnl_addr << 1,  0,
-                                            DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
-                rc = -4;
-                break;
+            if ((rc = bf_pltfm_cp2112_write_byte (hndl,
+                                                  sfp->info.i2c_chnl_addr << 1,  0,
+                                                  DEFAULT_TIMEOUT_MS * 2)) != BF_PLTFM_SUCCESS) {
+                last_wr_rc = (rc - 1000);
             }
 
+            /* Please refer to PCA9548 Spec to set a valid delay between the op of WR and RD.
+             * Here we give an empirical value. */
             bf_sys_usleep (5000);
 
             // readback PCA9548 to ensure PCA9548 is closed
-            if (bf_pltfm_cp2112_read (hndl,
-                                      sfp->info.i2c_chnl_addr << 1,  &pca9548_value, 1,
-                                      DEFAULT_TIMEOUT_MS) != BF_PLTFM_SUCCESS) {
-                rc = -5;
-                break;
+            if ((rc = bf_pltfm_cp2112_read (hndl,
+                                            sfp->info.i2c_chnl_addr << 1,  &pca9548_value, 1,
+                                            DEFAULT_TIMEOUT_MS)) != BF_PLTFM_SUCCESS) {
+                last_rd_rc = (rc - 2000);
             }
 
             if (pca9548_value == 0) {
@@ -276,7 +276,21 @@ static int sfp_unselect_x308p (uint32_t module)
         }
     } while (0);
 
-    // return
+    /* Anyway, an error occured during PCA9548 selection. */
+    if (rc) {
+        LOG_ERROR (
+            "%s[%d], "
+            "i2c_write(%02d : %s) "
+            "last_rc = %d : retry_times = %d"
+            "\n",
+            __FILE__, __LINE__, module,
+            "Failed to write PCA9548",
+            last_wr_rc ? last_wr_rc : (last_rd_rc ? last_rd_rc : -1000),
+            retry_times);
+    }
+
+    /* Avoid compile error. */
+    (void) (module);
     return rc;
 }
 

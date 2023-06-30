@@ -1570,10 +1570,10 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
 
     fprintf (stdout,
              "\n\n================== CP2112s INIT ==================\n");
-
+    bf_pltfm_cp2112_initialized = 0;
     bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
 
-#if 0
+#if 1
     /* At the beginning, Use BMC interface to reset cp2112 first. */
     sts = bf_pltfm_bmc_cp2112_reset (true);
     if (sts) {
@@ -1631,13 +1631,10 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
                      (void *)dev->usb_device,
                      (void *)dev->usb_context,
                      (void *)dev->usb_device_handle);
+            bf_pltfm_cp2112_initialized = 1;
             return BF_PLTFM_SUCCESS;
         }
     }
-
-    bf_pltfm_cp2112_initialized = 1;
-
-    return BF_PLTFM_SUCCESS;
 }
 
 extern void bf_pltfm_load_conf ();
@@ -1708,6 +1705,14 @@ bf_pltfm_status_t bf_pltfm_cp2112_de_init()
              "\n",
              __FILE__, __LINE__,
              "starting");
+
+    /* Not initialized before */
+    if (!bf_pltfm_cp2112_initialized) {
+        return BF_PLTFM_SUCCESS;
+    }
+
+    /* Deley to make sure cp2112 released. */
+    bf_sys_sleep (10);
 
     // Destroy the initialized mutexes
     for (i = 0; i < CP2112_ID_MAX; i++) {

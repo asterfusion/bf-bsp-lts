@@ -19,6 +19,10 @@ extern "C" {
 #define MAX_QSFP_TYPES 6
 #define MAX_QSFPDD_TYPES 8
 
+#ifndef MAX_TF_SERDES_LANES_PER_CHAN
+#define MAX_TF_SERDES_LANES_PER_CHAN 2
+#endif
+
 typedef struct serdes_lane_tx_eq_ {
     int32_t tx_main[MAX_QSFPDD_TYPES];
     int32_t tx_pre1[MAX_QSFPDD_TYPES];
@@ -26,6 +30,16 @@ typedef struct serdes_lane_tx_eq_ {
     int32_t tx_post1[MAX_QSFPDD_TYPES];
     int32_t tx_post2[MAX_QSFPDD_TYPES];
 } serdes_lane_tx_eq_t;
+
+typedef struct multi_lane_map_ {
+    uint32_t tx_lane;
+    uint32_t tx_pn_swap;
+    uint32_t rx_lane;
+    uint32_t rx_pn_swap;
+    uint32_t qsfp_channel;        // head channel
+    uint32_t qsfp_other_channel;  // incase of multi-lane
+    // expand for serdes eq.
+} multi_lane_map_t;
 
 typedef struct bd_map_ent_t {
     uint32_t connector;

@@ -422,7 +422,6 @@ bf_pltfm_cp2112_ucli_ucli__cp2112_soft_reset__ (
 
     aim_printf (&uc->pvs,
                 "CP2112 live soft reset not supported\n");
-#if 0 /* can be turned on when nothing else is using cp2112 */
     bf_pltfm_status_t sts =
         bf_pltfm_cp2112_soft_reset();
 
@@ -431,7 +430,6 @@ bf_pltfm_cp2112_ucli_ucli__cp2112_soft_reset__ (
                     "CP2112:: Unable to soft reset the device(s) \n");
         return 0;
     }
-#endif
     return 0;
 }
 

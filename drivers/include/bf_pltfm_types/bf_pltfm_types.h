@@ -147,7 +147,7 @@ extern "C" {
 // Note really not necessary to have this macro, since non-qsfp ports
 // are derived from internal-port. Keep it for backwardation
 #define BF_PLAT_MAX_QSFP 65
-
+#define BF_PLAT_MAX_SFP  (BF_PLAT_MAX_QSFP * MAX_CHAN_PER_CONNECTOR)
 
 typedef enum  {
     INVALID_TYPE = 0xFF,
@@ -161,7 +161,7 @@ typedef enum  {
 #define mkver(a,b) (((a) & 0x0F) << 4 | ((b) & 0x0F))
 typedef enum {
     INVALID_SUBTYPE = 0xFF,
-    v1dot0 = mkver(1,0), v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14,
+    v1dot0 = mkver (1, 0), v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14,
     v2dot0 = 0x20, v2dot1 = 0x21, v2dot2 = 0x22, v2dot3 = 0x23, v2dot4 = 0x24,
     v3dot0 = 0x30, v3dot1 = 0x31, v3dot2 = 0x32, v3dot3 = 0x33, v3dot4 = 0x34,
     v4dot0 = 0x40,

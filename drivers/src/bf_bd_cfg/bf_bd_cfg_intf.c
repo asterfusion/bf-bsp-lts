@@ -42,6 +42,29 @@ static bd_map_ent_t *pltfm_bd_map_find (
 }
 
 // Public functions
+uint32_t bf_bd_first_conn_ch_get (uint32_t
+                                  connector)
+{
+    pltfm_bd_map_t *bd_map;
+    int bd_map_rows;
+    uint32_t row;
+
+    bd_map = platform_pltfm_bd_map_get (&bd_map_rows);
+    if (!bd_map) {
+        return 0;
+    }
+    for (row = 0; row < bd_map->rows; row++) {
+        if (bd_map->bd_map[row].connector == connector) {
+            //if (bd_map->bd_map[row].is_multi_lanes_per_ch) {
+            //    return bd_map->bd_map[row].mod_head_channel;
+            //}
+            return bd_map->bd_map[row].channel;
+        }
+    }
+    return 0;
+}
+
+// Public functions
 bf_pltfm_status_t bf_bd_cfg_port_mac_get (
     bf_pltfm_port_info_t *port_info,
     uint32_t *mac_id,
@@ -853,5 +876,106 @@ uint32_t bf_bd_get_dev_id (uint32_t conn_id,
     }
 
     return bd_map->device_id;
+}
+bf_pltfm_status_t
+bf_bd_cfg_port_nlanes_per_ch_get (
+    bf_pltfm_port_info_t *port_info,
+    uint32_t *num_lanes)
+{
+    if ((NULL == port_info) || (!num_lanes)) {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    bd_map_ent_t *bd_map =
+        pltfm_bd_map_find (port_info->conn_id,
+                           port_info->chnl_id);
+
+    if (NULL == bd_map) {
+        return BF_PLTFM_OBJECT_NOT_FOUND;
+    }
+
+    //if (bd_map->is_multi_lanes_per_ch) {
+    //    *num_lanes = bd_map->nlanes_per_ch;
+    //} else {
+        *num_lanes = 1;   // default
+    //}
+
+    return BF_PLTFM_SUCCESS;
+}
+
+bf_pltfm_status_t
+bf_bd_cfg_port_is_multilane_channel_get (
+    bf_pltfm_port_info_t *port_info,
+    bool *is_multi_lanes_per_ch)
+{
+    if ((!is_multi_lanes_per_ch) ||
+        (NULL == port_info)) {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    bd_map_ent_t *bd_map =
+        pltfm_bd_map_find (port_info->conn_id,
+                           port_info->chnl_id);
+
+    if (NULL == bd_map) {
+        return BF_PLTFM_OBJECT_NOT_FOUND;
+    }
+
+    //if (bd_map->is_multi_lanes_per_ch) {
+    //    *is_multi_lanes_per_ch = true;
+    //} else {
+        *is_multi_lanes_per_ch = false;
+    //}
+
+    return BF_PLTFM_SUCCESS;
+}
+
+bf_pltfm_status_t bf_bd_cfg_qsfp_ch_get (
+    bf_pltfm_port_info_t *port_info,
+    uint32_t *qsfp_ch)
+{
+
+    if (NULL == port_info || NULL == qsfp_ch) {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    bd_map_ent_t *bd_map =
+        pltfm_bd_map_find (port_info->conn_id,
+                           port_info->chnl_id);
+
+    if (NULL == bd_map) {
+        return BF_PLTFM_OBJECT_NOT_FOUND;
+    }
+    //if (bd_map->is_multi_lanes_per_ch) {
+    //    for (uint32_t i = 0; i < bd_map->nlanes_per_ch;
+    //         i++) {
+    //        qsfp_ch[i] =
+    //            bd_map->multi_lane_map[i].qsfp_channel;
+    //    }
+    //} else {
+        *qsfp_ch = bd_map->channel;
+    //}
+
+    return BF_PLTFM_SUCCESS;
+}
+
+bf_pltfm_status_t bf_bd_cfg_pin_name_get (
+    bf_pltfm_port_info_t *port_info, char *pin_name)
+{
+
+    if (NULL == port_info || NULL == pin_name) {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    bd_map_ent_t *bd_map =
+        pltfm_bd_map_find (port_info->conn_id,
+                           port_info->chnl_id);
+
+    if (NULL == bd_map) {
+        return BF_PLTFM_OBJECT_NOT_FOUND;
+    }
+
+    //strcpy (pin_name, bd_map->pack_pin_name);
+    return BF_PLTFM_SUCCESS;
 }
 

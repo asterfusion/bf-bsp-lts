@@ -17,6 +17,7 @@
 #include <bf_pltfm.h>
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_qsfp/bf_qsfp.h>
+#include <bf_port_mgmt/bf_port_mgmt_intf.h>
 #include <bf_pltfm_qsfp.h>
 #include <bf_pltfm_sfp.h>
 #include <bf_pltfm_uart.h>
@@ -417,8 +418,29 @@ static void bf_pltfm_onlp_mntr_transceiver()
         } else {
             *p_pres_mask |= bit_mask;
         }
+
+        if ((!bf_qsfp_get_reset(i)) &&
+            bf_qsfp_is_present((i)) &&
+            bf_qsfp_is_optical((i)) &&
+            bf_qsfp_is_detected(i)/* FSM_ST_DETECTED */) {
+            if (bf_port_qsfp_mgmnt_temper_monitor_log_get()) {
+                qsfp_channel_t chnl[CHANNEL_COUNT];
+                qsfp_global_sensor_t trans;
+                for (int ch = 0; ch < CHANNEL_COUNT; ch++) {
+                    chnl[ch].chn = ch;
+                }
+                bf_qsfp_get_module_sensor_info (i, &trans);
+                bf_qsfp_get_chan_sensor_data (i, &chnl[0]);
+                bf_qsfp_print_ddm(i, &trans, &chnl[0]);
+                //double mod_temp = bf_qsfp_get_temp_sensor (i);
+                //double mod_vcc = bf_qsfp_get_voltage (i);
+                //LOG_DEBUG ("QSFP    %2d : Temperature = %fC : Vcc = %fV",
+                //            i, mod_temp, mod_vcc);
+            }
+        }
+
         if (bf_qsfp_get_cached_info (i,
-                                     QSFP_PAGE0_LOWER, buf)) {
+                QSFP_PAGE0_LOWER, buf)) {
             continue;
         }
         if (bf_qsfp_get_cached_info (
@@ -465,6 +487,32 @@ static void bf_pltfm_onlp_mntr_transceiver()
             *p_pres_mask |= bit_mask;
         }
 
+        if ((!bf_sfp_get_reset(module)) &&
+            bf_sfp_is_present((module)) &&
+            bf_sfp_is_optical((module)) &&
+            bf_sfp_is_detected(module) /* FSM_ST_DETECTED */) {
+            /* Update RealTime info.
+             * by tsihang, 2023-05-18. */
+            sfp_global_sensor_t trans;
+            sfp_channel_t chnl;
+            bf_sfp_get_chan_tx_bias(module, &chnl);
+            bf_sfp_get_chan_tx_pwr(module, &chnl);
+            bf_sfp_get_chan_rx_pwr(module, &chnl);
+            bf_sfp_get_chan_temp(module, &trans);
+            bf_sfp_get_chan_volt(module, &trans);
+            if (bf_port_sfp_mgmnt_temper_monitor_log_get()) {
+                bf_sfp_print_ddm(module, &trans, &chnl);
+#if 0
+                 LOG_DEBUG (" SFP    %2d : %10.1f %15.2f %10.2f %16.2f %16.2f",
+                            module,
+                            glob_sensor.temp.value,
+                            glob_sensor.vcc.value,
+                            chnl_sensor.sensors.tx_bias.value,
+                            chnl_sensor.sensors.tx_pwr.value,
+                            chnl_sensor.sensors.rx_pwr.value);
+#endif
+            }
+        }
         memset (buf, 0x00, sizeof(buf));
         if (bf_sfp_get_cached_info (i, 0,
                                     buf) ) {

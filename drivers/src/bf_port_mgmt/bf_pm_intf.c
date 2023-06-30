@@ -24,6 +24,18 @@
 
 #include "bf_pm_priv.h"
 
+bool devport_state_tx_mode_chk (bf_dev_id_t dev_id,
+                    bf_pal_front_port_handle_t *port_hdl);
+bool devport_state_loopback_mode_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl);
+
+void devport_state_enabled_set(bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl, bool set);
+bool devport_state_enabled_chk (bf_dev_id_t dev_id,
+                            bf_pal_front_port_handle_t *port_hdl);
+int devport_speed_to_led_color (bf_port_speed_t speed,
+    bf_led_condition_t *led_cond);
+
 #define PM_BIT_SET(val, bit_pos) ((val) |= (1 << (bit_pos)))
 #define PM_BIT_CLR(val, bit_pos) ((val) &= ~(1 << (bit_pos)))
 #define PM_BIT_GET(val, bit_pos) (((val) >> (bit_pos)) & 1)
@@ -40,7 +52,7 @@ bf_sys_timer_t sfp_fsm_timer;
 
 static int bf_pm_num_sfp = 0;
 
-static bf_pm_qsfp_info_t
+static bf_pm_sfp_info_t
 pm_sfp_info_arr[BF_PLAT_MAX_QSFP + 1];
 
 static uint32_t
@@ -53,7 +65,7 @@ static bool pm_sfp_quick_removed[BF_PLAT_MAX_SFP
                                  + 1];
 #endif
 
-#define QSFP_SCAN_TMR_PERIOD_MS 2000
+#define QSFP_SCAN_TMR_PERIOD_MS 1500
 bf_sys_timer_t qsfp_scan_timer;
 
 #define QSFP_FSM_TMR_PERIOD_MS 100
@@ -75,14 +87,19 @@ qsfp_quick_rmv_pres_mask[3];  // 0->lower mask, 1->upper mask
 static int bf_pm_num_qsfp = 0;
 static int bf_pm_num_mac  = 0;
 
-extern bool dev_port_in_tx_mode[];
-
 int bf_pm_num_qsfp_get (void)
 {
     return bf_pm_num_qsfp;
 }
 
 static bool bf_pltfm_pm_ha_mode = false;
+
+void qsfp_reset_pres_mask (void)
+{
+    qsfp_pres_mask[0] = 0xffffffff;
+    qsfp_pres_mask[1] = 0xffffffff;
+    qsfp_pres_mask[2] = 0xffffffff;
+}
 
 void bf_pm_qsfp_quick_removal_detected_set (
     uint32_t conn_id, bool flag)
@@ -113,35 +130,75 @@ bool bf_pm_qsfp_quick_removal_detected_get (
 static void qsfp_info_clear (uint32_t conn_id)
 {
     pm_qsfp_info_arr[conn_id].is_present = false;
-    pm_qsfp_info_arr[conn_id].eth_comp = 0;
     pm_qsfp_info_arr[conn_id].qsfp_type =
         BF_PLTFM_QSFP_UNKNOWN;
+    pm_qsfp_info_arr[conn_id].qsfpdd_type =
+        BF_PLTFM_QSFPDD_UNKNOWN;
+}
+
+// populate qsfp_info_arr for CMIS modules
+static void cmis_populate_qsfp_info_arr (
+    int conn_id)
+{
+    bf_cmis_type_get (conn_id,
+                      &pm_qsfp_info_arr[conn_id].qsfpdd_type);
+
+    // Hw-init method. Now handled in the module fsm as host-init
+    // bf_qsfp_set_transceiver_lpmode(conn_id, true);
+    // bf_qsfp_reset(conn_id, true);
+    // bf_qsfp_set_transceiver_lpmode(conn_id, false);
+    // bf_qsfp_reset(conn_id, false);
+}
+
+// populate qsfp_info_arr for SFF-8636 modules
+static void sff8636_populate_qsfp_info_arr (
+    int conn_id)
+{
+    if (bf_qsfp_type_get (conn_id,
+                          &pm_qsfp_info_arr[conn_id].qsfp_type) != 0) {
+        LOG_ERROR ("PM_INTF QSFP    %2d : error getting QSFP type\n",
+                   conn_id);
+    }
+}
+
+static void qsfp_present_actions (int conn_id)
+{
+    uint8_t module_type = 0;
+
+    if (conn_id > bf_qsfp_get_max_qsfp_ports()) {
+        LOG_ERROR ("PM_INTF QSFP    %2d : Invalid. Max supported = %2d",
+                   conn_id,
+                   bf_qsfp_get_max_qsfp_ports());
+        return;
+    }
+
+    bf_qsfp_get_module_type (conn_id, &module_type);
+    if (module_type == 0) {
+        LOG_ERROR ("PM_INTF QSFP    %2d : Unknown module detected (id=%d)\n",
+                   conn_id,
+                   module_type);
+        return;
+    }
+
+    if (bf_qsfp_is_cmis (conn_id)) {
+        cmis_populate_qsfp_info_arr (conn_id);
+    } else {
+        sff8636_populate_qsfp_info_arr (conn_id);
+    }
+    pm_qsfp_info_arr[conn_id].is_optic =
+        bf_qsfp_is_optical (conn_id);
+
+    LOG_DEBUG ("PM_INTF QSFP    %2d : %s module\n",
+               conn_id,
+               pm_qsfp_info_arr[conn_id].is_optic ? "Optical" :
+               "Copper");
+
+    // mark present
+    pm_qsfp_info_arr[conn_id].is_present = true;
 }
 
 static void qsfp_all_info_read (int conn_id)
 {
-    // Get the ethernet compliance type of the cable
-    if (bf_qsfp_get_eth_compliance (conn_id,
-                                    &pm_qsfp_info_arr[conn_id].eth_comp) != 0) {
-        LOG_ERROR (
-            "Error : in getting the ethernet compliance type of the QSFP at "
-            "%s:%d\n",
-            __func__,
-            __LINE__);
-    }
-
-    // Get the ethernet extended compliance type of the cable
-    if (bf_qsfp_get_eth_ext_compliance (
-            conn_id, &pm_qsfp_info_arr[conn_id].eth_ext_comp)
-        != 0) {
-        LOG_ERROR (
-            "Error : in getting the ethernet extended compliance type of the "
-            "QSFP at "
-            "%s:%d\n",
-            __func__,
-            __LINE__);
-    }
-
     // Get the type of the QSFP connector
     if (bf_qsfp_type_get (conn_id,
                           &pm_qsfp_info_arr[conn_id].qsfp_type) != 0) {
@@ -174,6 +231,11 @@ static void qsfp_detection_actions (
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
 
+    if (!bf_pm_intf_is_device_family_tofino (
+            dev_id)) {
+        return;
+    }
+
     qsfp_all_info_read (conn_id);
 
     bf_pltfm_platform_ext_phy_config_set (
@@ -195,18 +257,11 @@ static void qsfp_detection_actions (
                 port_hdl.chnl_id,
                 bf_err_str (sts),
                 sts);
-        }
-
-        /* Check whether the port is in Tx mode or not.
-         * keep current status if the port in Tx mode.
-         * Required by Y32.
-         * by tsihang, 2021-08-30. */
-        bf_dev_port_t dev_port;
-        FP2DP (dev_id, &port_hdl, &dev_port);
-        if (dev_port_in_tx_mode[dev_port]) {
-            bf_pal_pm_front_port_ready_for_bringup (dev_id,
-                    &port_hdl, true);
-            return;
+        } else {
+            LOG_DEBUG ("PM_INTF QSFP    %2d/%d : mark port eligible_%s for AN\n",
+                        port_hdl.conn_id,
+                        port_hdl.chnl_id,
+                        an_elig ? "true" : "false");
         }
 
         sts = bf_pal_pm_front_port_ready_for_bringup (
@@ -224,7 +279,7 @@ static void qsfp_detection_actions (
     }
 
     fprintf (stdout, "QSFP    %2d : inserted\n",
-            conn_id);
+             conn_id);
 }
 
 static void qsfp_removal_actions (bf_dev_id_t
@@ -233,6 +288,9 @@ static void qsfp_removal_actions (bf_dev_id_t
     int chnl_id;
     bf_status_t sts;
     bf_pal_front_port_handle_t port_hdl;
+    bf_port_speed_t speed = BF_SPEED_NONE, max_speed = BF_SPEED_NONE;
+    bool is_subport_cfg_lp_mode = false, is_subport_cfg_force_tx_mode = false;
+    bf_led_condition_t led_cond = BF_LED_POST_PORT_DEL;
 
     qsfp_info_clear (conn_id);
 
@@ -240,20 +298,17 @@ static void qsfp_removal_actions (bf_dev_id_t
     for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
          chnl_id++) {
         port_hdl.chnl_id = chnl_id;
-
-        /* Check whether the port is in Tx mode or not.
-         * keep current status if the port in Tx mode.
-         * Required by Y32.
-         * by tsihang, 2021-08-30. */
-        bf_dev_port_t dev_port;
-        FP2DP (dev_id, &port_hdl, &dev_port);
-        if (dev_port_in_tx_mode[dev_port]) {
-            return;
-            bf_pal_pm_front_port_ready_for_bringup (dev_id,
-                    &port_hdl, false);
-            return;
+        /* At least one of subports. */
+        if (devport_state_loopback_mode_chk (dev_id, &port_hdl)) {
+            is_subport_cfg_lp_mode = true;
+            /* Get Max speeed to choose a suitable led color. */
+            if (!bf_pm_port_speed_get (dev_id, &port_hdl, &max_speed)) {
+                speed = (speed > max_speed) ? speed : max_speed;
+            }
         }
-
+        if (devport_state_tx_mode_chk (dev_id, &port_hdl)) {
+            is_subport_cfg_force_tx_mode = true;
+        }
         sts = bf_pal_pm_front_port_eligible_for_autoneg (
                   dev_id, &port_hdl, false);
         if (sts != BF_SUCCESS) {
@@ -284,13 +339,23 @@ static void qsfp_removal_actions (bf_dev_id_t
     }
 
     fprintf (stdout, "QSFP    %2d : removed\n",
-                port_hdl.conn_id);
+             port_hdl.conn_id);
+
+    /* Loopback/ForceTx with removal action.
+     * No breakout LED, so treat port_hdl.chnl_id = 0. */
+    if (is_subport_cfg_lp_mode || is_subport_cfg_force_tx_mode) {
+        //devport_speed_to_led_color(speed, &led_cond);
+        //fprintf (stdout, "XSFP    %2d : in loopback/ForceTx. speed : %d, color : %d\n",
+        //         port_hdl.conn_id, speed, led_cond);
+        /* No need to change port led when loopback/tx mode. */
+        return;
+    }
 
     bf_pltfm_port_info_t port_info;
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = 0; /* this is QSFP. */
     sts = bf_port_led_set (dev_id, &port_info,
-                           BF_LED_POST_PORT_DEL);
+                           led_cond);
     if (sts != BF_PLTFM_SUCCESS) {
         LOG_DEBUG (
             "Unable to set led on port removal event for dev : %d : front port : "
@@ -326,21 +391,10 @@ static bf_pltfm_status_t qsfp_scan_helper (
 
     res_mask = qsfp_pres_mask[mask_id] ^ mask;
 
-#if 0
-    if (qsfp_pres_mask[mask_id] != mask) {
-        fprintf (stdout, "%s\n",
-                 (mask_id == 0) ? "Upper" : (mask_id == 1) ?
-                 "Lower" : "CPU");
-        fprintf (stdout, "\tqsfp_pres_mask   0x%08x\n",
-                 qsfp_pres_mask[mask_id]);
-        fprintf (stdout, "\t          mask   0x%08x\n",
-                 mask);
-        fprintf (stdout, "\t      res_mask   0x%08x\n",
-                 res_mask);
-        fprintf (stdout, "\t       ha_mode   0x%08x\n",
-                 bf_pltfm_pm_is_ha_mode());
+    if ((res_mask != 0) && ((res_mask & mask) != res_mask)) {
+        /* If any transceiver pluged, wait for the transceiver, 100ms is theoretical. */
+        bf_sys_usleep (200000);
     }
-#endif
 
     while (res_mask != 0) {
         // Indicates that there is change in the number of the plugged in qsfps
@@ -355,26 +409,101 @@ static bf_pltfm_status_t qsfp_scan_helper (
         }
         res_mask = res_mask >> 1;
 
-        // Find if the said qsfp module was removed or added
+#if 0
+        if (!bf_pltfm_pm_is_ha_mode()) {
+            // Handle any previous removal found via fsm, if any.
+            if (bf_pm_qsfp_quick_removal_detected_get (
+                    conn_id)) {
+                goto handle_removal;
+            }
+
+            // Actual reset sequence etc per spec are handled via qsfp-fsm.
+            // Just toggle reset so that we can read the module
+            if (bf_qsfp_get_reset (conn_id)) {
+                int rc;
+
+                LOG_DEBUG ("PM_INTF QSFP    %2d : RESETL = true",
+                           conn_id);
+                // assert resetL
+                rc = bf_qsfp_reset (conn_id, true);
+                if (rc != 0) {
+                    LOG_ERROR (
+                        "PM_INTF QSFP    %2d : Error <%d> asserting resetL",
+                        conn_id, rc);
+                }
+
+                bf_sys_usleep (3); // really 2 micro-seconds
+
+                LOG_DEBUG ("PM_INTF QSFP    %2d : RESETL = false",
+                           conn_id);
+                // de-assert resetL
+                rc = bf_qsfp_reset (conn_id, false);
+                if (rc != 0) {
+                    LOG_ERROR ("PM_INTF QSFP    %2d : Error <%d> de-asserting resetL",
+                               conn_id,
+                               rc);
+                }
+                // We need 2-seconds for module to be ready, hence we continue.
+                // In case, module is not ready, bf_qsfp_detect_transceiver will
+                // retry.
+
+                conn_id++;
+                continue;  // back to outer while loop
+            }
+        }
+#endif
+        bool qsfp_curr_st_abs = PM_BIT_GET (mask,
+                                            (conn_id % 32) - 1);
+        bool qsfp_prev_st_abs =
+            PM_BIT_GET (qsfp_pres_mask[mask_id],
+                        (conn_id % 32) - 1);
+        LOG_DEBUG ("PM_INTF QSFP    %2d : curr-pres-st : %d prev-pres-st : %d",
+                   conn_id,
+                   qsfp_curr_st_abs,
+                   qsfp_prev_st_abs);
+        if (qsfp_curr_st_abs) {
+            if (!qsfp_prev_st_abs) {
+                LOG_DEBUG ("PM_INTF QSFP    %2d : unplugged (from plug st)\n",
+                           conn_id);
+                is_present = false;
+                // hack to clear the states.
+                bf_qsfp_set_present (conn_id, is_present);
+                goto handle_removal;
+            }
+            // we should never land here. But fall through and handle as done
+            // previously
+            LOG_DEBUG ("PM_INTF QSFP    %2d : unplugged (from unplugged st)",
+                       conn_id);
+        }
+
         int detect_st = bf_qsfp_detect_transceiver (
-                            conn_id,
-                            &is_present);
-        LOG_DEBUG ("QSFP    %2d : detect-st : %d is-present : %d",
+                            conn_id, &is_present);
+        LOG_DEBUG ("PM_INTF QSFP    %2d : detect-st : %d is-present : %d",
                    conn_id,
                    detect_st,
                    is_present);
-        fprintf (stdout,
-                 "QSFP    %2d : detect-st : %d is-present : %d\n",
-                 conn_id,
-                 detect_st,
-                 is_present);
+
+        // Find if the said qsfp module was removed or added
         if (detect_st) {
             // hopefully, detect it in the next iteration
-            LOG_ERROR ("bf_pltfm_pm: Error detetcing port %d\n",
-                       conn_id);
-            conn_id ++;
+            conn_id++;
             continue;  // back to outer while loop
         } else {
+handle_removal:
+            if (bf_pm_qsfp_quick_removal_detected_get (
+                    conn_id)) {
+                // over-ride present bit so that we go through clean state in next cycle
+                if (is_present) {
+                    LOG_DEBUG (
+                        "PM_INTF QSFP    %2d : Latched removal conditon detected. Doing "
+                        "removal "
+                        "actions.\n",
+                        conn_id);
+                    is_present = false;
+                }
+                bf_pm_qsfp_quick_removal_detected_set (conn_id,
+                                                       false);
+            }
             // update qsfp_pres_mask after successfully detecting the module
             if (is_present) {
                 PM_BIT_CLR (qsfp_pres_mask[mask_id],
@@ -385,6 +514,12 @@ static bf_pltfm_status_t qsfp_scan_helper (
             }
         }
         if (is_present == true) {
+            bf_qsfp_set_detected (conn_id, false);
+            if (!bf_pm_intf_is_device_family_tofino (
+                    dev_id)) {
+                // determines qsfp type only
+                qsfp_present_actions (conn_id);
+            }
             // kick off the module FSM
             if (!bf_pltfm_pm_is_ha_mode()) {
                 qsfp_fsm_inserted (conn_id);
@@ -392,6 +527,7 @@ static bf_pltfm_status_t qsfp_scan_helper (
                 qsfp_state_ha_config_set (dev_id, conn_id);
             }
         } else {
+            bf_qsfp_set_detected (conn_id, false);
             // Update the cached status of the qsfp
             if (!bf_pltfm_pm_is_ha_mode()) {
                 qsfp_scan_removed (dev_id, conn_id);
@@ -402,7 +538,6 @@ static bf_pltfm_status_t qsfp_scan_helper (
 
         conn_id++;
     }  // Outside while
-
     return BF_PLTFM_SUCCESS;
 }
 
@@ -541,11 +676,10 @@ void qsfp_scan_timer_cb (struct bf_sys_timer_s
 
     static int dumped = 0;
     if (!dumped) {
-        LOG_DEBUG ("QSFP Scan started..");
-        fprintf (stdout, "QSFP Scan started..\n");
+        LOG_DEBUG ("QSFP SCAN timer started..");
         dumped = 1;
     }
-    // printf("QSFP timer off\n");
+    // printf("QSFP SCAN timer off\n");
     // Scan the insertion and detection of QSFPs
     sts = qsfp_scan (dev_id);
     if (sts != BF_PLTFM_SUCCESS) {
@@ -563,6 +697,12 @@ void qsfp_fsm_timer_cb (struct bf_sys_timer_s
     bf_pltfm_status_t sts;
     bf_dev_id_t dev_id = (bf_dev_id_t) (intptr_t)data;
 
+    static int dumped = 0;
+    if (!dumped) {
+        LOG_DEBUG ("QSFP FSM timer started..");
+        dumped = 1;
+    }
+    // printf("QSFP FSM timer off\n");
     // Process QSFP start-up actions (if necessary)
     sts = qsfp_fsm (dev_id);
     //bf_pm_interface_fsm();
@@ -633,8 +773,7 @@ bf_status_t bf_pltfm_pm_media_type_get (
             return BF_PLTFM_SUCCESS;
         }
 
-        if (bf_qsfp_is_optic (
-                pm_qsfp_info_arr[port_info->conn_id].qsfp_type)) {
+        if (bf_qsfp_is_optical (port_info->conn_id)) {
             *media_type = BF_MEDIA_TYPE_OPTICAL;
         } else {
             *media_type = BF_MEDIA_TYPE_COPPER;
@@ -644,6 +783,13 @@ bf_status_t bf_pltfm_pm_media_type_get (
 }
 
 #if defined(HAVE_SFP)
+
+void sfp_reset_pres_mask (void)
+{
+    sfp_pres_mask[0] = 0xffffffff;
+    sfp_pres_mask[1] = 0xffffffff;
+}
+
 static void sfp_all_info_read (int module)
 {
     // Get the type of the QSFP connector
@@ -697,13 +843,23 @@ static void sfp_removal_actions (bf_dev_id_t
 {
     bf_status_t sts;
     bf_pal_front_port_handle_t port_hdl;
+    bf_port_speed_t speed = BF_SPEED_NONE, max_speed = BF_SPEED_NONE;
+    bool is_subport_cfg_lp_mode = false, is_subport_cfg_force_tx_mode = false;
+    bf_led_condition_t led_cond = BF_LED_POST_PORT_DEL;
 
     sfp_info_clear (module);
 
     /* get conn_id and chnl_id by module. */
     bf_sfp_get_conn (module, &port_hdl.conn_id,
                      &port_hdl.chnl_id);
-
+    is_subport_cfg_lp_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
+     if (is_subport_cfg_lp_mode) {
+         /* Get Max speeed to choose a suitable led color. */
+         if (!bf_pm_port_speed_get (dev_id, &port_hdl, &max_speed)) {
+             speed = (speed > max_speed) ? speed : max_speed;
+         }
+     }
+    is_subport_cfg_force_tx_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
     sts = bf_pal_pm_front_port_eligible_for_autoneg (
               dev_id, &port_hdl, false);
     if (sts != BF_SUCCESS) {
@@ -736,11 +892,21 @@ static void sfp_removal_actions (bf_dev_id_t
              port_hdl.conn_id,
              port_hdl.chnl_id);
 
+    /* Loopback/ForceTx with removal action.
+    * No breakout LED, so treat port_hdl.chnl_id = 0. */
+    if (is_subport_cfg_lp_mode || is_subport_cfg_force_tx_mode) {
+        //devport_speed_to_led_color(speed, &led_cond);
+        //fprintf (stdout, "XSFP    %2d : in loopback/ForceTx. speed : %d, color : %d\n",
+        //         port_hdl.conn_id, speed, led_cond);
+        /* No need to change port led when loopback/tx mode. */
+        return;
+    }
+
     bf_pltfm_port_info_t port_info;
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = port_hdl.chnl_id;
     bf_port_led_set (dev_id, &port_info,
-                     BF_LED_POST_PORT_DEL);
+                     led_cond);
     if (sts != BF_PLTFM_SUCCESS) {
         LOG_DEBUG (
             "Unable to set led on port removal event for dev : %d : front port : "
@@ -883,6 +1049,11 @@ static bf_pltfm_status_t sfp_scan_helper (
     }
 #endif
 
+    if ((res_mask != 0) && ((res_mask & mask) != res_mask)) {
+        /* If any transceiver pluged, wait for the transceiver, 100ms is theoretical. */
+        bf_sys_usleep (200000);
+    }
+
     while (res_mask != 0) {
         // Indicates that there is change in the number of the plugged in qsfps
         // Probe each bit to find the exact id of the qsfp
@@ -969,19 +1140,12 @@ static bf_pltfm_status_t sfp_scan_helper (
         bf_sfp_get_conn (module, &conn_id,
                          &chnl_id);
 
-        LOG_DEBUG (" SFP    %2d :  %2d/%d : detect-st : %d is-present : %d",
+        LOG_DEBUG (" SFP    %2d : %2d/%d : detect-st : %d is-present : %d",
                    module,
                    conn_id,
                    chnl_id,
                    detect_st,
                    is_present);
-        fprintf (stdout,
-                 " SFP    %2d : %2d/%d : detect-st : %d is-present : %d\n",
-                 module,
-                 conn_id,
-                 chnl_id,
-                 detect_st,
-                 is_present);
 
         // Find if so-called sfp module was removed or added
         if (detect_st) {
@@ -1015,6 +1179,7 @@ handle_removal:
             }
         }
         if (is_present == true) {
+            bf_sfp_set_detected (module, false);
             // kick off the module FSM
             if (!bf_pltfm_pm_is_ha_mode()) {
                 sfp_fsm_inserted (module);
@@ -1023,6 +1188,7 @@ handle_removal:
                 sfp_fsm_inserted (module);
             }
         } else {
+            bf_sfp_set_detected (module, false);
             // Update the cached status of the qsfp
             if (!bf_pltfm_pm_is_ha_mode()) {
                 sfp_scan_removed (dev_id, module);
@@ -1148,6 +1314,12 @@ void sfp_fsm_timer_cb (struct bf_sys_timer_s
     bf_pltfm_status_t sts;
     bf_dev_id_t dev_id = (bf_dev_id_t) (intptr_t)data;
 
+    static int dumped = 0;
+    if (!dumped) {
+        LOG_DEBUG (" SFP FSM timer started..");
+        dumped = 1;
+    }
+    // printf(" SFP FSM timer off\n");
     /* Process SFP start-up actions (if necessart) */
     sts = sfp_fsm (dev_id);
     //bf_pm_interface_fsm();
@@ -1169,11 +1341,10 @@ void sfp_scan_timer_cb (struct bf_sys_timer_s
 
     static int dumped = 0;
     if (!dumped) {
-        LOG_DEBUG ("SFP Scan started..");
-        fprintf (stdout, "SFP Scan started..\n");
+        LOG_DEBUG (" SFP SCAN timer started..");
         dumped = 1;
     }
-    // printf("SFP timer off\n");
+    // printf("SFP Scan timer off\n");
     // Scan the insertion and detection of SFPs
     sts = sfp_scan (dev_id);
     if (sts != BF_PLTFM_SUCCESS) {
@@ -1251,36 +1422,21 @@ void sfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
 {
     bf_dev_port_t dev_port = (bf_dev_port_t)0L;
     bf_pal_front_port_handle_t port_hdl;
-    bf_pltfm_port_info_t port_info;
-    bf_media_type_t media_type;
-
-    /* get conn_id and chnl_id by module. */
-    bf_sfp_get_conn (module, &port_hdl.conn_id,
-                     &port_hdl.chnl_id);
-    FP2DP (dev_id, &port_hdl, &dev_port);
+    bf_dev_id_t dev_id_of_port = 0;
 
     // notify bf_pltfm of new SFP
     pm_sfp_info_arr[module].is_present = true;
 
-    port_info.conn_id = port_hdl.conn_id;
-    port_info.chnl_id = port_hdl.chnl_id;
-    bf_pltfm_pm_media_type_get (&port_info,
-                                &media_type);
-
-    if (media_type == BF_MEDIA_TYPE_OPTICAL) {
-        bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                     true);
-    } else {
-        bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                     false);
-    }
+    /* get conn_id and chnl_id by module. */
+    bf_sfp_get_conn (module, &port_hdl.conn_id,
+                     &port_hdl.chnl_id);
+    FP2DP (dev_id_of_port, &port_hdl, &dev_port);
+    dev_id = dev_id_of_port;
 
     bf_serdes_tx_loop_bandwidth_set (
-        dev_id, dev_port, 0,
-        BF_SDS_TOF_TX_LOOP_BANDWIDTH_DEFAULT);
+        dev_id, dev_port, 0, BF_SDS_TOF_TX_LOOP_BANDWIDTH_DEFAULT);
 
-    LOG_DEBUG (
-        " SFP    %2d : (%02d/%d) Notify platform",
+    LOG_DEBUG (" SFP    %2d : (%02d/%d) Notify platform",
         module, port_hdl.conn_id, port_hdl.chnl_id);
 
     sfp_detection_actions (dev_id, module);
@@ -1389,13 +1545,13 @@ bf_pltfm_pm_qsfp_scan_poll_stop()
     bf_sys_timer_status_t rc;
     rc = bf_sys_timer_stop (&qsfp_scan_timer);
     if (rc) {
-        LOG_ERROR ("Error %d: in stopping qsfp-scan timer\n",
+        LOG_ERROR ("PM_INTF QSFP    %2d: in stopping qsfp-scan timer\n",
                    rc);
         return BF_PLTFM_COMM_FAILED;
     }
     rc = bf_sys_timer_stop (&qsfp_fsm_timer);
     if (rc) {
-        LOG_ERROR ("Error %d: in stopping qsfp-fsm timer\n",
+        LOG_ERROR ("PM_INTF QSFP    %2d: in stopping qsfp-fsm timer\n",
                    rc);
         return BF_PLTFM_COMM_FAILED;
     }
@@ -1403,13 +1559,13 @@ bf_pltfm_pm_qsfp_scan_poll_stop()
 #if defined(HAVE_SFP)
     rc = bf_sys_timer_stop (&sfp_scan_timer);
     if (rc) {
-        LOG_ERROR ("Error %d: in stopping sfp-scan timer\n",
+        LOG_ERROR ("PM_INTF QSFP    %2d: in stopping sfp-scan timer\n",
                    rc);
         return BF_PLTFM_COMM_FAILED;
     }
     rc = bf_sys_timer_stop (&sfp_fsm_timer);
     if (rc) {
-        LOG_ERROR ("Error %d: in stopping sfp-fsm timer\n",
+        LOG_ERROR ("PM_INTF QSFP    %2d: in stopping sfp-fsm timer\n",
                    rc);
         return BF_PLTFM_COMM_FAILED;
     }
@@ -1440,9 +1596,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
         qsfp_info_clear (conn_id);
     }
 
-    qsfp_pres_mask[0] = 0xffffffff;
-    qsfp_pres_mask[1] = 0xffffffff;
-    qsfp_pres_mask[2] = 0xffffffff;
+    qsfp_reset_pres_mask ();
 
     qsfp_quick_rmv_pres_mask[0] = 0xffffffff;
     qsfp_quick_rmv_pres_mask[1] = 0xffffffff;
@@ -1455,7 +1609,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
                                   qsfp_scan_timer_cb,
                                   (void *) (intptr_t)dev_id);
         if (rc) {
-            LOG_ERROR ("Error %d: in creating qsfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in creating qsfp-scan timer\n",
                        rc);
             return BF_PLTFM_COMM_FAILED;
         }
@@ -1473,7 +1627,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
                                   qsfp_fsm_timer_cb,
                                   (void *) (intptr_t)dev_id);
         if (rc) {
-            LOG_ERROR ("Error %d: in creating qsfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in creating qsfp-fsm timer\n",
                        rc);
             return BF_PLTFM_COMM_FAILED;
         }
@@ -1492,8 +1646,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
         sfp_info_clear (conn_id);
     }
 
-    sfp_pres_mask[0] = 0xffffffff;
-    sfp_pres_mask[1] = 0xffffffff;
+    sfp_reset_pres_mask ();
 
     sfp_quick_rmv_pres_mask[0] = 0xffffffff;
     sfp_quick_rmv_pres_mask[1] = 0xffffffff;
@@ -1505,7 +1658,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
                                   sfp_scan_timer_cb,
                                   (void *) (intptr_t)dev_id);
         if (rc) {
-            LOG_ERROR ("Error %d: in creating sfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in creating sfp-scan timer\n",
                        rc);
             return BF_PLTFM_COMM_FAILED;
         }
@@ -1522,7 +1675,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
                                   sfp_fsm_timer_cb,
                                   (void *) (intptr_t)dev_id);
         if (rc) {
-            LOG_ERROR ("Error %d: in creating sfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in creating sfp-fsm timer\n",
                        rc);
             return BF_PLTFM_COMM_FAILED;
         }
@@ -1541,6 +1694,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
         return sts;
     }
 
+    bf_pltfm_pm_load_conf ();
     return BF_PLTFM_SUCCESS;
 }
 
@@ -1556,27 +1710,27 @@ bf_pltfm_status_t bf_pltfm_pm_deinit()
     if (platform_is_hw()) {
         rc = bf_sys_timer_stop (&qsfp_scan_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in stopping qsfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in creating qsfp-scan timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
         rc = bf_sys_timer_stop (&qsfp_fsm_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in stopping qsfp-fsm timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in creating qsfp-fsm timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
 
         rc = bf_sys_timer_del (&qsfp_scan_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in deleting qsfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in deleting sfp-scan timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
 
         rc = bf_sys_timer_del (&qsfp_fsm_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in deleting qsfp-fsm timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in deleting sfp-fsm timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
@@ -1587,27 +1741,27 @@ bf_pltfm_status_t bf_pltfm_pm_deinit()
     if (platform_is_hw()) {
         rc = bf_sys_timer_stop (&sfp_scan_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in stopping sfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in stopping sfp-scan timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
         rc = bf_sys_timer_stop (&sfp_fsm_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in stopping sfp-fsm timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in stopping sfp-fsm timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
 
         rc = bf_sys_timer_del (&sfp_scan_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in deleting sfp-scan timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in deleting sfp-scan timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
 
         rc = bf_sys_timer_del (&sfp_fsm_timer);
         if (rc) {
-            LOG_ERROR ("Error %d: in deleting sfp-fsm timer\n",
+            LOG_ERROR ("PM_INTF QSFP    %2d: in deleting sfp-fsm timer\n",
                        rc);
             return BF_HW_COMM_FAIL;
         }
@@ -1628,27 +1782,13 @@ void qsfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
     //fprintf(stdout, "A bug ?  %d\n", conn_id);
     bf_dev_port_t dev_port = (bf_dev_port_t)0L;
     bf_pal_front_port_handle_t port_hdl;
-    bf_pltfm_port_info_t port_info;
-    bf_media_type_t media_type;
     uint32_t chnl;
     bool is_luxtera = bf_qsfp_is_luxtera_optic (
                           conn_id);
+    bf_dev_id_t dev_id_of_port = 0;
 
     // notify bf_pltfm of new QSFP
     pm_qsfp_info_arr[conn_id].is_present = true;
-
-    port_info.conn_id = conn_id;
-    port_info.chnl_id = 0;
-    bf_pltfm_pm_media_type_get (&port_info,
-                                &media_type);
-
-    if (media_type == BF_MEDIA_TYPE_OPTICAL) {
-        bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                     true);
-    } else {
-        bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                     false);
-    }
 
     /* Luxtera modules require some special handling during bring-up.
     * They seem to prefer a higher loop bandwidth setting.
@@ -1667,7 +1807,8 @@ void qsfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
     port_hdl.conn_id = conn_id;
     for (chnl = 0; chnl < 4; chnl++) {
         port_hdl.chnl_id = chnl;
-        FP2DP (dev_id, &port_hdl, &dev_port);
+        FP2DP (dev_id_of_port, &port_hdl, &dev_port);
+        dev_id = dev_id_of_port;
 
         if (is_luxtera) {
             bf_serdes_tx_loop_bandwidth_set (
@@ -1700,6 +1841,18 @@ void bf_pltfm_pm_qsfp_simulate_all_removed (void)
     qsfp_pres_mask[1] = 0xffffffff;
     qsfp_pres_mask[2] = 0xffffffff;
     bf_qsfp_debug_clear_all_presence_bits();
+
+
+    /* by tsihang, 2023-05-10. */
+    for (conn_id = 1; conn_id < bf_pm_num_sfp;
+         conn_id++) {
+        if (pm_sfp_info_arr[conn_id].is_present) {
+            sfp_scan_removed (0, conn_id);
+        }
+    }
+    sfp_pres_mask[0] = 0xffffffff;
+    sfp_pres_mask[1] = 0xffffffff;
+    bf_sfp_debug_clear_all_presence_bits();
 }
 
 bf_pltfm_status_t bf_pltfm_pm_ha_mode_set()
