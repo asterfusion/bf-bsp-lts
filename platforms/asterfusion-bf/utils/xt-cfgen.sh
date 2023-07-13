@@ -46,7 +46,7 @@ fi
 #0x25     Manufacture Date:              30/05/2022 14:49:48
 #0x26      Product Version:                                1
 #0x27   Product Subversion:                                0
-#0x28        Platform Name: x86_64-asterfusion_congad1519-r0
+#0x28        Platform Name:    x86_64-asterfusion_x532p_t-r0
 #0x29         Onie Version:        master-202008111723-dirty
 #0x2a        MAC Addresses:                                1
 #0x2b         Manufacturer:                      Asterfusion
@@ -386,6 +386,9 @@ if [ $enable_iic = 1 ]; then
 else
     echo "#i2c:"$default_i2c >> $cfgfile
     echo "" >> $cfgfile
+    #Anyway remmove nct6779d and cgosdrv ?
+    #uninstall_nct6779d
+    #uninstall_cgosdrv
 fi
 
 echo "# An internal console which is used to access BMC." >> $cfgfile

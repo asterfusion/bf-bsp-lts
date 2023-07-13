@@ -274,7 +274,7 @@ recv (struct bf_pltfm_uart_ctx_t *ctx,
 }
 
 static int
-uart_open (struct bf_pltfm_uart_ctx_t *ctx)
+uart_open (struct bf_pltfm_uart_ctx_t *ctx, int oflag)
 {
     char *dev = (char *)&ctx->dev[0];
 
@@ -284,9 +284,7 @@ uart_open (struct bf_pltfm_uart_ctx_t *ctx)
         //return 0;
     }
 
-    if ((ctx->fd = open (dev,
-                         O_RDWR | O_NOCTTY | O_NONBLOCK)) <
-        0) {
+    if ((ctx->fd = open (dev, oflag)) < 0 ) {
         LOG_ERROR (
             "%s[%d], "
             "open(%s)"
@@ -382,9 +380,11 @@ no_return_cmd (unsigned char cmd)
      * 12 = Config WDT.
      * 15 = cp2112/superio selecttion.
      * 16 = cp2112 hard reset.
+     * 33 = redirect console.
      */
     if ((cmd == 7) || (cmd == 9) || (cmd == 10) ||
-        (cmd == 12) || (cmd == 15) || (cmd == 16)) {
+        (cmd == 12) || (cmd == 15) || (cmd == 16) ||
+        (cmd == 33)) {
         return true;
     }
 
@@ -416,7 +416,7 @@ int bf_pltfm_bmc_uart_write_read (
 
     UART_LOCK;
 
-    if (uart_open(ctx)) {
+    if (uart_open(ctx, O_RDWR | O_NOCTTY | O_NONBLOCK)) {
         rc = -2;
         goto end;
     }
@@ -454,6 +454,208 @@ end:
     return rc;
 }
 
+#define PACKET_SIZE 1024
+#define SOH 0x01
+#define STX 0x02
+#define EOT 0x04
+#define ACK 0x06
+#define NAK 0x15
+#define CAN 0x18
+#define CODE_C 0x43
+
+static short ymodem_crc16_ccitt(uint8_t *data, int len) {
+    ushort crc = 0;
+    int i, j;
+
+    for (i = 0; i < len; i++) {
+        crc ^= (ushort)data[i] << 8;
+
+        for (j = 0; j < 8; j++) {
+            if (crc & 0x8000) {
+                crc = (crc << 1) ^ 0x1021;
+            } else {
+                crc <<= 1;
+            }
+        }
+    }
+
+    return crc;
+}
+
+static int ymodem_wait_ack(int fd) {
+    uint8_t ack;
+    int ret;
+
+    while (1) {
+        ret = read(fd, &ack, 1);
+
+        if (ret <= 0) {
+            return -1;
+        }
+
+        switch (ack) {
+            case ACK:
+                return ack;
+            case NAK:
+                return ack;
+            case CODE_C:
+                return ack;
+            case CAN:
+                ret = read(fd, &ack, 1);
+                if (ret > 0 && ack == CAN) {
+                    return -2;
+                }
+                break;
+        }
+    }
+}
+
+static int ymodem_send_packet(
+    struct bf_pltfm_uart_ctx_t *ctx,
+    uint8_t seq,
+    uint8_t *data,
+    int len)
+{
+    ushort crc = 0;
+    uint8_t packet[PACKET_SIZE + 5];
+
+    memset(packet, 0x1A, PACKET_SIZE + 5);
+
+    if (len > PACKET_SIZE) {
+        return -1;
+    }
+
+    len = (len <= 128) ? 128 : 1024;
+
+    packet[0] = (len <= 128) ? SOH : STX;
+    packet[1] = seq;
+    packet[2] = ~seq;
+    memcpy (&packet[3], &data[0], len);
+
+    crc = ymodem_crc16_ccitt(packet + 3, len);
+    packet[len + 3] = (uint8_t)(crc >> 8);
+    packet[len + 4] = (uint8_t)(crc & 0xFF);
+
+    for (int i = 0; i < 10; i++) {
+        xmit (ctx, packet, len + 5);
+        usleep (5000);
+        if (ymodem_wait_ack(ctx->fd) == ACK) {
+            return len;
+        }
+    }
+
+    return -1;
+}
+
+int bf_pltfm_bmc_uart_ymodem_send_file (char *filename)
+{
+    int rc = 0;
+    struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
+    uint8_t seq = 0, buf[PACKET_SIZE], info_packet[128];
+    int len, total = 0;
+    long payload_length = 0;
+    FILE *fp_rbl = NULL;
+    struct stat st;
+
+    if (stat(filename, &st) == -1) {
+        LOG_ERROR ("\nError : Failed to get stat (%s)\n", oryx_safe_strerror(errno));
+        return -2;
+    }
+    payload_length = (int)st.st_size;
+
+    len = strlen(filename) + 1;
+    strncpy((char *)&info_packet[0], filename, len < 128 ? len : 128);
+    snprintf((char *)&info_packet[0] + len, 128 - len, "%ld", payload_length);
+
+    fprintf (stdout, "\n");
+    fprintf (stdout,
+             "bmc-ota <%s> <size=%ld>\n",
+             filename,
+             payload_length);
+
+    fprintf (stdout,
+             "\nDO NOT interrupt during the upgrade. Wating for 5+ minutes ...\n\n");
+
+    UART_LOCK;
+
+    if (uart_open(ctx, O_RDWR | O_NOCTTY)) {
+        rc = -3;
+        goto end;
+    }
+
+    /* Sent key word "YMODEMUPDATE" to BMC */
+    write (ctx->fd, "YMODEMUPDATE", 12);
+    usleep (5000);
+    if(ymodem_wait_ack(ctx->fd) != CODE_C) {
+        rc = 0;
+        goto end;;
+    }
+
+    ymodem_send_packet(ctx, 0, info_packet, 128);
+    usleep (5000);
+    if(ymodem_wait_ack(ctx->fd) != CODE_C) {
+        rc = 0;
+        goto end;
+    }
+
+    seq = 1;
+
+    fp_rbl = fopen(filename, "rb");
+    if (!fp_rbl) {
+        LOG_ERROR ("\nError : Failed to open file (%s)\n", oryx_safe_strerror(errno));
+        return -1;
+    }
+    fseek(fp_rbl, 0, SEEK_SET);
+
+    while ((len = fread(buf, 1, PACKET_SIZE, fp_rbl)) > 0) {
+        if (ymodem_send_packet(ctx, seq, buf, len) < 0) {
+            fclose(fp_rbl);
+            rc = -4;
+            goto end;
+        }
+
+        total += len;
+        seq++;
+        fprintf (stdout,
+             "(%03d) : %10d/%ld : %.2f%%\n", seq, total, payload_length, (double)(total*100)/payload_length);
+    }
+    fclose(fp_rbl);
+
+    for (int i = 0; i < 10; i++) {
+        xmit (ctx, (uint8_t[]){EOT}, 1);
+        usleep (5000);
+        if(ymodem_wait_ack(ctx->fd) != NAK) {
+            rc = 0;
+            goto end;
+        }
+
+        xmit (ctx, (uint8_t[]){EOT}, 1);
+        usleep (5000);
+        if(ymodem_wait_ack(ctx->fd) != ACK) {
+            rc = 0;
+            goto end;
+        }
+
+	    if(ymodem_wait_ack(ctx->fd) != CODE_C) {
+            rc = 0;
+            goto end;
+        }
+
+        memset (buf, 0x00, 128);
+        if (ymodem_send_packet(ctx, 0, buf, 128) < 0) {
+            rc = -5;
+            goto end;
+        }
+        rc = total;
+        goto end;
+    }
+end:
+    uart_close(ctx);
+    UART_UNLOCK;
+    return rc;
+}
+
+
 int bf_pltfm_bmc_uart_util_write_read (
     struct bf_pltfm_uart_ctx_t *ctx,
     uint8_t cmd,
@@ -473,7 +675,7 @@ int bf_pltfm_bmc_uart_util_write_read (
         fprintf (stdout, "\n---> done\n");
     }
 
-    if (uart_open(ctx)) {
+    if (uart_open(ctx, O_RDWR | O_NOCTTY | O_NONBLOCK)) {
         rc = -2;
         goto end;
     }

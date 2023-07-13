@@ -206,6 +206,7 @@ typedef enum bf_pltfm_board_id_e {
     /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     BF_PLTFM_BD_ID_X308PT_V1DOT1 = 0x3081,
+    /* BF_PLTFM_BD_ID_X308PT_V2DOT0, comming soon on Aug 30, 2023. */
     /* X312P-T and its subtype. */
     BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,
     BF_PLTFM_BD_ID_X312PT_V1DOT1 = 0x3120,
@@ -338,6 +339,7 @@ typedef struct pltfm_mgr_info_s {
 #define AF_PLAT_MNTR_FAN    (1 << 1)
 #define AF_PLAT_MNTR_TMP    (1 << 2)
 #define AF_PLAT_MNTR_MODULE (1 << 3)
+#define AF_PLAT_MNTR_IDLE   (1 << 15)
 #define AF_PLAT_MNTR_CTRL   (1 << 16)
 #define AF_PLAT_CTRL_BMC_UART       (1 << 17)   /* Access BMC through UART, otherwise through i2c. */
 #define AF_PLAT_CTRL_CPLD_CP2112    (1 << 18)   /* Access CPLD through CP2112, otherwise through i2c. */

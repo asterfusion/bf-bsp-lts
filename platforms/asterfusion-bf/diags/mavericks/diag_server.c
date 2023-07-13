@@ -25,7 +25,7 @@ const char *bf_pltfm_diag_get_version()
 {
     return BF_PLTFM_DIAG_VER;
 }
-extern void bf_pltfm_temperature_monitor_enable (
+extern void bf_pltfm_health_monitor_enable (
     bool enable);
 
 const char *bf_pltfm_diag_get_internal_version()
@@ -983,7 +983,7 @@ bf_status_t mav_diag_server_init (void)
     /* Add ports */
     mav_diag_ports_add (MAV_DIAG_DEF_DEV_ID);
     /* Enable temp monitoring */
-    bf_pltfm_temperature_monitor_enable (true);
+    bf_pltfm_health_monitor_enable (true);
 
     /* listen to client commands and execute them */
     while (1) {
