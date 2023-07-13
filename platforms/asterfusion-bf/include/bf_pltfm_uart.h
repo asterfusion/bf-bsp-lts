@@ -36,6 +36,7 @@ int bf_pltfm_bmc_uart_write_read (
     uint8_t rx_len,
     int usec);
 
+int bf_pltfm_bmc_uart_ymodem_send_file (char *filename);
 
 #ifdef __cplusplus
 }

@@ -407,14 +407,14 @@ static void access_cpld_through_superio()
     bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_CPLD_CP2112;
 }
 
-bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver) {
+bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced) {
     uint8_t rd_buf[128] = {0};
     uint8_t cmd = 0x0D;
     uint8_t wr_buf[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
     int ret;
 
     /* Read cached BMC version to caller. */
-    if (g_bmc_version[0] != 0) {
+    if ((!forced) && (g_bmc_version[0] != 0)) {
         memcpy (bmc_ver, g_bmc_version, 32);
         return 0;
     }
@@ -607,7 +607,7 @@ cpld_path_e bf_pltfm_find_path_to_cpld()
 
 bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
 {
-    char fmt[128];
+    char bmc_ver[128] = {0};
 
     bf_pltfm_load_conf ();
 
@@ -635,13 +635,19 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
         return BF_PLTFM_COMM_FAILED;
     }
 
-    bf_pltfm_get_bmc_ver (&fmt[0]);
-    fprintf (stdout, "\nBMC version : %s\n\n", fmt);
+    bf_pltfm_get_bmc_ver (&bmc_ver[0], true);
+    fprintf (stdout, "\nBMC version : %s\n\n", bmc_ver);
 
     if (platform_type_equal (X312P)) {
         uint8_t rd_buf[128] = {0};
         uint8_t cmd = 0x0D;
         uint8_t wr_buf[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+
+        if (bf_pltfm_compare_bmc_ver("v1.0.7-o") >= 0) {
+            bmc_comm_interval_us_for_312 = BMC_COMM_INTERVAL_US / 10;
+        } else {
+            bmc_comm_interval_us_for_312 = BMC_COMM_INTERVAL_US;
+        }
 
         /* If BMC version >= 1.00.02O, then set all fan LED to GREEN */
         if (bf_pltfm_compare_bmc_ver("v1.0.2-o") >= 0) {

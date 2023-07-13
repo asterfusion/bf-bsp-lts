@@ -63,6 +63,9 @@ extern int bf_platform_rpc_server_start (
 extern int bf_platform_rpc_server_end (
     void *processor);
 
+extern void bf_pltfm_health_monitor_enable (
+    bool enable);
+
 int bf_pltfm_agent_rpc_server_thrift_service_add (
     void *processor)
 {
@@ -89,7 +92,7 @@ static bf_sys_rmutex_t
 mav_i2c_lock;    /* i2c(cp2112) lock for QSFP IO. by tsihang, 2021-07-13. */
 extern bf_sys_rmutex_t update_lock;
 
-extern bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver);
+extern bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced);
 
 bool platform_is_hw (void)
 {
@@ -382,11 +385,7 @@ static ucli_status_t pltfm_mgr_ucli_ucli__mntr__
 
     ctrl = atoi (uc->pargs->args[0]);
 
-    if (ctrl) {
-        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_CTRL;
-    } else {
-        bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_CTRL;
-    }
+    bf_pltfm_health_monitor_enable (ctrl == 0 ? false : true);
     bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date = time (
                 NULL);
 
@@ -1530,7 +1529,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                     (each_element + 1), ver);
     }
 
-    bf_pltfm_get_bmc_ver (&fmt[0]);
+    bf_pltfm_get_bmc_ver (&fmt[0], false);
     aim_printf (&uc->pvs, "    BMC   : %s\n",
                fmt);
 
@@ -1569,38 +1568,419 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__console__ (ucli_context_t
                            *uc)
 {
+    bool has_dpu = false;
+    bool has_ptp = false;
+    bool redirect_bmc  = false;
+    bool redirect_dpu1 = false;
+    bool redirect_dpu2 = false;
+    bool redirect_cme  = false;
+    bool redirect_ptp  = false;
     uint8_t buf[2] = {0x00, 0xaa};
     int usec_delay = bf_pltfm_get_312_bmc_comm_interval();
 
     /* Keep the name consistent with the document X-T Programmable Bare Metal. */
-    UCLI_COMMAND_INFO (uc, "console", 1, "Redirect console to <bmc/come/dpu1/dpu2>");
+    UCLI_COMMAND_INFO (uc, "console", 1, "Redirect console to <bmc/come/ptp/dpu1/dpu2>");
+
+    if (memcmp (uc->pargs->args[0], "bmc", 3) == 0) {
+        redirect_bmc = true;
+    } else if (memcmp (uc->pargs->args[0], "come", 4) == 0){
+        redirect_cme = true;
+    } else if (memcmp (uc->pargs->args[0], "dpu1", 4) == 0){
+        redirect_dpu1 = true;
+    } else if (memcmp (uc->pargs->args[0], "dpu2", 4) == 0){
+        redirect_dpu2 = true;
+    } else if (memcmp (uc->pargs->args[0], "ptp", 3) == 0){
+        redirect_ptp = true;
+    } else {
+        aim_printf (&uc->pvs, "Usage: console <bmc/come/ptp/dpu1/dpu2>\n");
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "Console redirects to %s\n",
+        redirect_bmc  ? "BMC  " : \
+        redirect_cme  ? "COM-E" : \
+        redirect_dpu1 ? "DPU-1" : \
+        redirect_dpu2 ? "DPU-2" : \
+        redirect_ptp  ? "PTP  " : \
+        "Unknown");
+    LOG_WARNING ("Console redirects to %s\n",
+        redirect_bmc  ? "BMC  " : \
+        redirect_cme  ? "COM-E" : \
+        redirect_dpu1 ? "DPU-1" : \
+        redirect_dpu2 ? "DPU-2" : \
+        redirect_ptp  ? "PTP  " : \
+        "Unknown");
+
+    if (platform_type_equal (X312P) ||
+        platform_type_equal (X308P)) {
+        has_dpu = true;
+    }
 
     if (platform_type_equal (X312P)) {
-        if (memcmp (uc->pargs->args[0], "bmc", 3) == 0){
-            aim_printf (&uc->pvs, "Console redirects to BMC\n");
-            LOG_WARNING ("Console redirects to BMC\n");
+        if (redirect_bmc){
             buf[0] = 0x02;
             bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
-        } else if (memcmp (uc->pargs->args[0], "come", 4) == 0){
-            aim_printf (&uc->pvs, "Console redirects to COM-E\n");
-            LOG_WARNING ("Console redirects to COM-E\n");
+        } else if (redirect_cme){
             buf[0] = 0x03;
             bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
-        } else if (memcmp (uc->pargs->args[0], "dpu1", 4) == 0){
-            aim_printf (&uc->pvs, "Console redirects to DPU-1\n");
-            LOG_WARNING ("Console redirects to DPU-1\n");
+        } else if (redirect_dpu1){
             buf[0] = 0x00;
             bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
-        } else if (memcmp (uc->pargs->args[0], "dpu2", 4) == 0){
-            aim_printf (&uc->pvs, "Console redirects to DPU-2\n");
-            LOG_WARNING ("Console redirects to DPU-2\n");
+        } else if (redirect_dpu2){
             buf[0] = 0x01;
             bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
         } else {
-            aim_printf (&uc->pvs, "Usage: console <bmc/come/dpu1/dpu2>\n");
+            return 0;
+        }
+    } else if (platform_type_equal (X308P) ||
+               platform_type_equal (X532P) ||
+               platform_type_equal (X564P)) {
+        if (bf_pltfm_compare_bmc_ver("v3.1.0") < 0) {
+            aim_printf (&uc->pvs, "Not supported on this BMC version yet! "
+                                  "Please upgrade to v3.1.0 and above.\n");
+            return 0;
+        }
+
+        if (platform_type_equal (X532P) || platform_type_equal (X564P)) {
+            has_dpu = false;
+            has_ptp = false;
+        } else {
+            /* X308P-T V2. */
+            if (platform_type_equal (X308P) && platform_subtype_equal (v2dot0)) {
+                has_ptp = true;
+            }
+        }
+
+        if (redirect_bmc){
+            buf[0] = 0x00;
+            bf_pltfm_bmc_uart_write_read (0x21, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
+        } else if (redirect_cme){
+            buf[0] = 0x01;
+            bf_pltfm_bmc_uart_write_read (0x21, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
+        } else if (has_dpu && redirect_dpu1){
+            buf[0] = 0x02;
+            bf_pltfm_bmc_uart_write_read (0x21, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
+        } else if (has_dpu && redirect_dpu2){
+            buf[0] = 0x03;
+            bf_pltfm_bmc_uart_write_read (0x21, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
+        } else if (has_ptp && redirect_ptp){
+            /* TODO. */
+        } else {
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
+                               *uc)
+{
+    int sec = 30;
+    char fname[256], bmc_ver[32] = {0};
+    char c = 'N';
+
+    UCLI_COMMAND_INFO (uc, "bmc-ota", 1, "bmc-ota <file name>, upgrade BMC firmware");
+
+    strncpy (fname, uc->pargs->args[0],
+             sizeof (fname) - 1);
+    fname[sizeof (fname) - 1] = '\0';
+
+    if (strstr(fname, ".rbl") == NULL) {
+        aim_printf (&uc->pvs, "Only support .rbl file!\n");
+        return 0;
+    }
+
+    /* Get real version to make a right decision and update the cache.
+     * Otherwise requires a re-launch on app even through the BMC has been upgrade via YMode.
+     * by tsihang, 2023-07-12. */
+    bf_pltfm_get_bmc_ver (&bmc_ver[0], true);
+    aim_printf (&uc->pvs, "\nCurrent BMC version: %s\n\n", bmc_ver);
+
+    if ((platform_type_equal (X308P) ||
+         platform_type_equal (X532P) ||
+         platform_type_equal (X564P)) &&
+        (bf_pltfm_compare_bmc_ver("v3.1.0") >= 0)) {
+        aim_printf (&uc->pvs, "\nThere could be port link risk when upgrade BMC online.\n");
+        aim_printf (
+                &uc->pvs,"Enter Y/N: ");
+        scanf("%c", &c);
+        aim_printf (
+                &uc->pvs,"%c\n", c);
+        if ((c != 'Y') && (c != 'y')) {
+            aim_printf (
+                    &uc->pvs,"Abort\n");
+            return 0;
+        }
+
+        sleep (1);
+
+        bf_pltfm_health_monitor_enable (false);
+
+        /* Make sure no BMC access in health monitor. */
+        do {
+            sleep (1);
+        } while (!(bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_IDLE));
+
+        aim_printf (&uc->pvs, "Upload BMC firmware ... \n");
+
+		if (bf_pltfm_bmc_uart_ymodem_send_file(fname) > 0) {
+            aim_printf (&uc->pvs, "Done\n");
+            aim_printf (&uc->pvs, "Performing upgrade, %d sec(s) ...\n", sec);
+            /* Not very sure, is it required to wait BMC here. */
+            sleep(sec);
+            bf_pltfm_get_bmc_ver (&bmc_ver[0], true);
+            aim_printf (&uc->pvs, "\nNew BMC version: %s\n", bmc_ver);
+        } else {
+            aim_printf (&uc->pvs, "Failed.\n");
+        }
+        bf_pltfm_health_monitor_enable (true);
+    } else {
+        if (platform_type_equal (X312P)) {
+            aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
+        } else {
+            aim_printf (&uc->pvs, "Not supported on this BMC version yet!\n"
+                                  "Required BMC version in 3.1.x and later.\n"
+                                  "Please upgrade BMC via Ymodem.\n"
+                                  "Upgrade BMC online could occure link risk for a port.\n");
+        }
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
+                           *uc)
+{
+    bool reset_bmc  = false;
+    bool reset_dpu1 = false;
+    bool reset_dpu2 = false;
+    bool reset_tof  = false;
+    bool do_reset_by_val_1 = false; /* perform reset by value 1 or value 0. */
+    bool perform = false;
+    bool dbg = false;
+
+    /* Keep the name consistent with the document X-T Programmable Bare Metal. */
+    UCLI_COMMAND_INFO (uc, "reset", 1, "Reset <tof/bmc/dpu1/dpu2>");
+
+    if (memcmp (uc->pargs->args[0], "tof", 3) == 0){
+        reset_tof  = true;
+        perform = false;    /* Never try to reset tof as it will make the bf_switchd quit. */
+    } else if (memcmp (uc->pargs->args[0], "bmc", 3) == 0){
+        reset_bmc  = true;
+    } else if (memcmp (uc->pargs->args[0], "dpu1", 4) == 0){
+        reset_dpu1 = true;
+    } else if (memcmp (uc->pargs->args[0], "dpu2", 4) == 0){
+        reset_dpu2 = true;
+    } else {
+        aim_printf (&uc->pvs, "Usage: reset <tof/bmc/dpu1/dpu2>\n");
+        return 0;
+    }
+
+    if (dbg) {
+        aim_printf (
+            &uc->pvs,
+            "reset: <tof=%s> <bmc=%s> <dpu1=%s> <dpu2=%s>\n",
+            reset_tof  ? "T" : "F",
+            reset_bmc  ? "T" : "F",
+            reset_dpu1 ? "T" : "F",
+            reset_dpu2 ? "T" : "F");
+    }
+
+    if (platform_type_equal (X312P)) {
+        if (reset_bmc || reset_tof) {
+            aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
+            return 0;
+        } else if (reset_dpu1) {
+            aim_printf (&uc->pvs, "Reset DPU1 ...\n");
+            LOG_WARNING ("Reset DPU1 ...\n");
+        } else if (reset_dpu2) {
+            aim_printf (&uc->pvs, "Reset DPU2 ...\n");
+            LOG_WARNING ("Reset DPU2 ...\n");
+        }
+
+        if (perform) {
+
         }
     } else {
-        aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
+        /* Perform a reset via cpld for X532P/X564P/X308P.
+         * Do we need check cpld version here ? */
+        uint8_t cpld_index = 0; /* CPLD index from CME view. */
+        uint8_t aoff = 0;       /* Address offset of this control. */
+        uint8_t boff = 0;       /* Bit offset. */
+        uint8_t val = 0, val_rd = 0;
+
+        if (platform_type_equal (X308P)) {
+            /* X308P-T equiped with only 1 cpld */
+            cpld_index = 1;
+            /* Implemented in address offset 2. */
+            aoff = 2;
+            /* Reset assert by written 1, reset de-assert by written 0. */
+            do_reset_by_val_1 = true;
+
+            if (reset_tof) {
+                /* Implemented in bit offset 5. */
+                boff = 5;
+                /* Prepared, do it right now. */
+                perform = true;
+            } else if (reset_bmc) {
+                /* Implemented in bit offset 0. */
+                boff = 0;
+                /* Prepared, do it right now. */
+                perform = true;
+            } else if (reset_dpu1) {
+                /* Implemented in bit offset 5. */
+                boff = 6;
+                /* Prepared, do it right now. */
+                perform = true;
+            } else if (reset_dpu2) {
+                /* Implemented in bit offset 5. */
+                boff = 7;
+                /* Prepared, do it right now. */
+                perform = true;
+            }
+        } else if (platform_type_equal (X532P)) {
+            cpld_index = 1;
+            aoff = 2;
+            do_reset_by_val_1 = true;
+            if (reset_tof) {
+                boff = 5;
+                perform = true;
+            } else if (reset_bmc) {
+                boff = 4;
+                perform = true;
+                do_reset_by_val_1 = false;
+            }
+        } else if (platform_type_equal (X564P)) {
+            /* Not ready so far. */
+            cpld_index = 1;
+            aoff = 2;
+            do_reset_by_val_1 = true;
+            if (reset_tof) {
+                boff = 5;
+                perform = false;
+            } else if (reset_bmc) {
+                boff = 4;
+                perform = false;
+                do_reset_by_val_1 = false;
+            }
+        }
+        if (dbg) {
+            aim_printf (
+                &uc->pvs,
+                "<perform=%s> <do_reset_by_val_1=%s> <cpld=%d> <aoff=%d> <boff=%d>\n",
+                perform  ? "T" : "F",
+                do_reset_by_val_1 ? "T" : "F",
+                cpld_index,
+                aoff,
+                boff);
+        }
+
+        if (perform) {
+            char c = 0;
+            if (reset_tof) {
+                aim_printf (
+                    &uc->pvs,
+                    "bf_switchd could quit during tof resetting and a cold boot required.\n");
+                aim_printf (&uc->pvs, "Reset tof ...\n");
+                LOG_WARNING ("Reset tof ...\n");
+            } else if (reset_bmc) {
+                aim_printf (
+                    &uc->pvs,
+                    "Ports could down during BMC resetting.\n");
+                aim_printf (&uc->pvs, "Reset BMC ...\n");
+                LOG_WARNING ("Reset BMC ...\n");
+            } else if (reset_dpu1) {
+                aim_printf (&uc->pvs, "Reset DPU1 ...\n");
+                LOG_WARNING ("Reset DPU1 ...\n");
+            } else if (reset_dpu2) {
+                aim_printf (&uc->pvs, "Reset DPU2 ...\n");
+                LOG_WARNING ("Reset DPU2 ...\n");
+            }
+
+            aim_printf (
+                    &uc->pvs,"Enter Y/N: ");
+            scanf("%c", &c);
+            aim_printf (
+                    &uc->pvs,"%c\n", c);
+            if (reset_tof) c = 'N'; /* Force abort when perform tof reset. */
+            if ((c != 'Y') && (c != 'y')) {
+                aim_printf (
+                        &uc->pvs,"Abort\n");
+                return 0;
+            }
+
+            sleep (1);
+
+            /* Read current. */
+            if (bf_pltfm_cpld_read_byte (cpld_index, aoff,
+                                         &val_rd)) {
+                return -1;
+            } else {
+                val = val_rd;
+
+                /* Prepare reset assert control value. */
+                if (do_reset_by_val_1) {
+                    val |= (1 << boff);
+                } else {
+                    val &= ~(1 << boff);
+                }
+
+                if (dbg) {
+                    aim_printf (
+                        &uc->pvs,
+                        "<val_rd=%x> <val_wr=%x>\n",
+                        val_rd,
+                        val);
+                }
+                /* Reset assert. */
+                if (!bf_pltfm_cpld_write_byte (cpld_index, aoff,
+                                              val)) {
+                    if (!bf_pltfm_cpld_read_byte (cpld_index, aoff,
+                                                             &val_rd)) {
+                        /* Check ? */
+                        if (val == val_rd) {
+                            aim_printf (&uc->pvs,
+                                        "Resetting ... \n");
+
+                            /* Prepare reset de-assert control value. */
+                            if (do_reset_by_val_1) {
+                                val &= ~(1 << boff);
+                            } else {
+                                val |= (1 << boff);
+                            }
+
+                            if (dbg) {
+                                aim_printf (
+                                    &uc->pvs,
+                                    "<val_rd=%x> <val_wr=%x>\n",
+                                    val_rd,
+                                    val);
+                            }
+                            sleep (3);
+                            /* Reset de-assert. */
+                            if (!bf_pltfm_cpld_write_byte (cpld_index, aoff,
+                                                          val)) {
+                                if (!bf_pltfm_cpld_read_byte (cpld_index, aoff,
+                                                              &val_rd)) {
+                                    if (val == val_rd) {
+                                        aim_printf (&uc->pvs,
+                                                    "Reset successfully\n");
+                                        return 0;
+                                    }
+                                }
+
+                            }
+                        } else {
+                            aim_printf (&uc->pvs,
+                                        "Reset failed.\n");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     return 0;
@@ -1805,6 +2185,8 @@ static ucli_command_handler_f
 bf_pltfm_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__bsp__,
     bf_pltfm_ucli_ucli__console__,
+    bf_pltfm_ucli_ucli__bmc_ota__,
+    bf_pltfm_ucli_ucli__reset_hwcomp__,
     NULL
 };
 

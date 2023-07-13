@@ -796,13 +796,14 @@ void *onlp_mntr_init (void *arg)
     return NULL;
 }
 
-void bf_pltfm_temperature_monitor_enable (
+void bf_pltfm_health_monitor_enable (
     bool enable)
 {
     if (enable) {
         bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_CTRL;
     } else {
         bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_CTRL;
+        /* AF_PLAT_MNTR_IDLE is set in health monitor. */
     }
     return;
 }
@@ -1073,6 +1074,25 @@ void *health_mntr_init (void *arg)
             platform_type_equal (X564P) ||
             platform_type_equal (X308P)) &&
             (bf_pltfm_compare_bmc_ver("v3.0.0") >= 0)) {
+
+            if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
+                fprintf (stdout, "Chassis Monitor is disabled\n");
+                fprintf (stdout, "@ %s\n",
+                         ctime ((time_t *)
+                                &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+                /* Notify others that the health monitor is idle.
+                 * by tsihang, 2023-07-10. */
+                if (unlikely (!(flags & AF_PLAT_MNTR_IDLE))) {
+                    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_IDLE;
+                }
+
+                sleep (15);
+                continue;
+            }
+
+            /* Make sure AF_PLAT_MNTR_IDLE is cleared every calling. */
+            bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_IDLE;
+
             /* May occure error if no enough time to wait ASIC ready.
              * by tsihang, 2021-07-06 */
             if (first_startup) {
