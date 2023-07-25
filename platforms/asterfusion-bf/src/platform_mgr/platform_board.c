@@ -187,7 +187,11 @@ int platform_name_get_str (char *name,
             break;
         case BF_PLTFM_BD_ID_X308PT_V1DOT1:
             snprintf (name, name_size,
-                      "BF_PLTFM_BD_ID_X308PT_V1DOT1");
+                      "BF_PLTFM_BD_ID_X308PT_V1DOT1/V2DOT0");
+            break;
+        case BF_PLTFM_BD_ID_X308PT_V3DOT0:
+            snprintf (name, name_size,
+                      "BF_PLTFM_BD_ID_X308PT_V3DOT0");
             break;
         case BF_PLTFM_BD_ID_X312PT_V1DOT0:
             snprintf (name, name_size,

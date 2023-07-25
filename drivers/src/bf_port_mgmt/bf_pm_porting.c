@@ -308,7 +308,7 @@ bf_status_t bf_pm_post_port_add_cfg_set (
         fprintf (stdout,
                  "%2d/%d : %s\n",
                  (port_hdl)->conn_id, (port_hdl)->chnl_id,
-                 "Force bringup : AN may be required");
+                 "Forced bringup as it is an internal port");
         bf_pal_pm_front_port_ready_for_bringup (dev_id,
                                                 port_hdl, true);
     } else {
@@ -404,6 +404,7 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     bf_dev_port_t dev_port = 0;
     bf_led_condition_t led_cond =
         BF_LED_POST_PORT_DIS;
+    bool an_required = true, is_x86_kr = true;
 
     // Safety Checks
     if (!port_hdl) {
@@ -416,7 +417,23 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
 
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
-        // nothing todo
+        /* AN is required by X86 KR, while not required by DPU KR. */
+        if (bf_pltfm_qsfp_is_vqsfp (port_info.conn_id)) {
+            an_required = false;
+            is_x86_kr   = false;
+        }
+        LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : %s-KR : enabling AN: %s",
+                   port_info.conn_id,
+                   port_info.chnl_id,
+                   dev_port, is_x86_kr ? "X86" : "DPU",
+                   an_required ? "y" : "n");
+        /* No need to set AN to be true in bfshell if an_required is true here. */
+        bf_pal_pm_front_port_eligible_for_autoneg(dev_id, port_hdl, an_required);
+        /* Indicate that the port is not an optical xcvr.
+         * This is a default indicator to SDK.
+         * by tsihang, 2023/07/24. */
+        //bf_port_is_optical_xcvr_set (dev_id, dev_port,
+        //                     false);
         return BF_SUCCESS;
     }
 
@@ -916,12 +933,17 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         return BF_INVALID_ARG;
     }
 
-    is_sfp = is_panel_sfp (port_hdl.conn_id,
-                           port_hdl.chnl_id);
     // Check type, this fn only handles optical QSFPs
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = port_hdl.chnl_id;
 
+    if (bf_bd_is_this_port_internal (
+            port_info.conn_id, port_info.chnl_id)) {
+        return BF_SUCCESS;
+    }
+
+    is_sfp = is_panel_sfp (port_hdl.conn_id,
+                           port_hdl.chnl_id);
     if (is_sfp) {
         bf_sfp_get_port (port_info.conn_id,
                          port_info.chnl_id, &module);
@@ -948,11 +970,13 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
     if (!is_optical) {
         bf_port_is_optical_xcvr_set (dev_id, dev_port,
                                      false);
+        /* No need to wait xcvr_ready when the module is not optical. */
         return BF_SUCCESS;
     }
 
     bf_port_is_optical_xcvr_set (dev_id, dev_port,
                                  true);
+    /* Wait for QSFP Module FSM set the ready flag. */
     bf_port_optical_xcvr_ready_set (dev_id, dev_port,
                                     false);
     if (is_sfp) {

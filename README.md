@@ -1,6 +1,6 @@
 ## About this repository
 
-Mainline  **ALL-in-ONE** repository for all TF1 based **X-T Bare Metal Switch** powered by Asterfusion with Long Term Support.
+Mainline  **ALL-in-ONE** repository for all Tofino 1 based **X-T Programmable Bare Metal Switch** powered by Asterfusion with Long Term Support.
 
 Current supported **X-T Bare Metal Switch**:
 
@@ -22,6 +22,7 @@ Current supported **SDE**:
   - `9.7.x`.
   - `9.9.x`.
   - `9.11.x`.
+  - `9.13.x`.
 
 The version number of a SDE consists of three Arabic numbers, `x.y.z`, where `x` is the major version, `y` is the minor version, and `z` is the sub-version under `y`.
 It's would be a LTS version when `y` is odd, otherwise it is a non-LTS version. It's worth mentioning that we build and run the code on the top of Debian and here only list the versions which we have adapted and tested, and this does not exclude or deny that the repository does not support other non-LTS SDE versions.
@@ -30,8 +31,8 @@ In order to be compatible with different SDE versions and different base systems
 They are defined in `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h`.
 
 You can choose the most suitable mainline branch according to the following principle:
- - `master`.  Mainline branch for Debian `OS_VERSION ≤ 9`.
- - `master+`· Mainline branch for Debian `OS_VERSSON ≥ 10`.
+ - `master`.  Mainline branch for Debian `OS_VERSION 9`.
+ - `master+`. Mainline branch for Debian `OS_VERSION 10`.
 
 Then modify `SDE_VERSION` to which you're using.
 
@@ -42,10 +43,10 @@ There're some differences on hardware design between `X5-T` and `X3-T`. To this 
 
 Here are the special dependencies:
 
-  - `nct6779d`, which needed by `X312P-T`.
-  - `cgoslx`, which needed by `X5-T`.
+  - `nct6779d`, which required by `X312P-T`.
+  - `cgoslx`, which required by `X5-T` (earlier HW).
 
-Please install the dependencies first from sources before compiling the **ALL-in-ONE** repository. You can find sources in [asternos.dev](https://asternos.dev/xt).
+Please install the dependencies from sources before trying bsp. You can find sources in [github](https://github.com/asterfusion).
 
 ## Quick Start
 
@@ -53,9 +54,10 @@ All your files and folders are presented as a tree in the file explorer. You can
 The building of drivers produces a set of libraries that need to be loaded (or linked to) the application.
 Here're the steps to build and install the <bf-platforms> package:
 
-Barefoot SDK environment setup:
+Intel Tofino SDK Variables
+
+*x and y are appropriate values to fit your SDE.*
 ```
-# Give x and y an appropriate value to your SDE.
 root@localhost:~# vi ~/.bashrc
 export SDE=/root/bf-sde-9.x.y
 export SDE_INSTALL=$SDE/install
@@ -63,41 +65,42 @@ export PATH=$PATH:$SDE_INSTALL/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SDE_INSTALL/lib
 root@localhost:# source ~/.bashrc
 ```
-Clone `bf-bsp-8.9.x`:
+Clone bf-bsp-lts
 ```
-root@localhost:~# git clone https://asternos.dev/xt/bf-bsp-8.9.x.git
-root@localhost:~# cd bf-bsp-8.9.x
+root@localhost:~# git clone https://github.com/asterfusion/bf-bsp-lts.git
+root@localhost:~# cd bf-bsp-lts
 ```
 
-During the evolution of SDE, the installation paths of the third party dependencies have changed and the names of the generated dependencies have changed as well, so minor changes in bsp sources must be done to accommodate those path issue. For SDE version equal with `9.9.x` or higher than `9.9.x`, you should do some changes as following:
+Optional Changes
+
+*Do minor changes to fit your SDE version if necessary.*
+```
+root@localhost:~/bf-bsp-lts# vi drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
+Modify SDE_VERSION  to value '990','9110','9120'or '9130' ...
+root@localhost:~/bf-bsp-lts# vi ./configure.ac
+Comment line 143 as since thrift is 0.14.1 there's no `_init` funciton.
+```
+
+Build and Install
+```
+root@localhost:~/bf-bsp-lts# rm -rf $SDE_INSTALL/include/bf_bd_cfg/ $SDE_INSTALL/include/bf_pltfm*
+root@localhost:~/bf-bsp-lts# ./autogen.sh
+root@localhost:~/bf-bsp-lts# ./configure --prefix=$SDE_INSTALL --enable-thrift
+root@localhost:~/bf-bsp-lts# make -j7
+root@localhost:~/bf-bsp-lts# make install
+```
+
+Finally, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
+
+To be highlighted, during the evolution of SDE, the installation paths of the third party dependencies have changed, so did the generated dependencies name. Thus a minor changes in bsp sources must be done to accommodate those changes. For SDE version equal with  or higher than `9.9.x`, the changes as following:
 ```
 root@localhost:~# mkdir /usr/local/include
 root@localhost:~# ln -s $SDE_INSTALL/include/thrift/ /usr/local/include/thrift
- 
 root@localhost:~# ln -s $SDE_INSTALL/lib/libtarget_sys.so $SDE_INSTALL/lib/libbfsys.so
 ```
 
-Do minor changes to accommodate higher SDE in bsp sources.
+Generate Configuration Variables
 ```
-root@localhost:~/bf-bsp-8.9.x# vi drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
-Modify SDE_VERSION  to value '990'/'9110'/'9120', it's would be fine to be equal with or larger than 990.
-root@localhost:~/bf-bsp-8.9.x# vi ./configure.ac
-Comment line 143 as since thrift is 0.14.1 there's no _init funciton.
-```
-
-Compile and install BSP to `$SDE_INSTALL/`.
-```
-root@localhost:~/bf-bsp-8.9.x# ./autogen.sh
-root@localhost:~/bf-bsp-8.9.x# ​./configure --prefix=$SDE_INSTALL [--enable-thrift]
-root@localhost:~/bf-bsp-8.9.x# ​make -j7
-​root@localhost:~/bf-bsp-8.9.x# make install
-```
-
-After make & make install done, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
-
-Runtime environment setup:
-```
-# Generate /etc/platform.conf
 root@localhost:~# xt-cfgen.sh
 It looks like x532p-t detected.
 ...
@@ -105,10 +108,12 @@ It looks like x532p-t detected.
 CG1508
 uart enabled
 ==========================            Done             ==========================
+```
 
-# Launch ASIC
+Launch ASIC
+```
 root@localhost:~# run_switchd.sh -p diag
-Using SDE /usr/local/sde/bf-sde-9.3.2
+Using SDE /usr/local/sde/bf-sde-9.x.y
 Using SDE_INSTALL /usr/local/sde
 Setting up DMA Memory Pool
 Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino/diag.conf
@@ -124,4 +129,4 @@ Configuration for dev_id 0
 
 ## Q&A
 
-Looking forward your questions by emailing TSIHANG (tsihang@asterfusion.com).
+More information or helps, please visit [Asterfusion](https://help.cloudswit.ch/portal/en/home).

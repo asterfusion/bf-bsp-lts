@@ -29,7 +29,7 @@
 #endif
 
 /* Mainline SDE version used by bsp, set 9.5.0 as default.
- * Valid value in [891,900,910,930,950,970,990,9110,9120,...].
+ * Valid value in [891,900,910,930,950,970,990,9110,9120,9130 ...].
  * A sub version start from a given mainline is valid too, such as 931,952,971, etc. */
 #define SDE_VERSION 950
 #define SDE_VERSION_EQ(key) \
@@ -206,7 +206,8 @@ typedef enum bf_pltfm_board_id_e {
     /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     BF_PLTFM_BD_ID_X308PT_V1DOT1 = 0x3081,
-    /* BF_PLTFM_BD_ID_X308PT_V2DOT0, comming soon on Aug 30, 2023. */
+    BF_PLTFM_BD_ID_X308PT_V2DOT0 = BF_PLTFM_BD_ID_X308PT_V1DOT1, /* Announced as HW V2 to customer. */
+    BF_PLTFM_BD_ID_X308PT_V3DOT0 = 0x3083,  /* Announced as HW v3.0 with PTP hwcomp. */
     /* X312P-T and its subtype. */
     BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,
     BF_PLTFM_BD_ID_X312PT_V1DOT1 = 0x3120,

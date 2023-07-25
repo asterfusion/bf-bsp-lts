@@ -131,7 +131,9 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X564PT_V2DOT0, "APNS640T-A1-V2.0", X564P, v2dot0},  // X564P-T V2.0
 
     {BF_PLTFM_BD_ID_X308PT_V1DOT0, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
-    {BF_PLTFM_BD_ID_X308PT_V1DOT1, "APNS320T-B1-V1.1", X308P, v1dot1},  // X308P-T V1.1
+    {BF_PLTFM_BD_ID_X308PT_V1DOT1, "APNS320T-B1-V1.1", X308P, v1dot1},  // X308P-T V1.1, 4x 1G.
+    {BF_PLTFM_BD_ID_X308PT_V2DOT0, "APNS320T-B1-V1.1", X308P, v2dot0},  // Announced as v2.0.
+    {BF_PLTFM_BD_ID_X308PT_V3DOT0, "APNS320T-B1-V3.0", X308P, v3dot0},  // Announced as v3.0 with PTP hwcomp.
     /* More X308P-T board id. */
 
     {BF_PLTFM_BD_ID_HC36Y24C_V1DOT0, "Hello this is HC", HC, v1dot0},
@@ -165,8 +167,8 @@ struct tlv_t tlvs[] = {
     {0x30, "Switch ASIC Vendor"},
     {0x31, "Main Board Version"},   // up
     {0x32, "COME Version"},         // down
-    {0x33, "GHC-0 Board Version"},  // new
-    {0x34, "GHC-1 Board Version"},  // new
+    {0x33, "GHC-0 Board Version"},  // DPU-1
+    {0x34, "GHC-1 Board Version"},  // DPU-2
     {0xFE, "CRC-32"}
 };
 
@@ -843,29 +845,29 @@ static void further_decode ()
  *      Id String:    TlvInfo
  *      Version:      1
  *      Total Length: 199
- *   TLV Name             Code Len Value
- *   -------------------- ---- --- -----
- *   Product Name         0x21   7 X532P-T
- *   Part Number          0x22  14 ONBP1U-2Y32C-E
- *   Serial Number        0x23   9 201000001
- *   BASE MAC Address     0x24   6 60:EB:5A:00:7D:04
- *   Manufacture Date     0x25  19 17/07/2019 23:59:59
- *   Device Version       0x26   1 1
- *   Label Revision       0x27   1 0
- *   Platform Name        0x28  32 x86_64-asterfusion_congad1519-r0
- *   Onie Version         0x29  25 master-202008111723-dirty
- *   MAC Addresses        0x2A   2 1
- *   Manufacturer         0x2B  11 Asterfusion
- *   Country Code         0x2C   2 CN
- *   Vendor Name          0x2D  11 Asterfusion
- *   Diag Version         0x2E   3 1.0
- *   Service Tag          0x2F   1 X
- *   Switch Vendor        0x30   5 Intel
- *   Main Board Version   0x31  16 APNS320T-A1-V1.0
- *   COME Version         0x32   0
- *   GHC-0 Board Version  0x33   0
- *   GHC-1 Board Version  0x34   0
- *   CRC-32               0xFE   4 0xA5FE50A4
+ *   TLV Name                   Code Len Value
+ *   --------------------       ---- --- -----
+ *   Product Name               0x21   7 X532P-T
+ *   Part Number                0x22  14 ONBP1U-2Y32C-E
+ *   Serial Number              0x23   9 201000001
+ *   BASE MAC Address           0x24   6 60:EB:5A:00:7D:04
+ *   Manufacture Date           0x25  19 17/07/2019 23:59:59
+ *   Device Version             0x26   1 1
+ *   Label Revision             0x27   1 0
+ *   Platform Name              0x28  32 x86_64-asterfusion_congad1519-r0
+ *   Onie Version               0x29  25 master-202008111723-dirty
+ *   MAC Addresses              0x2A   2 1
+ *   Manufacturer               0x2B  11 Asterfusion
+ *   Country Code               0x2C   2 CN
+ *   Vendor Name                0x2D  11 Asterfusion
+ *   Diag Version               0x2E   3 1.0
+ *   Service Tag                0x2F   1 X
+ *   Switch Vendor              0x30   5 Intel
+ *   Main Board Version         0x31  16 APNS320T-A1-V1.0
+ *   COME Version               0x32   0
+ *   GHC-0/DPU-1 Board Version  0x33   0
+ *   GHC-1/DPU-2 Board Version  0x34   0
+ *   CRC-32                     0xFE   4 0xA5FE50A4
  *   Checksum is valid.
  *   msh />
  */

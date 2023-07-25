@@ -913,7 +913,7 @@ EXPORT bf_dev_port_t bf_get_dev_port_by_interface_name (
             }
             goto fetch_dp;
         } else {
-            /* GHC channel ? */
+            /* DPU channel ? */
             err = bf_pltfm_vqsfp_lookup_by_module (module,
                                                 &port_hdl.conn_id);
             if (err) {
