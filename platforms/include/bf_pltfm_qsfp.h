@@ -218,6 +218,10 @@ extern int bf_pltfm_vqsfp_lookup_by_index (
     char *alias,
     uint32_t *conn_id
 );
+extern int bf_pltfm_qsfp_is_vqsfp (
+    uint32_t conn_id
+);
+
 extern int bf_pltfm_get_max_vqsfp_ports (void);
 
 bool is_panel_qsfp_module (

@@ -140,7 +140,7 @@ static void bf_pltfm_cpld_decode_x308p (ucli_context_t *uc) {
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "            ");
-    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "GHC-1", "GHC-0", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC");
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "DPU-2", "DPU-0", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC");
     aim_printf (&uc->pvs, "            ");
     aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "-----", "-----", "--", "-------------", "---------------", "---");
     aim_printf (&uc->pvs, "         RST");

@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
+#include <ctype.h>
 
 /* Module includes */
 #include <bf_pltfm_types/bf_pltfm_types.h>
@@ -84,6 +85,15 @@ static inline void cpy_psu_data(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_su
     memcpy ((char *)&dst->model[0], (char *)&src->model[0], 32 - 1);
     memcpy ((char *)&dst->serial[0], (char *)&src->serial[0], 32 - 1);
     memcpy ((char *)&dst->rev[0], (char *)&src->rev[0], 32 - 1);
+}
+
+static void format_psu_string(uint8_t* str_in)
+{
+    for (int i = 1; i <= str_in[0]; i ++) {
+        if (!isprint(str_in[i])) {
+            str_in[i] = ' ';
+        }
+    }
 }
 
 static bf_pltfm_status_t
@@ -229,6 +239,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
                     BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                format_psu_string(rd_buf);
                 if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
                     (memcmp (bmc_psu_data[i - 1].serial, &rd_buf[1], rd_buf[0]) == 0)) {
                     memcpy (info[i - 1].serial, bmc_psu_data[i - 1].serial, sizeof(info[i - 1].serial));
@@ -252,6 +263,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x532p__
                     BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                format_psu_string(rd_buf);
                 memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
                 memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
                 info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
@@ -409,6 +421,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
                     BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                format_psu_string(rd_buf);
                 if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
                     (memcmp (bmc_psu_data[i - 1].serial, &rd_buf[1], rd_buf[0]) == 0)) {
                     memcpy (info[i - 1].serial, bmc_psu_data[i - 1].serial, sizeof(info[i - 1].serial));
@@ -432,6 +445,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x564p__
                     BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                format_psu_string(rd_buf);
                 memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
                 memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
                 info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
@@ -567,6 +581,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
                     BMC_COMM_INTERVAL_US);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                format_psu_string(rd_buf);
                 if ((strlen (bmc_psu_data[i - 1].serial) == rd_buf[0]) &&
                     (memcmp (bmc_psu_data[i - 1].serial, &rd_buf[1], rd_buf[0]) == 0)) {
                     memcpy (info[i - 1].serial, bmc_psu_data[i - 1].serial, sizeof(info[i - 1].serial));
@@ -589,6 +604,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
                     BMC_CMD_PSU_GET, wr_buf, 2, rd_buf, (128 - 1),
                     BMC_COMM_INTERVAL_US);
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                format_psu_string(rd_buf);
                 memset (info[i - 1].model, 0x00, sizeof(info[i - 1].model));
                 memcpy (info[i - 1].model, &rd_buf[1], rd_buf[0]);
                 info[i - 1].fvalid |= PSU_INFO_VALID_MODEL;
@@ -1045,6 +1061,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             info->fvalid = bmc_psu_data[pwr - 1].fvalid;
             return BF_PLTFM_SUCCESS;
         } else {
+            format_psu_string(&psu_sn_data[1]);
             memcpy (info->serial, &psu_sn_data[2], 9);
             if (debug_print) {
                 fprintf (stdout, "SN    : %s\n",
@@ -1061,6 +1078,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             LOG_ERROR("Read psu model error\n");
             return BF_PLTFM_COMM_FAILED;
         } else {
+            format_psu_string(&psu_model_data[1]);
             memcpy (info->model, &psu_model_data[2], 12);
             if (debug_print) {
                 fprintf (stdout, "Model : %s\n",
@@ -1081,6 +1099,8 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             LOG_ERROR("Read psu rev error\n");
             return BF_PLTFM_COMM_FAILED;
         } else {
+            psu_fan_rev[1] = psu_fan_rev[0] - 1;
+            format_psu_string(&psu_fan_rev[1]);
             memcpy (info->rev, &psu_fan_rev[2], 12);
             if (debug_print) {
                 fprintf (stdout, "Rev   : %s\n",

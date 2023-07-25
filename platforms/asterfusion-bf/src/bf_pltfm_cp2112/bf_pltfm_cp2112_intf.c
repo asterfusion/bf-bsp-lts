@@ -1450,6 +1450,7 @@ bf_pltfm_cp2112_device_ctx_t
         (bd_id == BF_PLTFM_BD_ID_X564PT_V2DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
+        (bd_id == BF_PLTFM_BD_ID_X308PT_V2DOT0) ||
         (bd_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
         if ((cp2112_id != CP2112_ID_2) &&
             (cp2112_id != CP2112_ID_1)) {
@@ -1487,6 +1488,8 @@ bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
             uint8_t wr_buf[2] = {0x01, 0xAA};
             bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                           2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
+            /* Giving a little time to wait the reset routine is completely done. */
+            sleep (5);
             wr_buf[0] = 0x02;
             bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                                           2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US);
@@ -1573,14 +1576,18 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
     bf_pltfm_cp2112_initialized = 0;
     bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
 
-#if 1
-    /* At the beginning, Use BMC interface to reset cp2112 first. */
+#if 0
+    /* At the beginning, Use BMC interface to reset cp2112 first.
+     * There could be a chance that the cp2112 device could be lost
+     * after reseting in container environment.
+     * So please reset cp2112 beyond syncd reloading and use a script instead.
+     * by tsihang, 21 July, 2023. */
     sts = bf_pltfm_bmc_cp2112_reset (true);
     if (sts) {
         LOG_ERROR ("Error resetting primary cp2112\n");
         return BF_PLTFM_COMM_FAILED;
     }
-    bf_sys_sleep (2);
+    bf_sys_sleep (5);
 #endif
     while (1) {
         // Initialize the cp2112 mutex

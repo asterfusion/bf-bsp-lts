@@ -52,14 +52,14 @@ typedef enum {
 } mav_mux_pca9548_addr_t;
 
 
-/* GHC channel num. */
+/* DPU channel num. */
 static uint32_t max_vqsfp = 4;
 static uint32_t max_vsfp = 6;
 
 /* Global qsfp_ctx specifed by platform.
  * by tsihang, 2021-08-02. */
 static struct qsfp_ctx_t *g_qsfp_ctx;
-/* GHC channel. */
+/* DPU channel. */
 static struct qsfp_ctx_t *g_vqsfp_ctx;
 
 extern int bf_pltfm_get_sub_module_pres_hc (
@@ -993,7 +993,7 @@ EXPORT int bf_pltfm_qsfp_lookup_by_module (
     return 0;
 }
 
-/* vQSFP: GHC channel. */
+/* vQSFP: DPU channel. */
 EXPORT int bf_pltfm_vqsfp_lookup_by_module (
     IN  int module,
     OUT uint32_t *conn_id
@@ -1039,3 +1039,23 @@ EXPORT int bf_pltfm_vqsfp_lookup_by_index (
     return 0;
 }
 
+EXPORT int bf_pltfm_qsfp_is_vqsfp (
+    IN  uint32_t conn_id
+)
+{
+    struct qsfp_ctx_t *qsfp, *qsfp_ctx;
+    if (bf_pltfm_get_vqsfp_ctx (&qsfp_ctx)) {
+        return -1;
+    }
+
+    for (int i = 0; i < bf_pltfm_get_max_vqsfp_ports(); i ++) {
+        qsfp = &qsfp_ctx[i];
+        if (conn_id == qsfp->conn_id) {
+            // found in vqsfp
+            return 1;
+        }
+    }
+
+    // not found
+    return 0;
+}

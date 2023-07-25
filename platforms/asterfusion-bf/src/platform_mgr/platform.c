@@ -1789,195 +1789,222 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
             reset_dpu2 ? "T" : "F");
     }
 
+    /* Perform a reset via cpld for X532P/X564P/X308P.
+     * Do we need check cpld version here ? */
+    uint8_t cpld_index = 0; /* CPLD index from CME view. */
+    uint8_t aoff = 0;       /* Address offset of this control. */
+    uint8_t boff = 0;       /* Bit offset. */
+    uint8_t val = 0, val_rd = 0;
+
     if (platform_type_equal (X312P)) {
-        if (reset_bmc || reset_tof) {
-            aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
-            return 0;
-        } else if (reset_dpu1) {
-            aim_printf (&uc->pvs, "Reset DPU1 ...\n");
-            LOG_WARNING ("Reset DPU1 ...\n");
-        } else if (reset_dpu2) {
-            aim_printf (&uc->pvs, "Reset DPU2 ...\n");
-            LOG_WARNING ("Reset DPU2 ...\n");
-        }
+        cpld_index = 1;
+        /* Implemented in address offset 13. */
+        aoff = 13;
+        /* Reset assert by written 0, reset de-assert by written 1. */
+        do_reset_by_val_1 = false;
 
-        if (perform) {
-
-        }
-    } else {
-        /* Perform a reset via cpld for X532P/X564P/X308P.
-         * Do we need check cpld version here ? */
-        uint8_t cpld_index = 0; /* CPLD index from CME view. */
-        uint8_t aoff = 0;       /* Address offset of this control. */
-        uint8_t boff = 0;       /* Bit offset. */
-        uint8_t val = 0, val_rd = 0;
-
-        if (platform_type_equal (X308P)) {
-            /* X308P-T equiped with only 1 cpld */
-            cpld_index = 1;
-            /* Implemented in address offset 2. */
-            aoff = 2;
-            /* Reset assert by written 1, reset de-assert by written 0. */
-            do_reset_by_val_1 = true;
-
-            if (reset_tof) {
-                /* Implemented in bit offset 5. */
-                boff = 5;
-                /* Prepared, do it right now. */
-                perform = true;
-            } else if (reset_bmc) {
-                /* Implemented in bit offset 0. */
-                boff = 0;
-                /* Prepared, do it right now. */
-                perform = true;
-            } else if (reset_dpu1) {
-                /* Implemented in bit offset 5. */
-                boff = 6;
-                /* Prepared, do it right now. */
-                perform = true;
-            } else if (reset_dpu2) {
-                /* Implemented in bit offset 5. */
-                boff = 7;
-                /* Prepared, do it right now. */
-                perform = true;
-            }
-        } else if (platform_type_equal (X532P)) {
-            cpld_index = 1;
-            aoff = 2;
-            do_reset_by_val_1 = true;
-            if (reset_tof) {
-                boff = 5;
-                perform = true;
-            } else if (reset_bmc) {
-                boff = 4;
-                perform = true;
-                do_reset_by_val_1 = false;
-            }
-        } else if (platform_type_equal (X564P)) {
+        if (reset_tof) {
             /* Not ready so far. */
-            cpld_index = 1;
-            aoff = 2;
-            do_reset_by_val_1 = true;
-            if (reset_tof) {
-                boff = 5;
-                perform = false;
-            } else if (reset_bmc) {
-                boff = 4;
-                perform = false;
-                do_reset_by_val_1 = false;
-            }
+        } else if (reset_bmc) {
+            /* Not ready so far. */
+        } else if (reset_dpu1) {
+            /* Implemented in bit offset 2. */
+            boff = 2;
+            /* Prepared, do it right now. */
+            perform = true;
+        } else if (reset_dpu2) {
+            /* Implemented in bit offset 3. */
+            boff = 3;
+            /* Prepared, do it right now. */
+            perform = true;
         }
+    } else if (platform_type_equal (X308P)) {
+        /* X308P-T equiped with only 1 cpld */
+        cpld_index = 1;
+        /* Implemented in address offset 2. */
+        aoff = 2;
+        /* Reset assert by written 1, reset de-assert by written 0. */
+        do_reset_by_val_1 = true;
+
+        if (reset_tof) {
+            /* Implemented in bit offset 5. */
+            boff = 5;
+            /* Prepared, do it right now. */
+            perform = true;
+        } else if (reset_bmc) {
+            /* Implemented in bit offset 0. */
+            boff = 0;
+            /* Prepared, do it right now. */
+            perform = true;
+        } else if (reset_dpu1) {
+            /* Implemented in bit offset 5. */
+            boff = 6;
+            /* Prepared, do it right now. */
+            perform = true;
+        } else if (reset_dpu2) {
+            /* Implemented in bit offset 5. */
+            boff = 7;
+            /* Prepared, do it right now. */
+            perform = true;
+        }
+    } else if (platform_type_equal (X532P)) {
+        cpld_index = 1;
+        aoff = 2;
+        do_reset_by_val_1 = true;
+        if (reset_tof) {
+            boff = 5;
+            perform = true;
+        } else if (reset_bmc) {
+            boff = 4;
+            perform = true;
+            do_reset_by_val_1 = false;
+        } else {
+            /* No DPU. */
+            perform = false;
+        }
+
+        /* Not support. */
+        if ((reset_bmc || reset_tof) &&
+            (platform_subtype_equal(v1dot0) || platform_subtype_equal(v1dot1))) {
+            perform = false;
+        }
+
+    } else if (platform_type_equal (X564P)) {
+        /* Not ready so far. */
+        cpld_index = 1;
+        aoff = 2;
+        do_reset_by_val_1 = true;
+        if (reset_tof) {
+            boff = 3;
+            perform = true;
+        } else if (reset_bmc) {
+            boff = 7;
+            perform = true;
+            do_reset_by_val_1 = false;
+        } else {
+            /* No DPU. */
+            perform = false;
+        }
+        /* Not support. */
+        if ((reset_bmc || reset_tof) &&
+            (platform_subtype_equal(v1dot0) || platform_subtype_equal(v1dot1) || platform_subtype_equal(v1dot2))) {
+            perform = false;
+        }
+    }
+
+    if (dbg) {
+        aim_printf (
+            &uc->pvs,
+            "<perform=%s> <do_reset_by_val_1=%s> <cpld=%d> <aoff=%d> <boff=%d>\n",
+            perform  ? "T" : "F",
+            do_reset_by_val_1 ? "T" : "F",
+            cpld_index,
+            aoff,
+            boff);
+    }
+
+    if (!perform) {
+        aim_printf (&uc->pvs, "Not supported.\n");
+        return 0;
+    }
+
+    if (reset_tof) {
+        aim_printf (
+            &uc->pvs,
+            "bf_switchd could quit during tof resetting and a cold boot required.\n");
+        aim_printf (&uc->pvs, "Reset tof ...\n");
+        LOG_WARNING ("Reset tof ...\n");
+    } else if (reset_bmc) {
+        aim_printf (
+            &uc->pvs,
+            "Ports could down during BMC resetting.\n");
+        aim_printf (&uc->pvs, "Reset BMC ...\n");
+        LOG_WARNING ("Reset BMC ...\n");
+    } else if (reset_dpu1) {
+        aim_printf (&uc->pvs, "Reset DPU1 ...\n");
+        LOG_WARNING ("Reset DPU1 ...\n");
+    } else if (reset_dpu2) {
+        aim_printf (&uc->pvs, "Reset DPU2 ...\n");
+        LOG_WARNING ("Reset DPU2 ...\n");
+    }
+
+    char c = 0;
+    aim_printf (
+            &uc->pvs,"Enter Y/N: ");
+    scanf("%c", &c);
+    aim_printf (
+            &uc->pvs,"%c\n", c);
+    if (reset_tof) c = 'N'; /* Force abort when perform tof reset. */
+    if ((c != 'Y') && (c != 'y')) {
+        aim_printf (
+                &uc->pvs,"Abort\n");
+        return 0;
+    }
+
+    sleep (1);
+
+    /* Read current. */
+    if (bf_pltfm_cpld_read_byte (cpld_index, aoff,
+                                 &val_rd)) {
+        return -1;
+    } else {
+        val = val_rd;
+
+        /* Prepare reset assert control value. */
+        if (do_reset_by_val_1) {
+            val |= (1 << boff);
+        } else {
+            val &= ~(1 << boff);
+        }
+
         if (dbg) {
             aim_printf (
                 &uc->pvs,
-                "<perform=%s> <do_reset_by_val_1=%s> <cpld=%d> <aoff=%d> <boff=%d>\n",
-                perform  ? "T" : "F",
-                do_reset_by_val_1 ? "T" : "F",
-                cpld_index,
-                aoff,
-                boff);
+                "<val_rd=%x> <val_wr=%x>\n",
+                val_rd,
+                val);
         }
+        /* Reset assert. */
+        if (!bf_pltfm_cpld_write_byte (cpld_index, aoff,
+                                      val)) {
+            if (!bf_pltfm_cpld_read_byte (cpld_index, aoff,
+                                                     &val_rd)) {
+                /* Check ? */
+                if (val == val_rd) {
+                    aim_printf (&uc->pvs,
+                                "Resetting ... \n");
 
-        if (perform) {
-            char c = 0;
-            if (reset_tof) {
-                aim_printf (
-                    &uc->pvs,
-                    "bf_switchd could quit during tof resetting and a cold boot required.\n");
-                aim_printf (&uc->pvs, "Reset tof ...\n");
-                LOG_WARNING ("Reset tof ...\n");
-            } else if (reset_bmc) {
-                aim_printf (
-                    &uc->pvs,
-                    "Ports could down during BMC resetting.\n");
-                aim_printf (&uc->pvs, "Reset BMC ...\n");
-                LOG_WARNING ("Reset BMC ...\n");
-            } else if (reset_dpu1) {
-                aim_printf (&uc->pvs, "Reset DPU1 ...\n");
-                LOG_WARNING ("Reset DPU1 ...\n");
-            } else if (reset_dpu2) {
-                aim_printf (&uc->pvs, "Reset DPU2 ...\n");
-                LOG_WARNING ("Reset DPU2 ...\n");
-            }
-
-            aim_printf (
-                    &uc->pvs,"Enter Y/N: ");
-            scanf("%c", &c);
-            aim_printf (
-                    &uc->pvs,"%c\n", c);
-            if (reset_tof) c = 'N'; /* Force abort when perform tof reset. */
-            if ((c != 'Y') && (c != 'y')) {
-                aim_printf (
-                        &uc->pvs,"Abort\n");
-                return 0;
-            }
-
-            sleep (1);
-
-            /* Read current. */
-            if (bf_pltfm_cpld_read_byte (cpld_index, aoff,
-                                         &val_rd)) {
-                return -1;
-            } else {
-                val = val_rd;
-
-                /* Prepare reset assert control value. */
-                if (do_reset_by_val_1) {
-                    val |= (1 << boff);
-                } else {
-                    val &= ~(1 << boff);
-                }
-
-                if (dbg) {
-                    aim_printf (
-                        &uc->pvs,
-                        "<val_rd=%x> <val_wr=%x>\n",
-                        val_rd,
-                        val);
-                }
-                /* Reset assert. */
-                if (!bf_pltfm_cpld_write_byte (cpld_index, aoff,
-                                              val)) {
-                    if (!bf_pltfm_cpld_read_byte (cpld_index, aoff,
-                                                             &val_rd)) {
-                        /* Check ? */
-                        if (val == val_rd) {
-                            aim_printf (&uc->pvs,
-                                        "Resetting ... \n");
-
-                            /* Prepare reset de-assert control value. */
-                            if (do_reset_by_val_1) {
-                                val &= ~(1 << boff);
-                            } else {
-                                val |= (1 << boff);
-                            }
-
-                            if (dbg) {
-                                aim_printf (
-                                    &uc->pvs,
-                                    "<val_rd=%x> <val_wr=%x>\n",
-                                    val_rd,
-                                    val);
-                            }
-                            sleep (3);
-                            /* Reset de-assert. */
-                            if (!bf_pltfm_cpld_write_byte (cpld_index, aoff,
-                                                          val)) {
-                                if (!bf_pltfm_cpld_read_byte (cpld_index, aoff,
-                                                              &val_rd)) {
-                                    if (val == val_rd) {
-                                        aim_printf (&uc->pvs,
-                                                    "Reset successfully\n");
-                                        return 0;
-                                    }
-                                }
-
-                            }
-                        } else {
-                            aim_printf (&uc->pvs,
-                                        "Reset failed.\n");
-                        }
+                    /* Prepare reset de-assert control value. */
+                    if (do_reset_by_val_1) {
+                        val &= ~(1 << boff);
+                    } else {
+                        val |= (1 << boff);
                     }
+
+                    if (dbg) {
+                        aim_printf (
+                            &uc->pvs,
+                            "<val_rd=%x> <val_wr=%x>\n",
+                            val_rd,
+                            val);
+                    }
+                    sleep (3);
+                    /* Reset de-assert. */
+                    if (!bf_pltfm_cpld_write_byte (cpld_index, aoff,
+                                                  val)) {
+                        if (!bf_pltfm_cpld_read_byte (cpld_index, aoff,
+                                                      &val_rd)) {
+                            if (val == val_rd) {
+                                aim_printf (&uc->pvs,
+                                            "Reset successfully\n");
+                                return 0;
+                            }
+                        }
+
+                    }
+                } else {
+                    aim_printf (&uc->pvs,
+                                "Reset failed.\n");
                 }
             }
         }

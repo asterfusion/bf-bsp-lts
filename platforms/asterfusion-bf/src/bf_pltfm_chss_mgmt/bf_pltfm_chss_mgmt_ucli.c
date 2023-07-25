@@ -247,19 +247,19 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                     t.tmp2, "Mainboard Front Right");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
                     t.tmp3, "Fan 1");
-        // if == -100.0, means no GHC-0 installed
+        // if == -100.0, means no DPU-1 installed
         if (t.tmp4 != -100.0) {
             aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
-                        t.tmp4, "GHC-1 Junction");
+                        t.tmp4, "DPU-1 Junction");
             aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
-                        t.tmp5, "GHC-1 Ambient");
+                        t.tmp5, "DPU-1 Ambient");
         }
-        // if == -100.0, means no GHC-0 installed
+        // if == -100.0, means no DPU-2 installed
         if (t.tmp6 != -100.0) {
             aim_printf (&uc->pvs, "tmp6   %.1f C   \"%s\"\n",
-                        t.tmp6,"GHC-2 Junction");
+                        t.tmp6,"DPU-2 Junction");
             aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
-                        t.tmp7, "GHC-2 Ambient");
+                        t.tmp7, "DPU-2 Ambient");
         }
         aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
                     t.tmp8, "BF Junction <- from BMC");
@@ -276,21 +276,25 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                     t.tmp2, "lm63");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
                     t.tmp3, (platform_subtype_equal(v3dot0) || platform_subtype_equal(v4dot0) || platform_subtype_equal(v5dot0)) ? "lm86" : "Not Defined");
-        aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
-                    t.tmp4, "GHC-1 Junction");
-        aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
-                    t.tmp5, "GHC-1 Ambient");
-        aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
-                    t.tmp6, "GHC-2 Junction");
-        aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
-                    t.tmp7, "GHC-2 Ambient");
+        // if == 0, means no DPU-1 installed
+        if (t.tmp4 != 0) {
+            aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
+                        t.tmp4, "DPU-1 Junction");
+            aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
+                        t.tmp5, "DPU-1 Ambient");
+        }
+        // if == 0, means no DPU-2 installed
+        if (t.tmp6 != 0) {
+            aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
+                        t.tmp6, "DPU-2 Junction");
+            aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
+                        t.tmp7, "DPU-2 Ambient");
+        }
         /* temp 8 and temp 9 come from switch the value same with command "tofino_tmp_show". */
         aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
                     t.tmp8, "BF Junction <- from tofino");
         aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
                     t.tmp9, "BF Ambient <- from tofino");
-        aim_printf (&uc->pvs, "tmp10    %.1f C   \"%s\"\n",
-                    t.tmp10, "Not Defined");
         /* Added more sensors. */
     } else if (platform_type_equal (HC)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",

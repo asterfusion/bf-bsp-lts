@@ -648,23 +648,23 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout,
                 "tmp3    %.1f C   \"%s\"\n",
                         t.tmp3, "Fan 1");
-            // if == -100.0, means no GHC-0 installed
+            // if == -100.0, means no DPU-1 installed
             if (t.tmp4 != -100.0) {
                 fprintf (stdout,
                     "tmp4    %.1f C   \"%s\"\n",
-                            t.tmp4, "GHC-1 Junction");
+                            t.tmp4, "DPU-1 Junction");
                 fprintf (stdout,
                     "tmp5    %.1f C   \"%s\"\n",
-                            t.tmp5, "GHC-1 Ambient");
+                            t.tmp5, "DPU-1 Ambient");
             }
-            // if == -100.0, means no GHC-0 installed
+            // if == -100.0, means no DPU-2 installed
             if (t.tmp6 != -100.0) {
                 fprintf (stdout,
                     "tmp6   %.1f C   \"%s\"\n",
-                            t.tmp6, "GHC-2 Junction");
+                            t.tmp6, "DPU-2 Junction");
                 fprintf (stdout,
                     "tmp7    %.1f C   \"%s\"\n",
-                            t.tmp7, "GHC-2 Ambient");
+                            t.tmp7, "DPU-2 Ambient");
             }
             fprintf (stdout,
                 "tmp8    %.1f C   \"%s\"\n",
@@ -691,23 +691,23 @@ bf_pltfm_chss_mgmt_tmp_init()
                      t.tmp2, "lm63");
             fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
                      t.tmp3, (platform_subtype_equal(v3dot0) || platform_subtype_equal(v4dot0) || platform_subtype_equal(v5dot0)) ? "lm86" : "Not Defined");
-            // if == -100.0, means no GHC-0 installed
-            if (t.tmp4 != -100.0) {
+            // if == 0, means no DPU-1 installed
+            if (t.tmp4 != 0) {
                 fprintf (stdout,
                     "tmp4    %.1f C   \"%s\"\n",
-                            t.tmp4, "GHC-1 Junction");
+                            t.tmp4, "DPU-1 Junction");
                 fprintf (stdout,
                     "tmp5    %.1f C   \"%s\"\n",
-                            t.tmp5, "GHC-1 Ambient");
+                            t.tmp5, "DPU-1 Ambient");
             }
-            // if == -100.0, means no GHC-0 installed
-            if (t.tmp6 != -100.0) {
+            // if == 0, means no DPU-2 installed
+            if (t.tmp6 != 0) {
                 fprintf (stdout,
                     "tmp6   %.1f C   \"%s\"\n",
-                            t.tmp6,"GHC-2 Junction");
+                            t.tmp6,"DPU-2 Junction");
                 fprintf (stdout,
                     "tmp7    %.1f C   \"%s\"\n",
-                            t.tmp7, "GHC-2 Ambient");
+                            t.tmp7, "DPU-2 Ambient");
             }
             fprintf (stdout,
                 "tmp8    %.1f C   \"%s\"\n",
@@ -715,9 +715,6 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout,
                 "tmp9    %.1f C   \"%s\"\n",
                         t.tmp9, "BF Ambient");
-            fprintf (stdout,
-                "tmp10    %.1f C   \"%s\"\n",
-                        t.tmp10, "Not Defined");
             /* Added more sensors. */
         } else if (platform_type_equal (HC)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",

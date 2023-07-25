@@ -10,17 +10,17 @@ pm port-add 6/- 100G NONE
 pm port-add 7/- 100G NONE
 pm port-add 8/- 100G NONE
 
-pm port-add 9/- 25G NONE
-pm port-add 10/- 25G NONE
-pm port-add 11/- 25G NONE
-pm port-add 12/- 25G NONE
-pm port-add 13/- 25G NONE
-pm port-add 14/- 25G NONE
-pm port-add 15/- 25G NONE
-pm port-add 16/- 25G NONE
-pm port-add 17/- 25G NONE
-pm port-add 18/- 25G NONE
-pm port-add 19/- 25G NONE
-pm port-add 20/- 25G NONE
+pm port-add 9/- 10G NONE
+pm port-add 10/- 10G NONE
+pm port-add 11/- 10G NONE
+pm port-add 12/- 10G NONE
+pm port-add 13/- 10G NONE
+pm port-add 14/- 10G NONE
+pm port-add 15/- 10G NONE
+pm port-add 16/- 10G NONE
+pm port-add 17/- 10G NONE
+pm port-add 18/- 10G NONE
+pm port-add 19/- 10G NONE
+pm port-add 20/- 10G NONE
 
 pm port-enb -/-

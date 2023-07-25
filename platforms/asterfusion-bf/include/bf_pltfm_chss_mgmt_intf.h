@@ -208,23 +208,23 @@ typedef struct bf_pltfm_temperature_info_t {
     /* x532p-t -> ASIC Ambient */
     /* x564p-t -> ASIC Ambient */
     float tmp3;  /* tempearture of sensor 3 in C */
-    /* x312p-t -> GHC-1 Junction */
-    /* x308p-t -> GHC-1 Junction */
+    /* x312p-t -> DPU-1 Junction */
+    /* x308p-t -> DPU-1 Junction */
     /* x532p-t -> ASIC Junction */
     /* x564p-t -> ASIC Junction */
     float tmp4;  /* tempearture of sensor 4 in C */
-    /* x312p-t -> GHC-1 Ambient */
-    /* x308p-t -> GHC-1 Ambient */
+    /* x312p-t -> DPU-1 Ambient */
+    /* x308p-t -> DPU-1 Ambient */
     /* x532p-t -> Fan 1 */
     /* x564p-t -> Fan 1 */
     float tmp5;  /* tempearture of sensor 5 in C */
-    /* x312p-t -> GHC-2 Junction */
-    /* x308p-t -> GHC-2 Junction */
+    /* x312p-t -> DPU-2 Junction */
+    /* x308p-t -> DPU-2 Junction */
     /* x532p-t -> Fan 2 */
     /* x564p-t -> Fan 2 */
     float tmp6;  /* tempearture of sensor 6 in C */
-    /* x312p-t -> GHC-2 Ambient */
-    /* x308p-t -> GHC-2 Ambient */
+    /* x312p-t -> DPU-2 Ambient */
+    /* x308p-t -> DPU-2 Ambient */
     /* x532p-t -> Not Defined */
     /* x564p-t -> Mainboard Rear Left (available on V2.0) */
     float tmp7;  /* tempearture of sensor 7 in C */
