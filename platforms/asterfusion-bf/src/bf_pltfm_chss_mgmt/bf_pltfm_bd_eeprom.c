@@ -133,7 +133,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X308PT_V1DOT0, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
     {BF_PLTFM_BD_ID_X308PT_V1DOT1, "APNS320T-B1-V1.1", X308P, v1dot1},  // X308P-T V1.1, 4x 1G.
     {BF_PLTFM_BD_ID_X308PT_V2DOT0, "APNS320T-B1-V1.1", X308P, v2dot0},  // Announced as v2.0.
-    {BF_PLTFM_BD_ID_X308PT_V3DOT0, "APNS320T-B1-V3.0", X308P, v3dot0},  // Announced as v3.0 with PTP hwcomp.
+    {BF_PLTFM_BD_ID_X308PT_V3DOT0, "APNS320T-C1-V1.0", X308P, v3dot0},  // Announced as v3.0 with PTP hwcomp.
     /* More X308P-T board id. */
 
     {BF_PLTFM_BD_ID_HC36Y24C_V1DOT0, "Hello this is HC", HC, v1dot0},
@@ -906,7 +906,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             /* There're some old device such as x564p-t gets eeprom data through i2c (cgosdrv). */
             usec_delay = bf_pltfm_get_312_bmc_comm_interval();
             err = bf_pltfm_bmc_write_read (bmc_i2c_addr, cmd,
-                                           wr_buf, 2, 0xFF, rd_buf, usec_delay);
+                                           wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf), usec_delay);
         }
 
         if (err != -1) {

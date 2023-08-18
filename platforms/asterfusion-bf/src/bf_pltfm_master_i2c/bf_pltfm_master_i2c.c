@@ -579,7 +579,7 @@ static void bf_pltfm_master_i2c_log(
     struct tm *tmp_ptr;
     struct stat file_stat;
     char *dbgstr_ptr = debug_str;
-    char rfile[128] = {0};
+    char rfile[512] = {0};
     const char *dbg_file = LOG_DIR_PREFIX"/sio_debug.log";
 
     if (!bf_sio_dbg_enabled ||
@@ -936,6 +936,7 @@ int bf_pltfm_bmc_write_read (
     uint8_t wr_len,
     uint8_t rd_off,
     uint8_t *rd_buf,
+    int     max_rd_len,
     int usec)
 {
     /* sp for COM-e: CG15XX */
@@ -987,8 +988,9 @@ int bf_pltfm_bmc_write_read (
 
     /* Is the buffer ready to read ? */
     if (rd_buf) {
+        uint8_t rd_data[256 + 2];
         err = i2c_smbus_read_block_data (fd,
-                                         rd_off, rd_buf);
+                                         rd_off, rd_data);
         if (err < 0) {
             LOG_ERROR (
                 "%s[%d], "
@@ -998,6 +1000,18 @@ int bf_pltfm_bmc_write_read (
             err = -300;
             goto end;
         }
+
+        if ((rd_data[0] + 1 != err) || (err > max_rd_len))  {
+            LOG_ERROR (
+                "%s[%d], "
+                "Access BMC Error: i2c.read(%d): slave=0x%02x : rd_off=%d : %s : rd_len=%d : max_rd_len=%d"
+                "\n",
+                __FILE__, __LINE__, fd, slave, rd_off, "data format error", err, max_rd_len);
+            err = -400;
+            goto end;
+        }
+
+        memcpy (rd_buf, rd_data, err);
 
         bf_pltfm_master_i2c_log(0, slave, rd_buf[0], &rd_buf[1], err-1);
     }

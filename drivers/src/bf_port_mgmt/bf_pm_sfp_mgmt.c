@@ -37,8 +37,6 @@ int devport_speed_to_led_color (bf_port_speed_t speed,
     bf_led_condition_t *led_cond);
 
 
-static bool temper_monitor_enable = true;
-static bool temper_monitor_log_enable = false;
 static uint32_t temper_monitor_interval_ms = 5000;
 
 /* SFF-8472 delay and timing for soft control and status functions and requirements.
@@ -1138,9 +1136,11 @@ bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
 
     clock_gettime (CLOCK_MONOTONIC, &now);
 
-    if (next_temper_monitor_time.tv_sec == 0) {
-        sfp_fsm_next_run_time_set (
-            &next_temper_monitor_time, 0);
+    if (bf_pltfm_mgr_ctx()->flags && AF_PLAT_MNTR_SFP_REALTIME_DDM) {
+        if (next_temper_monitor_time.tv_sec == 0) {
+            sfp_fsm_next_run_time_set (
+                &next_temper_monitor_time, 0);
+        }
     }
 
     /*
@@ -1271,29 +1271,6 @@ uint32_t bf_port_sfp_mgmnt_temper_monitor_period_get (
     void)
 {
     return temper_monitor_interval_ms / 1000;
-}
-
-void bf_port_sfp_mgmnt_temper_monitor_log_set (
-    bool enable)
-{
-    temper_monitor_log_enable = enable;
-}
-
-bool bf_port_sfp_mgmnt_temper_monitor_log_get (
-    void)
-{
-    return temper_monitor_log_enable;
-}
-
-void bf_port_sfp_mgmnt_temper_monitor_set (
-    bool enable)
-{
-    temper_monitor_enable = enable;
-}
-
-bool bf_port_sfp_mgmnt_temper_monitor_get (void)
-{
-    return temper_monitor_enable;
 }
 
 bool bf_port_sfp_mgmnt_temper_high_alarm_flag_get (

@@ -57,6 +57,8 @@ static struct opt_ctx_t *g_sfp_opt;
 static struct sfp_ctx_t *g_xsfp_ctx;
 static uint32_t g_xsfp_num;
 
+extern bool is_panel_qsfp_module (
+    unsigned int module);
 void bf_pltfm_sfp_init_x532p (struct opt_ctx_t **opt,
     uint32_t *num, uint32_t *xsfp_num);
 void bf_pltfm_sfp_init_x564p (struct opt_ctx_t **opt,
@@ -424,7 +426,7 @@ EXPORT int bf_pltfm_sfp_read_module (
     err = g_sfp_opt->read (module, offset, len, buf);
     if (err) {
         /* Must de-select even error occured while reading. */
-        LOG_ERROR (
+        LOG_WARNING (
             "%s[%d], "
             "sfp.read(%02d : %s : %d)"
             "\n",
@@ -751,40 +753,9 @@ int bf_pltfm_sfp_init (void *arg)
     return 0;
 }
 
-/** Is it a panel QSFP28 for a given index of module.
- *
- *  @param module
- *   module (1 based)
- *  @return
- *   true if it is and false if it is not
- */
-EXPORT bool is_panel_qsfp_module (
-    IN unsigned int module)
+EXPORT int bf_pltfm_get_max_xsfp_ports (void)
 {
-    const unsigned int qsfp28_num = (unsigned int)bf_qsfp_get_max_qsfp_ports ();
-
-    if (platform_type_equal (X532P)) {
-        if ((module >= 1) && (module <= qsfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X564P)) {
-        if ((module >= 1) && (module <= qsfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X308P)) {
-        if ((module >= 1) && (module <= qsfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X312P)) {
-        if ((module >= 1) && (module <= qsfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (HC)) {
-        if ((module >= 1) && (module <= qsfp28_num)) {
-            return true;
-        }
-    }
-    return false;
+    return g_xsfp_num;
 }
 
 /** Is it a panel SFP28 for a given index of module.
@@ -797,29 +768,11 @@ EXPORT bool is_panel_qsfp_module (
 EXPORT bool is_panel_sfp_module (
     IN unsigned int module)
 {
-    const unsigned int sfp28_num = (unsigned int)bf_sfp_get_max_sfp_ports ();
-
-    if (platform_type_equal (X532P)) {
-        if ((module >= 1) && (module <= sfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X564P)) {
-        if ((module >= 1) && (module <= sfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X308P)) {
-        if ((module >= 1) && (module <= sfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X312P)) {
-        if ((module >= 1) && (module <= sfp28_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (HC)) {
-        if ((module >= 1) && (module <= sfp28_num)) {
-            return true;
-        }
+    if ((module >= 1) &&
+        (module <= (unsigned int)bf_sfp_get_max_sfp_ports ())) {
+        return true;
     }
+
     return false;
 }
 
@@ -839,23 +792,11 @@ EXPORT bool is_xsfp_module (
         return false;
     }
 
-    if (platform_type_equal (X532P)) {
-        if ((module >= 1) && (module <= g_xsfp_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X564P)) {
-        if ((module >= 1) && (module <= g_xsfp_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X312P)) {
-        if ((module >= 1) && (module <= g_xsfp_num)) {
-            return true;
-        }
-    } else if (platform_type_equal (X308P)) {
-        if ((module >= 1) && (module <= g_xsfp_num)) {
-            return true;
-        }
+    if ((module >= 1) &&
+        (module <= (unsigned int)bf_pltfm_get_max_xsfp_ports ())) {
+        return true;
     }
+
     return false;
 }
 
@@ -874,7 +815,7 @@ EXPORT int bf_pltfm_xsfp_lookup_by_module (
     }
 
     sfp = &sfp_ctx[(module - 1) %
-        2];
+        bf_pltfm_get_max_xsfp_ports()];
 
     *conn_id = sfp->info.conn;
     *chnl_id = sfp->info.chnl;

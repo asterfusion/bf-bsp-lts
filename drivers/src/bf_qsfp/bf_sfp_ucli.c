@@ -569,8 +569,9 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_show (ucli_context_t
                               *uc)
 {
+   uint32_t flags = bf_pltfm_mgr_ctx()->flags;
    bool temper_monitor_en =
-       bf_port_sfp_mgmnt_temper_monitor_get();
+       (0 != (flags & AF_PLAT_MNTR_SFP_REALTIME_DDM));
 
    UCLI_COMMAND_INFO (uc, "show", 0,
                       "show sfp or sfp28 summary information");
@@ -906,7 +907,7 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
 {
     int port, err;
     uint32_t conn_id, chnl_id = 0;
-    char alias[8] = {0}, connc[8] = {0};
+    char alias[16] = {0}, connc[16] = {0};
 
     UCLI_COMMAND_INFO (uc, "map", 0,
                        "Display SFP map.");
@@ -929,6 +930,26 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         port, alias, connc,
                         bf_sfp_is_present (port) ? "true" : "false");
+        }
+    }
+
+    /* vSFP, always true. */
+    aim_printf (&uc->pvs, "%12s\n",
+                "===vSFP===");
+    for (int i = 0;
+         i < bf_pltfm_get_max_xsfp_ports(); i ++) {
+        port = (i + 1);
+        err  = bf_pltfm_xsfp_lookup_by_module (port,
+                                               &conn_id,
+                                               &chnl_id);
+        if (!err) {
+            sprintf (alias, "X%d", port);
+            sprintf (connc, "%2d/%d",
+                     (conn_id % BF_PLAT_MAX_QSFP),
+                     (chnl_id % MAX_CHAN_PER_CONNECTOR));
+            aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
+                        bf_sfp_get_max_sfp_ports() + port, alias,
+                        connc, "true");
         }
     }
 
@@ -1106,16 +1127,19 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_log_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "sfp-temper-log", 1,
+    UCLI_COMMAND_INFO (uc, "sfp-realtime-ddm-log", 1,
                        "<1=Enable, 0=Disable>");
     static char usage[] =
-        "sfp-temper-log 1=enable or 0=disable";
+        "sfp-realtime-ddm-log 1=enable or 0=disable";
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
     if (uc->pargs->count == 1) {
-        bf_port_sfp_mgmnt_temper_monitor_log_set (
-            enable);
+        if (enable) {
+            bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG;
+        } else {
+            bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG;
+        }
     } else {
         aim_printf (&uc->pvs,
                     "Error  : %s. Input valid 1 or 0\n", usage);
@@ -1128,7 +1152,7 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "sfp-temper-monit-enable",
+    UCLI_COMMAND_INFO (uc, "sfp-realtime-ddm-monit-enable",
                        1, "<1=Enable, 0=Disable>");
     static char usage[] =
         "sfp-temper-monit-enable 1=enable or 0=disable";
@@ -1136,7 +1160,11 @@ bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable (
 
     enable = atoi (uc->pargs->args[0]);
     if (uc->pargs->count == 1) {
-        bf_port_sfp_mgmnt_temper_monitor_set (enable);
+        if (enable) {
+            bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_SFP_REALTIME_DDM;
+        } else {
+            bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_SFP_REALTIME_DDM;
+        }
     } else {
         aim_printf (&uc->pvs,
                     "Error  : %s. Input valid 1 or 0\n", usage);

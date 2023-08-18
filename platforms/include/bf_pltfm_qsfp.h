@@ -227,18 +227,6 @@ extern int bf_pltfm_get_max_vqsfp_ports (void);
 bool is_panel_qsfp_module (
     unsigned int module);
 
-bool is_panel_sfp_module (
-    unsigned int module);
-
-bool is_xsfp_module (
-    unsigned int module);
-
-bool is_vsfp_module (
-    unsigned int module);
-
-bool is_vqsfp_module (
-    unsigned int module);
-
 #ifdef __cplusplus
 }
 #endif /* C++ */

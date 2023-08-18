@@ -53,7 +53,7 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x532p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                       BMC_CMD_VRAIL_GET, wr_buf, 2, 0xFF, rd_buf,
+                                       BMC_CMD_VRAIL_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                        BMC_COMM_INTERVAL_US);
     }
     if ((ret == 17) && (rd_buf[0] == 16)) {
@@ -98,7 +98,7 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x564p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                       BMC_CMD_VRAIL_GET, wr_buf, 2, 0xFF, rd_buf,
+                                       BMC_CMD_VRAIL_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                        BMC_COMM_INTERVAL_US);
     }
     if ((ret == 17) && (rd_buf[0] == 16)) {
@@ -190,7 +190,7 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
         buf[1] = 0x66;
         buf[2] = 0xd4;
         buf[3] = 0x02;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, sizeof(vrail_data), usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -205,7 +205,7 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
         buf[1] = 0x65;
         buf[2] = 0xd4;
         buf[3] = 0x02;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, sizeof(vrail_data), usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -219,7 +219,7 @@ __bf_pltfm_chss_mgmt_pwr_rails_get_x312p__ (
         buf[1] = 0x64;
         buf[2] = 0xd4;
         buf[3] = 0x02;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, vrail_data, sizeof(vrail_data), usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;

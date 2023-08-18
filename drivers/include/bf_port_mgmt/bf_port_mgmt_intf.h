@@ -503,13 +503,6 @@ void qsfp_module_fsm_st_set (int conn_id, uint8_t state);
 char *sfp_channel_fsm_st_get (int port);
 char *sfp_module_fsm_st_get (int port);
 
-
-// default disabled. Only useful via ucli
-void bf_port_qsfp_mgmnt_temper_monitor_log_set (
-    bool enable);
-bool bf_port_qsfp_mgmnt_temper_monitor_log_get (
-    void);
-
 /**
  * @brief Enable the temperature monitoring for optical modules.
  *        a) Default disabled and Platform Specific.
@@ -568,12 +561,6 @@ bool bf_port_qsfp_mgmnt_temper_high_alarm_flag_get (
 // only for cli
 double bf_port_qsfp_mgmnt_temper_high_record_get (
     int port);
-
-// default disabled. Only useful via ucli
-void bf_port_sfp_mgmnt_temper_monitor_log_set (
-    bool enable);
-bool bf_port_sfp_mgmnt_temper_monitor_log_get (
-    void);
 
 /**
  * @brief Enable the temperature monitoring for optical modules.

@@ -71,6 +71,11 @@ pltfm_bd_map_t pltfm_board_maps[] = {
         ROWS (mavericks_P0B_bd_map_x308p_v1dot1)
     },
     {
+        BF_PLTFM_BD_ID_X308PT_V3DOT0,
+        mavericks_P0B_bd_map_x308p_v3dot0,
+        ROWS (mavericks_P0B_bd_map_x308p_v3dot0)
+    },
+    {
         /* X312P-T both v1.0 and v1.1 have dropped support. */
         BF_PLTFM_BD_ID_X312PT_V1DOT0,
         montara_P0B_bd_map_x312p,

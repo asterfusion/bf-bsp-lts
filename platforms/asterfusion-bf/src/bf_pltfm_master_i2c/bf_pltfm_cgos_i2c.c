@@ -238,7 +238,7 @@ int bf_cgos_i2c_read_block (uint8_t addr,
     for (i = 0; i < rd_len; i++) {
         if (!CgosI2CReadRegister (hCgos, ulPrimaryI2C,
                                   addr | 0x01, offset + i, value + i)) {
-            LOG_ERROR ("cgoslx i2c: Failed to read addr %x offset %d.",
+            LOG_WARNING ("cgoslx i2c: Failed to read addr %x offset %d.",
                        addr, offset);
             CGOS_UNLOCK;
             return -1;

@@ -176,6 +176,14 @@ int bf_pltfm_sfp_module_tx_disable (
 
 int bf_pltfm_sfp_los_read (uint32_t module,
                            bool *los);
+extern int bf_pltfm_get_max_xsfp_ports (void);
+extern int bf_pltfm_xsfp_lookup_by_module (
+            unsigned int module, uint32_t *conn_id, uint32_t *chnl_id);
+bool is_panel_sfp_module (
+    unsigned int module);
+
+bool is_xsfp_module (
+    unsigned int module);
 
 int bf_pltfm_sfp_lookup_by_module (
     uint32_t module,

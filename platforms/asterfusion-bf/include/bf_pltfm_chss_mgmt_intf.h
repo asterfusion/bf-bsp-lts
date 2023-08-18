@@ -380,6 +380,7 @@ typedef enum COME_type {
     CG1527,
     ADV1508,
     ADV1527,
+    ADV1548,
     S021508,
     S021527,
 } COME_type;
@@ -417,7 +418,8 @@ bf_pltfm_status_t bf_pltfm_compare_bmc_ver(char *cmp_ver);
 /* Porting YH15XX. by tsihang, 2022-06-22. */
 #define is_ADV15XX (\
     (global_come_type == ADV1508) ||\
-    (global_come_type == ADV1527))
+    (global_come_type == ADV1527) ||\
+    (global_come_type == ADV1548))
 
 /* Porting S02XX. by tsihang, 2022-06-22. */
 #define is_S02XXX (\

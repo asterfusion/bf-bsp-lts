@@ -164,10 +164,10 @@ static struct sfp_ctx_t sfp28_ctx_x308p[] = {
 
 /* Following panel order and 0 based index */
 static struct sfp_ctx_t xsfp_ctx_x308p[] = {
-    {{"X1", 33, 0, 0, 0}, NULL},
-    {{"X2", 33, 1, 0, 0}, NULL},
-    {{"X3", 33, 2, 0, 0}, NULL},    /* Not used */
-    {{"X4", 33, 3, 0, 0}, NULL},    /* Not used */
+    {{"X1", 33, 2, 0, 0}, NULL},    /* X86 KR, keep the order same with X5-T.   */
+    {{"X2", 33, 3, 0, 0}, NULL},    /* X86 KR, keep the order same with X5-T.   */
+    {{"X3", 33, 0, 0, 0}, NULL},    /* Not used unless current hw supports PTP. */
+    {{"X4", 33, 1, 0, 0}, NULL},    /* Not used unless current hw supports PTP. */
 };
 
 static void do_lock_x308p()
@@ -417,17 +417,17 @@ sfp_get_module_pres_x308p (
     uint8_t sfp_41_48 = 0xFF;
 
     rc |= bf_pltfm_cpld_read_byte (
-              BF_MAV_SYSCPLD2, 19, &sfp_01_08);
+              BF_MAV_SYSCPLD1, 19, &sfp_01_08);
     rc |= bf_pltfm_cpld_read_byte (
-              BF_MAV_SYSCPLD2, 18, &sfp_09_16);
+              BF_MAV_SYSCPLD1, 18, &sfp_09_16);
     rc |= bf_pltfm_cpld_read_byte (
-              BF_MAV_SYSCPLD2, 15, &sfp_17_24);
+              BF_MAV_SYSCPLD1, 15, &sfp_17_24);
     rc |= bf_pltfm_cpld_read_byte (
-              BF_MAV_SYSCPLD2, 14, &sfp_25_32);
+              BF_MAV_SYSCPLD1, 14, &sfp_25_32);
     rc |= bf_pltfm_cpld_read_byte (
-              BF_MAV_SYSCPLD2, 11, &sfp_33_40);
+              BF_MAV_SYSCPLD1, 11, &sfp_33_40);
     rc |= bf_pltfm_cpld_read_byte (
-              BF_MAV_SYSCPLD2, 10, &sfp_41_48);
+              BF_MAV_SYSCPLD1, 10, &sfp_41_48);
 
     if (rc == 0) {
         sfp_01_32 = sfp_01_08 + (sfp_09_16 << 8) + (sfp_17_24 << 16) + (sfp_25_32 << 24);
@@ -558,8 +558,11 @@ static struct opt_ctx_t sfp28_opt_x308p = {
 
 void bf_pltfm_sfp_init_x308p (struct opt_ctx_t **opt,
     uint32_t *num, uint32_t *xsfp_num) {
+    uint32_t n = 2;
+    if (platform_subtype_equal (v3dot0))
+        n = ARRAY_LENGTH(xsfp_ctx_x308p);
     *opt = &sfp28_opt_x308p;
     *num = ARRAY_LENGTH(sfp28_ctx_x308p);
-    *xsfp_num = ARRAY_LENGTH(xsfp_ctx_x308p);
+    *xsfp_num = n;
 }
 

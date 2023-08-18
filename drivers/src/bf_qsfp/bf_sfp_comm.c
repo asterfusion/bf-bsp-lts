@@ -632,7 +632,7 @@ void bf_sfp_ddm_convert (const uint8_t *a2h,
 
     /*
      * Measured Tx bias current is represented in mA as a 16-bit unsigned integer with the
-     * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2 µA.
+     * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2mA.
      * TX bias ranges from 0mA to 131mA.
      */
     *txBias = get_txbias(((a2h[100] << 8) | a2h[101]));
