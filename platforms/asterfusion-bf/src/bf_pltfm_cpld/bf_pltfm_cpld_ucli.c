@@ -140,17 +140,20 @@ static void bf_pltfm_cpld_decode_x308p (ucli_context_t *uc) {
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "            ");
-    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "DPU-2", "DPU-0", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC");
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   %3s\n", "DPU-2", "DPU-1", "BF", "PCA9548-4/5/6", "PCA9548-0/1/2/3", "BMC",
+                platform_subtype_equal (v3dot0) ? "PTP" : "");
     aim_printf (&uc->pvs, "            ");
-    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n", "-----", "-----", "--", "-------------", "---------------", "---");
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   %3s\n", "-----", "-----", "--", "-------------", "---------------", "---",
+                platform_subtype_equal (v3dot0) ? "---" : "");
     aim_printf (&uc->pvs, "         RST");
-    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   \n",
+    aim_printf (&uc->pvs, "%5s   %5s   %2s   %13s   %15s   %3s   %3s\n",
         buf[0][2] & 0x80 ? "*" : " ",
         buf[0][2] & 0x40 ? "*" : " ",
         buf[0][2] & 0x20 ? "*" : " ",
         buf[0][2] & 0x04 ? "*" : " ",
         buf[0][2] & 0x02 ? "*" : " ",
-        buf[0][2] & 0x01 ? "*" : " ");
+        buf[0][2] & 0x01 ? "*" : " ",
+        (platform_subtype_equal (v3dot0) && buf[0][3] & 0x80) ? "*" : " ");
 
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
@@ -466,8 +469,10 @@ int bf_pltfm_cp2112_reg_write_block (
 */
 int select_cpld (uint8_t cpld_index)
 {
-    /* for X312P and X308P, there's no need to select CPLD */
-    if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
+    /* for X312P and X308P(v1.0/1.1/2.0), there's no need to select CPLD */
+    if (platform_type_equal (X312P) ||
+        (platform_type_equal (X308P) &&
+        (platform_subtype_equal(v1dot0) || platform_subtype_equal(v1dot1) || platform_subtype_equal(v2dot0)))) {
         return 0;
     }
 
@@ -509,8 +514,10 @@ int select_cpld (uint8_t cpld_index)
 */
 int unselect_cpld()
 {
-    /* for X312P and X308P, there's no need to select CPLD */
-    if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
+    /* for X312P and X308P(v1.0/1.1/2.0), there's no need to select CPLD */
+    if (platform_type_equal (X312P) ||
+        (platform_type_equal (X308P) &&
+        (platform_subtype_equal(v1dot0) || platform_subtype_equal(v1dot1) || platform_subtype_equal(v2dot0)))) {
         return 0;
     }
 

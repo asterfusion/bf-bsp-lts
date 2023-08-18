@@ -829,7 +829,7 @@ void printDdm (ucli_context_t *uc,
                                                2];
         /*
          * Measured Tx bias current is represented in mA as a 16-bit unsigned integer with the
-         * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2 µA.
+         * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2 ï¿½A.
          * TX bias ranges from 0mA to 131mA.
          */
         txBias = (131.0 * txBiasValue) / 65535;
@@ -1452,8 +1452,8 @@ bf_pltfm_ucli_ucli__qsfp_show (ucli_context_t
     bf_pltfm_qsfp_type_t qsfp_type =
         BF_PLTFM_QSFP_UNKNOWN;
     char display_qsfp_type[13];
-    bool temper_monitor_en =
-        bf_port_qsfp_mgmnt_temper_monitor_get();
+    uint32_t flags = bf_pltfm_mgr_ctx()->flags;
+    bool temper_monitor_en = (0 != (flags & AF_PLAT_MNTR_QSFP_REALTIME_DDM));
 
     UCLI_COMMAND_INFO (uc, "show", 0,
                        "show qsfp or qsfp-dd summary information");
@@ -3482,7 +3482,7 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
 {
     int module, err;
     uint32_t conn_id, chnl_id = 0;
-    char alias[8] = {0}, connc[8] = {0};
+    char alias[16] = {0}, connc[16] = {0};
 
     UCLI_COMMAND_INFO (uc, "map", 0,
                        "Display QSFP map.");
@@ -3653,16 +3653,19 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_log_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-temper-log", 1,
+    UCLI_COMMAND_INFO (uc, "qsfp-realtime-ddm-log", 1,
                        "<1=Enable, 0=Disable>");
     static char usage[] =
-        "qsfp-temper-log 1=enable or 0=disable";
+        "qsfp-realtime-ddm-log 1=enable or 0=disable";
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
     if (uc->pargs->count == 1) {
-        bf_port_qsfp_mgmnt_temper_monitor_log_set (
-            enable);
+        if (enable) {
+            bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG;
+        } else {
+            bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG;
+        }
     } else {
         aim_printf (&uc->pvs,
                     "Error  : %s. Input valid 1 or 0\n", usage);
@@ -3675,15 +3678,19 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monitor_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-temper-monit-enable",
+    UCLI_COMMAND_INFO (uc, "qsfp-realtime-ddm-monit-enable",
                        1, "<1=Enable, 0=Disable>");
     static char usage[] =
-        "qsfp-temper-monit-enable 1=enable or 0=disable";
+        "qsfp-realtime-ddm-monit-enable 1=enable or 0=disable";
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
     if (uc->pargs->count == 1) {
-        bf_port_qsfp_mgmnt_temper_monitor_set (enable);
+        if (enable) {
+            bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_QSFP_REALTIME_DDM;
+        } else {
+            bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_QSFP_REALTIME_DDM;
+        }
     } else {
         aim_printf (&uc->pvs,
                     "Error  : %s. Input valid 1 or 0\n", usage);

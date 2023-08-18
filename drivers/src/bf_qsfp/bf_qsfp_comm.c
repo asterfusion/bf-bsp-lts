@@ -2333,6 +2333,13 @@ static int get_qsfp_module_sensor_flags (int port,
                                     0, 0, 1, &data) < 0) {
         return -1;
     }
+
+    if (fieldName == TEMPERATURE_ALARMS) {
+        bf_qsfp_info_arr[port].idprom[6] = data;
+    } else if (fieldName == VCC_ALARMS) {
+        bf_qsfp_info_arr[port].idprom[7] = data;
+    }
+
     return extract_qsfp_flags (fieldName, port, &data,
                                0, flags);
 }
@@ -2346,6 +2353,14 @@ static double get_qsfp_module_sensor (int port,
     if (bf_qsfp_field_read_onebank (port, fieldName,
                                     0, 0, 2, data) < 0) {
         return 0.0;
+    }
+
+    if (fieldName == TEMPERATURE) {
+        bf_qsfp_info_arr[port].idprom[22] = data[0];
+        bf_qsfp_info_arr[port].idprom[23] = data[1];
+    } else if (fieldName == VCC) {
+        bf_qsfp_info_arr[port].idprom[26] = data[0];
+        bf_qsfp_info_arr[port].idprom[27] = data[1];
     }
 
     return con_fn (data[0] << 8 | data[1]);
@@ -2955,39 +2970,39 @@ bool bf_qsfp_get_chan_sensor_data (int port,
                                    qsfp_channel_t *chn)
 {
     if (!bf_qsfp_get_chan_tx_bias (port, chn)) {
-        LOG_ERROR ("%s: bf_qsfp_get_chan_tx_bias(port=%d) failed",
+        LOG_WARNING ("%s: bf_qsfp_get_chan_tx_bias(port=%d) failed",
                    __func__, port);
         return false;
     }
 
     if (!bf_qsfp_get_chan_tx_bias_alarm (port, chn)) {
-        LOG_ERROR (
+        LOG_WARNING (
             "%s: bf_qsfp_get_chan_tx_bias_alarm(port=%d) failed",
             __func__, port);
         return false;
     }
 
     if (!bf_qsfp_get_chan_tx_pwr (port, chn)) {
-        LOG_ERROR ("%s: bf_qsfp_get_chan_tx_pwr(port=%d) failed",
+        LOG_WARNING ("%s: bf_qsfp_get_chan_tx_pwr(port=%d) failed",
                    __func__, port);
         return false;
     }
 
     if (!bf_qsfp_get_chan_tx_pwr_alarm (port, chn)) {
-        LOG_ERROR (
+        LOG_WARNING (
             "%s: bf_qsfp_get_chan_tx_pwr_alarm(port=%d) failed",
             __func__, port);
         return false;
     }
 
     if (!bf_qsfp_get_chan_rx_pwr (port, chn)) {
-        LOG_ERROR ("%s: bf_qsfp_get_chan_rx_pwr(port=%d) failed",
+        LOG_WARNING ("%s: bf_qsfp_get_chan_rx_pwr(port=%d) failed",
                    __func__, port);
         return false;
     }
 
     if (!bf_qsfp_get_chan_rx_pwr_alarm (port, chn)) {
-        LOG_ERROR (
+        LOG_WARNING (
             "%s: bf_qsfp_get_chan_rx_pwr_alarm(port=%d) failed",
             __func__, port);
         return false;
@@ -3014,7 +3029,7 @@ bool bf_qsfp_get_chan_tx_bias (int port,
     int chmask = bf_qsfp_chmask_get (port);
 
     if (!chmask) {
-        LOG_ERROR ("%s(port=%d): not supported channel count(%d)",
+        LOG_WARNING ("%s(port=%d): not supported channel count(%d)",
                    __func__,
                    port,
                    bf_qsfp_info_arr[port].num_ch);
@@ -3023,11 +3038,18 @@ bool bf_qsfp_get_chan_tx_bias (int port,
     if (bf_qsfp_field_read_onebank (port,
                                     CHANNEL_TX_BIAS, chmask, 0, 16, data) <
         0) {
-        LOG_ERROR ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
+        LOG_WARNING ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
                    __func__,
                    port,
                    chmask);
         return false;
+    }
+
+    /* Currently only update the first eight bytes to support SFF-8636. 
+     * Support for CMIS will be added in the future.
+     * by sunzheng, 2023-08-04. */
+    for (i=0; i < 8; i++) {
+        bf_qsfp_info_arr[port].idprom[i+42] = data[i];
     }
 
     for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
@@ -3050,7 +3072,7 @@ bool bf_qsfp_get_chan_tx_pwr (int port,
     int chmask = bf_qsfp_chmask_get (port);
 
     if (!chmask) {
-        LOG_ERROR ("%s(port=%d): not supported channel count(%d)",
+        LOG_WARNING ("%s(port=%d): not supported channel count(%d)",
                    __func__,
                    port,
                    bf_qsfp_info_arr[port].num_ch);
@@ -3059,11 +3081,15 @@ bool bf_qsfp_get_chan_tx_pwr (int port,
     if (bf_qsfp_field_read_onebank (port,
                                     CHANNEL_TX_PWR, chmask, 0, 16, data) <
         0) {
-        LOG_ERROR ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
+        LOG_WARNING ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
                    __func__,
                    port,
                    chmask);
         return false;
+    }
+
+    for (i=0; i < 8; i++) {
+        bf_qsfp_info_arr[port].idprom[i+50] = data[i];
     }
 
     for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
@@ -3087,7 +3113,7 @@ bool bf_qsfp_get_chan_rx_pwr (int port,
     int chmask = bf_qsfp_chmask_get (port);
 
     if (!chmask) {
-        LOG_ERROR ("%s(port=%d): not supported channel count(%d)",
+        LOG_WARNING ("%s(port=%d): not supported channel count(%d)",
                    __func__,
                    port,
                    bf_qsfp_info_arr[port].num_ch);
@@ -3096,11 +3122,15 @@ bool bf_qsfp_get_chan_rx_pwr (int port,
     if (bf_qsfp_field_read_onebank (port,
                                     CHANNEL_RX_PWR, chmask, 0, 16, data) <
         0) {
-        LOG_ERROR ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
+        LOG_WARNING ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
                    __func__,
                    port,
                    chmask);
         return false;
+    }
+
+    for (i=0; i < 8; i++) {
+        bf_qsfp_info_arr[port].idprom[i+34] = data[i];
     }
 
     for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
@@ -3124,7 +3154,7 @@ bool bf_qsfp_get_chan_tx_bias_alarm (int port,
     int chmask = bf_qsfp_chmask_get (port);
 
     if (!chmask) {
-        LOG_ERROR ("%s(port=%d): not supported channel count(%d)",
+        LOG_WARNING ("%s(port=%d): not supported channel count(%d)",
                    __func__,
                    port,
                    bf_qsfp_info_arr[port].num_ch);
@@ -3133,11 +3163,15 @@ bool bf_qsfp_get_chan_tx_bias_alarm (int port,
     if (bf_qsfp_field_read_onebank (
             port, CHANNEL_TX_BIAS_ALARMS, chmask, 0, 16,
             data) < 0) {
-        LOG_ERROR ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
+        LOG_WARNING ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
                    __func__,
                    port,
                    chmask);
         return false;
+    }
+
+    for (i=0; i < 2; i++) {
+        bf_qsfp_info_arr[port].idprom[i+11] = data[i];
     }
 
     for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
@@ -3160,7 +3194,7 @@ bool bf_qsfp_get_chan_tx_pwr_alarm (int port,
     int chmask = bf_qsfp_chmask_get (port);
 
     if (!chmask) {
-        LOG_ERROR ("%s(port=%d): not supported channel count(%d)",
+        LOG_WARNING ("%s(port=%d): not supported channel count(%d)",
                    __func__,
                    port,
                    bf_qsfp_info_arr[port].num_ch);
@@ -3169,11 +3203,15 @@ bool bf_qsfp_get_chan_tx_pwr_alarm (int port,
     if (bf_qsfp_field_read_onebank (
             port, CHANNEL_TX_PWR_ALARMS, chmask, 0, 16,
             data) < 0) {
-        LOG_ERROR ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
+        LOG_WARNING ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
                    __func__,
                    port,
                    chmask);
         return false;
+    }
+
+    for (i=0; i < 2; i++) {
+        bf_qsfp_info_arr[port].idprom[i+13] = data[i];
     }
 
     for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
@@ -3196,7 +3234,7 @@ bool bf_qsfp_get_chan_rx_pwr_alarm (int port,
     int chmask = bf_qsfp_chmask_get (port);
 
     if (!chmask) {
-        LOG_ERROR ("%s(port=%d): not supported channel count(%d)",
+        LOG_WARNING ("%s(port=%d): not supported channel count(%d)",
                    __func__,
                    port,
                    bf_qsfp_info_arr[port].num_ch);
@@ -3205,11 +3243,15 @@ bool bf_qsfp_get_chan_rx_pwr_alarm (int port,
     if (bf_qsfp_field_read_onebank (
             port, CHANNEL_RX_PWR_ALARMS, chmask, 0, 16,
             data) < 0) {
-        LOG_ERROR ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
+        LOG_WARNING ("%s: bf_qsfp_field_read_onebank(port=%d,chmask=%02x) failed",
                    __func__,
                    port,
                    chmask);
         return false;
+    }
+
+    for (i=0; i < 2; i++) {
+        bf_qsfp_info_arr[port].idprom[i+9] = data[i];
     }
 
     for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
@@ -4136,7 +4178,7 @@ static int qsfp_sff8636_populate_app_list (
     // Get the ethernet compliance type of the cable
     if (bf_qsfp_get_eth_compliance (port,
                                     &eth_comp) != 0) {
-        LOG_ERROR (
+        LOG_WARNING (
             "Error : in getting the ethernet compliance type of the QSFP at "
             "%s:%d\n",
             __func__,
@@ -4146,7 +4188,7 @@ static int qsfp_sff8636_populate_app_list (
     // Get the ethernet extended compliance type of the cable
     if (bf_qsfp_get_eth_ext_compliance (port,
                                         &eth_ext_comp) != 0) {
-        LOG_ERROR (
+        LOG_WARNING (
             "Error : in getting the ethernet extended compliance type of the "
             "QSFP at "
             "%s:%d\n",
@@ -4157,7 +4199,7 @@ static int qsfp_sff8636_populate_app_list (
     // Get the ethernet extended compliance type of the cable
     if (bf_qsfp_get_eth_secondary_compliance (port,
             &eth_sec_comp) != 0) {
-        LOG_ERROR (
+        LOG_WARNING (
             "Error : in getting the ethernet extended compliance type of the "
             "QSFP at "
             "%s:%d\n",
@@ -4571,7 +4613,7 @@ static int bf_qsfp_update_cache (int port)
     // first, figure out memory map format.
     if (set_qsfp_idprom (port)) {
         if (!bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_ERROR ("Error setting idprom for qsfp %d\n",
+            LOG_WARNING ("Error setting idprom for qsfp %d\n",
                        port);
         }
         return -1;
@@ -4589,7 +4631,7 @@ static int bf_qsfp_update_cache (int port)
                              0, /* offset */
                              3, /* length */
                              &bf_qsfp_info_arr[port].idprom[0]) < 0) {
-        LOG_ERROR ("Error reading Qsfp %d lower memory\n",
+        LOG_WARNING ("Error reading Qsfp %d lower memory\n",
                    port);
         return -1;
     }
@@ -4602,7 +4644,7 @@ static int bf_qsfp_update_cache (int port)
                              128, /* offset */
                              128, /* length */
                              &bf_qsfp_info_arr[port].page0[0]) < 0) {
-        LOG_ERROR ("Error reading Qsfp %d page 0\n",
+        LOG_WARNING ("Error reading Qsfp %d page 0\n",
                    port);
         return -1;
     }
@@ -4624,7 +4666,7 @@ static int bf_qsfp_update_cache (int port)
                                  85, /* offset */
                                  33, /* length */
                                  &bf_qsfp_info_arr[port].idprom[85]) < 0) {
-            LOG_ERROR ("Error reading Qsfp %d lower memory\n",
+            LOG_WARNING ("Error reading Qsfp %d lower memory\n",
                        port);
             return -1;
         }
@@ -4637,7 +4679,7 @@ static int bf_qsfp_update_cache (int port)
                                      130, /* offset */
                                      126, /* length */
                                      &bf_qsfp_info_arr[port].page1[2]) < 0) {
-                LOG_ERROR ("Error reading Qsfp %d page 1\n",
+                LOG_WARNING ("Error reading Qsfp %d page 1\n",
                            port);
                 return -1;
             }
@@ -4719,7 +4761,7 @@ static int bf_qsfp_update_cache (int port)
                                  86, /* offset */
                                  14, /* length */
                                  &bf_qsfp_info_arr[port].idprom[86]) < 0) {
-            LOG_ERROR ("Error reading Qsfp %d lower memory\n",
+            LOG_WARNING ("Error reading Qsfp %d lower memory\n",
                        port);
             return -1;
         }
@@ -4731,14 +4773,14 @@ static int bf_qsfp_update_cache (int port)
                                  107, /* offset */
                                  10,  /* length */
                                  &bf_qsfp_info_arr[port].idprom[107]) < 0) {
-            LOG_ERROR ("Error reading Qsfp %d lower memory\n",
+            LOG_WARNING ("Error reading Qsfp %d lower memory\n",
                        port);
             return -1;
         }
 
         bf_pltfm_qsfp_type_t qsfp_type;
         if (bf_qsfp_type_get (port, &qsfp_type) != 0) {
-            LOG_ERROR ("Error: in getting the QSFP type for port %d at %s:%d",
+            LOG_WARNING ("Error: in getting the QSFP type for port %d at %s:%d",
                        port,
                        __func__,
                        __LINE__);
@@ -4757,7 +4799,7 @@ static int bf_qsfp_update_cache (int port)
                                      128, /* offset */
                                      102, /* length */
                                      &bf_qsfp_info_arr[port].page3[0]) < 0) {
-                LOG_ERROR ("Error reading Qsfp %d page 1\n",
+                LOG_WARNING ("Error reading Qsfp %d page 1\n",
                            port);
                 return -1;
             }

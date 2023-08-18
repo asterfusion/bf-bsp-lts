@@ -100,6 +100,9 @@ else
             xt_hwver=${xt_hwver%-*}
         fi
         hw_version=${xt_hwver: -3}
+        if [[ "$xt_hwver" = "APNS320T-C1-V1.0" ]]; then
+            hw_version="3.0"
+        fi
         echo "hwver:"$hw_version
     fi
 fi
@@ -211,6 +214,9 @@ if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ]; then
         default_cme='ADV1527'
         if [[ $xt_cme =~ "08" ]]; then
             default_cme='ADV1508'
+        fi
+        if [[ $xt_cme =~ "48" ]]; then
+            default_cme='ADV1548'
         fi
     fi
     if [[ $xt_cme =~ "S02" ]]; then
@@ -353,10 +359,11 @@ echo "#   1. CG1508 (Default)" >> $cfgfile
 echo "#   2. CG1527"  >> $cfgfile
 echo "#   3. ADV1508" >> $cfgfile
 echo "#   4. ADV1527" >> $cfgfile
-echo "#   5. S021508" >> $cfgfile
-echo "#   6. S021527" >> $cfgfile
-echo "#   7. CME3000" >> $cfgfile
-echo "#   8. CME7000" >> $cfgfile
+echo "#   5. ADV1548" >> $cfgfile
+echo "#   6. S021508" >> $cfgfile
+echo "#   7. S021527" >> $cfgfile
+echo "#   8. CME3000" >> $cfgfile
+echo "#   9. CME7000" >> $cfgfile
 echo $default_cme
 echo "com-e:"$default_cme >> $cfgfile
 echo "" >> $cfgfile

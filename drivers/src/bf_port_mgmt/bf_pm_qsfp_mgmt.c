@@ -43,8 +43,6 @@ int devport_speed_to_led_color (bf_port_speed_t speed,
 // continuing condition flags after clear-
 // on-read, to prevent log noise
 #endif
-static bool temper_monitor_enable = true;
-static bool temper_monitor_log_enable = false;
 static uint32_t temper_monitor_interval_ms = 5000;
 
 /*****************************************************************************
@@ -1452,7 +1450,7 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
     uint8_t byte_86 = 0;
     rc = bf_fsm_qsfp_rd (conn_id, 86, 1, &byte_86);
     if (rc) {
-        LOG_ERROR (
+        LOG_WARNING (
             "QSFP    %2d : Error <%d> reading TX_DISABLE (byte 86)",
             conn_id, rc);
     }
@@ -2386,7 +2384,7 @@ bf_pltfm_status_t qsfp_fsm (bf_dev_id_t dev_id)
 
     clock_gettime (CLOCK_MONOTONIC, &now);
 
-    if (temper_monitor_enable) {
+    if (bf_pltfm_mgr_ctx()->flags && AF_PLAT_MNTR_QSFP_REALTIME_DDM) {
         if (next_temper_monitor_time.tv_sec == 0) {
             qsfp_fsm_next_run_time_set (
                 &next_temper_monitor_time, 0);
@@ -2916,29 +2914,6 @@ uint32_t bf_port_qsfp_mgmnt_temper_monitor_period_get (
     void)
 {
     return temper_monitor_interval_ms / 1000;
-}
-
-void bf_port_qsfp_mgmnt_temper_monitor_log_set (
-    bool enable)
-{
-    temper_monitor_log_enable = enable;
-}
-
-bool bf_port_qsfp_mgmnt_temper_monitor_log_get (
-    void)
-{
-    return temper_monitor_log_enable;
-}
-
-void bf_port_qsfp_mgmnt_temper_monitor_set (
-    bool enable)
-{
-    temper_monitor_enable = enable;
-}
-
-bool bf_port_qsfp_mgmnt_temper_monitor_get (void)
-{
-    return temper_monitor_enable;
 }
 
 bool bf_port_qsfp_mgmnt_temper_high_alarm_flag_get (

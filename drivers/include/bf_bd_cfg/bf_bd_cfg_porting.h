@@ -94,7 +94,7 @@ bf_status_t bf_bd_cfg_serdes_info_get (
  *
  * @return Status of the API call
  */
-#if SDE_VERSION_GT(970) /* since 9.9.x. */
+#if SDE_VERSION_GT(980) /* since 9.9.x. */
 bf_status_t
 bf_bd_cfg_mac_to_multi_serdes_map_get (
     bf_pal_front_port_handle_t *port_hdl,

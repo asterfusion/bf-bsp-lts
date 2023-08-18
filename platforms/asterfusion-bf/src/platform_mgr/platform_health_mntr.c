@@ -375,6 +375,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
     int max_sfp_modules;
     int max_qsfp_modules;
     uint8_t buf[MAX_QSFP_PAGE_SIZE * 4] = {0};
+    uint32_t flags = bf_pltfm_mgr_ctx()->flags;
 
     struct qsfp_ctx_t *qsfp, *qsfp_ctx;
     bf_pltfm_get_qsfp_ctx (&qsfp_ctx);
@@ -419,18 +420,19 @@ static void bf_pltfm_onlp_mntr_transceiver()
             *p_pres_mask |= bit_mask;
         }
 
-        if ((!bf_qsfp_get_reset(i)) &&
+        if ((flags & AF_PLAT_MNTR_QSFP_REALTIME_DDM) &&
+            (!bf_qsfp_get_reset(i)) &&
             bf_qsfp_is_present((i)) &&
             bf_qsfp_is_optical((i)) &&
             bf_qsfp_is_detected(i)/* FSM_ST_DETECTED */) {
-            if (bf_port_qsfp_mgmnt_temper_monitor_log_get()) {
-                qsfp_channel_t chnl[CHANNEL_COUNT];
-                qsfp_global_sensor_t trans;
-                for (int ch = 0; ch < CHANNEL_COUNT; ch++) {
-                    chnl[ch].chn = ch;
-                }
-                bf_qsfp_get_module_sensor_info (i, &trans);
-                bf_qsfp_get_chan_sensor_data (i, &chnl[0]);
+            qsfp_channel_t chnl[CHANNEL_COUNT];
+            qsfp_global_sensor_t trans;
+            for (int ch = 0; ch < CHANNEL_COUNT; ch++) {
+                chnl[ch].chn = ch;
+            }
+            bf_qsfp_get_module_sensor_info (i, &trans);
+            bf_qsfp_get_chan_sensor_data (i, &chnl[0]);
+            if (flags & AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG) {
                 bf_qsfp_print_ddm(i, &trans, &chnl[0]);
                 //double mod_temp = bf_qsfp_get_temp_sensor (i);
                 //double mod_vcc = bf_qsfp_get_voltage (i);
@@ -487,7 +489,8 @@ static void bf_pltfm_onlp_mntr_transceiver()
             *p_pres_mask |= bit_mask;
         }
 
-        if ((!bf_sfp_get_reset(module)) &&
+        if ((flags & AF_PLAT_MNTR_SFP_REALTIME_DDM) &&
+            (!bf_sfp_get_reset(module)) &&
             bf_sfp_is_present((module)) &&
             bf_sfp_is_optical((module)) &&
             bf_sfp_is_detected(module) /* FSM_ST_DETECTED */) {
@@ -500,7 +503,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
             bf_sfp_get_chan_rx_pwr(module, &chnl);
             bf_sfp_get_chan_temp(module, &trans);
             bf_sfp_get_chan_volt(module, &trans);
-            if (bf_port_sfp_mgmnt_temper_monitor_log_get()) {
+            if (flags & AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG) {
                 bf_sfp_print_ddm(module, &trans, &chnl);
 #if 0
                  LOG_DEBUG (" SFP    %2d : %10.1f %15.2f %10.2f %16.2f %16.2f",

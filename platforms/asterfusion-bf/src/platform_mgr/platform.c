@@ -63,9 +63,6 @@ extern int bf_platform_rpc_server_start (
 extern int bf_platform_rpc_server_end (
     void *processor);
 
-extern void bf_pltfm_health_monitor_enable (
-    bool enable);
-
 int bf_pltfm_agent_rpc_server_thrift_service_add (
     void *processor)
 {
@@ -80,6 +77,8 @@ int bf_pltfm_agent_rpc_server_thrift_service_rmv (
 
 #endif
 
+extern void bf_pltfm_health_monitor_enable (
+    bool enable);
 static bf_dev_init_mode_t g_switchd_init_mode = BF_DEV_INIT_COLD;
 
 extern ucli_node_t
@@ -222,6 +221,9 @@ static bf_pltfm_status_t chss_mgmt_init()
         &bf_pltfm_mgr_ctx()->pltfm_type,
         &bf_pltfm_mgr_ctx()->pltfm_subtype);
 
+    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_QSFP_REALTIME_DDM;
+    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_SFP_REALTIME_DDM;
+
     /* Check strictly. */
     if (!platform_type_equal (X532P) &&
         !platform_type_equal (X564P) &&
@@ -263,7 +265,11 @@ static bf_pltfm_status_t chss_mgmt_init()
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
                                         );
-            bf_pltfm_mgr_ctx()->fan_group_count = 6;
+            if (platform_subtype_equal(v3dot0)) {
+                bf_pltfm_mgr_ctx()->fan_group_count = 5;
+            } else {
+                bf_pltfm_mgr_ctx()->fan_group_count = 6;
+            }
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 10;
@@ -1071,102 +1077,202 @@ static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
     for (i = 0; i < 28; i ++) aim_printf (&uc->pvs, "%s", boarder);
     aim_printf (&uc->pvs, "\n");
 
-    /* 1st : CON */
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "CON ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-
-    aim_printf (&uc->pvs, "\n");
-
-    /* 2nd */
-    aim_printf (&uc->pvs, "%s      ", "PSU2");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "FAN5");
-    aim_printf (&uc->pvs, "%s      ", "FAN1");
-    aim_printf (&uc->pvs, "%s      ", "FAN2");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "USB ");
-    aim_printf (&uc->pvs, "%s      ", "MGT ");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "FAN3");
-    aim_printf (&uc->pvs, "%s      ", "FAN4");
-    aim_printf (&uc->pvs, "%s      ", "FAN6");
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", "PSU1");
-    aim_printf (&uc->pvs, "\n");
-
-    /* 3rd */
-    bf_pltfm_fan_data_t fdata;
-    int err = bf_pltfm_chss_mgmt_fan_data_get (
-                &fdata);
-
     bf_pltfm_pwr_supply_info_t info1, info2;
-    memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
-    memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
-    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
-                                           &info1);
-    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
-                                           &info2);
-    /* AC or DC */
-    bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
-    aim_printf (&uc->pvs, "%s", fmt);
 
-    aim_printf (&uc->pvs, "%s      ", "    ");
+    if (platform_subtype_equal(v1dot0) ||
+        platform_subtype_equal(v1dot1) ||
+        platform_subtype_equal(v2dot0)) {
+        /* 1st : CON */
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "CON ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
 
-    if (!err && !fdata.fantray_present) {
-        /* Pls help this consistency with real hardware. */
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
-    } else {
+        aim_printf (&uc->pvs, "\n");
+
+        /* 2nd */
+        aim_printf (&uc->pvs, "%s      ", "PSU2");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "FAN5");
+        aim_printf (&uc->pvs, "%s      ", "FAN1");
+        aim_printf (&uc->pvs, "%s      ", "FAN2");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "USB ");
+        aim_printf (&uc->pvs, "%s      ", "MGT ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "FAN3");
+        aim_printf (&uc->pvs, "%s      ", "FAN4");
+        aim_printf (&uc->pvs, "%s      ", "FAN6");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "PSU1");
+        aim_printf (&uc->pvs, "\n");
+
+        /* 3rd */
+        bf_pltfm_fan_data_t fdata;
+        int err = bf_pltfm_chss_mgmt_fan_data_get (
+                    &fdata);
+
+        memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+        memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+        err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                            &info1);
+        err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                            &info2);
+        /* AC or DC */
+        bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+        aim_printf (&uc->pvs, "%s", fmt);
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        if (!err && !fdata.fantray_present) {
+            /* Pls help this consistency with real hardware. */
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        } else {
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+        }
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
+
+        /*
+        * "P*" : Plugged and Linked
+        * "P " : Plugged but not Linked
+        * "  " : Not Plugged (always means not linked)
+        **/
+        bool plugged = false, linked = false;
+        bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+        aim_printf (&uc->pvs, "%s      ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        if (!err && !fdata.fantray_present) {
+            /* Pls help this consistency with real hardware. */
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[10].front_speed);
+        } else {
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+        }
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        /* AC or DC */
+        bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+        aim_printf (&uc->pvs, "%s", fmt);
+
+        aim_printf (&uc->pvs, "\n");
+    } else if (platform_subtype_equal(v3dot0)) {
+        /* 1st : CON */
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "CON ");
+        aim_printf (&uc->pvs, "%s      ", "PTP ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        aim_printf (&uc->pvs, "\n");
+
+        /* 2nd */
+        aim_printf (&uc->pvs, "%s      ", "PSU2");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "FAN4");
+        aim_printf (&uc->pvs, "%s      ", "FAN1");
+        aim_printf (&uc->pvs, "%s      ", "FAN2");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "USB ");
+        aim_printf (&uc->pvs, "%s      ", "MGT1");
+        aim_printf (&uc->pvs, "%s      ", "MGT2");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "FAN3");
+        aim_printf (&uc->pvs, "%s      ", "FAN5");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "PSU1");
+        aim_printf (&uc->pvs, "\n");
+
+        /* 3rd */
+        bf_pltfm_fan_data_t fdata;
+        int err = bf_pltfm_chss_mgmt_fan_data_get (
+                    &fdata);
+
+        memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+        memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+        err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                            &info1);
+        err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                            &info2);
+        /* AC or DC */
+        bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+        aim_printf (&uc->pvs, "%s", fmt);
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        if (!err && !fdata.fantray_present) {
+            /* Pls help this consistency with real hardware. */
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        } else {
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+        }
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
+
+        /*
+        * "P*" : Plugged and Linked
+        * "P " : Plugged but not Linked
+        * "  " : Not Plugged (always means not linked)
+        **/
+        bool mgmt1_plugged = false, mgmt1_linked = false;
+        bool mgmt2_plugged = false, mgmt2_linked = false;
+        aim_printf (&uc->pvs, "%s      ",  mgmt1_linked ? "P*  " : (mgmt1_plugged ? "P   " : "    "));
+        aim_printf (&uc->pvs, "%s      ",  mgmt2_linked ? "P*  " : (mgmt2_plugged ? "P   " : "    "));
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        if (!err && !fdata.fantray_present) {
+            /* Pls help this consistency with real hardware. */
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+            aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
+        } else {
+            aim_printf (&uc->pvs, "%s      ", "    ");
+            aim_printf (&uc->pvs, "%s      ", "    ");
+        }
+
+        aim_printf (&uc->pvs, "%s      ", "    ");
+
+        /* AC or DC */
+        bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+        aim_printf (&uc->pvs, "%s", fmt);
+
+        aim_printf (&uc->pvs, "\n");
     }
-
-    aim_printf (&uc->pvs, "%s      ", "    ");
-    aim_printf (&uc->pvs, "%s      ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
-
-    /*
-     * "P*" : Plugged and Linked
-     * "P " : Plugged but not Linked
-     * "  " : Not Plugged (always means not linked)
-     **/
-    bool plugged = false, linked = false;
-    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
-    aim_printf (&uc->pvs, "%s      ",  linked ? "P*  " : (plugged ? "P   " : "    "));
-
-    aim_printf (&uc->pvs, "%s      ", "    ");
-
-    if (!err && !fdata.fantray_present) {
-        /* Pls help this consistency with real hardware. */
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
-        aim_printf (&uc->pvs, "%-5u     ", fdata.F[10].front_speed);
-    } else {
-        aim_printf (&uc->pvs, "%s      ", "    ");
-        aim_printf (&uc->pvs, "%s      ", "    ");
-        aim_printf (&uc->pvs, "%s      ", "    ");
-    }
-
-    aim_printf (&uc->pvs, "%s      ", "    ");
-
-    /* AC or DC */
-    bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
-    aim_printf (&uc->pvs, "%s", fmt);
-
-    aim_printf (&uc->pvs, "\n");
 
     /* 4th, pin */
     bf_pltfm_ucli_format_psu_watt (&info2, fmt, true);
@@ -1533,6 +1639,13 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     aim_printf (&uc->pvs, "    BMC   : %s\n",
                fmt);
 
+    aim_printf (&uc->pvs, "Plat Ctrl : %2X\n",
+                bf_pltfm_mgr_ctx()->flags);
+    aim_printf (&uc->pvs, "Plat Mon  : %s @ %s\n",
+                (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_CTRL) ?
+                "enabled" : "disabled",
+                ctime ((time_t *) &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+
     uint32_t days, hours, mins, secs;
     time(&g_tm_end);
     diff = difftime(g_tm_end, g_tm_start);
@@ -1619,16 +1732,16 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
     if (platform_type_equal (X312P)) {
         if (redirect_bmc){
             buf[0] = 0x02;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, 0, usec_delay);
         } else if (redirect_cme){
             buf[0] = 0x03;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, 0, usec_delay);
         } else if (redirect_dpu1){
             buf[0] = 0x00;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, 0, usec_delay);
         } else if (redirect_dpu2){
             buf[0] = 0x01;
-            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, usec_delay);
+            bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, 0, usec_delay);
         } else {
             return 0;
         }
@@ -1645,8 +1758,8 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
             has_dpu = false;
             has_ptp = false;
         } else {
-            /* X308P-T V2. */
-            if (platform_type_equal (X308P) && platform_subtype_equal (v2dot0)) {
+            /* X308P-T V3. */
+            if (platform_type_equal (X308P) && platform_subtype_equal (v3dot0)) {
                 has_ptp = true;
             }
         }
@@ -1664,7 +1777,8 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
             buf[0] = 0x03;
             bf_pltfm_bmc_uart_write_read (0x21, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
         } else if (has_ptp && redirect_ptp){
-            /* TODO. */
+            buf[0] = 0x04;
+            bf_pltfm_bmc_uart_write_read (0x21, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
         } else {
             return 0;
         }
@@ -1758,12 +1872,13 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
     bool reset_dpu1 = false;
     bool reset_dpu2 = false;
     bool reset_tof  = false;
+    bool reset_ptp  = false;
     bool do_reset_by_val_1 = false; /* perform reset by value 1 or value 0. */
     bool perform = false;
     bool dbg = false;
 
     /* Keep the name consistent with the document X-T Programmable Bare Metal. */
-    UCLI_COMMAND_INFO (uc, "reset", 1, "Reset <tof/bmc/dpu1/dpu2>");
+    UCLI_COMMAND_INFO (uc, "reset", 1, "Reset <tof/bmc/ptp/dpu1/dpu2>");
 
     if (memcmp (uc->pargs->args[0], "tof", 3) == 0){
         reset_tof  = true;
@@ -1774,19 +1889,22 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
         reset_dpu1 = true;
     } else if (memcmp (uc->pargs->args[0], "dpu2", 4) == 0){
         reset_dpu2 = true;
+    } else if (memcmp (uc->pargs->args[0], "ptp", 3) == 0){
+        reset_ptp  = true;
     } else {
-        aim_printf (&uc->pvs, "Usage: reset <tof/bmc/dpu1/dpu2>\n");
+        aim_printf (&uc->pvs, "Usage: reset <tof/bmc/ptp/dpu1/dpu2>\n");
         return 0;
     }
 
     if (dbg) {
         aim_printf (
             &uc->pvs,
-            "reset: <tof=%s> <bmc=%s> <dpu1=%s> <dpu2=%s>\n",
+            "reset: <tof=%s> <bmc=%s> <dpu1=%s> <dpu2=%s> <ptp=%s>\n",
             reset_tof  ? "T" : "F",
             reset_bmc  ? "T" : "F",
             reset_dpu1 ? "T" : "F",
-            reset_dpu2 ? "T" : "F");
+            reset_dpu2 ? "T" : "F",
+            reset_ptp  ? "T" : "F");
     }
 
     /* Perform a reset via cpld for X532P/X564P/X308P.
@@ -1837,12 +1955,19 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
             /* Prepared, do it right now. */
             perform = true;
         } else if (reset_dpu1) {
-            /* Implemented in bit offset 5. */
+            /* Implemented in bit offset 6. */
             boff = 6;
             /* Prepared, do it right now. */
             perform = true;
         } else if (reset_dpu2) {
-            /* Implemented in bit offset 5. */
+            /* Implemented in bit offset 7. */
+            boff = 7;
+            /* Prepared, do it right now. */
+            perform = true;
+        } else if ((reset_ptp) && platform_subtype_equal (v3dot0)) {
+            /* Implemented in address offset 2. */
+            aoff = 3;
+            /* Implemented in bit offset 7. */
             boff = 7;
             /* Prepared, do it right now. */
             perform = true;

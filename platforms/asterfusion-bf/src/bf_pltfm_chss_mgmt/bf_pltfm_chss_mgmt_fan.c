@@ -164,7 +164,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             wr_buf[1] = BMC_SUB2_SN;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
@@ -209,7 +209,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             wr_buf[1] = BMC_SUB2_MODEL;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
@@ -226,7 +226,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             wr_buf[1] = BMC_SUB2_MAX;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == 5) && (ret == rd_buf[0] + 1)) {
                 num = i * 2;
@@ -247,7 +247,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             wr_buf[1] = BMC_SUB2_DIR;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == 4) && (ret == rd_buf[0] + 1)) {
                 if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
@@ -273,7 +273,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             wr_buf[1] = BMC_SUB2_STATUS;
 
             ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf,
+                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                            BMC_COMM_INTERVAL_US);
             if ((ret == 2) && (rd_buf[0] == 1)) {
                 fdata->F[2 * i].fan_num   = 2 * i + 1;
@@ -290,7 +290,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
             wr_buf[1] = BMC_SUB2_RPM;
 
             ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf,
+                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                            BMC_COMM_INTERVAL_US);
             if ((ret == 5) && (rd_buf[0] == 4)) {
                 fdata->F[2 * i].front_speed   = (rd_buf[1] << 8 |
@@ -363,7 +363,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
             wr_buf[1] = BMC_SUB2_SN;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
@@ -408,7 +408,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
             wr_buf[1] = BMC_SUB2_MODEL;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
@@ -425,7 +425,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
             wr_buf[1] = BMC_SUB2_MAX;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == 5) && (ret == rd_buf[0] + 1)) {
                 num = i * 2;
@@ -446,7 +446,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
             wr_buf[1] = BMC_SUB2_DIR;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == 4) && (ret == rd_buf[0] + 1)) {
                 if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
@@ -472,7 +472,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
             wr_buf[1] = BMC_SUB2_STATUS;
 
             ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf,
+                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                            BMC_COMM_INTERVAL_US);
             if ((ret == 4) && (rd_buf[0] == 3)) {
                 fdata->F[i].fan_num   = i + 1;
@@ -486,7 +486,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
             wr_buf[1] = BMC_SUB2_RPM;
 
             ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf,
+                                           BMC_CMD_FAN_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                            BMC_COMM_INTERVAL_US);
             if ((ret == 4) && (rd_buf[0] == 3)) {
                 fdata->F[i].front_speed = (rd_buf[1] << 8 |
@@ -554,7 +554,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
             wr_buf[1] = BMC_SUB2_SN;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
@@ -599,7 +599,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
             wr_buf[1] = BMC_SUB2_MODEL;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                 num = i * 2;
@@ -616,7 +616,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
             wr_buf[1] = BMC_SUB2_MAX;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == 5) && (ret == rd_buf[0] + 1)) {
                 num = i * 2;
@@ -637,7 +637,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x308p__ (
             wr_buf[1] = BMC_SUB2_DIR;
             ret = bf_pltfm_bmc_uart_write_read (
                     BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                    BMC_COMM_INTERVAL_US);
+                    BMC_COMM_INTERVAL_US*2);
 
             if ((ret == 4) && (ret == rd_buf[0] + 1)) {
                 if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
@@ -675,7 +675,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             buf[0] = i;
             buf[1] = 0x01;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x6, buf,
-                                            2, 0xff, data, usec_delay);
+                                            2, 0xff, data, sizeof(data), usec_delay);
             if (rdlen == 4) {
                 fdata->F[2 * i].fan_num = 2 * i + 1;
                 fdata->F[2 * i].present = data[1] ? 1 : 0;
@@ -694,7 +694,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             buf[0] = i;
             buf[1] = 0x00;
             rdlen = bf_pltfm_bmc_write_read (0x3e, 0x6, buf,
-                                            2, 0xff, data, usec_delay);
+                                            2, 0xff, data, sizeof(data), usec_delay);
             if (rdlen == 4) {
                 if (i < 5) {
                     fdata->F[ (i % 5) * 2 + 0].front_speed = data[2] *
@@ -726,7 +726,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         buf[1] = 0x32;
         buf[2] = 0x02;
         buf[3] = 0x01;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, sizeof(data), usec_delay);
         if (rdlen != 3) {
             LOG_ERROR("read fan status from bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -752,7 +752,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
         buf[1] = 0x32;
         buf[2] = 0x03;
         buf[3] = 0x01;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, sizeof(data), usec_delay);
         if (rdlen != 3) {
             LOG_ERROR("read fan direction from bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -781,7 +781,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
              i < bf_pltfm_mgr_ctx()->fan_group_count *
                  bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
             buf[2] = i;
-            rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, usec_delay);
+            rdlen = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, data, sizeof(data), usec_delay);
             if (rdlen != 3) {
                 LOG_ERROR("read fan speed from bmc error!\n");
                 return BF_PLTFM_COMM_FAILED;
@@ -840,7 +840,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x532p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, 0, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -864,7 +864,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x564p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, 0, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -888,7 +888,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x308p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, BMC_COMM_INTERVAL_US);
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, 0, BMC_COMM_INTERVAL_US);
     }
 
     /* read back to checkout. */
@@ -913,7 +913,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[0] = 0x00;
         buf[1] = fdata->speed_level;
         rdlen = bf_pltfm_bmc_write_read (0x3e, 0x7, buf,
-                                        2, 0xff, res, usec_delay);
+                                        2, 0xff, res, sizeof(res), usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -930,7 +930,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[2] = 0x4a;
         buf[3] = 0x01;
         buf[4] = 0x22;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, usec_delay);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, sizeof(data), usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -941,7 +941,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
         buf[2] = 0x4c;
         buf[3] = 0x01;
         buf[4] = fdata->speed_level;
-        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, usec_delay);
+        rdlen = bf_pltfm_bmc_write_read(0x3e, 0x31, buf, 5, 0xff, data, sizeof(data), usec_delay);
         if (rdlen == -1) {
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
@@ -1146,7 +1146,7 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
                 wr_buf[1] = BMC_SUB2_SN;
                 ret = bf_pltfm_bmc_uart_write_read (
                         BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                        BMC_COMM_INTERVAL_US);
+                        BMC_COMM_INTERVAL_US*2);
 
                 if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                     memcpy (temp_fan_data.F[j+0].serial, &rd_buf[1], rd_buf[0]);
@@ -1161,7 +1161,7 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
                 wr_buf[1] = BMC_SUB2_MODEL;
                 ret = bf_pltfm_bmc_uart_write_read (
                         BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                        BMC_COMM_INTERVAL_US);
+                        BMC_COMM_INTERVAL_US*2);
 
                 if ((ret == rd_buf[0] + 1) && (ret > 1)) {
                     memcpy (temp_fan_data.F[j+0].model, &rd_buf[1], rd_buf[0]);
@@ -1173,7 +1173,7 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
                 wr_buf[1] = BMC_SUB2_MAX;
                 ret = bf_pltfm_bmc_uart_write_read (
                         BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                        BMC_COMM_INTERVAL_US);
+                        BMC_COMM_INTERVAL_US*2);
 
                 if ((ret == 5) && (ret == rd_buf[0] + 1)) {
                     temp_fan_data.F[j+0].max_speed  = (rd_buf[1] << 8) + rd_buf[2];
@@ -1191,7 +1191,7 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
                 wr_buf[1] = BMC_SUB2_DIR;
                 ret = bf_pltfm_bmc_uart_write_read (
                         BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
-                        BMC_COMM_INTERVAL_US);
+                        BMC_COMM_INTERVAL_US*2);
 
                 if ((ret == 4) && (ret == rd_buf[0] + 1)) {
                     if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {

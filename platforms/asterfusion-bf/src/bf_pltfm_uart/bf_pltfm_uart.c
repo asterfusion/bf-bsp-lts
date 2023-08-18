@@ -255,9 +255,15 @@ static int
 recv (struct bf_pltfm_uart_ctx_t *ctx,
     unsigned char *rx_buf, size_t rx_len)
 {
-    ssize_t rc = 0;
+    ssize_t rc = 0, rerr = 0;
 
-    rc = read (ctx->fd, (void *)rx_buf, rx_len);
+    while (1) {
+        rerr = read (ctx->fd, (void *)(rx_buf+rc), rx_len);
+        if (rerr <= 0) {
+            break;
+        }
+        rc += rerr;
+    }
     tcflush (ctx->fd, TCIOFLUSH);
     if (rc >= 0) {
         /* Success. */
@@ -443,6 +449,8 @@ int bf_pltfm_bmc_uart_write_read (
                 "Access BMC Error: uart.recv(%d) : %s"
                 "\n",
                 __FILE__, __LINE__, rc, "Failed to recv from uart.");
+
+            LOG_ERROR ("%2x, %2x, %2x\n", cmd, tx_buf[0], tx_buf[1]);
         }
     }
 
@@ -564,7 +572,7 @@ int bf_pltfm_bmc_uart_ymodem_send_file (char *filename)
     payload_length = (int)st.st_size;
 
     len = strlen(filename) + 1;
-    strncpy((char *)&info_packet[0], filename, len < 128 ? len : 128);
+    strcpy((char *)&info_packet[0], filename);
     snprintf((char *)&info_packet[0] + len, 128 - len, "%ld", payload_length);
 
     fprintf (stdout, "\n");

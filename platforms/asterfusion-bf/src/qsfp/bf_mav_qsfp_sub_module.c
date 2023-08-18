@@ -668,7 +668,7 @@ bf_pltfm_status_t bf_mav_qsfp_sub_module_write (
                  hndl, i2c_addr, out_buf, len + 1,
                  DEFAULT_TIMEOUT_MS);
         if (rc != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error in qsfp write port <%d>\n",
+            LOG_WARNING ("Error in qsfp write port <%d>\n",
                        module + 1);
             unselect_qsfp (hndl, module);
             MAV_QSFP_UNLOCK;
@@ -678,7 +678,7 @@ bf_pltfm_status_t bf_mav_qsfp_sub_module_write (
         rc = bf_pltfm_master_i2c_write_block (
                  i2c_addr >> 1, offset, buf, len);
         if (rc != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error in qsfp write port <%d>\n",
+            LOG_WARNING ("Error in qsfp write port <%d>\n",
                        module + 1);
             unselect_qsfp (hndl, module);
             MAV_QSFP_UNLOCK;
@@ -1018,6 +1018,24 @@ EXPORT int bf_pltfm_vqsfp_lookup_by_module (
     max_vsfp = max_vsfp;
     // not found
     return -1;
+}
+
+/** Is it a panel QSFP28 for a given index of module.
+ *
+ *  @param module
+ *   module (1 based)
+ *  @return
+ *   true if it is and false if it is not
+ */
+EXPORT bool is_panel_qsfp_module (
+    IN unsigned int module)
+{
+    if ((module >= 1) &&
+        (module <= (unsigned int)bf_qsfp_get_max_qsfp_ports ())) {
+        return true;
+    }
+
+    return false;
 }
 
 EXPORT int bf_pltfm_vqsfp_lookup_by_index (

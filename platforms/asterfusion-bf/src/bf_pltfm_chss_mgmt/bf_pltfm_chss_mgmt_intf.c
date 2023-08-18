@@ -50,6 +50,7 @@ static struct x86_carrier_board_t x86_cb[] = {
     {"CG1527",   CG1527},
     {"ADV1508",  ADV1508},
     {"ADV1527",  ADV1527},
+    {"ADV1548",  ADV1548},
     {"S021508",  S021508},
     {"S021527",  S021527},
 };
@@ -100,6 +101,8 @@ static pltfm_cpld_path_t pltfm_cpld_path[] = {
     {X532P, v2dot0, VIA_CP2112, VIA_CGOS},
     {X308P, v1dot0, VIA_CP2112, VIA_CGOS},
     {X308P, v1dot1, VIA_CP2112, VIA_CGOS},
+    {X308P, v2dot0, VIA_CP2112, VIA_CGOS},
+    {X308P, v3dot0, VIA_CP2112, VIA_CGOS},
 };
 
 pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
@@ -254,7 +257,9 @@ static void bf_pltfm_parse_hwversion (const char *str,
     } else if (platform_type_equal (X308P)) {
         /* 0x31. */
         if (subtype != v1dot0 &&
-            subtype != v1dot1) {
+            subtype != v1dot1 &&
+            subtype != v2dot0 &&
+            subtype != v3dot0) {
             find = false;
         }
     } else if (platform_type_equal (HC)) {
@@ -424,7 +429,7 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced) {
         wr_buf[0] = 0xAA;
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                       cmd, wr_buf, 2, 0xFF, rd_buf,
+                                       cmd, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                        bmc_comm_interval_us_for_312);
         if (ret == 5) {
             /* Write to cache. */
@@ -498,7 +503,7 @@ void bf_pltfm_start_312_i2c_wdt(void) {
     uint8_t cmd = 0xd;
     uint8_t wr_buf = 0x01;
     bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                             cmd, &wr_buf, 1, 0xFF, NULL,
+                             cmd, &wr_buf, 1, 0xFF, NULL, 0,
                              bmc_comm_interval_us_for_312);
 }
 
@@ -658,7 +663,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
             wr_buf[3] = 0x01;
             wr_buf[4] = 0xFF;
             bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           cmd, wr_buf, 5, 0xFF, NULL,
+                                           cmd, wr_buf, 5, 0xFF, NULL, 0,
                                            bmc_comm_interval_us_for_312);
         }
         /* If BMC version >= 1.00.07O, then start I2C watchdog */
@@ -667,18 +672,18 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
             wr_buf[0] = 0x03;
             wr_buf[1] = 0x2D;
             bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           cmd, wr_buf, 2, 0xFF, NULL,
+                                           cmd, wr_buf, 2, 0xFF, NULL, 0,
                                            bmc_comm_interval_us_for_312);
 
             cmd = 0xd;
             wr_buf[0] = 0x01;
             bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           cmd, wr_buf, 1, 0xFF, NULL,
+                                           cmd, wr_buf, 1, 0xFF, NULL, 0,
                                            bmc_comm_interval_us_for_312);
             cmd = 0xd;
             wr_buf[0] = 0x04;
             bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                           cmd, wr_buf, 1, 0xFF, rd_buf,
+                                           cmd, wr_buf, 1, 0xFF, rd_buf, sizeof(rd_buf),
                                            bmc_comm_interval_us_for_312);
             LOG_DEBUG ("X312P i2c watchdog %s, interval = %ds\n", rd_buf[1] ? "enabled" : "disabled", rd_buf[2]);
         }

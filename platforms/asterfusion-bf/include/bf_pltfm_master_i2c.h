@@ -62,6 +62,7 @@ int bf_pltfm_bmc_write_read (
     uint8_t wr_len,
     uint8_t rd_off,
     uint8_t *rd_buf,
+    int     max_rd_len,
     int usec);
 
 int bf_pltfm_master_i2c_init();

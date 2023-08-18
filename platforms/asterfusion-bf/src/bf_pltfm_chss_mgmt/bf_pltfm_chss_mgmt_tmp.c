@@ -100,7 +100,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x532p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                       BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, 0xFF, rd_buf,
+                                       BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                        BMC_COMM_INTERVAL_US);
 
     }
@@ -137,7 +137,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x564p__ (
                   BMC_COMM_INTERVAL_US);
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
-                                       BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, 0xFF, rd_buf,
+                                       BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                        BMC_COMM_INTERVAL_US);
 
     }
@@ -241,7 +241,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[0] = 0xaa;
         buf[1] = 0xaa;
         rdlen1 = bf_pltfm_bmc_write_read (0x3e, 0x4, buf,
-                                        2, 0xff, lm75_63, usec_delay);
+                                        2, 0xff, lm75_63, sizeof(lm75_63), usec_delay);
         if (rdlen1 < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -262,7 +262,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         tmpbuff[1] = 0x32;
         tmpbuff[2] = 0x2;
         tmpbuff[3] = 0x1;
-        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, sizeof(tmpdata), usec_delay);
         if (rdlen1 < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -272,12 +272,12 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x18;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[0][0], usec_delay);
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[0][0], 3, usec_delay);
         if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc1_temp[0][2])) {
             tmp->tmp5 = ghc1_temp[0][2];
 
             buf[2] = 0x1;
-            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[1][0], usec_delay);
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[1][0], 3, usec_delay);
             if (rdlen2 == 3) {
                 tmp->tmp4 = ghc1_temp[1][2];
             }
@@ -287,7 +287,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         tmpbuff[1] = 0x32;
         tmpbuff[2] = 0x2;
         tmpbuff[3] = 0x1;
-        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, sizeof(tmpdata), usec_delay);
         if (rdlen1 < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -297,12 +297,12 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x18;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[0][0], usec_delay);
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[0][0], 3, usec_delay);
         if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc2_temp[0][2])) {
             tmp->tmp7 = ghc2_temp[0][2];
 
             buf[2] = 0x1;
-            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[1][0], usec_delay);
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[1][0], 3, usec_delay);
             if (rdlen2 == 3) {
                 tmp->tmp6 = ghc2_temp[1][2];
             }
@@ -324,7 +324,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4a;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm75, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm75, sizeof(lm75), usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -335,7 +335,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4c;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm63, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm63, sizeof(lm63), usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -346,7 +346,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x4c;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm86, usec_delay);
+        err = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, lm86, sizeof(lm86), usec_delay);
         if (err < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -363,7 +363,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         tmpbuff[1] = 0x32;
         tmpbuff[2] = 0x2;
         tmpbuff[3] = 0x1;
-        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, sizeof(tmpdata), usec_delay);
         if (rdlen1 < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -373,12 +373,12 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x18;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[0][0], usec_delay);
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[0][0], 3, usec_delay);
         if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc1_temp[0][2])) {
             tmp->tmp5 = ghc1_temp[0][2];
 
             buf[2] = 0x1;
-            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[1][0], usec_delay);
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc1_temp[1][0], 3, usec_delay);
             if (rdlen2 == 3) {
                 tmp->tmp4 = ghc1_temp[1][2];
             }
@@ -388,7 +388,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         tmpbuff[1] = 0x32;
         tmpbuff[2] = 0x2;
         tmpbuff[3] = 0x1;
-        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, usec_delay);
+        rdlen1 = bf_pltfm_bmc_write_read(0x3e, 0x30, tmpbuff, 4, 0xff, tmpdata, sizeof(tmpdata), usec_delay);
         if (rdlen1 < 0) {
             LOG_ERROR("BMC read write error \n");
             return BF_PLTFM_COMM_FAILED;
@@ -398,12 +398,12 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
         buf[1] = 0x18;
         buf[2] = 0x0;
         buf[3] = 0x1;
-        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[0][0], usec_delay);
+        rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[0][0], 3, usec_delay);
         if ((rdlen1 == 3) && (rdlen2 == 3) && (tmpdata[2] != ghc2_temp[0][2])) {
             tmp->tmp7 = ghc2_temp[0][2];
 
             buf[2] = 0x1;
-            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[1][0], usec_delay);
+            rdlen2 = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, &ghc2_temp[1][0], 3, usec_delay);
             if (rdlen2 == 3) {
                 tmp->tmp6 = ghc2_temp[1][2];
             }
