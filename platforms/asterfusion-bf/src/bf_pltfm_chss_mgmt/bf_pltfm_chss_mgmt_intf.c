@@ -528,6 +528,9 @@ void bf_pltfm_load_conf () {
 
     fp = fopen (cfg, "r");
     if (!fp) {
+        fp = fopen("/usr/share/sonic/platform/platform.conf", "r");
+        if (fp) goto good;
+
         fprintf (stdout,
                  "Exiting due to fopen(%s) : "
                  "%s : %s.\n", cfg, strerror (errno),
@@ -538,6 +541,7 @@ void bf_pltfm_load_conf () {
                  (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
         exit (0);
     } else {
+good:
         fprintf (stdout,
                  "\n\n================== %s ==================\n", cfg);
         while (fgets (entry, lqe_valen, fp)) {

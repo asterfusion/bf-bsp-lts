@@ -82,6 +82,7 @@ int bf_sfp_get_transceiver_info (int port,
                                  sfp_transciever_info_t *info);
 
 int bf_sfp_init();
+bool bf_sfp_get_dom_support (int port);
 bool bf_sfp_get_chan_tx_bias (int port,
                                sfp_channel_t *chn);
 bool bf_sfp_get_chan_tx_pwr (int port,
