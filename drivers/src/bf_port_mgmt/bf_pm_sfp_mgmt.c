@@ -418,7 +418,6 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
                              int module)
 {
     int rc;
-    bool has_a2h = true;    /* Please fixed it. */
     sfp_status_and_alarms_t status_and_alarms;
 
     // Donot move FSM until removal is hanlded
@@ -426,39 +425,39 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
         return -1;
     }
 
-    has_a2h = has_a2h;
-
     // read status and alarms A2h (bytes 110-113) onto stack. This is in case
     // there is an error on the read we dont corrupt the sfp_state
     // structure. If no error, copy into struct
-    rc = bf_fsm_sfp_rd (
-             module, MAX_SFP_PAGE_SIZE + 110,
-             sizeof (status_and_alarms),
-             (uint8_t *)&status_and_alarms);
-    if (rc) {
-        // Detect and latch the removal
-        // state, so that can sfp-scan handle the rest.
-        if (!sfp_state[module].sfp_quick_removed) {
-            bool is_present = 0;
-            bf_sfp_detect_transceiver (module, &is_present);
-            if (!is_present) {
-                sfp_state[module].sfp_quick_removed = true;
-                LOG_DEBUG (" SFP    %2d : Removal detected",
-                           module);
-                sfp_state[module].sfp_quick_removed = true;
-                bf_pm_sfp_quick_removal_detected_set (module,
-                                                      true);
-                return -1;
+    if (bf_sfp_get_dom_support (module)) {
+        rc = bf_fsm_sfp_rd (
+                module, MAX_SFP_PAGE_SIZE + 110,
+                sizeof (status_and_alarms),
+                (uint8_t *)&status_and_alarms);
+        if (rc) {
+            // Detect and latch the removal
+            // state, so that can sfp-scan handle the rest.
+            if (!sfp_state[module].sfp_quick_removed) {
+                bool is_present = 0;
+                bf_sfp_detect_transceiver (module, &is_present);
+                if (!is_present) {
+                    sfp_state[module].sfp_quick_removed = true;
+                    LOG_DEBUG (" SFP    %2d : Removal detected",
+                            module);
+                    sfp_state[module].sfp_quick_removed = true;
+                    bf_pm_sfp_quick_removal_detected_set (module,
+                                                        true);
+                    return -1;
+                }
             }
+            LOG_ERROR (" SFP    %2d : Error <%d> reading status fields",
+                    module, rc);
+            return 0;  // can't trust the data, just leave
         }
-        LOG_ERROR (" SFP    %2d : Error <%d> reading status fields",
-                   module, rc);
-        return 0;  // can't trust the data, just leave
-    }
 
-    sfp_log_alarms (dev_id, module,
-                    &sfp_state[module].status_and_alarms,
-                    &status_and_alarms);
+        sfp_log_alarms (dev_id, module,
+                        &sfp_state[module].status_and_alarms,
+                        &status_and_alarms);
+    }
 
     /* Read LOS signal via CPLD. Not very sure, but very helpful. */
     bool rx_los_now = false;   /* Init to false in case a misjudge to a GOOD link when i2c hang on. */

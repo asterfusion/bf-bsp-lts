@@ -147,6 +147,15 @@ int bf_sfp_get_eth_ext_compliance (int port,
     return 0;
 }
 
+bool bf_sfp_get_dom_support (int port)
+{
+    if (port > bf_plt_max_sfp) {
+        return false;
+    }
+
+    return SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom);
+}
+
 /** return sfp presence information
 *
 *  @param port
@@ -667,6 +676,10 @@ bool bf_sfp_get_chan_temp (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
+    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+        return -1;
+    }
+
     rc = bf_pltfm_sfp_read_module (port,
                              MAX_SFP_PAGE_SIZE + offset, 2,
                              /* Update cache first. */
@@ -701,6 +714,10 @@ bool bf_sfp_get_chan_volt (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
+    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+        return -1;
+    }
+
     rc = bf_pltfm_sfp_read_module (port,
                              MAX_SFP_PAGE_SIZE + offset, 2,
                              &bf_sfp_info_arr[port].a2h[offset]);
@@ -735,6 +752,10 @@ bool bf_sfp_get_chan_tx_bias (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
+    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+        return -1;
+    }
+
     rc = bf_pltfm_sfp_read_module (port,
                                   MAX_SFP_PAGE_SIZE + offset, 2,
                                   &bf_sfp_info_arr[port].a2h[offset]);
@@ -764,6 +785,10 @@ bool bf_sfp_get_chan_tx_pwr (int port,
    }
 
    /* A2h, what should we do if there's no A2h ? */
+   if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+       return -1;
+   }
+
    rc = bf_pltfm_sfp_read_module (port,
                                  MAX_SFP_PAGE_SIZE + offset, 2,
                                  &bf_sfp_info_arr[port].a2h[offset]);
@@ -793,6 +818,10 @@ bool bf_sfp_get_chan_rx_pwr (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
+    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+        return -1;
+    }
+
     rc = bf_pltfm_sfp_read_module (port,
                                MAX_SFP_PAGE_SIZE + offset, 2,
                                &bf_sfp_info_arr[port].a2h[offset]);

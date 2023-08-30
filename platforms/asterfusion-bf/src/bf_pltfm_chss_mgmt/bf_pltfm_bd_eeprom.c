@@ -909,7 +909,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
                                            wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf), usec_delay);
         }
 
-        if (err != -1) {
+        if (err > 0) {
             if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
                 l = strlen ((char *)&rd_buf[0]);
                 offset = 0;
@@ -923,15 +923,16 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
                      tlv->code, tlv->desc, tlv->content);
             LOG_DEBUG ("0x%02x %20s: %32s", tlv->code,
                        tlv->desc, tlv->content);
+        } else {
+            err_total ++;
         }
-        err_total += err;
     }
     fprintf (stdout, "\n\n");
 
     /* A high risk from this condition. by tsihang, 2023-05-26. */
     /* If could not get eeprom data from BMC,
      *  try to get it from file. by huachen, 2023-05-23. */
-    if (err_total <= -(int)ARRAY_LENGTH (tlvs)) {
+    if (err_total >= (int)ARRAY_LENGTH (tlvs)) {
         LOG_WARNING ("\n\nWarn : Trying to get eeprom data from %s\n\n",
             path);
         fp = fopen(path, "r");
