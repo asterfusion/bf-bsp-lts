@@ -46,6 +46,9 @@ typedef struct bf_sfp_info_t {
 
     //bf_qsfp_special_info_t special_case_port;
     bf_sys_mutex_t sfp_mtx;
+
+    /* BF_TRANS_CTRLMASK_XXXX. It can only be set by bf_sfp_ctrlmask_set. */
+    uint32_t ctrlmask;
 } bf_sfp_info_t;
 
 /*
@@ -1277,4 +1280,26 @@ void bf_sfp_print_ddm (int port, sfp_global_sensor_t *trans, sfp_channel_t *chnl
                   "--------",
                   "--------------",
                   "--------------");
+}
+
+int bf_sfp_ctrlmask_set (int port,
+                  uint32_t ctrlmask) {
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    bf_sfp_info_arr[port].ctrlmask = ctrlmask;
+
+    return 0;
+}
+
+int bf_sfp_ctrlmask_get (int port,
+                uint32_t *ctrlmask) {
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    *ctrlmask = bf_sfp_info_arr[port].ctrlmask;
+
+    return 0;
 }

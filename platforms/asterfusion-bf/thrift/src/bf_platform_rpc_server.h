@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+#define BF_PLATFORM_RPC_SERVER_ADDRESS "127.0.0.1"
 #define BF_PLATFORM_RPC_SERVER_PORT 9095
 
 extern int start_bf_platform_rpc_server (

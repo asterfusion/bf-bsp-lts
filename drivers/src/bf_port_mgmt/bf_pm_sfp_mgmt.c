@@ -69,6 +69,7 @@ typedef enum {
     // states requiring fixed delays
     SFP_FSM_ST_WAIT_T_RESET,      // 2000ms
     SFP_FSM_ST_WAIT_TON_TXDIS,    //  100ms, SFF8472_TMR_ton_txdis
+    SFP_FSM_ST_WAIT_TOFF_TXDIS,    // 100ms, SFF8472_TMR_toff_txdis
     SFP_FSM_ST_DETECTED,
     SFP_FSM_ST_UPDATE,
     SFP_FSM_ST_WAIT_UPDATE,  // update-specific delay
@@ -80,6 +81,7 @@ static char *sfp_fsm_st_to_str[] = {
     "SFP_FSM_ST_INSERTED           ",
     "SFP_FSM_ST_WAIT_T_RESET       ",
     "SFP_FSM_ST_WAIT_TON_TXDIS     ",
+    "SFP_FSM_ST_WAIT_TOFF_TXDIS    ",
     "SFP_FSM_ST_DETECTED           ",
     "SFP_FSM_ST_UPDATE             ",
     "SFP_FSM_ST_WAIT_UPDATE        ",
@@ -173,6 +175,7 @@ typedef struct sfp_state_t {
     sfp_fsm_ch_en_state_t fsm_ch_st;
     struct timespec next_fsm_run_time;
     struct timespec next_fsm_ch_run_time;
+    uint32_t flags;
     bool sfp_quick_removed;
     bool wr_inprog;
     bool los_detected;
@@ -188,6 +191,7 @@ sfp_state_t sfp_state[BF_PLAT_MAX_SFP + 1] = {
         SFP_CH_FSM_ST_DISABLED,
         {0, 0},
         {0, 0},
+        0,
         false,
         false,
         true,
@@ -767,6 +771,42 @@ bool sfp_fsm_is_optical (int module)
     }
     return false;
 }
+/*****************************************************************
+ * Turn off optical Tx.
+ *****************************************************************/
+static void sfp_fsm_st_tx_off (
+    bf_dev_id_t dev_id,
+    uint32_t module)
+{
+    int err;
+    fetch_by_module (module);
+
+    err = bf_sfp_tx_disable (module, true);
+    if (!err) {
+        sfp_state[module].flags &= ~BF_TRANS_STATE_LASER_ON;
+    }
+
+    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
+               module, conn, chnl, __func__);
+}
+
+/*****************************************************************
+ * Turn on optical Tx.
+ *****************************************************************/
+static void sfp_fsm_st_tx_on (
+    bf_dev_id_t dev_id,
+    uint32_t module)
+{
+    int err;
+    fetch_by_module (module);
+
+    err = bf_sfp_tx_disable (module, false);
+    if (!err) {
+        sfp_state[module].flags |= BF_TRANS_STATE_LASER_ON;
+    }
+    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
+               module, conn, chnl, __func__);
+}
 
 /*****************************************************************
  * A removal detected and confirmed, then notify the SDK driver
@@ -799,7 +839,7 @@ static void sfp_fsm_st_removed (bf_dev_id_t
                                  false);
     bf_port_optical_los_set (dev_id, dev_port, true);
 
-    bf_pltfm_sfp_module_tx_disable (module, true);
+    sfp_fsm_st_tx_off (dev_id, module);
 
     LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
                module, conn, chnl, __func__);
@@ -815,36 +855,6 @@ static void sfp_fsm_st_inserted (bf_dev_id_t
     fetch_by_module (module);
 
     sfp_fsm_reset_assert (dev_id, module);
-
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
-               module, conn, chnl, __func__);
-}
-
-/*****************************************************************
- * Turn off optical Tx.
- *****************************************************************/
-static void sfp_fsm_st_tx_off (
-    bf_dev_id_t dev_id,
-    uint32_t module)
-{
-    fetch_by_module (module);
-
-    bf_pltfm_sfp_module_tx_disable (module, true);
-
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
-               module, conn, chnl, __func__);
-}
-
-/*****************************************************************
- * Turn on optical Tx.
- *****************************************************************/
-static void sfp_fsm_st_tx_on (
-    bf_dev_id_t dev_id,
-    uint32_t module)
-{
-    fetch_by_module (module);
-
-    bf_pltfm_sfp_module_tx_disable (module, false);
 
     LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
                module, conn, chnl, __func__);
@@ -923,6 +933,10 @@ static void sfp_module_fsm_run (bf_dev_id_t
     bool is_optical = false;
     fetch_by_module (module);
 
+    uint32_t ctrlmask = 0;
+
+    bf_sfp_ctrlmask_get(module, &ctrlmask);
+
     switch (st) {
         case SFP_FSM_ST_IDLE:
             break;
@@ -933,6 +947,12 @@ static void sfp_module_fsm_run (bf_dev_id_t
             delay_ms = 0;
 
             sfp_state[module].sfp_quick_removed = false;
+            sfp_state[module].flags = 0;
+
+            /* If soft removal detected, try to turn off laser. */
+            if (bf_sfp_soft_removal_get(module)) {
+                sfp_fsm_st_tx_off (dev_id, module);
+            }
             break;
 
         case SFP_FSM_ST_INSERTED:
@@ -982,8 +1002,27 @@ static void sfp_module_fsm_run (bf_dev_id_t
             /* Every thing ready, notify barefoot core to start PM FSM. */
             sfp_fsm_notify_bf_pltfm (dev_id, module);
 
+#if defined (DEFAULT_LASER_ON)
+            next_st = SFP_FSM_ST_WAIT_TOFF_TXDIS;
+#else
             next_st = SFP_FSM_ST_DETECTED;
+#endif
             delay_ms = SFF8472_TMR_ton_txdis;
+            break;
+
+        case SFP_FSM_ST_WAIT_TOFF_TXDIS:
+            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
+                /* Keep current state till the user clears the BF_TRANS_CTRLMASK_LASER_OFF bits,
+                 * then FSM will issue SFP_FSM_ST_DETECTED stage. */
+                next_st = SFP_FSM_ST_WAIT_TOFF_TXDIS;
+                break;
+            }
+
+            /* Enable Tx */
+            sfp_fsm_st_tx_on (dev_id, module);
+
+            next_st = SFP_FSM_ST_DETECTED;
+            delay_ms = SFF8472_TMR_toff_txdis;
             break;
 
         case SFP_FSM_ST_DETECTED:
@@ -1004,6 +1043,20 @@ static void sfp_module_fsm_run (bf_dev_id_t
 
             next_st = SFP_FSM_ST_DETECTED;
             delay_ms = 200; // 200ms poll time
+
+#if 0
+            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
+                if ((sfp_state[module].flags & BF_TRANS_STATE_LASER_ON)) {
+                    /* User turns off Tx. */
+                    sfp_fsm_st_tx_off (dev_id, module);
+                }
+            } else {
+                if (!(sfp_state[module].flags & BF_TRANS_STATE_LASER_ON)) {
+                    /* User turns on Tx. */
+                    sfp_fsm_st_tx_on (dev_id, module);
+                }
+            }
+#endif
             break;
 
         case SFP_FSM_ST_UPDATE:
@@ -1058,7 +1111,11 @@ static void sfp_channel_fsm_run (bf_dev_id_t
 
             // notify driver
             sfp_fsm_notify_not_ready (dev_id, module);
+#if defined (DEFAULT_LASER_ON)
+            next_st = SFP_CH_FSM_ST_NOTIFY_ENABLED;
+#else
             next_st = SFP_CH_FSM_ST_ENA_OPTICAL_TX;
+#endif
             delay_ms = 200;
             break;
 
@@ -1095,9 +1152,12 @@ static void sfp_channel_fsm_run (bf_dev_id_t
         case SFP_CH_FSM_ST_DISABLING:
             sfp_fsm_notify_not_ready (dev_id, module);
 
+#if defined (DEFAULT_LASER_ON)
+            ; /* Do nothing. */
+#else
             /* Disable Tx */
             sfp_fsm_st_tx_off (dev_id, module);
-
+#endif
             if (sfp_state[module].immediate_enable) {
                 next_st = SFP_CH_FSM_ST_ENABLING;
             } else {

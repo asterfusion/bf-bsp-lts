@@ -290,8 +290,6 @@ typedef struct dev_cfg_per_channel_t {
     bf_pltfm_encoding_type_t encoding;
 } dev_cfg_per_channel_t;
 
-#define BF_QSFP_TX_ENABLED  (1 << 0)
-#define BF_QSFP_CDR_ENABLED (1 << 1)
 typedef struct qsfp_state_t {
     qsfp_typ_t qsfp_type;
     qsfp_fsm_state_t fsm_st;
@@ -554,27 +552,27 @@ static int qsfp_fsm_identify_type (int conn_id,
          * by tsihang, 2023-06-07. */
         bf_qsfp_get_rxtx_cdr_ctrl_state (conn_id, &cdr_ctrl_state);
         if (cdr_ctrl_state & 0x0F) {
-            qsfp_state[conn_id].flags |= BF_QSFP_CDR_ENABLED;
+            qsfp_state[conn_id].flags |= BF_TRANS_STATE_CDR_ON;
         } else {
-            qsfp_state[conn_id].flags &= ~BF_QSFP_CDR_ENABLED;
+            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_CDR_ON;
         }
 
         /* Default, TX_DISABLE is enabled for most QSFP28/QSFP+.
          * While it's better to check with SFF-8636 spec.
          * by tsihang, 2023-06-07. */
         if (bf_qsfp_tx_is_disabled(conn_id, 0)) {
-            qsfp_state[conn_id].flags &= ~BF_QSFP_CDR_ENABLED;
+            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_CDR_ON;
         } else {
-            qsfp_state[conn_id].flags |= BF_QSFP_CDR_ENABLED;
+            qsfp_state[conn_id].flags |= BF_TRANS_STATE_CDR_ON;
         }
 
         LOG_DEBUG (
             "QSFP    %2d : Default CDR_%s", conn_id,
-            (qsfp_state[conn_id].flags & BF_QSFP_CDR_ENABLED) ? "ENABLED" : "DISABLED");
+            (qsfp_state[conn_id].flags & BF_TRANS_STATE_CDR_ON) ? "ENABLED" : "DISABLED");
 
         LOG_DEBUG (
             "QSFP    %2d : Default TX_%s", conn_id,
-            (qsfp_state[conn_id].flags & BF_QSFP_TX_ENABLED) ? "ENABLED" : "DISABLED");
+            (qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON) ? "ENABLED" : "DISABLED");
 
         qsfp_state[conn_id].qsfp_type = QSFP_TYP_OPTICAL;
         //qsfp_state[conn_id].ch_cnt = bf_qsfp_get_ch_cnt (
@@ -664,9 +662,11 @@ static int qsfp_fsm_identify_model_requirements (
         }
     } else {
         /* load from /etc/transceiver-cases.conf. */
-        uint32_t ctrlmask = 0;
+        uint32_t ctrlmask = 0, ctrlmask0 = 0;
         if (bf_qsfp_tc_entry_find ((char *)vendor.name,
                 (char *)vendor.part_number, NULL, &ctrlmask, false) == 0) {
+            bf_qsfp_ctrlmask_get(conn_id, &ctrlmask0);
+            ctrlmask |= ctrlmask0;
             bf_qsfp_ctrlmask_set(conn_id, ctrlmask);
         }
     }
@@ -1059,9 +1059,9 @@ static int qsfp_fsm_st_tx_disable (
                    byte_86);
     } else {
         if (byte_86) {
-            qsfp_state[conn_id].flags &= ~BF_QSFP_TX_ENABLED;
+            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
         } else {
-            qsfp_state[conn_id].flags |= BF_QSFP_TX_ENABLED;
+            qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
         }
     }
     return rc;
@@ -1089,9 +1089,9 @@ int qsfp_fsm_st_tx_enable (
                    byte_86);
     } else {
         if (byte_86) {
-            qsfp_state[conn_id].flags &= ~BF_QSFP_TX_ENABLED;
+            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
         } else {
-            qsfp_state[conn_id].flags |= BF_QSFP_TX_ENABLED;
+            qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
         }
     }
     return rc;
@@ -1118,7 +1118,7 @@ static int qsfp_fsm_st_cdr_enable (
                    rc,
                    byte_98);
     } else {
-        qsfp_state[conn_id].flags |= BF_QSFP_CDR_ENABLED;
+        qsfp_state[conn_id].flags |= BF_TRANS_STATE_CDR_ON;
     }
     return rc;
 }
@@ -1144,7 +1144,7 @@ static int qsfp_fsm_st_cdr_disable (
                    rc,
                    byte_98);
     } else {
-        qsfp_state[conn_id].flags &= ~BF_QSFP_CDR_ENABLED;
+        qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_CDR_ON;
     }
     return rc;
 }
@@ -1620,6 +1620,9 @@ static void qsfp_module_fsm_run (bf_dev_id_t
     dev_cfg_per_channel_t *dev_cfg;
     int rc, delay_ms = 0;
     bool is_optical = false, is_cdr_required = true;
+    uint32_t ctrlmask = 0;
+
+    bf_qsfp_ctrlmask_get(conn_id, &ctrlmask);
 
     switch (st) {
         case QSFP_FSM_ST_IDLE:
@@ -1636,6 +1639,11 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             delay_ms = 0;
             qsfp_state[conn_id].qsfp_quick_removed = false;
             qsfp_state[conn_id].flags = 0;
+
+            /* If soft removal detected, try to turn off laser. */
+            if (bf_qsfp_soft_removal_get(conn_id)) {
+                qsfp_fsm_st_tx_disable (dev_id, conn_id);
+            }
             break;
 
         case QSFP_FSM_ST_INSERTED:
@@ -1752,16 +1760,19 @@ static void qsfp_module_fsm_run (bf_dev_id_t
                 "QSFP    %2d : force %sabling CDR. flags : %x",
                     conn_id, is_cdr_required ? "en" : "dis",
                     qsfp_state[conn_id].flags);
-            //next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
+#if defined (DEFAULT_LASER_ON)
+            next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
+#else
             next_st = QSFP_FSM_ST_DETECTED;
+#endif
             delay_ms = 0;
             if (is_cdr_required) {
-                if (qsfp_state[conn_id].flags & BF_QSFP_CDR_ENABLED) {
+                if (qsfp_state[conn_id].flags & BF_TRANS_STATE_CDR_ON) {
                     /* Skip cdr control if cdr already enabled, perform next_st */
                     break;
                 }
             } else {
-                 if (!(qsfp_state[conn_id].flags & BF_QSFP_CDR_ENABLED)) {
+                 if (!(qsfp_state[conn_id].flags & BF_TRANS_STATE_CDR_ON)) {
                     /* Skip cdr control if cdr already disabled, perform next_st */
                     break;
                 }
@@ -1774,10 +1785,17 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             }
             delay_ms = 300;
             break;
-#if 0
+
         case QSFP_FSM_ST_WAIT_TOFF_TXDIS:
+            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
+                /* Keep current state till the user clears the BF_TRANS_CTRLMASK_LASER_OFF bits,
+                 * then FSM will issue QSFP_FSM_ST_DETECTED stage. */
+                next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
+                break;
+            }
+
             /* Perform next_st if TX already turned on. */
-            if (qsfp_state[conn_id].flags & BF_QSFP_TX_ENABLED) {
+            if (qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON) {
                 delay_ms = 0;
             } else {
                 /* TX_DISABLE de-assert. */
@@ -1786,7 +1804,7 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             }
             next_st = QSFP_FSM_ST_DETECTED;
             break;
-#endif
+
         case QSFP_FSM_ST_DETECTED:
             bf_qsfp_set_detected (conn_id, true);
             // check LOS
@@ -1805,6 +1823,19 @@ static void qsfp_module_fsm_run (bf_dev_id_t
 
             next_st = QSFP_FSM_ST_DETECTED;
             delay_ms = 200;  // 200ms poll time
+#if 0
+            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
+                if ((qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON)) {
+                    /* User turns off Tx. */
+                    qsfp_fsm_st_tx_disable (dev_id, conn_id);
+                }
+            } else {
+                if (!(qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON)) {
+                    /* User turns on Tx. */
+                    qsfp_fsm_st_tx_enable (dev_id, conn_id);
+                }
+            }
+#endif
             break;
 
         case QSFP_FSM_ST_UPDATE:
@@ -2239,8 +2270,11 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
              * by tsihang, 2023-05-23. */
             //next_st = QSFP_FSM_EN_ST_ENA_CDR;
             delay_ms = 300;  // ms
+#if defined (DEFAULT_LASER_ON)
+            next_st = QSFP_FSM_EN_ST_NOTIFY_ENABLED;
+#else
             next_st = QSFP_FSM_EN_ST_ENA_OPTICAL_TX;
-
+#endif
             break;
         case QSFP_FSM_EN_ST_ENA_CDR:
             wr_coalesce_err = is_cdr_required ?
@@ -2349,10 +2383,14 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
             // notify driver
             qsfp_fsm_ch_notify_not_ready (dev_id, conn_id,
                                           ch);
+#if defined (DEFAULT_LASER_ON)
+            ; /* Do nothing. */
+#else
             /* Never disable Tx for a fast boot.
              * by tsihang, 2023-05-23. */
             qsfp_fsm_ch_disable_optical_tx (dev_id, conn_id,
                                             ch);
+#endif
             next_st = QSFP_FSM_EN_ST_DISABLED;
             delay_ms = 100;  // ms
             break;
@@ -2414,10 +2452,8 @@ bf_pltfm_status_t qsfp_fsm (bf_dev_id_t dev_id)
         /* Run Channel FSM for ports that have completed module init. OR for modules
          * that are scheduled for coalesce writes. This is required for all channels
          * part of portgrp to schedule writes that are to coalesced together */
-        if (((qsfp_state[conn_id].fsm_st ==
-            QSFP_FSM_ST_DETECTED) ||
-            (qsfp_state[conn_id].fsm_st ==
-            QSFP_FSM_ST_WAIT_CDR_CONTROL)) &&
+        if ((qsfp_state[conn_id].fsm_st ==
+            QSFP_FSM_ST_DETECTED) &&
             qsfp_fsm_is_optical (conn_id)) {
             int ch;
             for (ch = 0; ch < 4; ch++) {

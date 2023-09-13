@@ -26,11 +26,21 @@
 extern "C" {
 #endif
 
-/* Added by tsihang for /etc/transceiver-cases.conf, 2023-05-05.*/
-#define BF_QSFP_CASE_DIS_CDR            (1 << 0) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
-#define BF_QSFP_CASE_DIS_LOL_CHK        (1 << 1)
-#define BF_QSFP_CASE_ENA_HIGH_PWR       (1 << 2)
-#define BF_QSFP_CASE_OVERWIRTE_DEFAULT  (1 << 7)
+/* After an optical transceiver plugged-in, by default the laser is off
+ * till user performs port-enb on it. While this macro allows to turn on
+ * laser without performing port-enb. This feature is widely used for cases
+ * that user wants a faster linkup to remote.
+ * by tsihang, 2023/09/01. */
+//#define DEFAULT_LASER_ON
+
+/* Control word, added by tsihang for /etc/transceiver-cases.conf, 2023/05/05. */
+#define BF_TRANS_CTRLMASK_CDR_OFF            (1 << 0) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
+#define BF_TRANS_CTRLMASK_LASER_OFF          (1 << 1) /* Laser keeps off till user enable it. */
+#define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT  (1 << 7)
+
+/* State added by tsihang, 2023/08/31. */
+#define BF_TRANS_STATE_CDR_ON                (1 << 0)
+#define BF_TRANS_STATE_LASER_ON              (1 << 1)
 
 #define QSFP_RXLOS_DEBOUNCE_DFLT \
   0  // Can modify depending on if debouncing is required. This value can be set
@@ -547,7 +557,7 @@ int bf_qsfp_ctrlmask_get (int port,
                 uint32_t *ctrlmask);
 bool bf_qsfp_is_cdr_overwrite_required (int port);
 
-void bf_pltfm_pm_load_conf ();
+void bf_pltfm_qsfp_load_conf ();
 int bf_qsfp_tc_entry_add (char *vendor, char *pn, char *option,
     uint32_t ctrlmask);
 int bf_qsfp_tc_entry_dump (char *vendor, char *pn, char *option);

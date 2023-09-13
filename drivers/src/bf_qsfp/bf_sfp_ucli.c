@@ -347,7 +347,7 @@ bf_pltfm_ucli_ucli__sfp_get_pres (
 
     UCLI_COMMAND_INFO (
         uc, "tx-disable-set", 2,
-        "tx-disable-set <port> <0:off, 1:on>");
+        "tx-disable-set <port> <0: laser on, 1: laser off>");
     port = atoi (uc->pargs->args[0]);
     if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -995,6 +995,82 @@ bf_pltfm_ucli_ucli__sfp_fsm (ucli_context_t *uc)
     }
     return 0;
 }
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_set (
+        ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+                       "ctrlmask-set",
+                       2,
+                       "ctrlmask-set <port OR -1 for all ports> "
+                       "<ctrlmask, hex value>");
+    int port;
+    int port_begin, max_port, max_ports = bf_sfp_get_max_sfp_ports();
+    uint32_t ctrlmask = 0;
+
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        port_begin = port;
+        max_port = port;
+    } else {
+        port_begin = 1;
+        max_port = max_ports;
+    }
+
+    if ((port_begin == 0) ||
+        (port_begin > max_ports ||
+         max_port > max_ports)) {
+        aim_printf (&uc->pvs,
+                    "port must between 1 and %d OR -1 for all ports\n",
+                    max_ports);
+        return 0;
+    }
+
+    ctrlmask = atoi (uc->pargs->args[1]);
+    for (port = port_begin; port <= max_port;
+         port++) {
+        bf_sfp_ctrlmask_set (port, ctrlmask);
+    }
+    return 0;
+}
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_get (
+        ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+                       "ctrlmask-get",
+                       1,
+                       "ctrlmask-get <port OR -1 for all ports> ");
+    int port;
+    int port_begin, max_port, max_ports = bf_sfp_get_max_sfp_ports();
+    uint32_t ctrlmask = 0;
+
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        port_begin = port;
+        max_port = port;
+    } else {
+        port_begin = 1;
+        max_port = max_ports;
+    }
+
+    if ((port_begin == 0) ||
+        (port_begin > max_ports ||
+         max_port > max_ports)) {
+        aim_printf (&uc->pvs,
+                    "port must between 1 and %d OR -1 for all ports\n",
+                    max_ports);
+        return 0;
+    }
+
+    for (port = port_begin; port <= max_port;
+         port++) {
+        bf_sfp_ctrlmask_get (port, &ctrlmask);
+        aim_printf (&uc->pvs,
+                    "Port : %2d, ctrlmask %u.\n", port, ctrlmask);
+    }
+    return 0;
+}
 
 static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_soft_remove (
@@ -1235,10 +1311,12 @@ bf_pltfm_sfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__sfp_show_module,
     bf_pltfm_ucli_ucli__sfp_show,
     bf_pltfm_ucli_ucli__sfp_summary,
+    bf_pltfm_ucli_ucli__sfp_get_ddm,
     bf_pltfm_ucli_ucli__sfp_db,
     bf_pltfm_ucli_ucli__sfp_map,
     bf_pltfm_ucli_ucli__sfp_fsm,
-    bf_pltfm_ucli_ucli__sfp_get_ddm,
+    bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_set,
+    bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_get,
     bf_pltfm_ucli_ucli__sfp_soft_remove,
     bf_pltfm_ucli_ucli__sfp_soft_remove_show,
     bf_pltfm_ucli_ucli__sfp_get_pres,

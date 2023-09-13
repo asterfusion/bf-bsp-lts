@@ -15,6 +15,10 @@ extern "C" {
 #endif
 
 #define BF_MAV_SYSCPLD_I2C_ADDR   (0x40)   /* syscpld i2c_addr on cp2112 */
+/* Currently maximum is 5.
+ * Modify this if the fact changes in the future.
+ * by SunZheng, 2023-09-05. */
+#define MAX_SYSCPLDS 5
 
 enum {
     BF_MAV_SYSCPLD1 = 1,
@@ -232,7 +236,7 @@ int select_cpld (uint8_t cpld_index);
 int unselect_cpld();
 
 int bf_pltfm_get_max_cplds ();
-int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version);
+int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version, bool forced);
 int bf_pltfm_syscpld_init();
 
 #ifdef __cplusplus
