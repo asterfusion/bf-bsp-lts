@@ -46,6 +46,7 @@ static void *cookie;
 static void *bf_platform_rpc_server_thread (
     void *)
 {
+    std::string address = BF_PLATFORM_RPC_SERVER_ADDRESS;
     int port = BF_PLATFORM_RPC_SERVER_PORT;
 
     std::shared_ptr<pltfm_pm_rpcHandler>
@@ -69,7 +70,7 @@ static void *bf_platform_rpc_server_thread (
             new pltfm_mgr_rpcProcessor (
                 pltfm_mgr_rpc_handler)));
     std::shared_ptr<TServerTransport>
-    serverTransport (new TServerSocket (port));
+    serverTransport (new TServerSocket (address, port));
     std::shared_ptr<TTransportFactory>
     transportFactory (
         new TBufferedTransportFactory());

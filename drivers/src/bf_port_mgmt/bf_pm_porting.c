@@ -1005,7 +1005,6 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
                    dev_port,
                    lane);
         if (!bf_pltfm_pm_is_ha_mode()) {
-            qsfp_fsm_update_cdr (dev_id, port_hdl.conn_id);
             qsfp_fsm_ch_enable (dev_id, port_hdl.conn_id,
                                 port_hdl.chnl_id + lane);
         } else {

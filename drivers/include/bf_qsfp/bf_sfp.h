@@ -80,6 +80,10 @@ int bf_sfp_set_transceiver_lpmode (int port,
 
 int bf_sfp_get_transceiver_info (int port,
                                  sfp_transciever_info_t *info);
+int bf_sfp_ctrlmask_set (int port,
+                  uint32_t ctrlmask);
+int bf_sfp_ctrlmask_get (int port,
+                  uint32_t *ctrlmask);
 
 int bf_sfp_init();
 bool bf_sfp_get_dom_support (int port);

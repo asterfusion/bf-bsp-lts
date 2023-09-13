@@ -59,6 +59,7 @@ typedef struct bf_qsfp_special_info_ {
      */
     char vendor[16];
     char pn[16];
+    /* BF_TRANS_CTRLMASK_XXXX */
     uint32_t ctrlmask;
 } bf_qsfp_special_info_t;
 
@@ -3045,7 +3046,7 @@ bool bf_qsfp_get_chan_tx_bias (int port,
         return false;
     }
 
-    /* Currently only update the first eight bytes to support SFF-8636. 
+    /* Currently only update the first eight bytes to support SFF-8636.
      * Support for CMIS will be added in the future.
      * by sunzheng, 2023-08-04. */
     for (i=0; i < 8; i++) {
@@ -3435,7 +3436,7 @@ int bf_qsfp_init (void)
         bf_qsfp_info_arr[port].present = false;
         bf_qsfp_info_arr[port].reset = false;
         bf_qsfp_info_arr[port].flat_mem = true;
-        bf_qsfp_info_arr[port].passive_cu = true;
+        bf_qsfp_info_arr[port].passive_cu = false;
         bf_qsfp_info_arr[port].fsm_detected = false;
         bf_qsfp_info_arr[port].num_ch = 0;
         bf_qsfp_info_arr[port].memmap_format =
@@ -3455,6 +3456,7 @@ int bf_qsfp_init (void)
         //bf_qsfp_info_arr[port].special_case_port.ctrlmask = 0;
         memset (&bf_qsfp_info_arr[port].special_case_port.vendor[0], 0, 16);
         memset (&bf_qsfp_info_arr[port].special_case_port.pn[0], 0, 16);
+        //bf_qsfp_info_arr[port].special_case_port.ctrlmask = BF_TRANS_CTRLMASK_LASER_OFF;
     }
     return 0;
 }
@@ -3475,7 +3477,7 @@ int bf_qsfp_port_deinit (int port)
     bf_qsfp_info_arr[port].present = false;
     bf_qsfp_info_arr[port].reset = false;
     bf_qsfp_info_arr[port].flat_mem = true;
-    bf_qsfp_info_arr[port].passive_cu = true;
+    bf_qsfp_info_arr[port].passive_cu = false;
     bf_qsfp_info_arr[port].num_ch = 0;
     bf_qsfp_info_arr[port].memmap_format =
         MMFORMAT_UNKNOWN;
@@ -3616,7 +3618,7 @@ int bf_qsfp_cdr_disable_single_lane (int port,
     // Expect channel range check to be done by the caller.
     // Don't add it here.
 
-    LOG_DEBUG ("QSFP    %2d: CDR, ch=%d, new value=%d",
+    LOG_DEBUG ("QSFP    %2d: CDR_CONTROL, ch=%d, new value=%d",
                port,
                channel,
                disable ? 0 : 1);
@@ -6677,14 +6679,7 @@ bool bf_qsfp_is_cdr_required (int port) {
     if (port > bf_plt_max_qsfp) {
         return true;
     }
-    return !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_QSFP_CASE_DIS_CDR);
-}
-
-bool bf_qsfp_is_lol_required (int port) {
-    if (port > bf_plt_max_qsfp) {
-        return true;
-    }
-    return !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_QSFP_CASE_DIS_LOL_CHK);
+    return !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_CDR_OFF);
 }
 
 /*
@@ -6696,9 +6691,9 @@ int bf_qsfp_cdr_required (int port,
         return -1;
     }
     if (req) {
-        bf_qsfp_info_arr[port].special_case_port.ctrlmask &= ~BF_QSFP_CASE_DIS_CDR;
+        bf_qsfp_info_arr[port].special_case_port.ctrlmask &= ~BF_TRANS_CTRLMASK_CDR_OFF;
     } else {
-        bf_qsfp_info_arr[port].special_case_port.ctrlmask |= BF_QSFP_CASE_DIS_CDR;
+        bf_qsfp_info_arr[port].special_case_port.ctrlmask |= BF_TRANS_CTRLMASK_CDR_OFF;
     }
     return 0;
 }
@@ -6810,7 +6805,7 @@ bool bf_qsfp_is_cdr_overwrite_required (int port)
     if (port > bf_plt_max_qsfp) {
         return true;
     }
-    return (bf_pltfm_special_transceiver_case[port].ctrlmask & BF_QSFP_CASE_OVERWIRTE_DEFAULT);
+    return (bf_pltfm_special_transceiver_case[port].ctrlmask & BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT);
 }
 
 static inline int
@@ -6910,11 +6905,11 @@ int bf_qsfp_tc_entry_dump (char *vendor, char *pn, char *option)
  * The CTRLMASK (hex value) is defined in $SDE_INSTALL/include/bf_qsfp/bf_qsfp.h
  * An example of the file like below:
  * #VENDOR         PN                 CTRLMASK
- * Teraspek        TSQ885S101T1       1=HEX(BF_QSFP_CASE_DIS_CDR)
- * Teraspek        TSQ885S101E1       1=HEX(BF_QSFP_CASE_DIS_CDR)
- * Asterfusion     TSQ813L023CT1      3=HEX(BF_QSFP_CASE_DIS_CDR|BF_QSFP_CASE_DIS_LOL_CHK)
+ * Teraspek        TSQ885S101T1       1=HEX(BF_TRANS_CTRLMASK_CDR_OFF)
+ * Teraspek        TSQ885S101E1       1=HEX(BF_TRANS_CTRLMASK_CDR_OFF)
+ * Asterfusion     TSQ813L023CT1      3=HEX(BF_TRANS_CTRLMASK_CDR_OFF|BF_TRANS_CTRLMASK_LASER_OFF)
  */
-void bf_pltfm_pm_load_conf ()
+void bf_pltfm_qsfp_load_conf ()
 {
     // Initialize all the sub modules
     FILE *fp = NULL;
@@ -6926,11 +6921,10 @@ void bf_pltfm_pm_load_conf ()
     uint32_t ctrlmask;
     int length;
 
-    char *desc = "#The CTRLMASK defined as below:\n"             \
-        "#  #define BF_QSFP_CASE_DIS_CDR           (1 << 0)\n"   \
-        "#  #define BF_QSFP_CASE_DIS_LOL_CHK       (1 << 1)\n"   \
-        "#  #define BF_QSFP_CASE_ENA_HIGH_PWR      (1 << 2)\n"   \
-        "#  #define BF_QSFP_CASE_OVERWIRTE_DEFAULT (1 << 7)\n";
+    char *desc = "#The CTRLMASK defined in $SDE_INSTALL/include/bf_qsfp/bf_qsfp.h as below:\n" \
+        "#  #define BF_TRANS_CTRLMASK_CDR_OFF           (1 << 0)\n"   \
+        "#  #define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 1)\n"   \
+        "#  #define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)\n";
 
     int i;
     bf_qsfp_special_info_t *tc_entry;
@@ -6963,9 +6957,9 @@ void bf_pltfm_pm_load_conf ()
         fwrite (desc, 1, strlen (desc), fp);
         length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#VENDOR", "#PN", "#CTRLMASK");
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Teraspek", "TSQ885S101T1", "1=HEX(BF_QSFP_CASE_DIS_CDR)");
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Teraspek", "TSQ885S101T1", "1=HEX(BF_TRANS_CTRLMASK_CDR_OFF)");
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Teraspek", "TSQ885S101E1", "3=HEX(BF_QSFP_CASE_DIS_CDR|BF_QSFP_CASE_DIS_LOL_CHK)");
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Teraspek", "TSQ885S101E1", "3=HEX(BF_TRANS_CTRLMASK_CDR_OFF|BF_TRANS_CTRLMASK_LASER_OFF)");
         fwrite (entry, 1, length, fp);
 
         /* Write real ones. */

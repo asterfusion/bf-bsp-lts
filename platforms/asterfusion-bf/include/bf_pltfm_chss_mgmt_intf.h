@@ -138,8 +138,6 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_bd_type_get (
     bf_pltfm_board_id_t *board_id);
 bf_pltfm_status_t bf_pltfm_bd_eeprom_get (
     bf_pltfm_eeprom_t *ee_data);
-bf_pltfm_status_t bf_pltfm_bd_eeprom_get_sonic (
-    uint8_t *buf);
 
 /*
  * Power Supply unit
@@ -403,6 +401,7 @@ typedef enum cpld_path_e {
 
 cpld_path_e bf_pltfm_find_path_to_cpld();
 
+bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced);
 bf_pltfm_status_t bf_pltfm_compare_bmc_ver(char *cmp_ver);
 
 /* Porting CMEXXX, by tsihang, 2019-09-18. */

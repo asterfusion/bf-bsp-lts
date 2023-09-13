@@ -1694,7 +1694,7 @@ bf_pltfm_status_t bf_pltfm_pm_init (
         return sts;
     }
 
-    bf_pltfm_pm_load_conf ();
+    bf_pltfm_qsfp_load_conf ();
     return BF_PLTFM_SUCCESS;
 }
 

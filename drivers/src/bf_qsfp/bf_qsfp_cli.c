@@ -171,7 +171,7 @@ bf_pltfm_ucli_ucli__qsfp_tx_disable_set (
 
     UCLI_COMMAND_INFO (
         uc, "tx-disable-set", 3,
-        "tx-disable-set <port> <ch> <0:off, 1:on>");
+        "tx-disable-set <port> <ch> <0: laser on, 1: laser off>");
     port = atoi (uc->pargs->args[0]);
     if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -196,6 +196,47 @@ bf_pltfm_ucli_ucli__qsfp_tx_disable_set (
         bf_qsfp_tx_disable_single_lane (port, ch, true);
     } else {
         bf_qsfp_tx_disable_single_lane (port, ch, false);
+    }
+    return 0;
+}
+
+/*****************************************************************
+ * enable/disable both TX and RX CDRs - only use for sff-8636 modules
+ *****************************************************************/
+static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_cdr_disable_set (
+    ucli_context_t *uc)
+{
+    int port, ch, val, max_media_ch;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+
+    UCLI_COMMAND_INFO (
+        uc, "cdr-disable-set", 3,
+        "cdr-disable-set <port> <ch> <0: cdr on, 1: cdr off>");
+    port = atoi (uc->pargs->args[0]);
+    if (port < 1 || port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                    max_port);
+        return 0;
+    }
+    ch = atoi (uc->pargs->args[1]);
+    max_media_ch = bf_qsfp_get_media_ch_cnt (port);
+    if ((ch < 0) || (ch > max_media_ch)) {
+        aim_printf (&uc->pvs, "ch must be 0-%d\n",
+                    max_media_ch);
+        return 0;
+    }
+    val = atoi (uc->pargs->args[2]);
+    if ((val < 0) || (val > 1)) {
+        aim_printf (&uc->pvs,
+                    "val must be 0-1 for port %d\n", port);
+        return 0;
+    }
+
+    if (val) {
+        bf_qsfp_cdr_disable_single_lane (port, ch, true);
+    } else {
+        bf_qsfp_cdr_disable_single_lane (port, ch, false);
     }
     return 0;
 }
@@ -829,7 +870,7 @@ void printDdm (ucli_context_t *uc,
                                                2];
         /*
          * Measured Tx bias current is represented in mA as a 16-bit unsigned integer with the
-         * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2 �A.
+         * current defined as the full 16-bit value (0 to 65535) with LSB equal to 2 µA.
          * TX bias ranges from 0mA to 131mA.
          */
         txBias = (131.0 * txBiasValue) / 65535;
@@ -2805,9 +2846,9 @@ bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_set (
         ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "qsfp-ctrlmask-set",
+                       "ctrlmask-set",
                        2,
-                       "qsfp-ctrlmask-set <port OR -1 for all ports> "
+                       "ctrlmask-set <port OR -1 for all ports> "
                        "<ctrlmask, hex value>");
     int port;
     int port_begin, max_port, max_ports = bf_qsfp_get_max_qsfp_ports();
@@ -2843,9 +2884,9 @@ bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_get (
         ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "qsfp-ctrlmask-get",
+                       "ctrlmask-get",
                        1,
-                       "qsfp-ctrlmask-set <port OR -1 for all ports> ");
+                       "ctrlmask-get <port OR -1 for all ports> ");
     int port;
     int port_begin, max_port, max_ports = bf_qsfp_get_max_qsfp_ports();
     uint32_t ctrlmask = 0;
@@ -2933,12 +2974,12 @@ bf_pltfm_ucli_ucli__qsfp_special_case_cdr_set (
         uint32_t ctrlmask = 0;
         bf_qsfp_ctrlmask_get (port, &ctrlmask);
         if (iscdr_req) {
-            ctrlmask &= ~BF_QSFP_CASE_DIS_CDR;
+            ctrlmask &= ~BF_TRANS_CTRLMASK_CDR_OFF;
         } else {
-            ctrlmask |= BF_QSFP_CASE_DIS_CDR;
+            ctrlmask |= BF_TRANS_CTRLMASK_CDR_OFF;
         }
         if (overwrite) {
-            ctrlmask |= BF_QSFP_CASE_OVERWIRTE_DEFAULT;
+            ctrlmask |= BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT;
         }
         aim_printf (&uc->pvs,
                     "new : %u\n", ctrlmask);
@@ -3715,6 +3756,7 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_get_ddm,
     bf_pltfm_ucli_ucli__qsfp_type_show,
     bf_pltfm_ucli_ucli__qsfp_tx_disable_set,
+    bf_pltfm_ucli_ucli__qsfp_cdr_disable_set,
     bf_pltfm_ucli_ucli__qsfp_read_reg,
     bf_pltfm_ucli_ucli__qsfp_write_reg,
     bf_pltfm_ucli_ucli__qsfp_read_mul,

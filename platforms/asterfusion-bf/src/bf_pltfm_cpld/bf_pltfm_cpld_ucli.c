@@ -20,6 +20,7 @@
 
 /* For YH and S02 CME. */
 static bf_pltfm_cp2112_device_ctx_t *g_cpld_cp2112_hndl;
+static char g_cpld_index_version[MAX_SYSCPLDS][8] = {{0}};
 
 extern int bf_pltfm_get_qsfp_ctx (struct
                                   qsfp_ctx_t
@@ -1244,12 +1245,19 @@ end:
     return rc;
 }
 
-int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version)
+int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version, bool forced)
 {
     int rc = -1;
     /* 0xFF means invalid. */
     uint8_t veroff = 0xFF;
     uint8_t val = 0;
+    char *cpld_version = g_cpld_index_version[cpld_index - 1];
+
+    /* Read cached CPLD version to caller. */
+    if ((!forced) && (cpld_version[0] != 0)) {
+        memcpy (version, cpld_version, 8);
+        return 0;
+    }
 
     if (platform_type_equal (X312P)) {
         switch (cpld_index) {
@@ -1281,29 +1289,30 @@ int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version)
     }
 
     if (veroff == 0XFF) {
-        sprintf(version, "%s", "N/A");
+        sprintf(cpld_version, "%s", "N/A");
         return 0;
     }
 
     rc = bf_pltfm_cpld_read_byte (cpld_index, veroff, &val);
     if (rc) {
-        sprintf(version, "N/A");
+        sprintf(cpld_version, "N/A");
     } else {
         if (platform_type_equal (X312P)) {
-            sprintf(version, "%d.0", val);
+            sprintf(cpld_version, "%d.0", val);
         } else if (platform_type_equal (X308P)) {
             uint8_t ver = 0;
             /* cpld1 : [3:0], cpld2 : [7:4] */
             ver = (cpld_index == 1 ? (val & 0x0F) : ((val >> 4) & 0x0F));
-            sprintf(version, "%d.0", ver);
+            sprintf(cpld_version, "%d.0", ver);
         } else if (platform_type_equal (X532P)) {
-            sprintf(version, "%d.0", val);
+            sprintf(cpld_version, "%d.0", val);
         } else if (platform_type_equal (X564P)) {
-            sprintf(version, "%d.0", val);
+            sprintf(cpld_version, "%d.0", val);
         } else if (platform_type_equal (HC)) {
-            sprintf(version, "%d.0", val);
+            sprintf(cpld_version, "%d.0", val);
         }
     }
+    memcpy (version, cpld_version, 8);
 
     return 0;
 }
@@ -1343,6 +1352,13 @@ int bf_pltfm_syscpld_init()
         bf_pltfm_syscpld_reset();
         /* reset PCA9548 */
         bf_pltfm_pca9548_reset_x312p();
+    }
+
+    /* cache cpld version */
+    foreach_element (0, bf_pltfm_mgr_ctx()->cpld_count) {
+        char ver[8] = {0};
+        bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), ver, true);
+        fprintf (stdout, "CPLD%d version : %s\n", (each_element + 1), ver);
     }
 
     return 0;

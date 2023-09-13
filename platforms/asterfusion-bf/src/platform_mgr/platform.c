@@ -359,6 +359,9 @@ static bf_pltfm_status_t chss_mgmt_init()
         length = sprintf (data, "%s: %d\n",
                           "THERMAL", bf_pltfm_mgr_ctx()->sensor_count);
         fwrite (data, 1, length, fp);
+        length = sprintf (data, "%s: %d\n",
+                          "CPLD", bf_pltfm_mgr_ctx()->cpld_count);
+        fwrite (data, 1, length, fp);
 
         fflush (fp);
         fclose (fp);
@@ -1630,7 +1633,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                 bf_pltfm_mgr_ctx()->cpld_count);
     foreach_element (0, bf_pltfm_mgr_ctx()->cpld_count) {
         char ver[8] = {0};
-        bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), &ver[0]);
+        bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), &ver[0], false);
         aim_printf (&uc->pvs, "    CPLD%d : %s\n",
                     (each_element + 1), ver);
     }

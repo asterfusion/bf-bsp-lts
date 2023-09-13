@@ -16,10 +16,11 @@ extern "C" {
 #include <bf_pltfm_mgr/pltfm_mgr_handlers.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
-#include "bf_qsfp/bf_qsfp.h"
-#include "bf_qsfp/bf_sfp.h"
+#include <bf_pltfm_syscpld.h>
+#include <bf_qsfp/bf_qsfp.h>
+#include <bf_qsfp/bf_sfp.h>
 #include <bf_qsfp/sff.h>
-#include "bf_pltfm_types/bf_pltfm_types.h"
+#include <bf_pltfm_types/bf_pltfm_types.h>
 }
 
 using namespace ::apache::thrift;
@@ -29,12 +30,14 @@ using namespace ::apache::thrift::server;
 
 using namespace ::pltfm_mgr_rpc;
 
+
 class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
  public:
   pltfm_mgr_rpcHandler() {}
 
   pltfm_mgr_status_t pltfm_mgr_dummy(const pltfm_mgr_device_t device) {
-    pltfm_mgr_dummy_call();
+    /* Disable this call to prevent link issue on Debian 11. */
+    //pltfm_mgr_dummy_call();
     return 0;
   }
 
@@ -61,7 +64,6 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     _return.tmp10 = bf_sys_tmp.tmp10;
 
   }
-
 
   void pltfm_mgr_sys_eeprom_get(pltfm_mgr_eeprom_t &_return) {
     // pltfm_mgr_eeprom_t eeprom;
@@ -165,29 +167,6 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     // return eeprom;
   }
 
-  void pltfm_mgr_sys_eeprom_get_sonic(pltfm_mgr_eeprom_t &_return) {
-    bf_pltfm_status_t sts = BF_SUCCESS;
-    uint8_t buf[256];
-    uint32_t i;
-    char str[512];
-
-    sts = bf_pltfm_bd_eeprom_get_sonic(buf);
-    if (sts != BF_SUCCESS) {
-      InvalidPltfmMgrOperation iop;
-      iop.code = sts;
-      throw iop;
-    }
-
-    for (i = 0; i < 256; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i]);
-    }
-
-    _return.prod_name =
-        std::string(reinterpret_cast<char *>(str),
-                    strlen(str));
-    // return eeprom;
-  }
-
   bool pltfm_mgr_pwr_supply_present_get(const pltfm_mgr_ps_num_t ps_num) {
     bf_pltfm_status_t sts = BF_SUCCESS;
     bool ps_present = false;
@@ -218,7 +197,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
 
     /* Raw PSU info returned to the callers. While, how to convert
      * VIN/VOUT/IIN/IOUT/PIN/POUT to be readable is another thing.
-     * We strongly recommand the information provided by 
+     * We strongly recommand the information provided by
      * this API like below and must keep same for all X-T platforms.
      * By tsihang, 2022-04/14. */
     _return.vin = bf_ps_info.vin;
@@ -268,8 +247,8 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     _return.vrail16 = bf_pwr_rail_info.vrail16;
   }
 
-  pltfm_mgr_status_t pltfm_mgr_fan_speed_set(const pltfm_mgr_fan_num fan_num,
-                                             const pltfm_mgr_fan_percent percent) {
+  pltfm_mgr_status_t pltfm_mgr_fan_speed_set(const pltfm_mgr_fan_num_t fan_num,
+                                             const pltfm_mgr_fan_percent_t percent) {
     bf_pltfm_status_t sts = BF_SUCCESS;
     bf_pltfm_fan_info_t bf_fan_info;
 
@@ -473,4 +452,45 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
 
     _return.assign((const char *)(buf), sizeof(buf));
   }
+
+  void pltfm_mgr_bmc_version_get(std::string &_return) {
+    bf_pltfm_status_t sts = BF_SUCCESS;
+    char bmc_ver[32] = {0};
+
+    sts = bf_pltfm_get_bmc_ver(bmc_ver, false);
+    if (sts != BF_SUCCESS) {
+      InvalidPltfmMgrOperation iop;
+      iop.code = sts;
+      throw iop;
+    }
+
+    _return.assign((const char *)(bmc_ver), sizeof(bmc_ver));
+  }
+
+  void pltfm_mgr_cpld_info_get(pltfm_mgr_cpld_info_t &_return) {
+    bf_pltfm_status_t sts = BF_SUCCESS;
+    char cpld_ver[MAX_SYSCPLDS][8] = {{0}};
+
+    for (int i = 0; i < bf_pltfm_mgr_ctx()->cpld_count; i++) {
+        bf_pltfm_get_cpld_ver((uint8_t)(i + 1), cpld_ver[i], true);
+    }
+
+    _return.cpld_count = bf_pltfm_mgr_ctx() -> cpld_count;
+    _return.cpld1_ver =
+        std::string(reinterpret_cast<char *>(cpld_ver[0]),
+                    strlen(cpld_ver[0]));
+    _return.cpld2_ver =
+        std::string(reinterpret_cast<char *>(cpld_ver[1]),
+                    strlen(cpld_ver[1]));
+    _return.cpld3_ver =
+        std::string(reinterpret_cast<char *>(cpld_ver[2]),
+                    strlen(cpld_ver[2]));
+    _return.cpld4_ver =
+        std::string(reinterpret_cast<char *>(cpld_ver[3]),
+                    strlen(cpld_ver[3]));
+    _return.cpld5_ver =
+        std::string(reinterpret_cast<char *>(cpld_ver[4]),
+                    strlen(cpld_ver[4]));
+  }
+
 };
