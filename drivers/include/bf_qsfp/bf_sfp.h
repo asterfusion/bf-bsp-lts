@@ -120,8 +120,7 @@ int bf_sfp_get_conn (int port, uint32_t *conn,
 int bf_sfp_get_port (uint32_t conn, uint32_t chnl,
                      int *port);
 
-int check_sfp_module_vendor (uint32_t conn_id,
-                             uint32_t chnl_id,
+int bf_sfp_cmp_vendor (int port,
                              char *target_vendor);
 void bf_sfp_print_ddm (int port, sfp_global_sensor_t *trans, sfp_channel_t *chnl);
 

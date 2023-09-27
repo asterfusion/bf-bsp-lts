@@ -798,15 +798,15 @@ void printThreshold (ucli_context_t *uc,
         aim_printf (&uc->pvs,
                     "%-20s = %0.2fdbm\n",
                     "RxPowerLowAlarm",
-                    thresh.rx_pwr.alarm.high);
+                    thresh.rx_pwr.alarm.low);
         aim_printf (&uc->pvs,
                     "%-20s = %0.2fdbm\n",
                     "RxPowerHighWarning",
-                    thresh.rx_pwr.alarm.high);
+                    thresh.rx_pwr.warn.high);
         aim_printf (&uc->pvs,
                     "%-20s = %0.2fdbm\n",
                     "RxPowerLowWarning",
-                    thresh.rx_pwr.alarm.high);
+                    thresh.rx_pwr.warn.low);
 
         aim_printf (&uc->pvs, "\n");
         aim_printf (&uc->pvs,

@@ -99,7 +99,7 @@ static double get_txbias (const uint16_t temp)
 static double get_pwr (const uint16_t temp)
 {
     double data;
-    data = temp * 0.1 / 1000;
+    data = 10.0 * log10(temp * 0.1 / 1000);
     return data;
 }
 
@@ -653,15 +653,15 @@ void bf_sfp_ddm_convert (const uint8_t *a2h,
      * RX/Tx power ranges from 0mW to 6.5535mW
      */
 #if 0
-    *txPower = 10 * log10 (get_pwr (((a2h[102] << 8) | a2h[103])));
-    *rxPower = 10 * log10 (get_pwr (((a2h[104] << 8) | a2h[105])));
+    *txPower = get_pwr ((a2h[102] << 8) | a2h[103]);
+    *rxPower = get_pwr ((a2h[104] << 8) | a2h[105]);
 #endif
 
     tx_p = get_pwr ((a2h[102] << 8) | a2h[103]);
-    *txPower = (tx_p != 0) ? (10 * log10 (tx_p)) : -40;
+    *txPower = (tx_p != 0) ? tx_p : -40;
 
     rx_p = get_pwr ((a2h[104] << 8) | a2h[105]);
-    *rxPower = (rx_p != 0) ? (10 * log10 (rx_p)) : -40;
+    *rxPower = (rx_p != 0) ? rx_p : -40;
 }
 
 bool bf_sfp_get_chan_temp (int port,
@@ -803,7 +803,7 @@ bool bf_sfp_get_chan_tx_pwr (int port,
    data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
 
    uint16_t val = data[0] << 8 | data[1];
-   chn->sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (10 * log10 (get_pwr (val))));
+   chn->sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
    chn->sensors.tx_pwr._isset.value = true;
 
    return true;
@@ -836,7 +836,7 @@ bool bf_sfp_get_chan_rx_pwr (int port,
     data[1] = bf_sfp_info_arr[port].a2h[offset + 1];
 
     uint16_t val = data[0] << 8 | data[1];
-    chn->sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (10 * log10 (get_pwr (val))));
+    chn->sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
     chn->sensors.rx_pwr._isset.value = true;
 
     return true;
@@ -1137,17 +1137,13 @@ int bf_sfp_set_transceiver_lpmode (int port,
     return (bf_pltfm_sfp_set_lpmode (port, lpmode));
 }
 
-int check_sfp_module_vendor (uint32_t conn_id,
-                             uint32_t chnl_id,
+int bf_sfp_cmp_vendor (int port,
                              char *target_vendor)
 {
     uint8_t *real_vendor;
-    uint32_t module;
     bf_sfp_info_t *sfp_info_ptr;
 
-    module = bf_pltfm_sfp_lookup_by_conn (conn_id,
-                                          chnl_id, &module);
-    sfp_info_ptr = bf_sfp_get_info (module);
+    sfp_info_ptr = bf_sfp_get_info (port);
     if (!sfp_info_ptr) {
         return -1;
     }

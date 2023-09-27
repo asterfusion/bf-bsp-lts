@@ -1045,12 +1045,14 @@ bf_pltfm_status_t bf_pltfm_bd_eeprom_get (
     return BF_PLTFM_SUCCESS;
 }
 
-bf_pltfm_status_t bf_pltfm_bd_version_get (char *v)
+const char *bf_pltfm_bd_vendor_get (void)
 {
-    sprintf(v,
-        "%s-%s(%04x)", dump_pltfm(), (char *)&eeprom.bf_pltfm_main_board_version[0], bd_id);
+    return (char *)&eeprom.bf_pltfm_product_vendor[0];
+}
 
-    return 0;
+const char *bf_pltfm_bd_product_name_get (void)
+{
+    return (char *)&eeprom.bf_pltfm_product_name[0];
 }
 
 bf_pltfm_status_t bf_pltfm_bd_tlv_get (int idx,

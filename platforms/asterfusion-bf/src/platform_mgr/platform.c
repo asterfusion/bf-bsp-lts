@@ -1610,12 +1610,8 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                 VERSION_NUMBER, "8.9.x");
 
     aim_printf (&uc->pvs, "Platform  : %s\n",
-                platform_type_equal (X532P) ? "X532P-T"  :
-                platform_type_equal (X564P) ? "X564P-T"  :
-                platform_type_equal (X308P) ? "X308P-T"  :
-                platform_type_equal (X312P) ? "X312P-T"  :
-                platform_type_equal (HC)    ? "HC36Y24C" :
-                "Unknown");
+                bf_pltfm_bd_product_name_get());
+
     aim_printf (&uc->pvs, " BD ID    : %s\n",
                 fmt);
     aim_printf (&uc->pvs, "Max FANs  : %2d\n",
