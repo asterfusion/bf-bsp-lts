@@ -1230,7 +1230,7 @@ static double get_txbias (const uint16_t temp)
 static double get_pwr (const uint16_t temp)
 {
     double data;
-    data = temp * 0.1 / 1000;
+    data = 10.0 * log10(temp * 0.1 / 1000);
     return data;
 }
 
@@ -3099,7 +3099,7 @@ bool bf_qsfp_get_chan_tx_pwr (int port,
         uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
                                                 1];
         /* Convert to dBm. */
-        chn[i].sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.00) : (10 * log10 (get_pwr (val))));
+        chn[i].sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
         chn[i].sensors.tx_pwr._isset.value = true;
     }
 
@@ -3140,7 +3140,7 @@ bool bf_qsfp_get_chan_rx_pwr (int port,
         uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
                                                 1];
         /* Convert to dBm. */
-        chn[i].sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (10 * log10 (get_pwr (val))));
+        chn[i].sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
         chn[i].sensors.rx_pwr._isset.value = true;
     }
 

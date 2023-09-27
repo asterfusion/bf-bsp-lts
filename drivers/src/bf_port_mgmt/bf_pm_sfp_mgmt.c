@@ -536,7 +536,7 @@ static int sfp_fsm_special_case_handled (
         port_hdl.chnl_id = chnl;
         FP2DP (dev_id, &port_hdl, &dev_port);
 
-        if (check_sfp_module_vendor (conn, chnl,
+        if (bf_sfp_cmp_vendor (module,
                                      "TRIXON") == 0) {
             //if vendor is Trixon
             // get port speed

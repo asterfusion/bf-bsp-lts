@@ -253,6 +253,16 @@ if [[ $xt_platform =~ "308" ]]; then
     echo -e "${YELLOW}${BLINK}It looks like x308p-t detected.${RES}${RES}"
 fi
 
+# Detect 3056XT. Two-way cp2112
+# BMC  <- UART
+# CPLD <- cp2112 or nct6779d
+# SFP  <- cp2112
+if [[ $xt_platform =~ "3056" ]]; then
+    enable_iic=0
+    hw_platform="3056XT"
+    echo -e "${YELLOW}${BLINK}It looks like 3056xt detected.${RES}${RES}"
+fi
+
 # Detect X312P-T.
 # v1.x
     # BMC  <- nct6779d
@@ -346,6 +356,7 @@ echo "#   1. X532P-T (Default)" >> $cfgfile
 echo "#   2. X564P-T"  >> $cfgfile
 echo "#   3. X308P-T" >> $cfgfile
 echo "#   4. X312P-T" >> $cfgfile
+echo "#   5. 3056XT" >> $cfgfile
 echo $xt_platform $hw_platform
 echo "platform:"$hw_platform >> $cfgfile
 echo "" >> $cfgfile
@@ -408,5 +419,17 @@ else
     echo "uart disabled"
     echo "#uart:/dev/ttyS1" >> $cfgfile
 fi
+
+echo "" >> $cfgfile
+echo "" >> $cfgfile
+echo "# Interface or IP address for Thrift RPC Server to listen to wait for valid connections." >> $cfgfile
+echo "# By default, for secure concern, BSP waits connections by listening loopback interface," >> $cfgfile
+echo "# which will prevents connections from others till user changes it to external one." >> $cfgfile
+echo "# The valid value of this parameter can either be, for example, lo/ma1/enps0f0/... or be a real IP address." >> $cfgfile
+echo "# rpc-listen-point:127.0.0.1" >> $cfgfile
+echo "# rpc-listen-point:lo" >> $cfgfile
+echo "# rpc-listen-point:10.240.4.50" >> $cfgfile
+echo "# rpc-listen-point:ma1" >> $cfgfile
+echo "rpc-listen-point:127.0.0.1" >> $cfgfile
 
 echo "==========================            Done             ========================== "

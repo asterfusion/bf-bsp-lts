@@ -37,6 +37,7 @@ using ::stdcxx::shared_ptr;
 
 static pthread_mutex_t cookie_mutex;
 static pthread_cond_t cookie_cv;
+static char rpc_server_listen_point[16]="127.0.0.1";
 static void *cookie;
 
 /*
@@ -46,7 +47,7 @@ static void *cookie;
 static void *bf_platform_rpc_server_thread (
     void *)
 {
-    std::string address = BF_PLATFORM_RPC_SERVER_ADDRESS;
+    std::string address = rpc_server_listen_point;
     int port = BF_PLATFORM_RPC_SERVER_PORT;
 
     std::shared_ptr<pltfm_pm_rpcHandler>
@@ -109,15 +110,82 @@ int bf_platform_rpc_server_rmv (void *processor)
 static pthread_t bf_pltfm_rpc_thread_id = 0;
 
 extern "C" {
+    static void bf_pltfm_parse_rlp (const char *str,
+                                    size_t l)
+    {
+        int i = 0;
+        char *c = NULL;
+        bool listen_point_type_ip = false;
+
+        assert (!(str == NULL));
+
+        /* Default to 127.0.0.1/lo */
+        memcpy (&rpc_server_listen_point[0],
+            BF_PLATFORM_RPC_SERVER_ADDRESS, strlen(BF_PLATFORM_RPC_SERVER_ADDRESS));
+
+        for (i = 0; i < (int)(l - 1); i ++) {
+            if (isspace (str[i])) {
+                continue;
+            }
+            if (isdigit (str[i]) || isalpha (str[i])) {
+                c = (char *)&str[i];
+                if (isdigit (str[i])) listen_point_type_ip = true;
+                break;
+            }
+        }
+
+        if (!c) {
+            return;
+        }
+
+        if (listen_point_type_ip) {
+            memcpy (&rpc_server_listen_point[0], c, strlen(c));
+        } else {
+            /* listen_point_type is an interface, convert interface(lo/ma1/enps0f0) to IP address. */
+        }
+        rpc_server_listen_point[strlen(c)] = '\0';
+    }
+
+    static void bf_pltfm_get_rpc_listen_point () {
+        // Initialize all the sub modules
+        FILE *fp = NULL;
+        const char *cfg = "/etc/platform.conf";
+        char entry[128] = {0};
+
+        fp = fopen (cfg, "r");
+        if (!fp) {
+            fp = fopen("/usr/share/sonic/platform/platform.conf", "r");
+            if (fp) goto good;
+            exit (0);
+        } else {
+    good:
+            while (fgets (entry, 128, fp)) {
+                char *p;
+                if (entry[0] == '#') {
+                    continue;
+                }
+
+                p = strstr (entry, "rpc-listen-point:");
+                if (p) {
+                    /* Find Platform */
+                    bf_pltfm_parse_rlp (p + 17, strlen (p + 17));
+                }
+            }
+            fclose (fp);
+        }
+    }
+
     int bf_platform_rpc_server_start (void
                                       **server_cookie)
     {
         pthread_mutex_init (&cookie_mutex, NULL);
         pthread_cond_init (&cookie_cv, NULL);
 
+        bf_pltfm_get_rpc_listen_point();
+
         std::cerr <<
-                  "Starting BF-PLATFORM RPC server on port "
-                  << BF_PLATFORM_RPC_SERVER_PORT << std::endl;
+                  "Starting BF-PLATFORM RPC server on : "
+                  << rpc_server_listen_point << ": " << BF_PLATFORM_RPC_SERVER_PORT << std::endl;
 
         *server_cookie = NULL;
 

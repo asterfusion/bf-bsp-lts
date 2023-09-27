@@ -44,8 +44,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_set (
 bf_pltfm_status_t bf_pltfm_bd_type_set_by_key (
     uint8_t type, uint8_t subtype);
 bf_pltfm_status_t bf_pltfm_bd_type_set_by_keystring (char *ptr);
-bf_pltfm_status_t
-bf_pltfm_bd_version_get (char *v);
 bf_pltfm_status_t bf_pltfm_bd_tlv_get (int idx,
                                        char *code, char *desc, char *content);
 

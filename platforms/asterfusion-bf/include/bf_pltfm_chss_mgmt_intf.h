@@ -138,6 +138,8 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_bd_type_get (
     bf_pltfm_board_id_t *board_id);
 bf_pltfm_status_t bf_pltfm_bd_eeprom_get (
     bf_pltfm_eeprom_t *ee_data);
+const char *bf_pltfm_bd_vendor_get (void);
+const char *bf_pltfm_bd_product_name_get (void);
 
 /*
  * Power Supply unit

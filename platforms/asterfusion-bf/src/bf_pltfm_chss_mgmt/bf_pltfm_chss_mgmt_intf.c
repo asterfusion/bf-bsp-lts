@@ -181,6 +181,8 @@ static void bf_pltfm_parse_platorm (const char *str,
         type = X312P;
     } else if (strstr (c, "hc")) {
         type = HC;
+    } else if (strstr (c, "3056")) {
+        type = X308P;
     } else {
         find = false;
     }
