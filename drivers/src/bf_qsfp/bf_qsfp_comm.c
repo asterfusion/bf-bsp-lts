@@ -4962,6 +4962,69 @@ int bf_qsfp_set_transceiver_lpmode (int port,
     return (bf_pltfm_qsfp_set_lpmode (port, lpmode));
 }
 
+/** get qsfp power control through software register
+ *
+ *  @param port
+ *   port
+ */
+int bf_qsfp_get_pwr_ctrl(int port) {
+    // uint8_t new_pwr_ctrl;
+    bf_pltfm_status_t sts = BF_SUCCESS;
+    int hw_lp_mode = 0;
+    uint32_t lower_ports;
+    uint32_t upper_ports;
+    uint32_t cpu_ports;
+
+    if (port > bf_plt_max_qsfp) {
+        return -1;
+    }
+
+    // get the current pwr control byte from cache, so we can read-modify-write it
+    // these function calls take care of the CMIS/SFF-8636 address decode
+    uint8_t pwr_ctrl;
+    if (bf_qsfp_field_read_onebank(port, POWER_CONTROL, 0, 0, 1, &pwr_ctrl) < 0) {
+        LOG_DEBUG("QSFP    %2d : qsfp Power Control read failure", port);
+        return -1;
+    }
+
+    LOG_DEBUG("QSFP    %2d : value read from qsfp Power Control byte : 0x%x",
+                port,
+                pwr_ctrl);
+    // modify the read value
+    if (!bf_qsfp_is_cmis(port)) {  // SFF-8636
+        if (pwr_ctrl & POWER_OVERRIDE) {
+          if (pwr_ctrl & POWER_SET)  // this bit set to 1 forces LPMode
+          {
+            return 1;
+          } else {
+            return 0;
+          }
+        }
+    } else {  // is CMIS
+            // CMIS 3.0 and CMIS 4.0+ : get low power is same for both case
+        if (pwr_ctrl & FORCELOWPWR)
+            return 1;
+        else
+            return 0;
+    }
+    sts = bf_qsfp_get_transceiver_lpmode(&lower_ports, &upper_ports, &cpu_ports);
+
+    if (sts == BF_SUCCESS) {
+        if (port < 33) {
+            hw_lp_mode = ((lower_ports >> (port - 1)) & (0x1));
+        } else if (port < 65) {
+            hw_lp_mode = ((upper_ports >> (port - 33)) & (0x1));
+        } else if (port == 65) {
+            hw_lp_mode = cpu_ports;
+        } else {
+            hw_lp_mode = 0;
+        }
+        return (hw_lp_mode ? 1 : 0);
+    } else {
+        return -1;
+    }
+}
+
 /** set qsfp power control through software register
  *
  *  @param port
@@ -5281,11 +5344,13 @@ cache_segment_t *find_suitable_segment (
     int cache_size,
     int offset)
 {
-    for (int i = 0; i != cache_size; ++i) {
-        if (offset >= cache[i].start_offset &&
-            offset < (cache[i].start_offset +
-                      cache[i].length)) {
-            return cache + i;
+    if (cache != NULL) {
+        for (int i = 0; i != cache_size; ++i) {
+            if (offset >= cache[i].start_offset &&
+                offset < (cache[i].start_offset +
+                          cache[i].length)) {
+                return cache + i;
+            }
         }
     }
     return NULL;
@@ -5319,7 +5384,7 @@ bf_pltfm_status_t bf_qsfp_module_cached_read (
         return bf_qsfp_module_read (port,
                                     bank,
                                     page == QSFP_PAGE0_LOWER ? 0 : page,
-                                    offset + page == QSFP_PAGE0_LOWER ? 0 : 128,
+                                    offset + (page == QSFP_PAGE0_LOWER) ? 0 : 128,
                                     length,
                                     buf);
     }
@@ -5329,18 +5394,16 @@ bf_pltfm_status_t bf_qsfp_module_cached_read (
     cache_segment_list_t *cache_segment_list =
         find_suitable_segment_list (port, page);
     if (cache_segment_list) {
-        bf_pltfm_status_t sts = bf_qsfp_get_info (port,
-                                page, cached_page_buf);
+        cache_list = cache_segment_list->list;
+        cache_size = cache_segment_list->size;
+        bf_pltfm_status_t sts = bf_qsfp_get_info(port, page, cached_page_buf);
         if (sts != BF_SUCCESS) {
-            LOG_ERROR ("%s(port=%d): error getting page %d, status = %d",
-                       __func__,
-                       port,
-                       page,
-                       sts);
+            LOG_ERROR("%s(port=%d): error getting page %d, status = %d",
+                    __func__,
+                    port,
+                    page,
+                    sts);
             return sts;
-        } else {
-            cache_list = cache_segment_list->list;
-            cache_size = cache_segment_list->size;
         }
     }
     int left_to_read = length;

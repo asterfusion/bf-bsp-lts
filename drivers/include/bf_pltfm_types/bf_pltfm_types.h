@@ -346,6 +346,9 @@ typedef struct pltfm_mgr_info_s {
 #define AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG  (1 << 17)
 #define AF_PLAT_MNTR_SFP_REALTIME_DDM       (1 << 18)
 #define AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG   (1 << 19)
+#define AF_PLAT_MNTR_DPU1_INSTALLED         (1 << 20)
+#define AF_PLAT_MNTR_DPU2_INSTALLED         (1 << 21)
+#define AF_PLAT_MNTR_PTPX_INSTALLED         (1 << 22)
 #define AF_PLAT_CTRL_BMC_UART       (1 << 30)   /* Access BMC through UART, otherwise through i2c. */
 #define AF_PLAT_CTRL_CPLD_CP2112    (1 << 31)   /* Access CPLD through CP2112, otherwise through i2c. */
     uint32_t flags;
@@ -362,6 +365,8 @@ typedef struct pltfm_mgr_info_s {
     uint32_t fan_per_group;
     /* Maximum accessiable syscplds of a platform. */
     uint32_t cpld_count;
+    /* Maximum available DPUs, by tsihang, 2023/11/09. */
+    uint32_t dpu_count;
 } pltfm_mgr_info_t;
 
 extern pltfm_mgr_info_t *bf_pltfm_mgr_ctx();

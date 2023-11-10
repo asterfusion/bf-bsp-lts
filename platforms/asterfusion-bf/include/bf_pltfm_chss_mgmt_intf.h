@@ -29,7 +29,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init();
 #define BFN_EEPROM_F_MAGIC 2
 #define BFN_EEPROM_F_VERSION 1
 #define BFN_EEPROM_F_PRODUCT_NAME 12
-#define BFN_EEPROM_F_PRODUCT_NUMBER 16
+#define BFN_EEPROM_F_PRODUCT_NUMBER 32
 #define BFN_EEPROM_F_ASSEMBLY_NUMBER 12
 #define BFN_EEPROM_F_BAREFOOT_PCBA_NUMBER 12
 #define BFN_EEPROM_F_BAREFOOT_PCB_NUMBER 12
@@ -362,6 +362,9 @@ bf_pltfm_status_t pltfm_mgr_sensor_out_get (
 bf_pltfm_status_t
 bf_pltfm_chss_mgmt_platform_type_get (
     uint8_t *type, uint8_t *subtype);
+
+bf_pltfm_status_t bf_pltfm_get_suboard_status (bool *dpu1_installed,
+    bool *dpu2_installed, bool *ptpx_installed);
 
 bool platform_type_equal (uint8_t type);
 bool platform_subtype_equal (uint8_t subtype);

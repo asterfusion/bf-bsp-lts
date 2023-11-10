@@ -129,7 +129,11 @@ extern "C" {
             }
             if (isdigit (str[i]) || isalpha (str[i])) {
                 c = (char *)&str[i];
-                if (isdigit (str[i])) listen_point_type_ip = true;
+                if (isdigit (str[i])) {
+                    /* The last character could be either EOF or LF, thus should be stripped. */
+                    c[strlen(c) - 1] = '\0';
+                    listen_point_type_ip = true;
+                }
                 break;
             }
         }
@@ -143,7 +147,6 @@ extern "C" {
         } else {
             /* listen_point_type is an interface, convert interface(lo/ma1/enps0f0) to IP address. */
         }
-        rpc_server_listen_point[strlen(c)] = '\0';
     }
 
     static void bf_pltfm_get_rpc_listen_point () {

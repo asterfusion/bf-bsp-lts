@@ -227,6 +227,12 @@ static int product_number (const char *index)
              len);
     eeprom.bf_pltfm_product_number[len] = '\0';
 
+    /* XXXX-XXXX-PTP-XX */
+    if (strstr (eeprom.bf_pltfm_product_number, "PTP")) {
+        /* Assume that there is PTP board installed if able to find "PTP" from EEPROM. */
+        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_PTPX_INSTALLED;
+    }
+
     LOG_DEBUG ("Product Number: %s \n",
                eeprom.bf_pltfm_product_number);
 
@@ -651,7 +657,13 @@ static int ghc_bd0_version (const char *index)
     str[i] = '\0';
 
     strncpy (eeprom.bf_pltfm_ghc_bd0_version, str, i + 1);
-
+    /* GHCXXX-YYYYYYYYY */
+    if (eeprom.bf_pltfm_ghc_bd0_version[0] == 'G') {
+        /* Assume that there is a DPU installed to this slot if able to get version from EEPROM.
+         * Later, we will try to get temp to see whether there is a real one.
+         * by tsihang, 2023/11/09. */
+        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU1_INSTALLED;
+    }
     LOG_DEBUG ("Product Computing Card0 Version: %s \n",
                eeprom.bf_pltfm_ghc_bd0_version);
 
@@ -674,7 +686,13 @@ static int ghc_bd1_version (const char *index)
     str[i] = '\0';
 
     strncpy (eeprom.bf_pltfm_ghc_bd1_version, str, i + 1);
-
+    /* GHCXXX-YYYYYYYYY */
+    if (eeprom.bf_pltfm_ghc_bd1_version[0] == 'G') {
+        /* Assume that there is a DPU installed to this slot if able to get version from EEPROM.
+         * Later, we will try to get temp to see whether there is a real one.
+         * by tsihang, 2023/11/09. */
+        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU2_INSTALLED;
+    }
     LOG_DEBUG ("Product Computing Card1 Version: %s \n",
                eeprom.bf_pltfm_ghc_bd1_version);
 

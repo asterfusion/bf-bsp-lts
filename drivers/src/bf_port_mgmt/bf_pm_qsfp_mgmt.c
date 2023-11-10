@@ -1500,14 +1500,6 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
                                              (1 << ch)))) {
                 LOG_DEBUG ("QSFP    %2d : dev_port=%3d : LOS=%d",
                            conn_id, dev_port, los);
-                if (!devport_state_tx_mode_chk (dev_id, &port_hdl) &&
-                    !devport_state_loopback_mode_chk (dev_id, &port_hdl)) {
-                    /* TBD.
-                     * Issue linkdown event. by tsihang, 2023-04-23. */
-                    LOG_DEBUG ("QSFP    %2d : dev_port=%3d : LED=%s",
-                           conn_id, dev_port, "OFF");
-                    //bf_pal_pltfm_port_link_down_actions ();
-                }
             }
         }
     }

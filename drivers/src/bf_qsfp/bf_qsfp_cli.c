@@ -59,6 +59,26 @@ bf_pltfm_ucli_ucli__qsfp_get_pres (
                 cpu_ports);
     return 0;
 }
+static ucli_status_t bf_pltfm_ucli_ucli__qsfp_sw_get_lpmode(
+    ucli_context_t *uc) {
+    int port;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int lpmode = -1;
+
+    UCLI_COMMAND_INFO(uc, "sw-get-lpmode", 1, "sw-get-lpmode <port> ");
+    port = atoi(uc->pargs->args[0]);
+    if (port < 1 || port > max_port) {
+        aim_printf(&uc->pvs, "port must be 1-%d\n", max_port);
+        return 0;
+    }
+    lpmode = bf_qsfp_get_pwr_ctrl(port);
+    if (lpmode == -1) {
+        aim_printf(&uc->pvs, "error getting the lpmode\n");
+    } else {
+        aim_printf(&uc->pvs, "qsfp port %d lpmode %d\n", port, lpmode);
+    }
+    return 0;
+}
 
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_get_int (ucli_context_t
@@ -3752,6 +3772,7 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_get_int,
     bf_pltfm_ucli_ucli__qsfp_get_lpmode,
     bf_pltfm_ucli_ucli__qsfp_set_lpmode,
+    bf_pltfm_ucli_ucli__qsfp_sw_get_lpmode,
     bf_pltfm_ucli_ucli__qsfp_get_pres,
     bf_pltfm_ucli_ucli__qsfp_get_ddm,
     bf_pltfm_ucli_ucli__qsfp_type_show,

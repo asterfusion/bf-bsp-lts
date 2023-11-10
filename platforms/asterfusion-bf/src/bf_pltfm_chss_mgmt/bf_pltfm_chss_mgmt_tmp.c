@@ -198,19 +198,32 @@ __bf_pltfm_chss_mgmt_temperature_get_x308p__ (
             tmp->tmp9 = (float)rd_buf[5];
             tmp->tmp8 = (float)rd_buf[6];
 
+            /* DPU-1 */
             if (rd_buf[7] == 0x9C) {
                 tmp->tmp5 = -100.0;
                 tmp->tmp4 = -100.0;
+                /* DPU-1 */
+                /* When getting 0x9C from BMC for any reason, we assume no DPU installed,
+                 * and then clear the flags to make sure there is a chance to notify app level.
+                 * We have to handle this routine carefully as we did not check whether there
+                 * are chances to get wrong indicator even though there's DPU already been installed.
+                 * by tsihang, 2023/11/09. */
+                //bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_DPU1_INSTALLED;
             } else {
                 tmp->tmp5 = (float)rd_buf[7];
                 tmp->tmp4 = (float)rd_buf[8];
+                bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU1_INSTALLED;
             }
+            /* DPU-2 */
             if (rd_buf[9] == 0x9C) {
                 tmp->tmp7 = -100.0;
                 tmp->tmp6 = -100.0;
+                /* See cautions mentioned above. */
+                //bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_DPU2_INSTALLED;
             } else {
                 tmp->tmp7 = (float)rd_buf[9];
                 tmp->tmp6= (float)rd_buf[10];
+                bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU2_INSTALLED;
             }
 
             err = BF_PLTFM_SUCCESS;
@@ -307,11 +320,6 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
                 tmp->tmp6 = ghc2_temp[1][2];
             }
         }
-        /* Map Tofino temp to tmp8 and tmp9. And these two values come from tofino instead of from BMC. */
-        bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
-        tmp->tmp8 = (float)(stemp.main_sensor / 1000);
-        tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
-
     } else if (platform_subtype_equal(v3dot0) ||
                platform_subtype_equal(v4dot0) ||
                platform_subtype_equal(v5dot0)) {
@@ -408,11 +416,21 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
                 tmp->tmp6 = ghc2_temp[1][2];
             }
         }
-
-        bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
-        tmp->tmp8 = (float)(stemp.main_sensor / 1000);
-        tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
     }
+
+    /* Once getting valid temp, we assume the DPU is present.
+     * by tsihang, 2023/11/09. */
+    if ((tmp->tmp4 != 0) ||  (tmp->tmp5 != 0)) {
+        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU1_INSTALLED;
+    }
+    if ((tmp->tmp6 != 0) ||  (tmp->tmp7 != 0)) {
+        bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU2_INSTALLED;
+    }
+
+    /* Map Tofino temp to tmp8 and tmp9. And these two values come from tofino instead of from BMC. */
+    bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
+    tmp->tmp8 = (float)(stemp.main_sensor / 1000);
+    tmp->tmp9 = (float)(stemp.remote_sensor / 1000);
 
     return BF_PLTFM_SUCCESS;
 }

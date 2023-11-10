@@ -90,7 +90,8 @@ static inline void cpy_psu_data(bf_pltfm_pwr_supply_info_t *dst, bf_pltfm_pwr_su
 static void format_psu_string(uint8_t* str_in)
 {
     for (int i = 1; i <= str_in[0]; i ++) {
-        if (!isprint(str_in[i])) {
+        if ((!isprint(str_in[i])) ||
+            (str_in[i] >= 128)) {
             str_in[i] = ' ';
         }
     }
@@ -615,6 +616,46 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x308p__
     return BF_PLTFM_SUCCESS;
 }
 
+const uint8_t CRC8[] = {
+    0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15, 0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
+    0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65, 0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D,
+    0xE0, 0xE7, 0xEE, 0xE9, 0xFC, 0xFB, 0xF2, 0xF5, 0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
+    0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85, 0xA8, 0xAF, 0xA6, 0xA1, 0xB4, 0xB3, 0xBA, 0xBD,
+    0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2, 0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA,
+    0xB7, 0xB0, 0xB9, 0xBE, 0xAB, 0xAC, 0xA5, 0xA2, 0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
+    0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32, 0x1F, 0x18, 0x11, 0x16, 0x03, 0x04, 0x0D, 0x0A,
+    0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42, 0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A,
+    0x89, 0x8E, 0x87, 0x80, 0x95, 0x92, 0x9B, 0x9C, 0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
+    0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC, 0xC1, 0xC6, 0xCF, 0xC8, 0xDD, 0xDA, 0xD3, 0xD4,
+    0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C, 0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44,
+    0x19, 0x1E, 0x17, 0x10, 0x05, 0x02, 0x0B, 0x0C, 0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
+    0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B, 0x76, 0x71, 0x78, 0x7F, 0x6A, 0x6D, 0x64, 0x63,
+    0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B, 0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13,
+    0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB, 0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
+    0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3
+};
+
+static bool psu_check_crc(uint8_t* p_out, uint8_t* p_in)
+{
+    int i, len;
+    uint8_t buf[32];
+    uint8_t crc_temp = 0;
+    uint8_t crc_index;
+
+    buf[0] = p_out[1] << 1;
+    buf[1] = p_out[2];
+    buf[2] = buf[0] + 1;
+    memcpy (&buf[3], &p_in[1], p_out[3]);
+    len = p_out[3] + 2;
+
+    for (i = 0; i < len; i ++) {
+        crc_index = crc_temp ^ buf[i];
+        crc_temp = CRC8[crc_index];
+    }
+
+    return (crc_temp == p_in[p_out[3]]) ? true : false;
+}
+
 static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 (
@@ -821,25 +862,26 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
         uint8_t pre_buf[2] = {0};
         uint8_t buf[10] = {0};
         int ret = -1;
-        uint8_t psu_pout_data[3] = {0};
-        uint8_t psu_pin_data[3] = {0};
-        uint8_t psu_vout_data[3] = {0};
-        uint8_t psu_vin_data[3] = {0};
-        uint8_t psu_iout_data[3] = {0};
-        uint8_t psu_iin_data[3] = {0};
+        uint8_t psu_pout_data[4] = {0};
+        uint8_t psu_pin_data[4] = {0};
+        uint8_t psu_vout_data[4] = {0};
+        uint8_t psu_vin_data[4] = {0};
+        uint8_t psu_iout_data[4] = {0};
+        uint8_t psu_iin_data[4] = {0};
         uint8_t psu_vout_mode[3] = {0};
-        uint8_t psu_sn_data[11] = {0};
+        uint8_t psu_sn_data[12] = {0};
 //        uint8_t psu_warn_data[3] = {0};
-        uint8_t psu_model_data[16] = {0};
+        uint8_t psu_model_data[15] = {0};
         uint8_t psu_present_data[3] = {0};
-        uint8_t psu_fan_rota_data[3] = {0};
-        uint8_t psu_fan_rev[16] = {0};
+        uint8_t psu_fan_rota_data[4] = {0};
+        uint8_t psu_fan_rev[15] = {0};
 //        char *psu_status[2]= {"Psu ok", "Psu waring"};
 //        char *psu_fan_rot[2]= {"Fan ok", "Fan warning"};
 //        char *psu_ac_dc[2]= {"AC", "DC"};
+        int retry;
 
         buf[0] = 0x5;
-        buf[3] = 0x2;
+        buf[3] = 0x3;
         if (pwr == POWER_SUPPLY1) {
             buf[1] = 0x58;
 
@@ -892,22 +934,27 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             return BF_PLTFM_SUCCESS;
         }
 
-        /*PSU Pin 00: 02 <psu low> <psu high>*/
+        /* PSU Pin : 0x3e 0x30 0x5 0x58/0x59 0x97 0x3 */
+        /* PSU Pin : 02 <psu low> <psu high> CRC8 */
         buf[2] = 0x97;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pin_data, sizeof(psu_pin_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu pin error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_pin_data[2] << 8) | psu_pin_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.5;
-            info->pwr_in = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "PIN   : %d\n",
-                        info->pwr_in);
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pin_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_pin_data)) {
+                value = (psu_pin_data[2] << 8) | psu_pin_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n) + 0.5;
+                info->pwr_in = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "PIN   : %d\n",
+                            info->pwr_in);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu pin error\n");
+                return BF_PLTFM_COMM_FAILED;
             }
         }
 
@@ -920,193 +967,250 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             return BF_PLTFM_SUCCESS;
         }
 
-
-        /*PSU Pout 00: 02 <psu low> <psu high>*/
+        /* PSU Pout : 0x3e 0x30 0x5 0x58/0x59 0x96 0x3 */
+        /* PSU Pout : 02 <psu low> <psu high> CRC8 */
         buf[2] = 0x96;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, sizeof(psu_pout_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu pout error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_pout_data[2] << 8) | psu_pout_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.5;
-            info->pwr_out = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "POUT  : %d\n",
-                        info->pwr_out);
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_pout_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_pout_data)) {
+                value = (psu_pout_data[2] << 8) | psu_pout_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n) + 0.5;
+                info->pwr_out = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "POUT  : %d\n",
+                            info->pwr_out);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu pout error\n");
+                return BF_PLTFM_COMM_FAILED;
             }
         }
 
-        /*PSU Vout_mode 00: 02 <Voutmode> <XX>*/
+        /* PSU Vout_mode : 0x3e 0x30 0x5 0x58/0x59 0x20 0x2 */
+        /* PSU Vout_mode : 02 <Voutmode> CRC8 */
         buf[2] = 0x20;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_mode, sizeof(psu_vout_mode), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu vout_mode error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = psu_vout_mode[1];
-            n = value & 0x1F;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-        }
-
-        /*PSU Vout 00: 02 <psu low> <psu high>*/
-        buf[2] = 0x8b;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_data, sizeof(psu_vout_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu vout error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_vout_data[2] << 8) | psu_vout_data[1];
-            y = value;
-            y = y * pow (2, (double)n) + 0.05;
-            info->vout = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "VOUT  : %d\n",
-                        info->vout);
-            }
-        }
-
-        /*PSU Vin 00: 02 <psu low> <psu high>*/
-        buf[2] = 0x88;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vin_data, sizeof(psu_vin_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu vin error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_vin_data[2] << 8) | psu_vin_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.05;
-            info->vin = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "VIN   : %d\n",
-                        info->vin);
-            }
-        }
-
-        /*PSU iout 00: 02 <psu low> <psu high>*/
-        buf[2] = 0x8c;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iout_data, sizeof(psu_iout_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu iout error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_iout_data[2] << 8) | psu_iout_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.05;
-            info->iout = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "IOUT  : %d\n",
-                        info->iout);
-            }
-        }
-
-        /*PSU iin 00: 02 <psu low> <psu high>*/
-        buf[2] = 0x89;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iin_data, sizeof(psu_iin_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu iin error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_iin_data[2] << 8) | psu_iin_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n) + 0.05;
-            info->iin = y * 1000;
-            if (debug_print) {
-                fprintf (stdout, "IIN   : %d\n",
-                        info->iin);
-            }
-        }
-
-        /*PSU Fan Rota 00: 02 1e 23 */
-        buf[2] = 0x90;
         buf[3] = 0x2;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rota_data, sizeof(psu_fan_rota_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu fan speed error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            value = (psu_fan_rota_data[2] << 8) + psu_fan_rota_data[1];
-            n = (value & 0xF800) >> 11;
-            n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-            y = (value & 0x07FF);
-            y = y * pow (2, (double)n);
-            info->fspeed = y;
-            if (debug_print) {
-                fprintf (stdout, "FAN RO: %d\n",
-                        info->fspeed);
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_mode, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_vout_mode)) {
+                value = psu_vout_mode[1];
+                n = value & 0x1F;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu vout_mode error\n");
+                return BF_PLTFM_COMM_FAILED;
             }
-            info->fvalid |= PSU_INFO_VALID_FAN_ROTA;
         }
 
-        /*PSU sn 00: 0a 09 <1> <2> <3> <4> <5> <6> <7> <8> <9> */
+        /* PSU Vout : 0x3e 0x30 0x5 0x58/0x59 0x8b 0x3 */
+        /* PSU Vout : 02 <psu low> <psu high> CRC8*/
+        buf[2] = 0x8b;
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vout_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_vout_data)) {
+                value = (psu_vout_data[2] << 8) | psu_vout_data[1];
+                y = value;
+                y = y * pow (2, (double)n) + 0.05;
+                info->vout = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "VOUT  : %d\n",
+                            info->vout);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu vout error\n");
+                return BF_PLTFM_COMM_FAILED;
+            }
+        }
+
+        /* PSU Vin : 0x3e 0x30 0x5 0x58/0x59 0x88 0x3 */
+        /* PSU Vin : 02 <psu low> <psu high> CRC8*/
+        buf[2] = 0x88;
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vin_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_vin_data)) {
+                value = (psu_vin_data[2] << 8) | psu_vin_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n) + 0.05;
+                info->vin = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "VIN   : %d\n",
+                            info->vin);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu vin error\n");
+                return BF_PLTFM_COMM_FAILED;
+            }
+        }
+
+        /* PSU iout : 0x3e 0x30 0x5 0x58/0x59 0x8c 0x3 */
+        /* PSU iout : 02 <psu low> <psu high> CRC8*/
+        buf[2] = 0x8c;
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iout_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_iout_data)){
+                value = (psu_iout_data[2] << 8) | psu_iout_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n) + 0.05;
+                info->iout = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "IOUT  : %d\n",
+                            info->iout);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu iout error\n");
+                return BF_PLTFM_COMM_FAILED;
+            }
+        }
+
+        /* PSU iin : 0x3e 0x30 0x5 0x58/0x59 0x89 0x3 */
+        /* PSU iin : 02 <psu low> <psu high> CRC8*/
+        buf[2] = 0x89;
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_iin_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_iin_data)) {
+                value = (psu_iin_data[2] << 8) | psu_iin_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n) + 0.05;
+                info->iin = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "IIN   : %d\n",
+                            info->iin);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu iin error\n");
+                return BF_PLTFM_COMM_FAILED;
+            }
+        }
+
+        /* PSU Fan Rota : 0x3e 0x30 0x5 0x58/0x59 0x90 0x3 */
+        /* PSU Fan Rota : 02 1e 23 CRC8 */
+        buf[2] = 0x90;
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rota_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_fan_rota_data)) {
+                value = (psu_fan_rota_data[2] << 8) + psu_fan_rota_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n);
+                info->fspeed = y;
+                if (debug_print) {
+                    fprintf (stdout, "FAN RO: %d\n",
+                            info->fspeed);
+                }
+                info->fvalid |= PSU_INFO_VALID_FAN_ROTA;
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu fan speed error\n");
+                return BF_PLTFM_COMM_FAILED;
+            }
+        }
+
+        /* PSU sn : 0x3e 0x30 0x5 0x58/0x59 0x9e 0xb */
+        /* PSU sn : 0B 09 <1> <2> <3> <4> <5> <6> <7> <8> <9> CRC8 */
         buf[2] = 0x9e;
-        buf[3] = 0xa;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_sn_data, sizeof(psu_sn_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu sn error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else if (memcmp (bmc_psu_data[pwr - 1].serial, &psu_sn_data[2], 9) == 0) {
-            memcpy (info->serial, bmc_psu_data[pwr - 1].serial, sizeof(info->serial));
-            memcpy (info->model,  bmc_psu_data[pwr - 1].model,  sizeof(info->model));
-            memcpy (info->rev,    bmc_psu_data[pwr - 1].rev,    sizeof(info->rev));
-            info->fvalid = bmc_psu_data[pwr - 1].fvalid;
-            return BF_PLTFM_SUCCESS;
-        } else {
-            format_psu_string(&psu_sn_data[1]);
-            memcpy (info->serial, &psu_sn_data[2], 9);
-            if (debug_print) {
-                fprintf (stdout, "SN    : %s\n",
-                        info->serial);
+        buf[3] = 0xb;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_sn_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_sn_data)) {
+                if (memcmp (bmc_psu_data[pwr - 1].serial, &psu_sn_data[2], 9) == 0) {
+                    memcpy (info->serial, bmc_psu_data[pwr - 1].serial, sizeof(info->serial));
+                    memcpy (info->model,  bmc_psu_data[pwr - 1].model,  sizeof(info->model));
+                    memcpy (info->rev,    bmc_psu_data[pwr - 1].rev,    sizeof(info->rev));
+                    info->fvalid = bmc_psu_data[pwr - 1].fvalid;
+                    return BF_PLTFM_SUCCESS;
+                } else {
+                    format_psu_string(&psu_sn_data[1]);
+                    memcpy (info->serial, &psu_sn_data[2], 9);
+                    if (debug_print) {
+                        fprintf (stdout, "SN    : %s\n",
+                                info->serial);
+                    }
+                    info->fvalid |= PSU_INFO_VALID_SERIAL;
+                    break;
+                }
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu sn error\n");
+                return BF_PLTFM_COMM_FAILED;
             }
-            info->fvalid |= PSU_INFO_VALID_SERIAL;
         }
 
-        /*PSU Model 00: 0d 0c 45 52 41 38 35 2d 43 50 41 2d 42 46          ??ERA85-CPA-BF */
+        /* PSU Model : 0x3e 0x30 0x5 0x58/0x59 0x9A 0xe */
+        /* PSU Model : 0e 0c 45 52 41 38 35 2d 43 50 41 2d 42 46 CRC8         ??ERA85-CPA-BF */
         buf[2] = 0x9A;
-        buf[3] = 0xd;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_model_data, sizeof(psu_model_data), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu model error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            format_psu_string(&psu_model_data[1]);
-            memcpy (info->model, &psu_model_data[2], 12);
-            if (debug_print) {
-                fprintf (stdout, "Model : %s\n",
-                        info->model);
-            }
-            info->fvalid |= PSU_INFO_VALID_MODEL;
-            info->fvalid |= PSU_INFO_AC;
-            if (info->model[0] != 'E') {
-                info->fvalid &= ~PSU_INFO_AC;
+        buf[3] = 0xe;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_model_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_model_data)) {
+                format_psu_string(&psu_model_data[1]);
+                memcpy (info->model, &psu_model_data[2], 12);
+                if (debug_print) {
+                    fprintf (stdout, "Model : %s\n",
+                            info->model);
+                }
+                info->fvalid |= PSU_INFO_VALID_MODEL;
+                info->fvalid |= PSU_INFO_AC;
+                if (info->model[0] != 'E') {
+                    info->fvalid &= ~PSU_INFO_AC;
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu model error\n");
+                return BF_PLTFM_COMM_FAILED;
             }
         }
 
-        /*PSU Rev 00: 0d 19 46 41 30 30 30 32 39 31 33 30 30 31          ??FA0002913001 */
+        /* PSU Rev : 0x3e 0x30 0x5 0x58/0x59 0xAD 0xe */
+        /* PSU Rev : 0e 19 46 41 30 30 30 32 39 31 33 30 30 31 CRC8         ??FA0002913001 */
         buf[2] = 0xAD;
-        buf[3] = 0x0D;
-        ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rev, sizeof(psu_fan_rev), usec_delay);
-        if (ret == -1) {
-            LOG_ERROR("Read psu rev error\n");
-            return BF_PLTFM_COMM_FAILED;
-        } else {
-            psu_fan_rev[1] = psu_fan_rev[0] - 1;
-            format_psu_string(&psu_fan_rev[1]);
-            memcpy (info->rev, &psu_fan_rev[2], 12);
-            if (debug_print) {
-                fprintf (stdout, "Rev   : %s\n",
-                        info->rev);
+        buf[3] = 0xe;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_fan_rev, buf[3] + 1, usec_delay);
+            if (ret == buf[3] + 1) {
+                for (int i = 0; i <= buf[3]; i ++) {
+                    if (psu_fan_rev[i] == 0xff) {
+                        if (retry >= 2) {
+                            LOG_ERROR("Read psu rev error\n");
+                            return BF_PLTFM_COMM_FAILED;
+                        } else {
+                            continue;
+						}
+                    }
+                }
+                psu_fan_rev[1] = psu_fan_rev[0] - 2;
+                format_psu_string(&psu_fan_rev[1]);
+                memcpy (info->rev, &psu_fan_rev[2], 12);
+                if (debug_print) {
+                    fprintf (stdout, "Rev   : %s\n",
+                            info->rev);
+                }
+                info->fvalid |= PSU_INFO_VALID_REV;
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu rev error\n");
+                return BF_PLTFM_COMM_FAILED;
             }
-            info->fvalid |= PSU_INFO_VALID_REV;
         }
 
 //        /*PSU warn 00: 02 <psu low> <psu high>*/

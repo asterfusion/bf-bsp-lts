@@ -1,17 +1,31 @@
-## About this repository
+Table of Contents
+   * [This Repository](#this_repository)
+   * [About the Compatibilities to different SDE](#sde_compatibilities)
+   * [Special Dependency](#sde_dependency)
+   * [Quick Start](#quick_start)
+   * [State Machine](#fsm)
+   * [Q&A](#qa)
 
-Mainline  **ALL-in-ONE** repository for all Tofino 1 based **X-T Programmable Bare Metal Switch** powered by Asterfusion with Long Term Support.
+## <a name="this_repository"></a>This Repository
 
-Current supported **X-T Bare Metal Switch**:
+Mainline  **ALL-in-ONE** repository for all Intel Tofino based **X-T Programmable Bare Metal Switch** powered by Asterfusion with Long Term Support.
 
+Disclaimer: The SDE for the Intel Tofino series of P4-programmable ASICs is currently only available under NDA from Intel. The users of this repository are assumed to be authorized to download and use the SDE.
+
+Current supported **X-T Programmable Bare Metal Switch**:
+  - `X732Q-T`,  32x 400GbE QSFP56-DD, and auxiliary 2x 25GbE SFP28 which support 1GbE.
   - `X564P-T`,  64x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
   - `X532P-T`,  32x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
   - `X312P-T`,  12x 100GbE QSFP28, 48x 25GbE SFP28, and auxiliary 2x 25GbE SFP28 which support 1GbE.
   - `X308P-T`,  08x 100GbE QSFP28, 48x 25GbE SFP28 and last 4 of them support 1GbE.
 
+![X-T](docs/programmable-bare-metals.jpg "Figure 1: X-T Programmable Bare Metal Switch Family")
+
+__Figure 1: X-T Programmable Bare Metal Switch Family__
+
 Sometimes, we call `X564P-T` and `X532P-T` as `X5-T`, and call `X312P-T` and `X308P-T` as `X3-T`.
 
-## About the compatibilities to different P4Studio version
+## <a name="sde_compatibilities"></a>About the Compatibilities to different SDE
 
 Current supported **SDE**:
 
@@ -37,22 +51,18 @@ You can choose the most suitable mainline branch according to the following prin
 Then modify `SDE_VERSION` to which you're using.
 
 
-## Special dependency
+## <a name="sde_dependency"></a>Special Dependency
 
 There're some differences on hardware design between `X5-T` and `X3-T`. To this `all-in-one` repository, the full special dependencies are needed to be compiled and installed.
 
 Here are the special dependencies:
 
-  - `nct6779d`, which required by `X312P-T`.
+  - `nct6779d`, which only required by `X312P-T`.
   - `cgoslx`, which required by `X5-T` (earlier HW).
 
 Please install the dependencies from sources before trying bsp. You can find sources in [github](https://github.com/asterfusion).
 
-## Quick Start
-
-All your files and folders are presented as a tree in the file explorer. You can switch from one to another by clicking a file in the tree.
-The building of drivers produces a set of libraries that need to be loaded (or linked to) the application.
-Here're the steps to build and install the <bf-platforms> package:
+## <a name="quick_start"></a>Quick Start
 
 Intel Tofino SDK Variables
 
@@ -73,7 +83,7 @@ root@localhost:~# cd bf-bsp-lts
 
 Optional Changes
 
-*Do minor changes to fit your SDE version if necessary.*
+*Do minor changes to fit your SDE if necessary.*
 ```
 root@localhost:~/bf-bsp-lts# vi drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
 Modify SDE_VERSION  to value '990','9110','9120'or '9130' ...
@@ -104,10 +114,9 @@ Generate Configuration Variables
 root@localhost:~# xt-cfgen.sh
 It looks like x532p-t detected.
 ...
-========================== Generate /etc/platform.conf ==========================
-CG1508
-uart enabled
-==========================            Done             ==========================
+Generate /etc/platform.conf
+Done
+...
 ```
 
 Launch ASIC
@@ -126,7 +135,13 @@ Configuration for dev_id 0
 ...
 ```
 
+## <a name="fsm"></a>State Machine
 
-## Q&A
+![fsm](docs/sfp-fsm.jpg "Figure 2: QSFP/SFP State Machine")
+
+__Figure 2: QSFP/SFP State Machine__
+
+
+## <a name="qa"></a>Q&A
 
 More information or helps, please visit [Asterfusion](https://help.cloudswit.ch/portal/en/home).
