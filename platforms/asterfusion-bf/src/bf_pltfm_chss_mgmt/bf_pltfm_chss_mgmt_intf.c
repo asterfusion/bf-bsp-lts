@@ -752,3 +752,20 @@ bf_pltfm_status_t bf_pltfm_device_type_get (
     return BF_PLTFM_SUCCESS;
 }
 
+bf_pltfm_status_t bf_pltfm_get_suboard_status (bool *dpu1_installed,
+    bool *dpu2_installed, bool *ptpx_installed) {
+    if (!dpu1_installed || !dpu2_installed || !ptpx_installed) return BF_PLTFM_COMM_FAILED;
+
+    *dpu1_installed = *dpu2_installed = *ptpx_installed = false;
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_DPU1_INSTALLED) {
+        *dpu1_installed = true;
+    }
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_DPU2_INSTALLED) {
+        *dpu2_installed = true;
+    }
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED) {
+        *ptpx_installed = true;
+    }
+
+    return BF_PLTFM_SUCCESS;
+}

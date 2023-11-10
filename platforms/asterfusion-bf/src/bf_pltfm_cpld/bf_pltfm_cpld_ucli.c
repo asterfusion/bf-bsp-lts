@@ -1298,18 +1298,18 @@ int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version, bool forced)
         sprintf(cpld_version, "N/A");
     } else {
         if (platform_type_equal (X312P)) {
-            sprintf(cpld_version, "%d.0", val);
+            sprintf(cpld_version, "v%d.0", val);
         } else if (platform_type_equal (X308P)) {
             uint8_t ver = 0;
             /* cpld1 : [3:0], cpld2 : [7:4] */
             ver = (cpld_index == 1 ? (val & 0x0F) : ((val >> 4) & 0x0F));
-            sprintf(cpld_version, "%d.0", ver);
+            sprintf(cpld_version, "v%d.0", ver);
         } else if (platform_type_equal (X532P)) {
-            sprintf(cpld_version, "%d.0", val);
+            sprintf(cpld_version, "v%d.0", val);
         } else if (platform_type_equal (X564P)) {
-            sprintf(cpld_version, "%d.0", val);
+            sprintf(cpld_version, "v%d.0", val);
         } else if (platform_type_equal (HC)) {
-            sprintf(cpld_version, "%d.0", val);
+            sprintf(cpld_version, "v%d.0", val);
         }
     }
     memcpy (version, cpld_version, 8);

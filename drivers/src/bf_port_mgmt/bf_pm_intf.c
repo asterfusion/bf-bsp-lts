@@ -112,11 +112,13 @@ void bf_pm_qsfp_quick_removal_detected_set (
     }
 
     if (flag) {
-        PM_BIT_SET (qsfp_quick_rmv_pres_mask[mask_id],
-                    (conn_id % 32) - 1);
+        ((conn_id % 32) != 0)
+            ? (PM_BIT_SET(qsfp_quick_rmv_pres_mask[mask_id], (conn_id % 32) - 1))
+            : (PM_BIT_SET(qsfp_quick_rmv_pres_mask[mask_id], 31));
     } else {
-        PM_BIT_CLR (qsfp_quick_rmv_pres_mask[mask_id],
-                    (conn_id % 32) - 1);
+        ((conn_id % 32) != 0)
+            ? (PM_BIT_CLR(qsfp_quick_rmv_pres_mask[mask_id], (conn_id % 32) - 1))
+            : (PM_BIT_CLR(qsfp_quick_rmv_pres_mask[mask_id], 31));
     }
     pm_qsfp_quick_removed[conn_id] = flag;
 }
@@ -452,11 +454,13 @@ static bf_pltfm_status_t qsfp_scan_helper (
             }
         }
 #endif
-        bool qsfp_curr_st_abs = PM_BIT_GET (mask,
-                                            (conn_id % 32) - 1);
+        bool qsfp_curr_st_abs = ((conn_id % 32) != 0)
+                                ? (PM_BIT_GET(mask, (conn_id % 32) - 1))
+                                : (PM_BIT_GET(mask, 31));
         bool qsfp_prev_st_abs =
-            PM_BIT_GET (qsfp_pres_mask[mask_id],
-                        (conn_id % 32) - 1);
+            ((conn_id % 32) != 0)
+            ? (PM_BIT_GET(qsfp_pres_mask[mask_id], (conn_id % 32) - 1))
+            : (PM_BIT_GET(qsfp_pres_mask[mask_id], 31));
         LOG_DEBUG ("PM_INTF QSFP    %2d : curr-pres-st : %d prev-pres-st : %d",
                    conn_id,
                    qsfp_curr_st_abs,
@@ -506,11 +510,13 @@ handle_removal:
             }
             // update qsfp_pres_mask after successfully detecting the module
             if (is_present) {
-                PM_BIT_CLR (qsfp_pres_mask[mask_id],
-                            (conn_id % 32) - 1);
+                ((conn_id % 32) != 0)
+                            ? (PM_BIT_CLR(qsfp_pres_mask[mask_id], (conn_id % 32) - 1))
+                            : (PM_BIT_CLR(qsfp_pres_mask[mask_id], 31));
             } else {
-                PM_BIT_SET (qsfp_pres_mask[mask_id],
-                            (conn_id % 32) - 1);
+                ((conn_id % 32) != 0)
+                    ? (PM_BIT_SET(qsfp_pres_mask[mask_id], (conn_id % 32) - 1))
+                    : (PM_BIT_SET(qsfp_pres_mask[mask_id], 31));
             }
         }
         if (is_present == true) {
@@ -1008,11 +1014,13 @@ void bf_pm_sfp_quick_removal_detected_set (
     }
 
     if (flag) {
-        PM_BIT_SET (sfp_quick_rmv_pres_mask[mask_id],
-                    (module % 32) - 1);
+        ((module % 32) != 0)
+            ? (PM_BIT_SET(sfp_quick_rmv_pres_mask[mask_id], (module % 32) - 1))
+            : (PM_BIT_SET(sfp_quick_rmv_pres_mask[mask_id], 31));
     } else {
-        PM_BIT_CLR (sfp_quick_rmv_pres_mask[mask_id],
-                    (module % 32) - 1);
+        ((module % 32) != 0)
+            ? (PM_BIT_CLR(sfp_quick_rmv_pres_mask[mask_id], (module % 32) - 1))
+            : (PM_BIT_CLR(sfp_quick_rmv_pres_mask[mask_id], 31));
     }
     pm_sfp_quick_removed[module] = flag;
 }
@@ -1108,11 +1116,13 @@ static bf_pltfm_status_t sfp_scan_helper (
             }
         }
 
-        bool sfp_curr_st_abs = PM_BIT_GET (mask,
-                                           (module % 32) - 1);
+        bool sfp_curr_st_abs = ((module % 32) != 0)
+                                ? (PM_BIT_GET(mask, (module % 32) - 1))
+                                : (PM_BIT_GET(mask, 31));
         bool sfp_prev_st_abs =
-            PM_BIT_GET (sfp_pres_mask[mask_id],
-                        (module % 32) - 1);
+            ((module % 32) != 0)
+            ? (PM_BIT_GET(sfp_pres_mask[mask_id], (module % 32) - 1))
+            : (PM_BIT_GET(sfp_pres_mask[mask_id], 31));
         LOG_DEBUG (" SFP    %2d : curr-pres-st : %d prev-pres-st : %d",
                    module,
                    sfp_curr_st_abs,
@@ -1171,11 +1181,13 @@ handle_removal:
             }
             // update qsfp_pres_mask after successfully detecting the module
             if (is_present) {
-                PM_BIT_CLR (sfp_pres_mask[mask_id],
-                            (module % 32) - 1);
+                ((module % 32) != 0)
+                        ? (PM_BIT_CLR(sfp_pres_mask[mask_id], (module % 32) - 1))
+                        : (PM_BIT_CLR(sfp_pres_mask[mask_id], 31));
             } else {
-                PM_BIT_SET (sfp_pres_mask[mask_id],
-                            (module % 32) - 1);
+                ((module % 32) != 0)
+                        ? (PM_BIT_SET(sfp_pres_mask[mask_id], (module % 32) - 1))
+                        : (PM_BIT_SET(sfp_pres_mask[mask_id], 31));
             }
         }
         if (is_present == true) {

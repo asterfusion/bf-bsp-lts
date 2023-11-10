@@ -235,6 +235,8 @@ typedef struct _bf_qsfp_vec_ {
 /* qsfp common APIs */
 /* set custom power control through software reg */
 void bf_qsfp_set_pwr_ctrl (int port, bool lpmode);
+/* get custom power control through software reg */
+int bf_qsfp_get_pwr_ctrl(int port);
 /* get interrupt status mask of QSFPs */
 void bf_qsfp_get_transceiver_int (uint32_t
                                   *lower_ports,

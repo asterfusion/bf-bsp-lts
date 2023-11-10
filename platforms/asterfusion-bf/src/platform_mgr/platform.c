@@ -223,6 +223,7 @@ static bf_pltfm_status_t chss_mgmt_init()
 
     bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_QSFP_REALTIME_DDM;
     bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_SFP_REALTIME_DDM;
+    bf_pltfm_mgr_ctx()->dpu_count = 0;
 
     /* Check strictly. */
     if (!platform_type_equal (X532P) &&
@@ -266,8 +267,10 @@ static bf_pltfm_status_t chss_mgmt_init()
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
                                         );
             if (platform_subtype_equal(v3dot0)) {
+                bf_pltfm_mgr_ctx()->dpu_count = 2;
                 bf_pltfm_mgr_ctx()->fan_group_count = 5;
             } else {
+                bf_pltfm_mgr_ctx()->dpu_count = 2;
                 bf_pltfm_mgr_ctx()->fan_group_count = 6;
             }
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
@@ -283,6 +286,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->fan_group_count = 5;
             bf_pltfm_mgr_ctx()->fan_per_group = 2;
             bf_pltfm_mgr_ctx()->psu_count = 2;
+            bf_pltfm_mgr_ctx()->dpu_count = 2;
             /* LM75, LM63 and GHC(4) and Tofino(2).
              * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
             bf_pltfm_mgr_ctx()->sensor_count = 9;
@@ -305,6 +309,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->psu_count = 0;
             bf_pltfm_mgr_ctx()->sensor_count = 0;
             bf_pltfm_mgr_ctx()->cpld_count = 3;
+            bf_pltfm_mgr_ctx()->dpu_count = 2;
         }
         bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date = time (
                     NULL);
@@ -329,44 +334,6 @@ static bf_pltfm_status_t chss_mgmt_init()
     //bf_pltfm_chss_mgmt_pwr_init();
     //bf_pltfm_chss_mgmt_tmp_init();
     //bf_pltfm_chss_mgmt_pwr_rails_init();
-
-    /* Open platfom resource file, if non-exist, create it.
-     * For onlp, should run BSP at least once. */
-    const char *path = LOG_DIR_PREFIX"/platform";
-    char data[1024];
-    int length;
-    FILE *fp = NULL;
-
-    if (unlikely (!access (path, F_OK))) {
-        if (likely (remove (path))) {
-            fprintf (stdout,
-                     "%s[%d], "
-                     "access(%s)"
-                     "\n",
-                     __FILE__, __LINE__, oryx_safe_strerror (errno));
-        }
-    }
-
-    fp = fopen (path, "w+");
-    if (fp) {
-        length = sprintf (data, "%s: %d\n",
-                          "PSU", bf_pltfm_mgr_ctx()->psu_count);
-        fwrite (data, 1, length, fp);
-        length = sprintf (data, "%s: %d\n",
-                          "FAN", bf_pltfm_mgr_ctx()->fan_group_count *
-                                 bf_pltfm_mgr_ctx()->fan_per_group);
-        fwrite (data, 1, length, fp);
-        length = sprintf (data, "%s: %d\n",
-                          "THERMAL", bf_pltfm_mgr_ctx()->sensor_count);
-        fwrite (data, 1, length, fp);
-        length = sprintf (data, "%s: %d\n",
-                          "CPLD", bf_pltfm_mgr_ctx()->cpld_count);
-        fwrite (data, 1, length, fp);
-
-        fflush (fp);
-        fclose (fp);
-    }
-
     return BF_PLTFM_SUCCESS;
 }
 
@@ -1628,21 +1595,29 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     aim_printf (&uc->pvs, "Max CPLDs : %2d\n",
                 bf_pltfm_mgr_ctx()->cpld_count);
     foreach_element (0, bf_pltfm_mgr_ctx()->cpld_count) {
-        char ver[8] = {0};
-        bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), &ver[0], false);
+        bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), &fmt[0], false);
         aim_printf (&uc->pvs, "    CPLD%d : %s\n",
-                    (each_element + 1), ver);
+                    (each_element + 1), fmt);
     }
+    aim_printf (&uc->pvs, "Max DPUs  : %2d\n",
+                bf_pltfm_mgr_ctx()->dpu_count);
+    bool dpu1_status, dpu2_status, ptpx_status;
+    bf_pltfm_get_suboard_status (&dpu1_status, &dpu2_status, &ptpx_status);
+    aim_printf (&uc->pvs, "    DPU1  : %s\n",
+                dpu1_status ? "Present" : "Absent");
+    aim_printf (&uc->pvs, "    DPU2  : %s\n",
+                dpu2_status ? "Present" : "Absent");
+    aim_printf (&uc->pvs, "    PTPX  : %s\n",
+                ptpx_status ? "Present" : "Absent");
+    aim_printf (&uc->pvs, "\n");
 
     bf_pltfm_get_bmc_ver (&fmt[0], false);
-    aim_printf (&uc->pvs, "    BMC   : %s\n",
+    aim_printf (&uc->pvs, "    BMC   : %s\n\n",
                fmt);
 
-    aim_printf (&uc->pvs, "Plat Ctrl : %2X\n",
-                bf_pltfm_mgr_ctx()->flags);
-    aim_printf (&uc->pvs, "Plat Mon  : %s @ %s\n",
+    aim_printf (&uc->pvs, "Plat Mon  : %s %2X @ %s\n",
                 (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_CTRL) ?
-                "enabled" : "disabled",
+                "enabled" : "disabled", bf_pltfm_mgr_ctx()->flags,
                 ctime ((time_t *) &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
 
     uint32_t days, hours, mins, secs;
@@ -1650,8 +1625,8 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     diff = difftime(g_tm_end, g_tm_start);
     bf_pltfm_convert_uptime (diff, &days, &hours, &mins, &secs);
     aim_printf (&uc->pvs, "    Uptime: ");
-    if (days) aim_printf (&uc->pvs, "%3u days, ", days);
-    if (hours || mins) aim_printf (&uc->pvs, "%2u:%2u, ", hours, mins);
+    if (days) aim_printf (&uc->pvs, "%3u days ", days);
+    if (hours || mins) aim_printf (&uc->pvs, "%2u:%2u.", hours, mins);
     aim_printf (&uc->pvs, "%2u sec(s)\n", secs);
 
     FILE *fp = fopen ("/proc/uptime", "r");
@@ -1660,13 +1635,14 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
             if (sscanf (fmt, "%lf ", &diff)) {
                 bf_pltfm_convert_uptime (diff, &days, &hours, &mins, &secs);
                 aim_printf (&uc->pvs, "Sys Uptime: ");
-                if (days) aim_printf (&uc->pvs, "%3u days, ", days);
-                if (hours || mins) aim_printf (&uc->pvs, "%2u:%2u, ", hours, mins);
+                if (days) aim_printf (&uc->pvs, "%3u days ", days);
+                if (hours || mins) aim_printf (&uc->pvs, "%2u:%2u.", hours, mins);
                 aim_printf (&uc->pvs, "%2u sec(s)\n", secs);
             }
         }
         fclose (fp);
     }
+
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
     bf_pltfm_ucli_dump_panel(uc);
@@ -2534,6 +2510,53 @@ bf_status_t bf_pltfm_platform_init (
         }
     }
 #endif
+
+    /* Open platfom resource file, if non-exist, create it.
+     * For onlp, should run BSP at least once. */
+    const char *path = LOG_DIR_PREFIX"/platform";
+    char data[1024], ver[128] = {0};
+    int length;
+    FILE *fp = NULL;
+
+    if (unlikely (!access (path, F_OK))) {
+        if (likely (remove (path))) {
+            fprintf (stdout,
+                     "%s[%d], "
+                     "access(%s)"
+                     "\n",
+                     __FILE__, __LINE__, oryx_safe_strerror (errno));
+        }
+    }
+
+    fp = fopen (path, "w+");
+    if (fp) {
+        length = sprintf (data, "%s: %d\n",
+                          "PSU", bf_pltfm_mgr_ctx()->psu_count);
+        fwrite (data, 1, length, fp);
+        length = sprintf (data, "%s: %d\n",
+                          "FAN", bf_pltfm_mgr_ctx()->fan_group_count *
+                                 bf_pltfm_mgr_ctx()->fan_per_group);
+        fwrite (data, 1, length, fp);
+        length = sprintf (data, "%s: %d\n",
+                          "THERMAL", bf_pltfm_mgr_ctx()->sensor_count);
+        fwrite (data, 1, length, fp);
+        length = sprintf (data, "%s: %d\n",
+                          "CPLD", bf_pltfm_mgr_ctx()->cpld_count);
+        fwrite (data, 1, length, fp);
+        foreach_element (0, bf_pltfm_mgr_ctx()->cpld_count) {
+            bf_pltfm_get_cpld_ver((uint8_t)(each_element + 1), &ver[0], false);
+            length = sprintf (data, "CPLD%d: %s\n",
+                              (each_element + 1), ver);
+            fwrite (data, 1, length, fp);
+        }
+        bf_pltfm_get_bmc_ver (&ver[0], false);
+        length = sprintf (data, "BMC: %s\n",
+                          ver);
+        fwrite (data, 1, length, fp);
+
+        fflush (fp);
+        fclose (fp);
+    }
 
     /* Start Health Monitor */
     pltfm_mgr_start_health_mntr();
