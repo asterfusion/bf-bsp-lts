@@ -817,7 +817,7 @@ bf_pltfm_ucli_ucli__sfp_get_ddm (ucli_context_t
               "--------------");
 
     for (int port = port_start; port <= port_end; port++) {
-        if (!bf_sfp_is_present (port) &&
+        if (!bf_sfp_is_present (port) ||
             (!bf_sfp_is_optical (port))) {
             continue;
         }

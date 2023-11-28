@@ -1599,17 +1599,26 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
         aim_printf (&uc->pvs, "    CPLD%d : %s\n",
                     (each_element + 1), fmt);
     }
-    aim_printf (&uc->pvs, "Max DPUs  : %2d\n",
+    aim_printf (&uc->pvs, "Max DPUs  : ");
+    if (platform_type_equal(X532P) || platform_type_equal(X564P)) {
+        aim_printf (&uc->pvs, "%s\n",
+                "Not Supported");
+    } else {
+        aim_printf (&uc->pvs, "%2d\n",
                 bf_pltfm_mgr_ctx()->dpu_count);
-    bool dpu1_status, dpu2_status, ptpx_status;
-    bf_pltfm_get_suboard_status (&dpu1_status, &dpu2_status, &ptpx_status);
-    aim_printf (&uc->pvs, "    DPU1  : %s\n",
-                dpu1_status ? "Present" : "Absent");
-    aim_printf (&uc->pvs, "    DPU2  : %s\n",
-                dpu2_status ? "Present" : "Absent");
-    aim_printf (&uc->pvs, "    PTPX  : %s\n",
-                ptpx_status ? "Present" : "Absent");
-    aim_printf (&uc->pvs, "\n");
+        bool dpu1_status, dpu2_status, ptpx_status;
+        bf_pltfm_get_suboard_status (&dpu1_status, &dpu2_status, &ptpx_status);
+        aim_printf (&uc->pvs, "    DPU1  : %s\n",
+                    dpu1_status ? "Present" : "Absent");
+        aim_printf (&uc->pvs, "    DPU2  : %s\n",
+                    dpu2_status ? "Present" : "Absent");
+        if (platform_type_equal(X308P) &&
+            platform_subtype_equal(v3dot0)) {
+            aim_printf (&uc->pvs, "     PTP  : %s\n",
+                        ptpx_status ? "Present" : "Absent");
+        }
+        aim_printf (&uc->pvs, "\n");
+    }
 
     bf_pltfm_get_bmc_ver (&fmt[0], false);
     aim_printf (&uc->pvs, "    BMC   : %s\n\n",

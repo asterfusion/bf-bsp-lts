@@ -6,6 +6,9 @@
  *
  ******************************************************************************/
 #include <iostream>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <netdb.h>
 #include "config.h"
 #include "bf_platform_rpc_server.h"
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -37,7 +40,7 @@ using ::stdcxx::shared_ptr;
 
 static pthread_mutex_t cookie_mutex;
 static pthread_cond_t cookie_cv;
-static char rpc_server_listen_point[16]="127.0.0.1";
+static char rpc_server_listen_point[16];
 static void *cookie;
 
 /*
@@ -114,39 +117,52 @@ extern "C" {
                                     size_t l)
     {
         int i = 0;
-        char *c = NULL;
         bool listen_point_type_ip = false;
+        char *if_addr, *listen_point = NULL;
+        struct ifaddrs *ifap, *ifa;
 
         assert (!(str == NULL));
-
-        /* Default to 127.0.0.1/lo */
-        memcpy (&rpc_server_listen_point[0],
-            BF_PLATFORM_RPC_SERVER_ADDRESS, strlen(BF_PLATFORM_RPC_SERVER_ADDRESS));
 
         for (i = 0; i < (int)(l - 1); i ++) {
             if (isspace (str[i])) {
                 continue;
             }
             if (isdigit (str[i]) || isalpha (str[i])) {
-                c = (char *)&str[i];
+                listen_point = (char *)&str[i];
                 if (isdigit (str[i])) {
                     /* The last character could be either EOF or LF, thus should be stripped. */
-                    c[strlen(c) - 1] = '\0';
                     listen_point_type_ip = true;
                 }
+                listen_point[strlen(listen_point) - 1] = '\0';
                 break;
             }
         }
 
-        if (!c) {
-            return;
+        if (!listen_point) {
+            goto default_ip;
         }
 
         if (listen_point_type_ip) {
-            memcpy (&rpc_server_listen_point[0], c, strlen(c));
+            memcpy (&rpc_server_listen_point[0], listen_point, strlen(listen_point));
         } else {
             /* listen_point_type is an interface, convert interface(lo/ma1/enps0f0) to IP address. */
+            if (getifaddrs (&ifap) == -1) {
+                goto default_ip;
+            }
+            for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+                if (strcmp (ifa->ifa_name, listen_point) == 0 && ifa->ifa_addr->sa_family == AF_INET) {
+                    if_addr = inet_ntoa (((struct sockaddr_in *) ifa->ifa_addr)->sin_addr);
+                    memcpy (&rpc_server_listen_point[0], if_addr, strlen(if_addr));
+                }
+            }
+            freeifaddrs (ifap);
         }
+        return;
+
+default_ip:
+        /* Default to 127.0.0.1/lo */
+        memcpy (&rpc_server_listen_point[0],
+            BF_PLATFORM_RPC_SERVER_ADDRESS, strlen(BF_PLATFORM_RPC_SERVER_ADDRESS));
     }
 
     static void bf_pltfm_get_rpc_listen_point () {

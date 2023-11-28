@@ -966,21 +966,21 @@ bf_pltfm_ucli_ucli__qsfp_get_ddm (ucli_context_t
                 "--------------",
                 "--------------");
 
-    for (int i = port_start; i <= port_end; i++) {
-        if (!bf_qsfp_is_present (i) &&
-            (!bf_qsfp_is_optical (i))) {
+    for (int port = port_start; port <= port_end; port++) {
+        if (!bf_qsfp_is_present (port) ||
+            (!bf_qsfp_is_optical (port))) {
             continue;
         }
 
-        if (bf_qsfp_is_cmis (i)) {
-            printDdm_for_cmis (uc, i);
+        if (bf_qsfp_is_cmis (port)) {
+            printDdm_for_cmis (uc, port);
         } else {
             memset (buf, 0, sizeof (buf));
             // TBD - use onebank to get flags
             bf_qsfp_module_read (
-                i, QSFP_BANK0, QSFP_PAGE0_LOWER, 0,
+                port, QSFP_BANK0, QSFP_PAGE0_LOWER, 0,
                 MAX_QSFP_PAGE_SIZE_255, buf);
-            printDdm (uc, i, buf);
+            printDdm (uc, port, buf);
         }
 
         aim_printf (&uc->pvs,
