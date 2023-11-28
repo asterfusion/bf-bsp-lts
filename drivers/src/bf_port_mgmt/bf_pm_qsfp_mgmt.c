@@ -473,8 +473,8 @@ void qsfp_fsm_removed (int conn_id)
 }
 
 /*****************************************************************
-*
-*****************************************************************/
+ *
+ *****************************************************************/
 void qsfp_fsm_update_cdr (bf_dev_id_t dev_id,
                          int conn_id)
 {
@@ -1712,8 +1712,15 @@ static void qsfp_module_fsm_run (bf_dev_id_t
 
         case QSFP_FSM_ST_WAIT_TOFF_LPMODE:
             qsfp_fsm_st_lp_mode_off (dev_id, conn_id);
-
-            next_st = QSFP_FSM_ST_WAIT_CDR_CONTROL;
+            /* For some transcievers, CDR must be disabled when breakout as 10G.
+             * For APP, please consider disabling it by calling qsfp_fsm_ch_disable_cdr
+             * to write 0xFF to offset 98 in pg0. */
+            //next_st = QSFP_FSM_ST_WAIT_CDR_CONTROL;
+#if defined (DEFAULT_LASER_ON)
+            next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
+#else
+            next_st = QSFP_FSM_ST_DETECTED;
+#endif
             delay_ms = SFF8436_TMR_Toff_LPMode;
 
             qsfp_fsm_notify_bf_pltfm (dev_id, conn_id);
@@ -1962,7 +1969,7 @@ void qsfp_fsm_ch_disable (bf_dev_id_t dev_id,
 /*****************************************************************
  * enable both TX and RX CDRs - only use for sff-8636 modules
  *****************************************************************/
-static int qsfp_fsm_ch_enable_cdr (
+int qsfp_fsm_ch_enable_cdr (
     bf_dev_id_t dev_id, int conn_id, int ch)
 {
     int rc;
@@ -1979,7 +1986,7 @@ static int qsfp_fsm_ch_enable_cdr (
 /*****************************************************************
  * disable both TX and RX CDRs - only use for sff-8636 modules
  *****************************************************************/
-static int qsfp_fsm_ch_disable_cdr (
+int qsfp_fsm_ch_disable_cdr (
     bf_dev_id_t dev_id, int conn_id, int ch)
 {
     int rc;
@@ -2246,7 +2253,7 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
     qsfp_fsm_ch_en_state_t next_st =
         st;  // default to no transition
     int wr_coalesce_err, delay_ms = 0;
-    bool ok, discard_latched, is_cdr_required = false;
+    bool ok, discard_latched;
     uint8_t los_fault_val, lol_fault_val, fault_val;
 
     switch (st) {
@@ -2258,24 +2265,18 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
             qsfp_fsm_ch_notify_not_ready (dev_id, conn_id,
                                           ch);
             delay_ms = 300;  // ms
-            /* Fast boot, do ENA_CDR within qsfp_module_fsm_run.
-             * by tsihang, 2023-05-23. */
-            //next_st = QSFP_FSM_EN_ST_ENA_CDR;
-            delay_ms = 300;  // ms
 #if defined (DEFAULT_LASER_ON)
             next_st = QSFP_FSM_EN_ST_NOTIFY_ENABLED;
 #else
-            next_st = QSFP_FSM_EN_ST_ENA_OPTICAL_TX;
+            next_st = QSFP_FSM_EN_ST_ENA_CDR;
 #endif
             break;
         case QSFP_FSM_EN_ST_ENA_CDR:
-            wr_coalesce_err = is_cdr_required ?
-                qsfp_fsm_ch_enable_cdr (dev_id, conn_id, ch) :
-                qsfp_fsm_ch_disable_cdr (dev_id, conn_id, ch);
-                if (wr_coalesce_err == 0) {
-                    next_st = QSFP_FSM_EN_ST_ENA_OPTICAL_TX;
-                    delay_ms = 300;  // ms
-                }
+            wr_coalesce_err = qsfp_fsm_ch_enable_cdr (dev_id, conn_id, ch);
+            if (wr_coalesce_err == 0) {
+                next_st = QSFP_FSM_EN_ST_ENA_OPTICAL_TX;
+                delay_ms = 300;  // ms
+            }
             break;
         case QSFP_FSM_EN_ST_ENA_OPTICAL_TX:
             qsfp_fsm_ch_check_tx_cdr_lol (dev_id,
@@ -2328,23 +2329,22 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
         case QSFP_FSM_EN_ST_NOTIFY_ENABLED:
             qsfp_fsm_ch_first_enable_clear (dev_id, conn_id,
                                             ch);
-            //qsfp_fsm_ch_check_tx_optical_fault (dev_id,
-            //                                    conn_id,
-            //                                    ch,
-            //                                    true /*clear only*/,
-            //                                    &discard_latched,
-            //                                    &fault_val);
+            qsfp_fsm_ch_check_tx_optical_fault (dev_id,
+                                                conn_id,
+                                                ch,
+                                                true /*clear only*/,
+                                                &discard_latched,
+                                                &fault_val);
             // for some reason, need to read twice to clear latched faults
-            //qsfp_fsm_ch_check_tx_optical_fault (dev_id,
-            //                                    conn_id,
-            //                                    ch,
-            //                                    true /*clear only*/,
-            //                                    &discard_latched,
-            //                                    &fault_val);
-            //qsfp_fsm_ch_check_tx_optical_fault (
-            //    dev_id, conn_id, ch, false /* log faults*/, &ok,
-            //    &fault_val);
-            ok = true;
+            qsfp_fsm_ch_check_tx_optical_fault (dev_id,
+                                                conn_id,
+                                                ch,
+                                                true /*clear only*/,
+                                                &discard_latched,
+                                                &fault_val);
+            qsfp_fsm_ch_check_tx_optical_fault (
+                dev_id, conn_id, ch, false /* log faults*/, &ok,
+                &fault_val);
             if (!ok) {
                 LOG_DEBUG ("QSFP    %2d : ch[%d] : Optical TX FAULT <%02x>. retry..",
                            conn_id,
