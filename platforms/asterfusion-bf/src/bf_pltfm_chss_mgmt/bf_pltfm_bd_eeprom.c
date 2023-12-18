@@ -57,6 +57,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
     {BF_PLTFM_BD_ID_X532PT_V1DOT0, "APNS320T-A1-V1.0", X532P, v1dot0},  // X532P-T V1.0
     {BF_PLTFM_BD_ID_X532PT_V1DOT1, "APNS320T-A1-V1.1", X532P, v1dot1},  // X532P-T V1.1
     {BF_PLTFM_BD_ID_X532PT_V2DOT0, "APNS320T-A1-V2.0", X532P, v2dot0},  // X532P-T V2.0
+    {BF_PLTFM_BD_ID_X532PT_V3DOT0, "APNS320T-A1-V3.0", X532P, v3dot0},  // X532P-T V3.0
 
     {BF_PLTFM_BD_ID_X564PT_V1DOT0, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
     {BF_PLTFM_BD_ID_X564PT_V1DOT1, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
@@ -737,15 +738,16 @@ static void further_decode ()
             tlv = &tlvs[i];
             memset (temp, 0, 32);
             if (tlv->code == 0x24) {
-                sprintf(temp, "%02X:%02X:%02X:%02X:%02X:%02X", tlv->content[0],
-                    tlv->content[1], tlv->content[2], tlv->content[3], tlv->content[4], tlv->content[5]);
+                sprintf(temp, "%02X:%02X:%02X:%02X:%02X:%02X", (uint8_t)tlv->content[0],
+                    (uint8_t)tlv->content[1], (uint8_t)tlv->content[2], (uint8_t)tlv->content[3],
+                    (uint8_t)tlv->content[4], (uint8_t)tlv->content[5]);
                 memcpy(tlv->content, (uint8_t *)temp, 32);
             } else if(tlv->code == 0x2a) {
                 sprintf(temp, "%d", tlv->content[1]);
                 memcpy(tlv->content, (uint8_t *)temp, 1);
             } else if(tlv->code == 0xfe) {
-                sprintf(temp, "0x%02X%02X%02X%02X", tlv->content[0],
-                    tlv->content[1], tlv->content[2], tlv->content[3]);
+                sprintf(temp, "0x%02X%02X%02X%02X", (uint8_t)tlv->content[0],
+                    (uint8_t)tlv->content[1], (uint8_t)tlv->content[2], (uint8_t)tlv->content[3]);
                 memcpy(tlv->content, (uint8_t *)temp, 32);
             } else if(tlv->code == 0x26) {
                 if (!strstr (tlv->content, "5") &&

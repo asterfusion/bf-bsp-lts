@@ -99,6 +99,7 @@ static pltfm_cpld_path_t pltfm_cpld_path[] = {
     {X532P, v1dot0, VIA_CGOS,   VIA_CP2112},
     {X532P, v1dot1, VIA_CGOS,   VIA_CP2112},
     {X532P, v2dot0, VIA_CP2112, VIA_CGOS},
+    {X532P, v3dot0, VIA_CP2112, VIA_CGOS},
     {X308P, v1dot0, VIA_CP2112, VIA_CGOS},
     {X308P, v1dot1, VIA_CP2112, VIA_CGOS},
     {X308P, v2dot0, VIA_CP2112, VIA_CGOS},
@@ -253,7 +254,8 @@ static void bf_pltfm_parse_hwversion (const char *str,
         /* 0x31. */
         if (subtype != v1dot0 &&
             subtype != v1dot1 &&
-            subtype != v2dot0) {
+            subtype != v2dot0 &&
+            subtype != v3dot0) {
             find = false;
         }
     } else if (platform_type_equal (X308P)) {

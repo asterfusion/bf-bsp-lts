@@ -914,7 +914,7 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
 
     /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
     aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
-                "MODULE", "ALIAS", "PORT", "PRESENT");
+                "MODULE", "ALIAS", "PORT", "TX_DISABLED");
 
     for (int i = 0; i < bf_sfp_get_max_sfp_ports();
          i ++) {
@@ -929,7 +929,7 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
                      (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         port, alias, connc,
-                        bf_sfp_is_present (port) ? "true" : "false");
+                        bf_sfp_is_present (port) ? bf_sfp_tx_is_disabled (port) ? "true" : "false" : "----");
         }
     }
 
@@ -949,7 +949,7 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
                      (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         bf_sfp_get_max_sfp_ports() + port, alias,
-                        connc, "true");
+                        connc, "false");
         }
     }
 

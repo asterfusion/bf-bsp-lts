@@ -2933,120 +2933,12 @@ bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_get (
          port++) {
         bf_qsfp_ctrlmask_get (port, &ctrlmask);
         aim_printf (&uc->pvs,
-                    "Port : %2d, ctrlmask %u.\n", port, ctrlmask);
+                    "Port : %2d, ctrlmask %-4x.\n", port, ctrlmask);
     }
 
     /* Dump specail cases, see bf_drivers.log. */
     bf_qsfp_tc_entry_dump (NULL, NULL, NULL);
 
-    return 0;
-}
-
-static ucli_status_t
-bf_pltfm_ucli_ucli__qsfp_special_case_cdr_set (
-    ucli_context_t *uc)
-{
-    UCLI_COMMAND_INFO (uc,
-                       "qsfp-cdr-set",
-                       3,
-                       "qsfp-cdr-set <port OR -1 for all ports> "
-                       "<0|1, disable/enable CDR> "
-                       "<0|1, overwrite or not>");
-    int port;
-    int port_begin, max_port, max_ports = bf_qsfp_get_max_qsfp_ports();
-    int iscdr_req = 0;
-    int overwrite = 0;
-
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = max_ports;
-    }
-
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
-
-    iscdr_req = atoi (uc->pargs->args[1]);
-    if ((iscdr_req < 0) || (iscdr_req > 1)) {
-        aim_printf (&uc->pvs,
-                    "val must be 0-1 for port %d\n", port);
-        return 0;
-    }
-
-    overwrite = atoi (uc->pargs->args[2]);
-    if ((overwrite < 0) || (overwrite > 1)) {
-        aim_printf (&uc->pvs,
-                    "val must be 0-1 for port %d\n", port);
-        return 0;
-    }
-
-    for (port = port_begin; port <= max_port;
-         port++) {
-        uint32_t ctrlmask = 0;
-        bf_qsfp_ctrlmask_get (port, &ctrlmask);
-        if (iscdr_req) {
-            ctrlmask &= ~BF_TRANS_CTRLMASK_CDR_OFF;
-        } else {
-            ctrlmask |= BF_TRANS_CTRLMASK_CDR_OFF;
-        }
-        if (overwrite) {
-            ctrlmask |= BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT;
-        }
-        aim_printf (&uc->pvs,
-                    "new : %u\n", ctrlmask);
-        bf_qsfp_ctrlmask_set (port, ctrlmask);
-    }
-    return 0;
-}
-
-static ucli_status_t
-bf_pltfm_ucli_ucli__qsfp_special_case_cdr_get (
-    ucli_context_t *uc)
-{
-    UCLI_COMMAND_INFO (uc,
-                       "qsfp-cdr-get",
-                       1,
-                       "qsfp-cdr-get <port OR -1 for all ports>");
-    int port;
-    int port_begin, max_port, max_ports = bf_qsfp_get_max_qsfp_ports();
-
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = max_ports;
-    }
-
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
-
-    for (port = port_begin; port <= max_port;
-         port++) {
-        bool iscdr_req = bf_qsfp_is_cdr_required(port);
-        bool overwrite = bf_qsfp_is_cdr_overwrite_required (port);
-        if (overwrite) {
-            aim_printf (&uc->pvs,
-                        "Port : %2d, forced CDR-%s.\n", port, iscdr_req ?
-                        "ON" : "OFF");
-        }
-    }
     return 0;
 }
 
@@ -3550,7 +3442,7 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
 
     /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
     aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
-                "MODULE", "ALIAS", "PORT", "PRESENT");
+                "MODULE", "ALIAS", "PORT", "TX_DISABLED");
 
     /* QSFP */
     for (int i = 0; i < bf_qsfp_get_max_qsfp_ports();
@@ -3566,7 +3458,8 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
                      (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         module, alias, connc,
-                        bf_qsfp_is_present (module) ? "true" : "false");
+                        /* Only check lane 0. */
+                        bf_qsfp_is_present (module) ? bf_qsfp_tx_is_disabled(module, 0) ? "true" : "false" : "----");
         }
     }
 
@@ -3583,7 +3476,7 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
                      (chnl_id % MAX_CHAN_PER_CONNECTOR));
             aim_printf (&uc->pvs, "%12d%12s%20s%12s\n",
                         bf_qsfp_get_max_qsfp_ports() + 1 + i, alias,
-                        connc, "true");
+                        connc, "false");
         }
     }
 
@@ -3796,8 +3689,6 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_tmr_start,
     bf_pltfm_ucli_ucli__qsfp_special_case_set,
     bf_pltfm_ucli_ucli__qsfp_special_case_clear,
-    bf_pltfm_ucli_ucli__qsfp_special_case_cdr_set,
-    bf_pltfm_ucli_ucli__qsfp_special_case_cdr_get,
     bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_set,
     bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_get,
     bf_pltfm_ucli_ucli__qsfp_soft_remove,

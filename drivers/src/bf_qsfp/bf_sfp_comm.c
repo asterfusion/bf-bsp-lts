@@ -49,6 +49,8 @@ typedef struct bf_sfp_info_t {
 
     /* BF_TRANS_CTRLMASK_XXXX. It can only be set by bf_sfp_ctrlmask_set. */
     uint32_t ctrlmask;
+    /* Will added more trans state later. */
+    uint32_t trans_state;
 } bf_sfp_info_t;
 
 /*
@@ -942,11 +944,31 @@ bool bf_sfp_get_reset (int port)
 
 int bf_sfp_tx_disable (int port, bool tx_dis)
 {
+    int rc;
     if (port <= bf_plt_max_sfp) {
-        return (bf_pltfm_sfp_module_tx_disable (port, tx_dis));
+        rc = bf_pltfm_sfp_module_tx_disable (port, tx_dis);
+        if (!rc) {
+            /* Non optical module should never reach here. */
+            if (tx_dis) {
+                bf_sfp_info_arr[port].trans_state &= ~BF_TRANS_STATE_LASER_ON;
+            } else {
+                bf_sfp_info_arr[port].trans_state |= BF_TRANS_STATE_LASER_ON;
+            }
+        }
+        return rc;
     } else {
         return -1; /* TBD: handle cpu port SFP */
     }
+}
+
+bool bf_sfp_tx_is_disabled (int port)
+{
+    if (port > bf_plt_max_sfp) {
+        return true;
+    }
+
+    /* Return cached state. */
+    return !(bf_sfp_info_arr[port].trans_state & BF_TRANS_STATE_LASER_ON);
 }
 
 /** Get number of SFP ports on the system
@@ -1040,6 +1062,7 @@ int bf_sfp_init()
         //bf_sfp_info_arr[i].num_ch = 0;
         bf_sfp_info_arr[i].memmap_format =
             MMFORMAT_UNKNOWN;
+        bf_sfp_info_arr[i].trans_state = 0;
         //bf_sfp_info_arr[i].suppress_repeated_rd_fail_msgs = false;
     }
 

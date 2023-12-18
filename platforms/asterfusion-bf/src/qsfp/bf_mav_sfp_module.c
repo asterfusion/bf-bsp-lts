@@ -734,7 +734,7 @@ int bf_pltfm_sfp_init (void *arg)
 
     foreach_element (0, bf_sfp_get_max_sfp_ports()) {
         module = (each_element + 1);
-        bf_pltfm_sfp_module_tx_disable (module, false);
+        bf_pltfm_sfp_module_tx_disable (module, true);
     }
 
     /* Dump the map of SFP <-> QSFP/CH. */

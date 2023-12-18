@@ -202,7 +202,8 @@ typedef enum bf_pltfm_board_id_e {
     /* X532P-T and its subtype. */
     BF_PLTFM_BD_ID_X532PT_V1DOT0 = 0x5320,
     BF_PLTFM_BD_ID_X532PT_V1DOT1 = 0x5321,
-    BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5323,
+    BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5322,
+    BF_PLTFM_BD_ID_X532PT_V3DOT0 = 0x5323,
     /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     BF_PLTFM_BD_ID_X308PT_V1DOT1 = 0x3081,

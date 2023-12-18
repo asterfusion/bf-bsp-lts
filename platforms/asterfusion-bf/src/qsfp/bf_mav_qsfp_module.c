@@ -68,6 +68,7 @@ int bf_pltfm_qsfp_init (void *arg)
     if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
         (board_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X532PT_V3DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
         (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
@@ -132,6 +133,7 @@ static int mav_qsfp_param_get (unsigned int
     } else if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
         (board_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
+        (board_id == BF_PLTFM_BD_ID_X532PT_V3DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
         (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
         (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||

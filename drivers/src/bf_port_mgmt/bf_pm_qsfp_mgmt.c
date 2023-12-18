@@ -202,7 +202,6 @@ typedef enum {
     QSFP_FSM_ST_WAIT_T_RESET,      // 2000ms
     QSFP_FSM_ST_WAIT_TON_TXDIS,    //  100ms
     QSFP_FSM_ST_WAIT_TOFF_LPMODE,  //  300ms
-    QSFP_FSM_ST_WAIT_CDR_CONTROL,
     QSFP_FSM_ST_WAIT_TOFF_TXDIS,
     QSFP_FSM_ST_DETECTED,
     QSFP_FSM_ST_UPDATE,
@@ -216,7 +215,6 @@ static char *qsfp_fsm_st_to_str[] = {
     "QSFP_FSM_ST_WAIT_T_RESET    ",
     "QSFP_FSM_ST_WAIT_TON_TXDIS  ",
     "QSFP_FSM_ST_WAIT_TOFF_LPMODE",
-    "QSFP_FSM_ST_WAIT_CDR_CONTROL",
     "QSFP_FSM_ST_WAIT_TOFF_TXDIS ",
     "QSFP_FSM_ST_DETECTED        ",
     "QSFP_FSM_ST_UPDATE          ",
@@ -472,24 +470,6 @@ void qsfp_fsm_removed (int conn_id)
                qsfp_fsm_st_to_str[prev_st]);
 }
 
-/*****************************************************************
- *
- *****************************************************************/
-void qsfp_fsm_update_cdr (bf_dev_id_t dev_id,
-                         int conn_id)
-{
-    qsfp_fsm_state_t prev_st =
-        qsfp_state[conn_id].fsm_st;
-
-    qsfp_state[conn_id].next_fsm_run_time.tv_sec = 0;
-    qsfp_state[conn_id].next_fsm_run_time.tv_nsec = 0;
-
-    qsfp_state[conn_id].fsm_st = QSFP_FSM_ST_WAIT_CDR_CONTROL;
-    LOG_DEBUG ("QSFP    %2d : %s -> QSFP_FSM_ST_WAIT_CDR_CONTROL",
-               conn_id,
-               qsfp_fsm_st_to_str[prev_st]);
-}
-
 /****************************************************
  *
  ****************************************************/
@@ -561,9 +541,9 @@ static int qsfp_fsm_identify_type (int conn_id,
          * While it's better to check with SFF-8636 spec.
          * by tsihang, 2023-06-07. */
         if (bf_qsfp_tx_is_disabled(conn_id, 0)) {
-            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_CDR_ON;
+            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
         } else {
-            qsfp_state[conn_id].flags |= BF_TRANS_STATE_CDR_ON;
+            qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
         }
 
         LOG_DEBUG (
@@ -670,20 +650,6 @@ static int qsfp_fsm_identify_model_requirements (
             bf_qsfp_ctrlmask_set(conn_id, ctrlmask);
         }
     }
-#if 0
-    else if (strncmp ((char *)vendor.name,
-                        "Teraspek", 8) == 0) {
-        if ((strncmp ((char *)vendor.part_number,
-                     "TSQ885S101E1", 12) == 0) ||
-             (strncmp ((char *)vendor.part_number,
-                     "TSQ885S101T1", 12) == 0)) {
-            /* qsfp_needs_hi_pwr_init_set( conn_id, true); */
-            /* For cases which has lack of bandwidth to lock CDR in 10G breakout mode. */
-            /* The known transceivers, and let bfshell know as well. */
-            bf_qsfp_cdr_required (conn_id, false);
-        }
-    }
-#endif
 
     if (qsfp_needs_hi_pwr_init (conn_id)) {
         LOG_DEBUG ("QSFP    %2d : %s : %s : requires hi-pwr init",
@@ -691,14 +657,6 @@ static int qsfp_fsm_identify_model_requirements (
                    vendor.name,
                    vendor.part_number);
     }
-
-    if (!bf_qsfp_is_cdr_required (conn_id)) {
-        LOG_DEBUG ("QSFP    %2d : %s : %s : requires CDR-OFF when breakout to 10G.",
-                   conn_id,
-                   vendor.name,
-                   vendor.part_number);
-    }
-
     return 0;
 }
 
@@ -1093,58 +1051,6 @@ int qsfp_fsm_st_tx_enable (
         } else {
             qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
         }
-    }
-    return rc;
-}
-
-/*****************************************************************
- * Disables all TX CDR. TO BE TEST, by tsihang, 2023/5/18.
- *****************************************************************/
-static int qsfp_fsm_st_cdr_enable (
-    bf_dev_id_t dev_id, int conn_id)
-{
-    bf_status_t rc;
-    uint8_t byte_98;
-
-    byte_98 = 0xFF;
-    LOG_DEBUG ("%s:%d  -> QSFP    %2d : Setting CDR_CONTROL = %2x\n",
-               __func__, __LINE__, conn_id, byte_98);
-
-    /* 0x56, CDR Control */
-    rc = bf_fsm_qsfp_wr (conn_id, 98, 1, &byte_98);
-    if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> Setting CDR_CONTROL=0x%x0",
-                   conn_id,
-                   rc,
-                   byte_98);
-    } else {
-        qsfp_state[conn_id].flags |= BF_TRANS_STATE_CDR_ON;
-    }
-    return rc;
-}
-
-/*****************************************************************
- *
- *****************************************************************/
-static int qsfp_fsm_st_cdr_disable (
-    bf_dev_id_t dev_id, int conn_id)
-{
-    bf_status_t rc;
-    uint8_t byte_98;
-
-    byte_98 = 0x00;
-    LOG_DEBUG ("%s:%d  -> QSFP    %2d : Setting CDR_CONTROL = %2x\n",
-               __func__, __LINE__, conn_id, byte_98);
-
-    /* 0x56, CDR Control */
-    rc = bf_fsm_qsfp_wr (conn_id, 98, 1, &byte_98);
-    if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> Setting CDR_CONTROL=0x%x0",
-                   conn_id,
-                   rc,
-                   byte_98);
-    } else {
-        qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_CDR_ON;
     }
     return rc;
 }
@@ -1609,9 +1515,8 @@ static void qsfp_module_fsm_run (bf_dev_id_t
 {
     qsfp_fsm_state_t st = qsfp_state[conn_id].fsm_st;
     qsfp_fsm_state_t next_st = st;
-    dev_cfg_per_channel_t *dev_cfg;
     int rc, delay_ms = 0;
-    bool is_optical = false, is_cdr_required = true;
+    bool is_optical = false;
     uint32_t ctrlmask = 0;
 
     bf_qsfp_ctrlmask_get(conn_id, &ctrlmask);
@@ -1715,7 +1620,6 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             /* For some transcievers, CDR must be disabled when breakout as 10G.
              * For APP, please consider disabling it by calling qsfp_fsm_ch_disable_cdr
              * to write 0xFF to offset 98 in pg0. */
-            //next_st = QSFP_FSM_ST_WAIT_CDR_CONTROL;
 #if defined (DEFAULT_LASER_ON)
             next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
 #else
@@ -1725,82 +1629,18 @@ static void qsfp_module_fsm_run (bf_dev_id_t
 
             qsfp_fsm_notify_bf_pltfm (dev_id, conn_id);
             break;
-
-        case QSFP_FSM_ST_WAIT_CDR_CONTROL:
-            /* https://vitextech.com/cdr-control-in-transceivers/ */
-            for (int ch = 0; ch < 4; ch ++) {
-                dev_cfg = &qsfp_state[conn_id].dev_cfg[ch];
-                /* Breakout cable. Disable CDR if one of channel in 10G mode.
-                 * TBD, different speed in different channel within a conn_id. */
-                if ((dev_cfg->host_intf_nlanes == 1) &&
-                    (dev_cfg->intf_speed == BF_SPEED_10G)) {
-                    is_cdr_required = false;
-                    break;
-                }
-                /* Disable CDR if a QSFP28/QSFP+ performs 40G. */
-                if ((dev_cfg->host_intf_nlanes == 4) &&
-                    (dev_cfg->intf_speed == BF_SPEED_40G)) {
-                    is_cdr_required = false;
-                    break;
-                }
-                /* by default, cdr is required. */
-            }
-
-            /* For some reason, bsp can not cover all QSFP special cases which with lack of CDR.
-             * so we have to allow the workaround for QSFPs which could be set from bfshell.
-             * by tsihang, 2023-05-08. */
-            if (bf_qsfp_is_cdr_overwrite_required (conn_id)) {
-                /* Overwrite by ucli. */
-                is_cdr_required = bf_qsfp_is_cdr_required(conn_id);
-            }
-
-            // SFF-8636 - disable/enable the CDR
-            LOG_DEBUG (
-                "QSFP    %2d : force %sabling CDR. flags : %x",
-                    conn_id, is_cdr_required ? "en" : "dis",
-                    qsfp_state[conn_id].flags);
-#if defined (DEFAULT_LASER_ON)
-            next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
-#else
-            next_st = QSFP_FSM_ST_DETECTED;
-#endif
-            delay_ms = 0;
-            if (is_cdr_required) {
-                if (qsfp_state[conn_id].flags & BF_TRANS_STATE_CDR_ON) {
-                    /* Skip cdr control if cdr already enabled, perform next_st */
-                    break;
-                }
-            } else {
-                 if (!(qsfp_state[conn_id].flags & BF_TRANS_STATE_CDR_ON)) {
-                    /* Skip cdr control if cdr already disabled, perform next_st */
-                    break;
-                }
-            }
-            /* Perform cdr control. */
-            if (is_cdr_required) {
-                qsfp_fsm_st_cdr_enable (dev_id, conn_id);
-            } else {
-                qsfp_fsm_st_cdr_disable (dev_id, conn_id);
-            }
-            delay_ms = 300;
-            break;
-
         case QSFP_FSM_ST_WAIT_TOFF_TXDIS:
+            /* Keep current state till the user clears the BF_TRANS_CTRLMASK_LASER_OFF bits,
+             * then FSM will issue QSFP_FSM_ST_DETECTED stage. */
             if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
-                /* Keep current state till the user clears the BF_TRANS_CTRLMASK_LASER_OFF bits,
-                 * then FSM will issue QSFP_FSM_ST_DETECTED stage. */
                 next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
                 break;
             }
 
-            /* Perform next_st if TX already turned on. */
-            if (qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON) {
-                delay_ms = 0;
-            } else {
-                /* TX_DISABLE de-assert. */
-                qsfp_fsm_st_tx_enable (dev_id, conn_id);
-                delay_ms = SFF8436_TMR_toff_txdis;
-            }
+            /* TX_DISABLE de-assert. */
+            qsfp_fsm_st_tx_enable (dev_id, conn_id);
+            delay_ms = SFF8436_TMR_toff_txdis;
+
             next_st = QSFP_FSM_ST_DETECTED;
             break;
 
@@ -1822,19 +1662,6 @@ static void qsfp_module_fsm_run (bf_dev_id_t
 
             next_st = QSFP_FSM_ST_DETECTED;
             delay_ms = 200;  // 200ms poll time
-#if 0
-            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
-                if ((qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON)) {
-                    /* User turns off Tx. */
-                    qsfp_fsm_st_tx_disable (dev_id, conn_id);
-                }
-            } else {
-                if (!(qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON)) {
-                    /* User turns on Tx. */
-                    qsfp_fsm_st_tx_enable (dev_id, conn_id);
-                }
-            }
-#endif
             break;
 
         case QSFP_FSM_ST_UPDATE:
@@ -1969,7 +1796,7 @@ void qsfp_fsm_ch_disable (bf_dev_id_t dev_id,
 /*****************************************************************
  * enable both TX and RX CDRs - only use for sff-8636 modules
  *****************************************************************/
-int qsfp_fsm_ch_enable_cdr (
+static int qsfp_fsm_ch_enable_cdr (
     bf_dev_id_t dev_id, int conn_id, int ch)
 {
     int rc;
@@ -1986,7 +1813,7 @@ int qsfp_fsm_ch_enable_cdr (
 /*****************************************************************
  * disable both TX and RX CDRs - only use for sff-8636 modules
  *****************************************************************/
-int qsfp_fsm_ch_disable_cdr (
+static int qsfp_fsm_ch_disable_cdr (
     bf_dev_id_t dev_id, int conn_id, int ch)
 {
     int rc;
@@ -2000,6 +1827,22 @@ int qsfp_fsm_ch_disable_cdr (
     return rc;  // non-0 means "try later"
 }
 
+/*****************************************************************
+ * disable RX CDRs - only use for sff-8636 modules
+ *****************************************************************/
+static int qsfp_fsm_ch_disable_rx_cdr (
+    bf_dev_id_t dev_id, int conn_id, int ch)
+{
+    int rc;
+    rc = qsfp_fsm_coalesce_wr (dev_id,
+                               conn_id,
+                               300 /*300ms*/,
+                               0 /*pg=0*/,
+                               98 /*98 (0x62)*/,
+                               (0x01 << ch),
+                               (0x00 << ch));
+    return rc;  // non-0 means "try later"
+}
 
 /*****************************************************************
  * This routine is only used in Tofino 1 implementations
@@ -2242,6 +2085,37 @@ char *qsfp_channel_fsm_st_get (int conn_id,
     return qsfp_fsm_ch_en_st_to_str[qsfp_state[conn_id].per_ch_fsm[ch].fsm_st];
 }
 
+static inline int qsfp_fsm_is_cdr_required (bf_dev_id_t
+                                  dev_id, int conn_id, int ch, bool *rx_cdr_required, bool *tx_cdr_required)
+{
+    dev_cfg_per_channel_t *dev_cfg;
+
+    /* by default, cdr is required. */
+    *rx_cdr_required = true;
+    *tx_cdr_required = true;
+
+    /* https://vitextech.com/cdr-control-in-transceivers/ */
+    dev_cfg = &qsfp_state[conn_id].dev_cfg[ch];
+
+    /* Breakout cable. Disable CDR if one of channel in 10G mode.*/
+    if (((dev_cfg->host_intf_nlanes == 1) &&
+        (dev_cfg->intf_speed == BF_SPEED_10G)) ||
+        /* Disable CDR if a QSFP28/QSFP+ performs 40G. */
+        ((dev_cfg->host_intf_nlanes == 4) &&
+        (dev_cfg->intf_speed == BF_SPEED_40G))) {
+        *rx_cdr_required = false;
+        *tx_cdr_required = false;
+    }
+
+    /* See /etc/transceiver-cases.conf for more details.
+     * by tsihang, 2023-12-13. */
+    if (bf_qsfp_is_force_overwrite (conn_id)) {
+        /* Overwrite by ucli. */
+        bf_qsfp_is_cdr_required(conn_id, rx_cdr_required, tx_cdr_required);
+    }
+
+    return 0;
+}
 /*****************************************************************
  *
  *****************************************************************/
@@ -2253,7 +2127,7 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
     qsfp_fsm_ch_en_state_t next_st =
         st;  // default to no transition
     int wr_coalesce_err, delay_ms = 0;
-    bool ok, discard_latched;
+    bool ok, discard_latched, rx_cdr_required = true, tx_cdr_required = true;
     uint8_t los_fault_val, lol_fault_val, fault_val;
 
     switch (st) {
@@ -2265,18 +2139,32 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
             qsfp_fsm_ch_notify_not_ready (dev_id, conn_id,
                                           ch);
             delay_ms = 300;  // ms
-#if defined (DEFAULT_LASER_ON)
-            next_st = QSFP_FSM_EN_ST_NOTIFY_ENABLED;
-#else
             next_st = QSFP_FSM_EN_ST_ENA_CDR;
-#endif
             break;
         case QSFP_FSM_EN_ST_ENA_CDR:
-            wr_coalesce_err = qsfp_fsm_ch_enable_cdr (dev_id, conn_id, ch);
+            qsfp_fsm_is_cdr_required (dev_id, conn_id, ch, &rx_cdr_required, &tx_cdr_required);
+            if (rx_cdr_required && tx_cdr_required) {
+                wr_coalesce_err = qsfp_fsm_ch_enable_cdr (dev_id, conn_id, ch);
+            } else if (!rx_cdr_required && !tx_cdr_required) {
+                wr_coalesce_err = qsfp_fsm_ch_disable_cdr (dev_id, conn_id, ch);
+            } else if (!rx_cdr_required) {
+                wr_coalesce_err = qsfp_fsm_ch_disable_rx_cdr (dev_id, conn_id, ch);
+            } else {
+                wr_coalesce_err = 0;
+            }
             if (wr_coalesce_err == 0) {
                 next_st = QSFP_FSM_EN_ST_ENA_OPTICAL_TX;
+#if defined (DEFAULT_LASER_ON)
+                next_st = QSFP_FSM_EN_ST_NOTIFY_ENABLED;
+#endif
                 delay_ms = 300;  // ms
             }
+            LOG_DEBUG ("QSFP    %2d : ch[%d] : RX_CDR_CONTROL %s TX_CDR_CONTROL %s <rc=%02x>. ",
+                       conn_id,
+                       ch,
+                       rx_cdr_required ? "enabled" : "disabled",
+                       tx_cdr_required ? "enabled" : "disabled",
+                       wr_coalesce_err);
             break;
         case QSFP_FSM_EN_ST_ENA_OPTICAL_TX:
             qsfp_fsm_ch_check_tx_cdr_lol (dev_id,

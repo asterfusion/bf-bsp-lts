@@ -34,13 +34,20 @@ extern "C" {
 //#define DEFAULT_LASER_ON
 
 /* Control word, added by tsihang for /etc/transceiver-cases.conf, 2023/05/05. */
-#define BF_TRANS_CTRLMASK_CDR_OFF            (1 << 0) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
-#define BF_TRANS_CTRLMASK_LASER_OFF          (1 << 1) /* Laser keeps off till user enable it. */
-#define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT  (1 << 7)
+#define BF_TRANS_CTRLMASK_RX_CDR_OFF        (1 << 0)
+#define BF_TRANS_CTRLMASK_TX_CDR_OFF        (1 << 1)
+#define BF_TRANS_CTRLMASK_CDR_OFF           (BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
+#define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 1) /* Laser keeps off till user enable it. */
+#define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)
 
-/* State added by tsihang, 2023/08/31. */
+/* State added by tsihang, 2023/08/31.
+ * To be clarified, the belowing runtime state will not be updated
+ * if forcely configured via writing through its register by i2c. */
 #define BF_TRANS_STATE_CDR_ON                (1 << 0)
 #define BF_TRANS_STATE_LASER_ON              (1 << 1)
+#define BF_TRANS_STATE_DETECTED              (1 << 2)
+#define BF_TRANS_STATE_SOFT_REMOVED          (1 << 3)
+#define BF_TRANS_STATE_RESET                 (1 << 4)
 
 #define QSFP_RXLOS_DEBOUNCE_DFLT \
   0  // Can modify depending on if debouncing is required. This value can be set
@@ -435,9 +442,7 @@ ucli_node_t *bf_qsfp_ucli_node_create (
 int bf_qsfp_type_get (int port,
                       bf_pltfm_qsfp_type_t *qsfp_type);
 bool bf_qsfp_is_cable_assy (int port);
-bool bf_qsfp_is_cdr_required (int port);
-int bf_qsfp_cdr_required (int port,
-                    bool req);
+int bf_qsfp_is_cdr_required (int port, bool *rx_cdr_required, bool *tx_cdr_required);
 
 bool bf_qsfp_is_lol_required (int port);
 
@@ -557,7 +562,7 @@ int bf_qsfp_ctrlmask_set (int port,
                 uint32_t ctrlmask);
 int bf_qsfp_ctrlmask_get (int port,
                 uint32_t *ctrlmask);
-bool bf_qsfp_is_cdr_overwrite_required (int port);
+bool bf_qsfp_is_force_overwrite (int port);
 
 void bf_pltfm_qsfp_load_conf ();
 int bf_qsfp_tc_entry_add (char *vendor, char *pn, char *option,
