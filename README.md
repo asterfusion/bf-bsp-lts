@@ -10,7 +10,7 @@ Table of Contents
 
 Mainline  **ALL-in-ONE** repository for all Intel Tofino based **X-T Programmable Bare Metal Switch** powered by Asterfusion with Long Term Support.
 
-Disclaimer: The SDE for the Intel Tofino series of P4-programmable ASICs is currently only available under NDA from Intel. The users of this repository are assumed to be authorized to download and use the SDE.
+Disclaimer: The SDE for the Intel Tofino series of P4-programmable ASICs is currently only available under NDA from Intel. The users of this repository are assumed to be authorized to download and use the SDE. And also, we assume the users have build SDE successfully before working with this repository.
 
 Current supported **X-T Programmable Bare Metal Switch**:
   - `X732Q-T`,  32x 400GbE QSFP56-DD, and auxiliary 2x 25GbE SFP28 which support 1GbE.
@@ -81,43 +81,45 @@ root@localhost:~# git clone https://github.com/asterfusion/bf-bsp-lts.git
 root@localhost:~# cd bf-bsp-lts
 ```
 
-Optional Changes
-
-*Do minor changes to fit your SDE if necessary.*
+Optional Changes to fit your SDE
 ```
 root@localhost:~/bf-bsp-lts# vi drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
 Modify SDE_VERSION  to value '990','9110','9120'or '9130' ...
 root@localhost:~/bf-bsp-lts# vi ./configure.ac
-Comment line 143 as since thrift is 0.14.1 there's no `_init` funciton.
+Comment line 143 as there's no `_init` funciton since thrift 0.14.1.
 ```
 
-Build and Install
-```
-root@localhost:~/bf-bsp-lts# rm -rf $SDE_INSTALL/include/bf_bd_cfg/ $SDE_INSTALL/include/bf_pltfm*
-root@localhost:~/bf-bsp-lts# ./autogen.sh
-root@localhost:~/bf-bsp-lts# ./configure --prefix=$SDE_INSTALL --enable-thrift
-root@localhost:~/bf-bsp-lts# make -j7
-root@localhost:~/bf-bsp-lts# make install
-```
-
-Finally, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
-
-To be highlighted, during the evolution of SDE, the installation paths of the third party dependencies have changed, so did the generated dependencies name. Thus a minor changes in bsp sources must be done to accommodate those changes. For SDE version equal with  or higher than `9.9.x`, the changes as following:
+To be highlighted, during the evolution of SDE, the installation paths of the third party dependencies have been changed, so did the generated dependencies. Thus a minor changes in bsp sources must be done to accommodate those changes. For SDE version equal with  or higher than `9.9.x`, the changes as following:
 ```
 root@localhost:~# mkdir /usr/local/include
 root@localhost:~# ln -s $SDE_INSTALL/include/thrift/ /usr/local/include/thrift
 root@localhost:~# ln -s $SDE_INSTALL/lib/libtarget_sys.so $SDE_INSTALL/lib/libbfsys.so
 ```
+*Since higher SDE, libbfsys.so is renamed to libtarget_sys.so, libbfutils.so is renamed to libtarget_utils.so. Current repository comes from a very begining reference bsp so it still requires libbfsys.so (libutils.so) as its dependencies.*
+
+Build and Install
+```
+root@localhost:~/bf-bsp-lts# rm -rf $SDE_INSTALL/include/bf_led/ $SDE_INSTALL/include/bf_qsfp/ $SDE_INSTALL/include/bf_port_mgmt/ $SDE_INSTALL/include/bf_bd_cfg/ $SDE_INSTALL/include/bf_pltfm*
+root@localhost:~/bf-bsp-lts# ./autogen.sh
+root@localhost:~/bf-bsp-lts# ./configure --prefix=$SDE_INSTALL --enable-thrift
+root@localhost:~/bf-bsp-lts# make -j7 install
+```
+
+Finally, the `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all the header files exposed by bsp will be installed to `$SDE_INSTALL/include`.
 
 Generate Configuration Variables
 ```
 root@localhost:~# xt-cfgen.sh
+Notice: Start detecting and make sure that the switchd is not running
+Loading bf_kdrv ...
+...
 It looks like x532p-t detected.
 ...
 Generate /etc/platform.conf
 Done
 ...
 ```
+*xt-cfgen.sh will do 2 things: 1) Load all required kernel drivers, including bf_kdrv and i2c_kdrv; 2) Generate /etc/platform.conf which required by bsp. If /etc/platform.conf already existed, xt-cfgen.sh will skip generate it but only load required kernel drivers. It is recommended to run xt-cfgen.sh at least once after every boot.*
 
 Launch ASIC
 ```

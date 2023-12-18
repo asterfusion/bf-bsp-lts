@@ -1151,8 +1151,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                     break;
                 }
             } else if (retry >= 2) {
-                LOG_ERROR("Read psu sn error\n");
-                return BF_PLTFM_COMM_FAILED;
+                LOG_WARNING("Read psu sn error\n");
             }
         }
 
@@ -1176,8 +1175,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 }
                 break;
             } else if (retry >= 2) {
-                LOG_ERROR("Read psu model error\n");
-                return BF_PLTFM_COMM_FAILED;
+                LOG_WARNING("Read psu model error\n");
             }
         }
 
@@ -1208,8 +1206,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 info->fvalid |= PSU_INFO_VALID_REV;
                 break;
             } else if (retry >= 2) {
-                LOG_ERROR("Read psu rev error\n");
-                return BF_PLTFM_COMM_FAILED;
+                LOG_WARNING("Read psu rev error\n");
             }
         }
 

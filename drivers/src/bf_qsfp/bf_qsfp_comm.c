@@ -6738,26 +6738,12 @@ int bf_qsfp_get_tx_cdr_lol_support (int port,
     return 0;
 }
 
-bool bf_qsfp_is_cdr_required (int port) {
+int bf_qsfp_is_cdr_required (int port, bool *rx_cdr_required, bool *tx_cdr_required) {
     if (port > bf_plt_max_qsfp) {
-        return true;
+        return 0;
     }
-    return !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_CDR_OFF);
-}
-
-/*
- * Force set the indicator for a qsfp to enable/disable CDR during FSM.
- */
-int bf_qsfp_cdr_required (int port,
-                   bool req) {
-    if (port > bf_plt_max_qsfp) {
-        return -1;
-    }
-    if (req) {
-        bf_qsfp_info_arr[port].special_case_port.ctrlmask &= ~BF_TRANS_CTRLMASK_CDR_OFF;
-    } else {
-        bf_qsfp_info_arr[port].special_case_port.ctrlmask |= BF_TRANS_CTRLMASK_CDR_OFF;
-    }
+    *rx_cdr_required = !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_RX_CDR_OFF);
+    *tx_cdr_required = !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_TX_CDR_OFF);
     return 0;
 }
 
@@ -6781,6 +6767,14 @@ int bf_qsfp_ctrlmask_get (int port,
     *ctrlmask = bf_qsfp_info_arr[port].special_case_port.ctrlmask;
 
     return 0;
+}
+
+bool bf_qsfp_is_force_overwrite (int port)
+{
+    if (port > bf_plt_max_qsfp) {
+        return true;
+    }
+    return (bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT);
 }
 
 bool bf_qsfp_is_detected (int port)
@@ -6862,14 +6856,6 @@ static bf_qsfp_special_info_t bf_pltfm_special_transceiver_case[BF_PLAT_MAX_QSFP
         0x00000000,
     },
 };
-
-bool bf_qsfp_is_cdr_overwrite_required (int port)
-{
-    if (port > bf_plt_max_qsfp) {
-        return true;
-    }
-    return (bf_pltfm_special_transceiver_case[port].ctrlmask & BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT);
-}
 
 static inline int
 bf_qsfp_tc_entry_cmp (bf_qsfp_special_info_t *tc_entry,
@@ -6985,8 +6971,9 @@ void bf_pltfm_qsfp_load_conf ()
     int length;
 
     char *desc = "#The CTRLMASK defined in $SDE_INSTALL/include/bf_qsfp/bf_qsfp.h as below:\n" \
-        "#  #define BF_TRANS_CTRLMASK_CDR_OFF           (1 << 0)\n"   \
-        "#  #define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 1)\n"   \
+        "#  #define BF_TRANS_CTRLMASK_RX_CDR_OFF        (1 << 0)\n"   \
+        "#  #define BF_TRANS_CTRLMASK_TX_CDR_OFF        (1 << 1)\n"   \
+        "#  #define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 2)\n"   \
         "#  #define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)\n";
 
     int i;
@@ -7020,27 +7007,35 @@ void bf_pltfm_qsfp_load_conf ()
         fwrite (desc, 1, strlen (desc), fp);
         length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#VENDOR", "#PN", "#CTRLMASK");
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Teraspek", "TSQ885S101T1", "1=HEX(BF_TRANS_CTRLMASK_CDR_OFF)");
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#WTD", "RTXM420-010", "01=HEX(BF_TRANS_CTRLMASK_RX_CDR_OFF)");
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Teraspek", "TSQ885S101E1", "3=HEX(BF_TRANS_CTRLMASK_CDR_OFF|BF_TRANS_CTRLMASK_LASER_OFF)");
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Asterfusion", "TSQ885S101T1", "07=HEX(BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF|BF_TRANS_CTRLMASK_LASER_OFF)");
+        fwrite (entry, 1, length, fp);
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Asterfusion", "TSQ813L103H1", "81=HEX(BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT)");
+        fwrite (entry, 1, length, fp);
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Asterfusion", "TSQ885S101E1", "83=HEX(BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF|BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT)");
         fwrite (entry, 1, length, fp);
 
         /* Write real ones. */
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "WTD", "RTXM420-010", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "WTD", "RTXM420-010", 3);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSQ885S101T1", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSQ885S101T1", 3);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Asterfusion", "TSQ885S101T1", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Asterfusion", "TSQ885S101T1", 3);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSQ885S101E1", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Asterfusion", "TSQ813L103H1", 0x81);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSO885S030E1", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSQ885S101E1", 3);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FTLC1157RGPL-TF", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSO885S030E1", 3);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FCBN425QB2C07", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FTLC1157RGPL-TF", 3);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FCBN425QB2C05", 1);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FTLC1154RGPL", 3);
+        fwrite (entry, 1, length, fp);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FCBN425QB2C07", 3);
+        fwrite (entry, 1, length, fp);
+        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FCBN425QB2C05", 3);
         fwrite (entry, 1, length, fp);
 
         fflush(fp);

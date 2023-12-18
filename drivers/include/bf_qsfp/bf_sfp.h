@@ -114,6 +114,7 @@ bool bf_sfp_get_reset (int port);
 int bf_sfp_reset (int port, bool reset);
 
 int bf_sfp_tx_disable (int port, bool tx_dis);
+bool bf_sfp_tx_is_disabled (int port);
 
 int bf_sfp_get_conn (int port, uint32_t *conn,
                      uint32_t *chnl);

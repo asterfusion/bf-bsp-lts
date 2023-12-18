@@ -198,8 +198,28 @@ fi
 # What should we do if an unrecognized platform detected ?
 echo -e "Platform : $xt_platform"
 
-# We have got the platform. Then try to get CME type by uart.
-if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ]; then
+# We have got the platform. then try to get CME type by dmidecode.
+xt_cme=`dmidecode -t1 | grep "Product Name"`
+if [[ $xt_cme =~ "conga-B7XD" ]]; then
+    xt_cme=`lscpu | grep "Model name"`
+    default_cme='CG1508'
+    if [[ $xt_cme =~ "1527" ]]; then
+        default_cme='CG1527'
+    fi
+fi
+if [[ $xt_cme =~ "SOM-5992" ]]; then
+    xt_cme=`lscpu | grep "Model name"`
+    default_cme='ADV1508'
+    if [[ $xt_cme =~ "1527" ]]; then
+        default_cme='ADV1527'
+    fi
+    if [[ $xt_cme =~ "1548" ]]; then
+        default_cme='ADV1548'
+    fi
+fi
+
+# If can not get CME type by dmidecode, then try to get CME type by uart.
+if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ] && [ "$default_cme"X == "CME3000"X ] ; then
     # Read eeprom offset of 0x32.
     xt_cme=$($uart_util /dev/ttyS1 0x1 0x32 0xaa)
     if [[ $xt_cme =~ "CGT" ]]; then
