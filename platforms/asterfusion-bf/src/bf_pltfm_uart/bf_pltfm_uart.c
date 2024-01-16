@@ -380,6 +380,7 @@ no_return_cmd (unsigned char cmd)
 {
     /*
      * Skip setting.
+     * 3  = Turn on/off location LED.
      * 7  = FAN RPM setting.
      * 9  = Reboot BMC.
      * 10 = Payload shutdown or reboot.
@@ -388,9 +389,9 @@ no_return_cmd (unsigned char cmd)
      * 16 = cp2112 hard reset.
      * 33 = redirect console.
      */
-    if ((cmd == 7) || (cmd == 9) || (cmd == 10) ||
-        (cmd == 12) || (cmd == 15) || (cmd == 16) ||
-        (cmd == 33)) {
+    if ((cmd == 3)  || (cmd == 7)  || (cmd == 9)  ||
+        (cmd == 10) || (cmd == 12) || (cmd == 15) ||
+        (cmd == 16) || (cmd == 33)) {
         return true;
     }
 
@@ -592,7 +593,7 @@ int bf_pltfm_bmc_uart_ymodem_send_file (char *filename)
     }
 
     /* Sent key word "YMODEMUPDATE" to BMC */
-    write (ctx->fd, "YMODEMUPDATE", 12);
+    int x = write (ctx->fd, "YMODEMUPDATE", 12); x = x;
     usleep (5000);
     if(ymodem_wait_ack(ctx->fd) != CODE_C) {
         rc = 0;

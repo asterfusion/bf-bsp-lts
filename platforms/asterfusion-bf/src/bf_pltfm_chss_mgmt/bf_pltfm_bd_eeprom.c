@@ -880,7 +880,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             /* First boot error, no chance to rescure, exit forcely. */
             exit (0);
         } else {
-            char tlv_str[128];
+            char tlv_str[lqe_valen + 1];
             char tlv_header[128];
             char *p;
             while (fgets (tlv_str, lqe_valen, fp)) {
