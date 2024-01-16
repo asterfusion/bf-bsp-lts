@@ -31,7 +31,7 @@
 /* Mainline SDE version used by bsp, set 9.5.0 as default.
  * Valid value in [891,900,910,930,950,970,990,9110,9120,9130 ...].
  * A sub version start from a given mainline is valid too, such as 931,952,971, etc. */
-#define SDE_VERSION 950
+#define SDE_VERSION 9130
 #define SDE_VERSION_EQ(key) \
         EQ(SDE_VERSION, (key))
 

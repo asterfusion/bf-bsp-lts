@@ -562,15 +562,13 @@ int bf_pltfm_port_led_set (int chip_id,
         case BF_LED_PRE_PORT_EN:
             if (platform_type_equal(X532P) ||
                 platform_type_equal(X564P)) {
-                led_col = BF_MAV_PORT_LED_RED |
-                          BF_MAV_PORT_LED_GREEN;
+                led_col = BF_MAV_PORT_LED_OFF;
             }
             break;
         case BF_LED_PORT_LINK_DOWN:
             if (platform_type_equal(X532P) ||
                 platform_type_equal(X564P)) {
-                led_col = BF_MAV_PORT_LED_RED |
-                          BF_MAV_PORT_LED_GREEN;
+                led_col = BF_MAV_PORT_LED_OFF;
             }
             break;
         case BF_LED_PORT_LINK_UP:
@@ -591,20 +589,16 @@ int bf_pltfm_port_led_set (int chip_id,
             led_col = BF_MAV_PORT_LED_GREEN;
             break;
         case BF_LED_PORT_LINKUP_25G:
-            led_col = BF_MAV_PORT_LED_GREEN |
-                      BF_MAV_PORT_LED_BLUE;
+            led_col = BF_MAV_PORT_LED_GREEN;
             break;
         case BF_LED_PORT_LINKUP_40G:
-            led_col = BF_MAV_PORT_LED_BLUE;
+            led_col = BF_MAV_PORT_LED_GREEN;
             break;
         case BF_LED_PORT_LINKUP_50G:
-            led_col = BF_MAV_PORT_LED_BLUE |
-                      BF_MAV_PORT_LED_RED;
+            led_col = BF_MAV_PORT_LED_GREEN;
             break;
         case BF_LED_PORT_LINKUP_100G:
-            led_col = BF_MAV_PORT_LED_BLUE |
-                      BF_MAV_PORT_LED_RED |
-                      BF_MAV_PORT_LED_GREEN;
+            led_col = BF_MAV_PORT_LED_GREEN;
             break;
 
         case BF_LED_POST_PORT_DEL:
