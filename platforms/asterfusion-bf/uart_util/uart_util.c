@@ -27,7 +27,7 @@ int bf_pltfm_bmc_uart_util_write_read (
 static void help(char *progname)
 {
     fprintf (stdout, "Usage:  \n");
-    fprintf (stdout, 
+    fprintf (stdout,
         "%s </dev/ttySX> <BMC CMD>\n"
         "Eg: uart_util /dev/ttyS1 0xd 0xaa 0xaa\n"
         "    uart_util /dev/ttyS1 bmc-ota /root/X308P-T-V1-BMC-V3.1R01.rbl\n",
@@ -124,7 +124,7 @@ int main (int argc, char **argv)
             char c = 'N';
 
             fprintf (stdout, "\nAre you sure you want to upgrade BMC firmware? Y/N: ");
-            scanf("%c", &c);
+            int x = scanf("%c", &c); x = x;
             if ((c != 'Y') && (c != 'y')) {
                 fprintf (stdout, "Abort\n");
             } else {

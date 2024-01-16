@@ -26,6 +26,7 @@
 #include <bf_pltfm.h>
 #include <bf_pltfm_sfp.h>
 #include <bf_pltfm_syscpld.h>
+#include <bf_pltfm_uart.h>
 
 #include <pltfm_types.h>
 
@@ -721,6 +722,76 @@ void *led_traffic_func (void *arg)
 }
 #endif  /* end of HAVE_TRAFFIC_LED */
 
+static inline bool bf_pltfm_has_loc_led ()
+{
+    bool has_loc_led = true;
+
+    if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
+        has_loc_led = false;
+    } else if (platform_type_equal (X532P) &&
+              (platform_subtype_equal (v1dot0) ||
+               platform_subtype_equal (v1dot1))) {
+        has_loc_led = false;
+    } else if (platform_type_equal (X564P) &&
+              (platform_subtype_equal (v1dot1) ||
+               platform_subtype_equal (v1dot2))) {
+        has_loc_led = false;
+    }
+    return has_loc_led;
+}
+
+/* Initialized by BMC and OFF by default.
+ * Return Value:
+ *         0: Success
+ *  Negative: Failed
+ *    0xdead: no location LED.
+ */
+int bf_pltfm_location_led_set (int on_off)
+{
+    uint8_t buf[2] = {0x00, 0xaa};
+
+    if (!bf_pltfm_has_loc_led()) {
+        return 0xdead;
+    } else {
+        buf[0] = (on_off == 1) ? 1 : 0;
+        return bf_pltfm_bmc_uart_write_read (0x03, buf, 2, NULL, 0, BMC_COMM_INTERVAL_US);
+    }
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__loc_led__ (ucli_context_t
+                               *uc)
+{
+    bool loc_led_on = false;
+//    uint8_t buf[2] = {0x00, 0xaa};
+
+    /* Keep the name consistent with the document X-T Programmable Bare Metal. */
+    UCLI_COMMAND_INFO (uc, "loc-led", 1, "loc-led <on/off>");
+
+    if (memcmp (uc->pargs->args[0], "on", 2) == 0) {
+        loc_led_on = true;
+    } else if (memcmp (uc->pargs->args[0], "off", 3) == 0){
+        loc_led_on = false;
+    } else {
+        aim_printf (&uc->pvs, "Usage: loc-led <on/off>\n");
+        return 0;
+    }
+
+    if (!bf_pltfm_has_loc_led()) {
+        aim_printf (&uc->pvs, "No location LED on this device.\n");
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "Location LED: %s\n",
+        loc_led_on ? "ON" : "OFF" );
+    LOG_WARNING ("Location LED: %s\n",
+        loc_led_on ? "ON" : "OFF" );
+
+    bf_pltfm_location_led_set(loc_led_on ? 1 : 0);
+
+    return 0;
+}
+
 static ucli_status_t
 bf_pltfm_ucli_ucli__led_cpld_rd_tofino_
 (ucli_context_t *uc)
@@ -1064,6 +1135,7 @@ bf_pltfm_led_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__led_cpld_rd_tofino_,
     bf_pltfm_ucli_ucli__led_cpld_wr_tofino_,
     bf_pltfm_ucli_ucli__led_loop_tofino_,
+    bf_pltfm_ucli_ucli__loc_led__,
 #if defined(HAVE_ASYNC_LED)
     bf_pltfm_ucli_ucli__led_async_debug_,
 #endif

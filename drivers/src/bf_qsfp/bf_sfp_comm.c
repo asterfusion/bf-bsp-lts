@@ -844,6 +844,30 @@ bool bf_sfp_get_chan_rx_pwr (int port,
     return true;
 }
 
+bool bf_sfp_update_optional_status (int port)
+{
+    uint8_t offset = 110;
+    int rc;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    /* A2h, what should we do if there's no A2h ? */
+    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+        return -1;
+    }
+
+    rc = bf_pltfm_sfp_read_module (port,
+                             MAX_SFP_PAGE_SIZE + offset, 1,
+                             &bf_sfp_info_arr[port].a2h[offset]);
+    if (rc) {
+        return 0;
+    }
+
+    return true;
+}
+
 /** detect sfp module by accessing its memory and update cached information
  * accordingly
  *

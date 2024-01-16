@@ -1803,7 +1803,7 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
         aim_printf (&uc->pvs, "\nThere could be port link risk when upgrade BMC online.\n");
         aim_printf (
                 &uc->pvs,"Enter Y/N: ");
-        scanf("%c", &c);
+        int x = scanf("%c", &c); x = x;
         aim_printf (
                 &uc->pvs,"%c\n", c);
         if ((c != 'Y') && (c != 'y')) {
@@ -2040,7 +2040,7 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
     char c = 0;
     aim_printf (
             &uc->pvs,"Enter Y/N: ");
-    scanf("%c", &c);
+    int x = scanf("%c", &c); x = x;
     aim_printf (
             &uc->pvs,"%c\n", c);
     if (reset_tof) c = 'N'; /* Force abort when perform tof reset. */

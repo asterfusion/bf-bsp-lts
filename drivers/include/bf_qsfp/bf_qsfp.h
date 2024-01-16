@@ -37,7 +37,7 @@ extern "C" {
 #define BF_TRANS_CTRLMASK_RX_CDR_OFF        (1 << 0)
 #define BF_TRANS_CTRLMASK_TX_CDR_OFF        (1 << 1)
 #define BF_TRANS_CTRLMASK_CDR_OFF           (BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
-#define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 1) /* Laser keeps off till user enable it. */
+#define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 2) /* Laser keeps off till user enable it. */
 #define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)
 
 /* State added by tsihang, 2023/08/31.
