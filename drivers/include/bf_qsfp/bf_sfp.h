@@ -97,6 +97,7 @@ bool bf_sfp_get_chan_volt (int port,
                             sfp_global_sensor_t *chn);
 bool bf_sfp_get_chan_temp (int port,
                             sfp_global_sensor_t *chn);
+bool bf_sfp_update_optional_status (int port);
 
 int bf_sfp_update_cache (int port);
 int bf_sfp_get_cached_info (int port, int page,

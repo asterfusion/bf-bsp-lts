@@ -503,6 +503,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
             bf_sfp_get_chan_rx_pwr(module, &chnl);
             bf_sfp_get_chan_temp(module, &trans);
             bf_sfp_get_chan_volt(module, &trans);
+            bf_sfp_update_optional_status(module);
             if (flags & AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG) {
                 bf_sfp_print_ddm(module, &trans, &chnl);
 #if 0
