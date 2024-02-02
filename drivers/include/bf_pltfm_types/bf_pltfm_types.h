@@ -54,9 +54,17 @@
 
 #if SDE_VERSION_LT(930)
 #define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((dev), (phdl), (dp));
+#define bfn_pp_rx_set(devid,phdl,ln,policy)
+#define bfn_pp_tx_set(devid,phdl,ln,policy)
 #else
 #define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((phdl), &(dev), (dp));
+#define bfn_pp_rx_set(devid,phdl,ln,policy) \
+    bf_pm_port_precoding_rx_set((devid),(phdl),(ln),(policy))
+#define bfn_pp_tx_set(devid,phdl,ln,policy) \
+    bf_pm_port_precoding_tx_set((devid),(phdl),(ln),(policy))
 #endif
+
+#define bfn_fp2_dp FP2DP
 
 #define sub_devid 0
 #if SDE_VERSION_LT(980)
@@ -78,7 +86,7 @@
 #define bfn_spi_eeprom_wr(devid,sub_devid,addr,buf,buf_size) \
     bf_spi_eeprom_wr((devid),(addr),(buf),(buf_size))
 #define bfn_spi_eeprom_rd(devid,sub_devid,addr,buf,buf_size) \
-        bf_spi_eeprom_rd((devid),(addr),(buf),(buf_size))
+    bf_spi_eeprom_rd((devid),(addr),(buf),(buf_size))
 #else
 #define bfn_io_set_mode_i2c(devid,sub_devid,pin) bf_io_set_mode_i2c((devid),(sub_devid),(pin))
 #define bfn_i2c_set_clk(devid,sub_devid,pin,clk) bf_i2c_set_clk((devid),(sub_devid),(pin),(clk))
@@ -98,8 +106,7 @@
 #define bfn_spi_eeprom_wr(devid,sub_devid,addr,buf,buf_size) \
         bf_spi_eeprom_wr((devid),(sub_devid),(addr),(buf),(buf_size))
 #define bfn_spi_eeprom_rd(devid,sub_devid,addr,buf,buf_size) \
-            bf_spi_eeprom_rd((devid),(sub_devid),(addr),(buf),(buf_size))
-
+        bf_spi_eeprom_rd((devid),(sub_devid),(addr),(buf),(buf_size))
 #endif
 
 
@@ -119,6 +126,7 @@
 #include <target-utils/uCli/ucli_argparse.h>
 #include <target-utils/uCli/ucli_handler_macros.h>
 #include <target-utils/map/map.h>
+#include <target-utils/third-party/cJSON/cJSON.h>
 #endif
 #include <target-sys/bf_sal/bf_sys_intf.h>
 #include <target-sys/bf_sal/bf_sys_timer.h>
@@ -151,76 +159,129 @@ extern "C" {
 
 typedef enum  {
     INVALID_TYPE = 0xFF,
+    /*****************************************************/
+    /************* Will be removed later. ****************/
+    /*****************************************************/
     X564P = 1,
     X532P,
     X308P,
     X312P,
-    HC
+    HC,
+    X732Q,
+
+    /*****************************************************
+     * Product Name powered by Asterfusion Networks.
+     *****************************************************/
+    AFN_X732QT = X732Q,
+    AFN_X564PT = X564P,
+    AFN_X532PT = X532P,
+    AFN_X308PT = X308P,
+    AFN_X312PT = X312P,
+    AFN_HC36Y24C = HC,
 } bf_pltfm_type;
 
 #define mkver(a,b) (((a) & 0x0F) << 4 | ((b) & 0x0F))
 typedef enum {
     INVALID_SUBTYPE = 0xFF,
+
+    /*****************************************************/
+    /************* Will be removed later. ****************/
+    /*****************************************************/
     v1dot0 = mkver (1, 0), v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14,
     v2dot0 = 0x20, v2dot1 = 0x21, v2dot2 = 0x22, v2dot3 = 0x23, v2dot4 = 0x24,
     v3dot0 = 0x30, v3dot1 = 0x31, v3dot2 = 0x32, v3dot3 = 0x33, v3dot4 = 0x34,
     v4dot0 = 0x40,
     v5dot0 = 0x50,
+
+    /*****************************************************
+     * Subversion for BD.
+     *****************************************************/
+    V1P0 = mkver (1, 0),
+    V1P1 = mkver (1, 1),
+    V1P2 = mkver (1, 2),
+    V1P3 = mkver (1, 3),
+    V1P4 = mkver (1, 4),
+    V2P0 = mkver (2, 0),
+    V2P1 = mkver (2, 1),
+    V2P2 = mkver (2, 2),
+    V2P3 = mkver (2, 3),
+    V2P4 = mkver (2, 4),
+    V3P0 = mkver (3, 0),
+    V3P1 = mkver (3, 1),
+    V3P2 = mkver (3, 2),
+    V3P3 = mkver (3, 3),
+    V3P4 = mkver (3, 4),
+    V4P0 = mkver (4, 0),
+    V5P0 = mkver (5, 0),
+    V5P1 = mkver (5, 1),
+    V6P0 = mkver (6, 0),
+    V6P1 = mkver (6, 1),
 } bf_pltfm_subtype;
 
 /*
  * Identifies the type of the board
  */
 typedef enum bf_pltfm_board_id_e {
-    /* legacy */
-    BF_PLTFM_BD_ID_MAVERICKS_P0A = 0x0234,
-    /* legacy */
-    BF_PLTFM_BD_ID_MAVERICKS_P0B = 0x1234,
-    /* legacy */
-    BF_PLTFM_BD_ID_MAVERICKS_P0C = 0x5234,
-    /* legacy */
-    BF_PLTFM_BD_ID_MONTARA_P0A = 0x2234,
-    /* legacy */
-    BF_PLTFM_BD_ID_MONTARA_P0B = 0x3234,
-    /* legacy */
-    BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU = 0x4234,
-    /* legacy */
-    BF_PLTFM_BD_ID_MONTARA_P0C = 0x6234,
-    /* legacy */
-    BF_PLTFM_BD_ID_NEWPORT_P0A = 0x1134,
-    /* legacy */
-    BF_PLTFM_BD_ID_NEWPORT_P0B = 0x2134,
-
-
-    /* Override bf_pltfm_board_id_e to private board powered by Asterfusion.
-     * by tsihang, 2022-06-20. */
-    /* X564P-T and its subtype. */
+    /*****************************************************/
+    /************* Will be removed later. ****************/
+    /*****************************************************/
     BF_PLTFM_BD_ID_X564PT_V1DOT0 = 0x5640,
     BF_PLTFM_BD_ID_X564PT_V1DOT1 = 0x5641,
     BF_PLTFM_BD_ID_X564PT_V1DOT2 = 0x5642,
     BF_PLTFM_BD_ID_X564PT_V2DOT0 = 0x5643,
-    /* X532P-T and its subtype. */
     BF_PLTFM_BD_ID_X532PT_V1DOT0 = 0x5320,
     BF_PLTFM_BD_ID_X532PT_V1DOT1 = 0x5321,
     BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5322,
     BF_PLTFM_BD_ID_X532PT_V3DOT0 = 0x5323,
-    /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     BF_PLTFM_BD_ID_X308PT_V1DOT1 = 0x3081,
     BF_PLTFM_BD_ID_X308PT_V2DOT0 = BF_PLTFM_BD_ID_X308PT_V1DOT1, /* Announced as HW V2 to customer. */
     BF_PLTFM_BD_ID_X308PT_V3DOT0 = 0x3083,  /* Announced as HW v3.0 with PTP hwcomp. */
-    /* X312P-T and its subtype. */
     BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,
-    BF_PLTFM_BD_ID_X312PT_V1DOT1 = 0x3120,
+    BF_PLTFM_BD_ID_X312PT_V1DOT1 = BF_PLTFM_BD_ID_X312PT_V1DOT0,
     BF_PLTFM_BD_ID_X312PT_V1DOT2 = 0x3122,
     BF_PLTFM_BD_ID_X312PT_V1DOT3 = 0x3123,
-    BF_PLTFM_BD_ID_X312PT_V2DOT0 = 0x3122,
-    BF_PLTFM_BD_ID_X312PT_V3DOT0 = 0x3123,
+    BF_PLTFM_BD_ID_X312PT_V2DOT0 = BF_PLTFM_BD_ID_X312PT_V1DOT2,
+    BF_PLTFM_BD_ID_X312PT_V3DOT0 = BF_PLTFM_BD_ID_X312PT_V1DOT3,
     BF_PLTFM_BD_ID_X312PT_V4DOT0 = 0x3124,
     BF_PLTFM_BD_ID_X312PT_V5DOT0 = 0x3125,
-    /* HC36Y24C-T and its subtype. */
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT0 = 0x2400,
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT1 = 0x2401,
+    BF_PLTFM_BD_ID_X732QT_V1DOT0 = 0x7320,  /* Since Dec 2023. */
+
+
+    /*****************************************************
+     * Board ID enum powered by Asterfusion Networks.
+     *****************************************************/
+    /* AFN_X564PT-T and its subtype. */
+    AFN_BD_ID_X564PT_V1P0 = 0x5640,
+    AFN_BD_ID_X564PT_V1P1 = 0x5641,
+    AFN_BD_ID_X564PT_V1P2 = 0x5642,
+    AFN_BD_ID_X564PT_V2P0 = 0x5643,
+    /* AFN_X532PT-T and its subtype. */
+    AFN_BD_ID_X532PT_V1P0 = 0x5320,
+    AFN_BD_ID_X532PT_V1P1 = 0x5321,
+    AFN_BD_ID_X532PT_V2P0 = 0x5322,
+    AFN_BD_ID_X532PT_V3P0 = 0x5323,
+    /* AFN_X308PT-T and its subtype. */
+    AFN_BD_ID_X308PT_V1P0 = 0x3080,
+    AFN_BD_ID_X308PT_V1P1 = 0x3081,
+    AFN_BD_ID_X308PT_V2P0 = AFN_BD_ID_X308PT_V1P1, /* Announced as HW V2 to customer. */
+    AFN_BD_ID_X308PT_V3P0 = 0x3083,  /* Announced as HW v3.0 with PTP hwcomp. */
+    /* AFN_X312PT-T and its subtype. */
+    AFN_BD_ID_X312PT_V1P0 = 0x3120,
+    AFN_BD_ID_X312PT_V1P1 = AFN_BD_ID_X312PT_V1P0,
+    AFN_BD_ID_X312PT_V1P2 = 0x3122,
+    AFN_BD_ID_X312PT_V1P3 = 0x3123,
+    AFN_BD_ID_X312PT_V2P0 = AFN_BD_ID_X312PT_V1P2,
+    AFN_BD_ID_X312PT_V3P0 = AFN_BD_ID_X312PT_V1P3,
+    AFN_BD_ID_X312PT_V4P0 = 0x3124,
+    AFN_BD_ID_X312PT_V5P0 = 0x3125,
+    AFN_BD_ID_X732QT_V1P0 = 0x7320,  /* Since Dec 2023. */
+    /* HC36Y24C-T and its subtype. */
+    AFN_BD_ID_HC36Y24C_V1P0 = 0x2400,
+    AFN_BD_ID_HC36Y24C_V1P1 = 0x2401,
+
 
     BF_PLTFM_BD_ID_UNKNOWN = 0XFFFF
 } bf_pltfm_board_id_t;
@@ -312,12 +373,6 @@ static inline const char *bf_pltfm_err_str (
         return bf_pltfm_err_strings[sts];
     }
 }
-struct bf_pltfm_board_ctx_t {
-    bf_pltfm_board_id_t id;
-    const char *desc;
-    bf_pltfm_type type;
-    bf_pltfm_subtype subtype;
-};
 
 /* State defined in CPLD. */
 struct st_ctx_t {
@@ -371,11 +426,26 @@ typedef struct pltfm_mgr_info_s {
 } pltfm_mgr_info_t;
 
 extern pltfm_mgr_info_t *bf_pltfm_mgr_ctx();
-static inline bool bf_pltfm_equal (uint8_t pltfm)
+static inline bool platform_type_equal (uint8_t type)
 {
-    return (bf_pltfm_mgr_ctx()->pltfm_type == pltfm);
+    return (bf_pltfm_mgr_ctx()->pltfm_type == type);
 }
-
+static inline bool platform_subtype_equal (uint8_t subtype)
+{
+    return (bf_pltfm_mgr_ctx()->pltfm_subtype == subtype);
+}
+static inline bf_pltfm_status_t bf_pltfm_bd_type_set_priv (
+    uint8_t type, uint8_t subtype) {
+    bf_pltfm_mgr_ctx()->pltfm_type = type;
+    bf_pltfm_mgr_ctx()->pltfm_subtype = subtype;
+    return BF_PLTFM_SUCCESS;
+}
+static inline bf_pltfm_status_t bf_pltfm_bd_type_get_priv (
+    uint8_t *type, uint8_t *subtype) {
+    *type = bf_pltfm_mgr_ctx()->pltfm_type;
+    *subtype = bf_pltfm_mgr_ctx()->pltfm_subtype;
+    return BF_PLTFM_SUCCESS;
+}
 
 #ifdef __cplusplus
 }

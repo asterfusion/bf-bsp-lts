@@ -29,8 +29,6 @@
 #include "bf_pltfm_master_i2c.h"
 #include "bf_pltfm_uart.h"
 
-#include <pltfm_types.h>
-
 #define lqe_valen       256
 #define EEPROM_SIZE     256
 char eeprom_raw_data[EEPROM_RAW_DATA_SIZE];
@@ -41,42 +39,44 @@ uint8_t eeprom_data[EEPROM_SIZE] = {
     0x54, 0x6c, 0x76, 0x49, 0x6e, 0x66, 0x6f, 0x00, 0x01, 0x00
 };
 
-/*
- * BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU -> BF_PLTFM_BD_ID_UNKNOWN
- * edit by tsihang, 2022/06/20
- */
 static bf_pltfm_board_id_t bd_id =
     BF_PLTFM_BD_ID_UNKNOWN;
 
-static bf_pltfm_type bf_cur_pltfm_type = INVALID_TYPE;
-static bf_pltfm_subtype bf_cur_pltfm_subtype = INVALID_SUBTYPE;
+struct bf_pltfm_board_ctx_t {
+    bf_pltfm_board_id_t id;
+    const char *desc;
+    bf_pltfm_type type;
+    bf_pltfm_subtype subtype;
+};
 
 /* New method of board_ctx_t decareled.
- * BF_PLTFM_BD_ID_X532PT_V1DOT1 means X532P-T subversion 1.1. */
+ * AFN_BD_ID_X532PT_V1P1 means X532P-T subversion 1.1. */
 static struct bf_pltfm_board_ctx_t bd_ctx[] = {
-    {BF_PLTFM_BD_ID_X532PT_V1DOT0, "APNS320T-A1-V1.0", X532P, v1dot0},  // X532P-T V1.0
-    {BF_PLTFM_BD_ID_X532PT_V1DOT1, "APNS320T-A1-V1.1", X532P, v1dot1},  // X532P-T V1.1
-    {BF_PLTFM_BD_ID_X532PT_V2DOT0, "APNS320T-A1-V2.0", X532P, v2dot0},  // X532P-T V2.0
-    {BF_PLTFM_BD_ID_X532PT_V3DOT0, "APNS320T-A1-V3.0", X532P, v3dot0},  // X532P-T V3.0
+    {AFN_BD_ID_X532PT_V1P0, "APNS320T-A1-V1.0", AFN_X532PT, V1P0},  // X532P-T V1.0
+    {AFN_BD_ID_X532PT_V1P1, "APNS320T-A1-V1.1", AFN_X532PT, V1P1},  // X532P-T V1.1
+    {AFN_BD_ID_X532PT_V2P0, "APNS320T-A1-V2.0", AFN_X532PT, V2P0},  // X532P-T V2.0
+    {AFN_BD_ID_X532PT_V3P0, "APNS320T-A1-V3.0", AFN_X532PT, V3P0},  // X532P-T V3.0
 
-    {BF_PLTFM_BD_ID_X564PT_V1DOT0, "APNS640T-A1-V1.0", X564P, v1dot0},  // X564P-T V1.0
-    {BF_PLTFM_BD_ID_X564PT_V1DOT1, "APNS640T-A1-V1.1", X564P, v1dot1},  // X564P-T V1.1
-    {BF_PLTFM_BD_ID_X564PT_V1DOT2, "APNS640T-A1-V1.2", X564P, v1dot2},  // X564P-T V1.2
-    {BF_PLTFM_BD_ID_X564PT_V2DOT0, "APNS640T-A1-V2.0", X564P, v2dot0},  // X564P-T V2.0
+    {AFN_BD_ID_X564PT_V1P0, "APNS640T-A1-V1.0", AFN_X564PT, V1P0},  // X564P-T V1.0
+    {AFN_BD_ID_X564PT_V1P1, "APNS640T-A1-V1.1", AFN_X564PT, V1P1},  // X564P-T V1.1
+    {AFN_BD_ID_X564PT_V1P2, "APNS640T-A1-V1.2", AFN_X564PT, V1P2},  // X564P-T V1.2
+    {AFN_BD_ID_X564PT_V2P0, "APNS640T-A1-V2.0", AFN_X564PT, V2P0},  // X564P-T V2.0
 
-    {BF_PLTFM_BD_ID_X308PT_V1DOT0, "APNS320T-B1-V1.0", X308P, v1dot0},  // X308P-T V1.0
-    {BF_PLTFM_BD_ID_X308PT_V1DOT1, "APNS320T-B1-V1.1", X308P, v1dot1},  // X308P-T V1.1, 4x 1G.
-    {BF_PLTFM_BD_ID_X308PT_V2DOT0, "APNS320T-B1-V1.1", X308P, v2dot0},  // Announced as v2.0.
-    {BF_PLTFM_BD_ID_X308PT_V3DOT0, "APNS320T-C1-V1.0", X308P, v3dot0},  // Announced as v3.0 with PTP hwcomp.
+    {AFN_BD_ID_X308PT_V1P0, "APNS320T-B1-V1.0", AFN_X308PT, V1P0},  // X308P-T V1.0
+    {AFN_BD_ID_X308PT_V1P1, "APNS320T-B1-V1.1", AFN_X308PT, V1P1},  // X308P-T V1.1, 4x 1G.
+    {AFN_BD_ID_X308PT_V2P0, "APNS320T-B1-V1.1", AFN_X308PT, V2P0},  // Announced as v2.0.
+    {AFN_BD_ID_X308PT_V3P0, "APNS320T-C1-V1.0", AFN_X308PT, V3P0},  // Announced as v3.0 with PTP hwcomp.
     /* More X308P-T board id. */
 
-    {BF_PLTFM_BD_ID_HC36Y24C_V1DOT0, "Hello this is HC", HC, v1dot0},
+    {AFN_BD_ID_X732QT_V1P0, "APNS1280T2-A1-V1.0", AFN_X732QT, V1P0},
+    /* More AFN_X732QT board id. */
+    {AFN_BD_ID_HC36Y24C_V1P0, "Hello this is AFN_HC36Y24C", AFN_HC36Y24C, V1P0},
 
-    {BF_PLTFM_BD_ID_X312PT_V1DOT1,   "X312P-V1.x",     X312P, v1dot0},
-    {BF_PLTFM_BD_ID_X312PT_V2DOT0,   "X312P-V2.x",     X312P, v2dot0},
-    {BF_PLTFM_BD_ID_X312PT_V3DOT0,   "X312P-V3.x",     X312P, v3dot0},
-    {BF_PLTFM_BD_ID_X312PT_V4DOT0,   "X312P-V4.x",     X312P, v4dot0},
-    {BF_PLTFM_BD_ID_X312PT_V5DOT0,   "X312P-V5.x",     X312P, v5dot0},
+    {AFN_BD_ID_X312PT_V1P1,   "AFN_X312PT-V1.x",     AFN_X312PT, V1P0},
+    {AFN_BD_ID_X312PT_V2P0,   "AFN_X312PT-V2.x",     AFN_X312PT, V2P0},
+    {AFN_BD_ID_X312PT_V3P0,   "AFN_X312PT-V3.x",     AFN_X312PT, V3P0},
+    {AFN_BD_ID_X312PT_V4P0,   "AFN_X312PT-V4.x",     AFN_X312PT, V4P0},
+    {AFN_BD_ID_X312PT_V5P0,   "AFN_X312PT-V5.x",     AFN_X312PT, V5P0},
     /* As I know so far, product name is not a suitable way to distinguish platforms
      * from X-T to CX-T/PX-T, so how to distinguish X312P and HC ???
      * by tsihang, 2021-07-14. */
@@ -119,46 +119,11 @@ static inline uint8_t ctoi (char c)
     }
 }
 
-const char *dump_pltfm()
+bf_pltfm_status_t bf_pltfm_bd_type_get (
+    bf_pltfm_board_id_t *board_id)
 {
-    return (bf_cur_pltfm_type == X564P ? "X564P-T" :
-            bf_cur_pltfm_type == X532P ? "X532P-T" :
-            bf_cur_pltfm_type == X308P ? "X308P-T" :
-            bf_cur_pltfm_type == X312P ? "X312P-T" :
-            "HC");
-}
-
-bf_pltfm_status_t bf_pltfm_bd_type_set_by_keystring (char *ptr)
-{
-    unsigned int i;
-
-    if (ptr == NULL) {
-        LOG_ERROR ("EEPROM ERROR: Unable to read the board id EEPROM\n");
-        return -1;
-    }
-
-    for (i = 0; i < (int)ARRAY_LENGTH (bd_ctx); i++) {
-        if (strcmp (bd_ctx[i].desc, (char *)ptr) == 0) {
-            bd_id = bd_ctx[i].id;
-            /* As we know, product name is not a suitable way to distinguish X-T platform.
-             * So how to distinguish X312P and HC ???
-             * by tsihang, 2021-06-29. */
-            bf_pltfm_bd_type_set (bd_ctx[i].type, bd_ctx[i].subtype);
-            LOG_DEBUG ("Board type : %04x : %s : %s",
-                       bd_id,
-                       dump_pltfm(),
-                       ptr);
-            fprintf (stdout, "Board type : %04x : %s : %s\n",
-                     bd_id,
-                     dump_pltfm(),
-                     ptr);
-
-            return 0;
-        }
-    }
-
-    LOG_ERROR ("WARNING: No value in EEPROM(0x31) to identify current platform.\n");
-    return -1;
+    *board_id = bd_id;
+    return BF_PLTFM_SUCCESS;
 }
 
 bf_pltfm_status_t bf_pltfm_bd_type_set_by_key (uint8_t type, uint8_t subtype)
@@ -169,14 +134,15 @@ bf_pltfm_status_t bf_pltfm_bd_type_set_by_key (uint8_t type, uint8_t subtype)
         if (bd_ctx[i].type == type &&
             bd_ctx[i].subtype == subtype) {
             bd_id = bd_ctx[i].id;
-            bf_pltfm_bd_type_set (bd_ctx[i].type, bd_ctx[i].subtype);
+            bf_pltfm_bd_type_set_priv (bd_ctx[i].type, bd_ctx[i].subtype);
             LOG_DEBUG ("Board type : %04x : %s",
                        bd_id,
-                       dump_pltfm());
-            fprintf (stdout, "Board type : %04x : %s\n",
-                     bd_id,
-                     dump_pltfm());
-
+                       (bf_pltfm_mgr_ctx()->pltfm_type == AFN_X564PT ? "AFN_X564PT" :
+                        bf_pltfm_mgr_ctx()->pltfm_type == AFN_X532PT ? "AFN_X532PT" :
+                        bf_pltfm_mgr_ctx()->pltfm_type == AFN_X308PT ? "AFN_X308PT" :
+                        bf_pltfm_mgr_ctx()->pltfm_type == AFN_X312PT ? "AFN_X312PT" :
+                        bf_pltfm_mgr_ctx()->pltfm_type == AFN_X732QT ? "AFN_X732QT" :
+                        "AFN_HC36Y24C"));
             return 0;
         }
     }
@@ -733,7 +699,7 @@ static void further_decode ()
     char temp[32] = {0};
     struct tlv_t *tlv;
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
             tlv = &tlvs[i];
             memset (temp, 0, 32);
@@ -768,7 +734,6 @@ static void further_decode ()
 				    /* default to V3.x */
                     sprintf(eeprom.bf_pltfm_main_board_version, "%s V3.x", eeprom.bf_pltfm_product_name);
                 }
-                fprintf (stdout, "*** %s\n", eeprom.bf_pltfm_main_board_version);
             }
         }
     }
@@ -823,7 +788,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     const char *path = LOG_DIR_PREFIX"/eeprom";
 
     fprintf (stdout,
-             "\n\n================== EEPROM ==================\n");
+             "\n\nReading EEPROM ...\n");
 
     for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
         /* Read EEPROM. */
@@ -857,8 +822,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             }
 
             memcpy (tlv->content, &rd_buf[offset], l);
-            fprintf (stdout, "0x%02x %20s: %32s\n",
-                     tlv->code, tlv->desc, tlv->content);
             LOG_DEBUG ("0x%02x %20s: %32s", tlv->code,
                        tlv->desc, tlv->content);
         } else {
@@ -871,6 +834,8 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     /* If could not get eeprom data from BMC,
      *  try to get it from file. by huachen, 2023-05-23. */
     if (err_total >= (int)ARRAY_LENGTH (tlvs)) {
+        fprintf (stdout, "\n\nWarn : Trying to get eeprom data from %s\n\n",
+            path);
         LOG_WARNING ("\n\nWarn : Trying to get eeprom data from %s\n\n",
             path);
         fp = fopen(path, "r");
@@ -892,8 +857,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
                     p = strstr (tlv_str, tlv_header);
                     if(p) {
                         strcpy (tlv->content, p + strlen(tlv_header));
-                        fprintf (stdout, "0x%02x %20s: %32s\n",
-                                tlv->code, tlv->desc, tlv->content);
                         LOG_DEBUG ("0x%02x %20s: %32s", tlv->code,
                                 tlv->desc, tlv->content);
                         break;
@@ -910,7 +873,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
      * Parse EEPROM data received from OPENBMC.
      * @return status
      */
-    char data[1024];
+    char data[2048];
     int length;
 
     for (i = 0; i < (int)ARRAY_LENGTH (tlvs); i ++) {
@@ -1022,39 +985,6 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
     }
 
     return BF_PLTFM_SUCCESS;
-}
-
-bf_pltfm_status_t bf_pltfm_bd_type_get_ext (
-    bf_pltfm_board_id_t *board_id)
-{
-    *board_id = bd_id;
-    return BF_PLTFM_SUCCESS;
-}
-
-bf_pltfm_status_t bf_pltfm_bd_type_set (
-    uint8_t type, uint8_t subtype)
-{
-    bf_cur_pltfm_type = type;
-    bf_cur_pltfm_subtype = subtype;
-    return BF_PLTFM_SUCCESS;
-}
-
-bf_pltfm_status_t bf_pltfm_bd_type_get (
-    uint8_t *type, uint8_t *subtype)
-{
-    *type = bf_cur_pltfm_type;
-    *subtype = bf_cur_pltfm_subtype;
-    return BF_PLTFM_SUCCESS;
-}
-
-bool platform_type_equal (uint8_t type)
-{
-    return (bf_cur_pltfm_type == type);
-}
-
-bool platform_subtype_equal (uint8_t subtype)
-{
-    return (bf_cur_pltfm_subtype == subtype);
 }
 
 bf_pltfm_status_t bf_pltfm_bd_eeprom_get (

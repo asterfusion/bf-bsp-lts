@@ -525,26 +525,27 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
     fd = i2c_ctx.fd_suio > 0 ? i2c_ctx.fd_suio : i2c_ctx.fd_cp2112;
 
     /* if we have known the platform, it's much easier to select the good one. */
-    if (platform_type_equal (X308P)) {
+    if (platform_type_equal (AFN_X308PT)) {
         /* BMC  <- uart     */
         /* CPLD <- nct6679d */
         /* QSFP <- cp2112   */
         fd = i2c_ctx.fd_suio;
-    } else if (platform_type_equal(X532P) ||
-               platform_type_equal(X564P)) {
+    } else if (platform_type_equal(AFN_X532PT) ||
+               platform_type_equal(AFN_X564PT) ||
+               platform_type_equal(AFN_X732QT)) {
         if (is_HVXXX) {
             /* When master i2c changed to super IO. */
             fd = i2c_ctx.fd_suio;
         }
-    } else if (platform_type_equal (X312P)) {
-        if (platform_subtype_equal(v2dot0)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
+        if (platform_subtype_equal(V2P0)) {
             /* BMC  <- cp2112 */
             /* CPLD <- cp2112  */
             /* QSFP <- cp2112 */
             fd = i2c_ctx.fd_cp2112;
-        } else if (platform_subtype_equal(v3dot0) ||
-                   platform_subtype_equal(v4dot0) ||
-                   platform_subtype_equal(v5dot0)) {
+        } else if (platform_subtype_equal(V3P0) ||
+                   platform_subtype_equal(V4P0) ||
+                   platform_subtype_equal(V5P0)) {
             /* BMC  <- nc76779d */
             /* CPLD <- nc76779d */
             /* QSFP <- cp2112   */
@@ -561,7 +562,7 @@ static int bf_pltfm_master_i2c_select(uint8_t slave_addr)
                     break;
             }
         }
-    } 
+    }
     BUG_ON(fd <= 0);
     return fd;
 }
@@ -583,7 +584,7 @@ static void bf_pltfm_master_i2c_log(
     const char *dbg_file = LOG_DIR_PREFIX"/sio_debug.log";
 
     if (!bf_sio_dbg_enabled ||
-        !platform_type_equal(X312P) ||
+        !platform_type_equal(AFN_X312PT) ||
         ((slave != 0x60) &&
         (slave != 0x62) &&
         (slave != 0x64) &&
@@ -685,7 +686,7 @@ int bf_pltfm_master_i2c_read_byte (
     uint8_t *value)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+    if (is_CG15XX && (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT))) {
         return bf_cgos_i2c_read_byte (slave, rd_off,
                                       value);
     }
@@ -732,7 +733,7 @@ int bf_pltfm_master_i2c_read_block (
     uint8_t  rd_len)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+    if (is_CG15XX && (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT))) {
         return bf_cgos_i2c_read_block (slave, rd_off,
                                        rd_buf, rd_len);
     }
@@ -836,7 +837,7 @@ int bf_pltfm_master_i2c_write_byte (
     uint8_t value)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+    if (is_CG15XX && (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT))) {
         return bf_cgos_i2c_write_byte (slave, wr_off,
                                        value);
     }
@@ -882,7 +883,7 @@ int bf_pltfm_master_i2c_write_block (
     uint8_t  wr_len)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+    if (is_CG15XX && (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT))) {
         return bf_cgos_i2c_write_block (slave, wr_off,
                                         wr_buf, wr_len);
     }
@@ -940,7 +941,7 @@ int bf_pltfm_bmc_write_read (
     int usec)
 {
     /* sp for COM-e: CG15XX */
-    if (is_CG15XX && (platform_type_equal (X532P) || platform_type_equal (X564P))) {
+    if (is_CG15XX && (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT))) {
         return bf_cgos_i2c_bmc_read (slave,
                                      wr_off, wr_buf, wr_len, rd_buf,
                                      usec);
@@ -1045,23 +1046,24 @@ int bf_pltfm_master_i2c_init()
         "sio_smbus"
     };
 
-    if (platform_type_equal (X312P)) {
-        if (platform_subtype_equal (v1dot0)) {
+    if (platform_type_equal (AFN_X312PT)) {
+        if (platform_subtype_equal (V1P0)) {
             memset(&i2c_bus_name[0][0], '0', 255);
             memset(&i2c_bus_name[1][0], '0', 255);
             memset(&i2c_bus_name[2][0], '0', 255);
             memset(&i2c_bus_name[3][0], '0', 255);
-        } else if (platform_subtype_equal (v2dot0)) {
+        } else if (platform_subtype_equal (V2P0)) {
             memset(&i2c_bus_name[2][0], '0', 255);
             memset(&i2c_bus_name[3][0], '0', 255);
             memset(&i2c_bus_name[4][0], '0', 255);
-        } else if (platform_subtype_equal (v3dot0) ||
-                   platform_subtype_equal (v4dot0) ||
-                   platform_subtype_equal (v5dot0)) {
+        } else if (platform_subtype_equal (V3P0) ||
+                   platform_subtype_equal (V4P0) ||
+                   platform_subtype_equal (V5P0)) {
             memset(&i2c_bus_name[2][0], '0', 255);
             memset(&i2c_bus_name[3][0], '0', 255);
         }
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT) ||
+               platform_type_equal (AFN_X732QT)) {
         memset(&i2c_bus_name[0][0], '0', 255);
         memset(&i2c_bus_name[1][0], '0', 255);
         memset(&i2c_bus_name[2][0], '0', 255);
@@ -1069,8 +1071,8 @@ int bf_pltfm_master_i2c_init()
         if (!is_HVXXX) {
             memset(&i2c_bus_name[4][0], '0', 255);
         }
-    } else if (platform_type_equal (X532P) ||
-               platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X532PT) ||
+               platform_type_equal (AFN_X564PT)) {
         memset(&i2c_bus_name[0][0], '0', 255);
         memset(&i2c_bus_name[1][0], '0', 255);
         memset(&i2c_bus_name[2][0], '0', 255);
@@ -1090,22 +1092,23 @@ int bf_pltfm_master_i2c_init()
         exit (1);
     } else {
         fprintf (stdout,
-                 "\n\n================== %s ==================\n", "IIC INIT");
+                 "\n\nInitializing i2c    ...");
         /* X564P-T V1.0, V1.1 & V1.2
          * X532P-T v1.1 */
         if (is_CG15XX &&
-            (platform_type_equal (X564P) || platform_type_equal (X532P) || platform_type_equal (X308P)) &&
+            (platform_type_equal (AFN_X564PT) || platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X308PT)) &&
             (bf_pltfm_find_path_to_cpld () == VIA_CGOS)) {
             if (bf_cgos_init()) {
-                fprintf (stdout, "Error in cgos init\n");
+                fprintf (stdout, "   cgoslx error\n");
                 exit (1);
             } else {
-                fprintf (stdout, "cgoslx init done\n");
+                fprintf (stdout, "   cgoslx\n");
                 return 0;
             }
         } else {
-            if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
-                fprintf (stdout, "Skip ...\n");
+            if ((bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) ||
+                (bmc_i2c_bus == 0xFF)) {
+                fprintf (stdout, "   Skip ...\n");
                 return 0;
             }
 
@@ -1130,34 +1133,34 @@ int bf_pltfm_master_i2c_init()
                 if (fd < 0) {
                     exit (1);
                 }
-                fprintf (stdout,
-                        "Openning i2c-%d : %d : %s\n", i2cbus, fd, i2c_bus_name[i]);
+                //fprintf (stdout,
+                //        "Openning i2c-%d : %d : %s\n", i2cbus, fd, i2c_bus_name[i]);
 
                 if (cp2112_i2c) {
                     i2c->fd_cp2112 = fd;
                     if (i2cbus == bmc_i2c_bus) {
                         /* For x312p-t v2. Map cp2112 i2c to master i2c. */
                         i2c->fd_suio = fd;
-                        fprintf (stdout,
-                            "Master i2c changed to i2c-%d : %s\n", i2cbus, i2c_bus_name[i]);
+                        //fprintf (stdout,
+                        //    "Master i2c changed to i2c-%d : %s\n", i2cbus, i2c_bus_name[i]);
                     }
                 } else {
                     if (i2cbus != bmc_i2c_bus) {
-                        fprintf (stdout, "Closing i2c-%d : %d : %s\n", i2cbus, fd, i2c_bus_name[i]);
+                        //fprintf (stdout, "Closing i2c-%d : %d : %s\n", i2cbus, fd, i2c_bus_name[i]);
                         close (fd);
                     } else {
                         /* For x312p-t v1 and v3. */
                         i2c->fd_suio = fd;
-                        fprintf (stdout,
-                            "Master i2c changed to i2c-%d : %s\n", i2cbus, i2c_bus_name[i]);
+                        //fprintf (stdout,
+                        //    "Master i2c changed to i2c-%d : %s\n", i2cbus, i2c_bus_name[i]);
                     }
                 }
             }
         }
 
-        fprintf (stdout, "Master i2c-%d init done !\n",
+        fprintf (stdout, "   i2c-%d\n",
                  bmc_i2c_bus);
-        LOG_DEBUG ("Master i2c-%d init done !",
+        LOG_DEBUG ("   i2c-%d",
                    bmc_i2c_bus);
     }
 
@@ -1168,29 +1171,26 @@ int bf_pltfm_master_i2c_de_init()
 {
     struct i2c_ctx_t *i2c = &i2c_ctx;
 
-    fprintf(stdout, "================== Deinit .... %48s ================== \n",
-        __func__);
+    fprintf (stdout,
+             "\n\nDe-initializing i2c    ...");
 
     if (global_come_type == COME_UNKNOWN) {
-        fprintf (stdout, "Skip ...\n");
+        fprintf (stdout, "   Skip ...\n");
         goto finish;
     } else {
         if (is_CG15XX &&
-            (platform_type_equal (X564P) || platform_type_equal (X532P) || platform_type_equal (X308P)) &&
+            (platform_type_equal (AFN_X564PT) || platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X308PT)) &&
             (bf_pltfm_find_path_to_cpld () == VIA_CGOS)) {
             if (bf_cgos_de_init ()) {
-                fprintf (stdout, "Deinit Master i2c\n");
                 goto finish;
             }
         } else {
             if (i2c->fd_suio > 0) {
-                fprintf (stdout, "Deinit Master I2C ...\n");
                 close (i2c->fd_suio);
                 i2c->fd_suio = -1;
             }
             if (i2c->fd_cp2112 > 0) {
                 close (i2c->fd_cp2112);
-                fprintf (stdout, "Deinit CP2112 I2C ...\n");
                 i2c->fd_cp2112 = -1;
             }
 
@@ -1203,9 +1203,9 @@ int bf_pltfm_master_i2c_de_init()
     }
 
 finish:
+    fprintf (stdout, "   i2c-%d\n",
+             bmc_i2c_bus);
     bf_sys_rmutex_del (&master_i2c_lock);
-    fprintf(stdout, "================== Deinit done %48s ================== \n",
-        __func__);
 
     return 0;
 }

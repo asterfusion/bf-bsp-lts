@@ -22,8 +22,6 @@
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
 #include <bf_bd_cfg/bf_bd_cfg_porting.h>
 #include <bf_pltfm_cp2112_intf.h>
-#include <bf_pltfm_master_i2c.h>
-#include <bf_pltfm_rptr.h>
 #include <bf_pltfm_ext_phy.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include "platform_priv.h"
@@ -36,13 +34,10 @@
 #include <bf_pltfm_master_i2c.h>
 #include <bf_pltfm_uart.h>
 #include <bf_pltfm_syscpld.h>
-#include <bf_pltfm_slave_i2c.h>
-#include <bf_pltfm_si5342.h>
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_qsfp/bf_sfp.h>
 #include <bf_pltfm_qsfp.h>
 #include <bf_pltfm_sfp.h>
-#include <bf_pltfm_rtmr.h>
 #include <bf_pltfm_bd_cfg.h>
 
 #include "version.h"
@@ -95,15 +90,7 @@ extern bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced);
 
 bool platform_is_hw (void)
 {
-    bf_pltfm_status_t sts;
-    bf_pltfm_board_id_t bd;
-    sts = bf_pltfm_chss_mgmt_bd_type_get (&bd);
-    if (sts == BF_PLTFM_SUCCESS &&
-        bd != BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU) {
-        return true;
-    } else {
-        return false;
-    }
+    return true;
 }
 
 /*start Health Monitor */
@@ -160,8 +147,6 @@ static void pltfm_mgr_stop_health_mntr (void)
     int ret;
     pthread_attr_t health_mntr_t_attr, onlp_mntr_t_attr;
 
-    fprintf(stdout, "================== Deinit .... %48s ================== \n",
-        __func__);
     if (bf_pltfm_mgr_ctx()->health_mntr_t_id) {
         int err = pthread_getattr_np (
                       bf_pltfm_mgr_ctx()->health_mntr_t_id,
@@ -204,8 +189,6 @@ static void pltfm_mgr_stop_health_mntr (void)
     }
 
     bf_sys_rmutex_del (&update_lock);
-    fprintf(stdout, "================== Deinit done %48s ================== \n",
-        __func__);
 }
 
 static bf_pltfm_status_t chss_mgmt_init()
@@ -217,25 +200,22 @@ static bf_pltfm_status_t chss_mgmt_init()
         return sts;
     }
 
-    bf_pltfm_chss_mgmt_platform_type_get (
-        &bf_pltfm_mgr_ctx()->pltfm_type,
-        &bf_pltfm_mgr_ctx()->pltfm_subtype);
-
     bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_QSFP_REALTIME_DDM;
     bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_SFP_REALTIME_DDM;
     bf_pltfm_mgr_ctx()->dpu_count = 0;
 
     /* Check strictly. */
-    if (!platform_type_equal (X532P) &&
-        !platform_type_equal (X564P) &&
-        !platform_type_equal (X308P) &&
-        !platform_type_equal (X312P) &&
-        !platform_type_equal (HC)    &&
+    if (!platform_type_equal (AFN_X532PT) &&
+        !platform_type_equal (AFN_X564PT) &&
+        !platform_type_equal (AFN_X308PT) &&
+        !platform_type_equal (AFN_X312PT) &&
+        !platform_type_equal (AFN_X732QT) &&
+        !platform_type_equal (AFN_HC36Y24C)    &&
         1 /* More platform here */) {
         LOG_ERROR ("pltfm_mgr: Unsupported platform, verify EEPROM please.\n");
         exit (0);
     } else {
-        if (platform_type_equal (X564P)) {
+        if (platform_type_equal (AFN_X564PT)) {
             bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
@@ -246,10 +226,10 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 6;
             bf_pltfm_mgr_ctx()->cpld_count = 3;
-            if (platform_subtype_equal(v2dot0)) {
+            if (platform_subtype_equal(V2P0)) {
                 bf_pltfm_mgr_ctx()->sensor_count = 8;
             }
-        } else if (platform_type_equal (X532P)) {
+        } else if (platform_type_equal (AFN_X532PT)) {
             bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
@@ -260,13 +240,13 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 6;
             bf_pltfm_mgr_ctx()->cpld_count = 2;
-        } else if (platform_type_equal (X308P)) {
+        } else if (platform_type_equal (AFN_X308PT)) {
             bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
                                             AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
                                         );
-            if (platform_subtype_equal(v3dot0)) {
+            if (platform_subtype_equal(V3P0)) {
                 bf_pltfm_mgr_ctx()->dpu_count = 2;
                 bf_pltfm_mgr_ctx()->fan_group_count = 5;
             } else {
@@ -277,7 +257,7 @@ static bf_pltfm_status_t chss_mgmt_init()
             bf_pltfm_mgr_ctx()->psu_count = 2;
             bf_pltfm_mgr_ctx()->sensor_count = 10;
             bf_pltfm_mgr_ctx()->cpld_count = 2;
-        } else if (platform_type_equal (X312P)) {
+        } else if (platform_type_equal (AFN_X312PT)) {
             bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
@@ -290,15 +270,26 @@ static bf_pltfm_status_t chss_mgmt_init()
             /* LM75, LM63 and GHC(4) and Tofino(2).
              * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
             bf_pltfm_mgr_ctx()->sensor_count = 9;
-            if (platform_subtype_equal(v3dot0) ||
-                platform_subtype_equal(v4dot0) ||
-                platform_subtype_equal(v5dot0)) {
+            if (platform_subtype_equal(V3P0) ||
+                platform_subtype_equal(V4P0) ||
+                platform_subtype_equal(V5P0)) {
             /* LM75, LM63, LM86 and GHC(4) and Tofino(2).
              * This makes an offset to help bf_pltfm_onlp_mntr_tofino_temperature. */
                 bf_pltfm_mgr_ctx()->sensor_count = 9;
             }
             bf_pltfm_mgr_ctx()->cpld_count = 5;
-        } else if (platform_type_equal (HC)) {
+        } else if (platform_type_equal (AFN_X732QT)) {
+            bf_pltfm_mgr_ctx()->flags |= (
+                                            AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
+                                            AF_PLAT_MNTR_FAN |
+                                            AF_PLAT_MNTR_TMP  | AF_PLAT_MNTR_MODULE
+                                        );
+            bf_pltfm_mgr_ctx()->fan_group_count = 6;
+            bf_pltfm_mgr_ctx()->fan_per_group = 2;
+            bf_pltfm_mgr_ctx()->psu_count = 2;
+            bf_pltfm_mgr_ctx()->sensor_count = 6;
+            bf_pltfm_mgr_ctx()->cpld_count = 2;
+        } else if (platform_type_equal (AFN_HC36Y24C)) {
             bf_pltfm_mgr_ctx()->flags |= (
                                             AF_PLAT_MNTR_CTRL | AF_PLAT_MNTR_POWER  |
                                             AF_PLAT_MNTR_FAN |
@@ -315,15 +306,13 @@ static bf_pltfm_status_t chss_mgmt_init()
                     NULL);
     }
 
-    fprintf (stdout, "Platform : %02x(%02x)\n",
-             bf_pltfm_mgr_ctx()->pltfm_type, bf_pltfm_mgr_ctx()->pltfm_subtype);
-    fprintf (stdout, "Max FANs : %2d\n",
-             bf_pltfm_mgr_ctx()->fan_group_count *
-             bf_pltfm_mgr_ctx()->fan_per_group);
-    fprintf (stdout, "Max PSUs : %2d\n",
-             bf_pltfm_mgr_ctx()->psu_count);
-    fprintf (stdout, "Max SNRs : %2d\n",
-             bf_pltfm_mgr_ctx()->sensor_count);
+
+    char pltfmvar[128];
+    platform_name_get_str (pltfmvar, sizeof (pltfmvar));
+    fprintf (stdout, "########################\n");
+    fprintf (stdout, "%s\n", pltfmvar);
+    LOG_DEBUG ("%s", pltfmvar);
+    fprintf (stdout, "########################\n");
 
     /* To accelerate 2nd launching for stratum. */
     if (g_switchd_init_mode != BF_DEV_INIT_COLD) {
@@ -388,7 +377,7 @@ static ucli_status_t pltfm_mgr_ucli_ucli__set_interval__
         uc, "set-bmc-comm-intr", 1,
         " Set the communication interval of BMC in us");
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         us = atoi (uc->pargs->args[0]);
         if ((us < 1000) || (us > 10000000)) {
             aim_printf (&uc->pvs, "Illegal value, should be 1,000 ~ 10,000,000\n");
@@ -409,7 +398,7 @@ static ucli_status_t pltfm_mgr_ucli_ucli__get_interval__
         uc, "get-bmc-comm-intr", 0,
         " Get the BMC communication interval in us");
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         aim_printf (&uc->pvs, "BMC communication interval = %dus\n",
                     bf_pltfm_get_312_bmc_comm_interval());
     } else {
@@ -531,7 +520,11 @@ static void bf_pltfm_ucli_format_transceiver_alias (int a1, int d, int n, int o,
     module = a1 + (n - o) * d;
     if (is_qsfp) {
         bf_pltfm_qsfp_lookup_by_module(module, &conn_id);
-        sprintf (str, "C%02d%c", module, bf_qsfp_is_present(module) ? '*' : ' ');
+        if (platform_type_equal(AFN_X732QT)) {
+            sprintf (str, "Q%02d%c", module, bf_qsfp_is_present(module) ? '*' : ' ');
+        } else {
+            sprintf (str, "C%02d%c", module, bf_qsfp_is_present(module) ? '*' : ' ');
+        }
     } else {
         bf_pltfm_sfp_lookup_by_module(module, &conn_id, &chnnl_id);
         sprintf (str, "Y%02d%c", module, bf_sfp_is_present(module) ? '*' : ' ');
@@ -1049,9 +1042,9 @@ static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
 
     bf_pltfm_pwr_supply_info_t info1, info2;
 
-    if (platform_subtype_equal(v1dot0) ||
-        platform_subtype_equal(v1dot1) ||
-        platform_subtype_equal(v2dot0)) {
+    if (platform_subtype_equal(V1P0) ||
+        platform_subtype_equal(V1P1) ||
+        platform_subtype_equal(V2P0)) {
         /* 1st : CON */
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
@@ -1147,7 +1140,7 @@ static void bf_pltfm_ucli_dump_x308p_panel(ucli_context_t
         aim_printf (&uc->pvs, "%s", fmt);
 
         aim_printf (&uc->pvs, "\n");
-    } else if (platform_subtype_equal(v3dot0)) {
+    } else if (platform_subtype_equal(V3P0)) {
         /* 1st : CON */
         aim_printf (&uc->pvs, "%s      ", "    ");
         aim_printf (&uc->pvs, "%s      ", "    ");
@@ -1538,16 +1531,228 @@ static void bf_pltfm_ucli_dump_x312p_panel(ucli_context_t
     aim_printf (&uc->pvs, "\n");
 }
 
+static void bf_pltfm_ucli_dump_x732q_panel(ucli_context_t
+                           *uc) {
+    int i;
+    const char *boarder = "==== ";
+    char str[5] = {0}, fmt[128] = {0};
+
+    /////////////////////////////////////////  Front Panel /////////////////////////////////////////
+    // 1st
+    for (i = 0; i < 18; i ++) {
+        if (i == 0) aim_printf (&uc->pvs, "%s", "     ");
+        else aim_printf (&uc->pvs, "%s", boarder);
+    }
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "MGT1");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver (1, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    /*
+     * "P*" : Plugged and Linked
+     * "P " : Plugged but not Linked
+     * "  " : Not Plugged (always means not linked)
+     **/
+    bool plugged = false, linked = false;
+    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+    aim_printf (&uc->pvs, "%s ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (1, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    // 2nd
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "%s ", "MGT2");
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver (2, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    /* Alias and present. */
+    /*
+     * "P*" : Plugged and Linked
+     * "P " : Plugged but not Linked
+     * "  " : Not Plugged (always means not linked)
+     **/
+    bf_pltfm_ucli_mgt_detected(&plugged, &linked);
+    aim_printf (&uc->pvs, "%s ",  linked ? "P*  " : (plugged ? "P   " : "    "));
+    for (i = 0; i < 17; i ++) {
+        if (i > 0) {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 1, str, true);
+            aim_printf (&uc->pvs, "%s ", str);
+        } else {
+            bf_pltfm_ucli_format_transceiver_alias (2, 2, i, 0, str, false);
+            aim_printf (&uc->pvs, "%s ", str);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    /////////////////////////////////////////  Rear Panel /////////////////////////////////////////
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    aim_printf (&uc->pvs, "\n");
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+
+    aim_printf (&uc->pvs, "%s ", "PSU2");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "FAN5");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "FAN1");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "FAN2");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "USB ");
+    aim_printf (&uc->pvs, "%s ", "CON ");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "FAN3");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "FAN4");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "FAN6");
+    aim_printf (&uc->pvs, "%s ", "    ");
+    aim_printf (&uc->pvs, "%s ", "PSU1");
+    aim_printf (&uc->pvs, "\n");
+
+    /* PSU info */
+    bf_pltfm_pwr_supply_info_t info1, info2;
+    memset (&info1, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    memset (&info2, 0, sizeof (bf_pltfm_pwr_supply_info_t));
+    int err = bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY1,
+                                           &info1);
+    err |= bf_pltfm_chss_mgmt_pwr_supply_get (POWER_SUPPLY2,
+                                           &info2);
+
+    /* PSU 2 AC DC */
+    bf_pltfm_ucli_format_psu_acdc (&info2, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    /* FAN rota */
+    bf_pltfm_fan_data_t fdata;
+    err |= bf_pltfm_chss_mgmt_fan_data_get (
+                &fdata);
+    if (!err && !fdata.fantray_present) {
+        /* Pls help this consistency with real hardware. */
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[0].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[2].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[4].front_speed);
+        aim_printf (&uc->pvs, "%s ", bf_pltfm_ucli_usb_detected() ? "*   " : "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[6].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[8].front_speed);
+        aim_printf (&uc->pvs, "%-5u     ", fdata.F[10].front_speed);
+    } else {
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+        aim_printf (&uc->pvs, "%s      ", "    ");
+    }
+
+    /* PSU 1 AC DC */
+    bf_pltfm_ucli_format_psu_acdc (&info1, fmt);
+    aim_printf (&uc->pvs, "%s", fmt);
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pin */
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 15; i ++) aim_printf (&uc->pvs, "%s ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Pout */
+    bf_pltfm_ucli_format_psu_watt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 15; i ++) aim_printf (&uc->pvs, "%s ", "    ");
+    bf_pltfm_ucli_format_psu_watt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vin */
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 15; i ++) aim_printf (&uc->pvs, "%s ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Vout */
+    bf_pltfm_ucli_format_psu_volt (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 15; i ++) aim_printf (&uc->pvs, "%s ", "    ");
+    bf_pltfm_ucli_format_psu_volt (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iin */
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 15; i ++) aim_printf (&uc->pvs, "%s ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, true);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    /* Iout */
+    bf_pltfm_ucli_format_psu_ampere (&info2, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+    for (i = 0; i < 15; i ++) aim_printf (&uc->pvs, "%s ", "    ");
+    bf_pltfm_ucli_format_psu_ampere (&info1, fmt, false);
+    aim_printf (&uc->pvs, "%s", fmt);
+
+    aim_printf (&uc->pvs, "\n");
+
+    for (i = 0; i < 18; i ++) aim_printf (&uc->pvs, "%s", boarder);
+    aim_printf (&uc->pvs, "\n");
+}
+
 static void bf_pltfm_ucli_dump_panel(ucli_context_t
                            *uc) {
-    if (platform_type_equal (X564P)) {
+    if (platform_type_equal (AFN_X564PT)) {
         bf_pltfm_ucli_dump_x564p_panel(uc);
-    }else if (platform_type_equal (X532P)) {
+    } else if (platform_type_equal (AFN_X532PT)) {
         bf_pltfm_ucli_dump_x532p_panel(uc);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         bf_pltfm_ucli_dump_x308p_panel(uc);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         bf_pltfm_ucli_dump_x312p_panel(uc);
+    } else if (platform_type_equal (AFN_X732QT)) {
+        bf_pltfm_ucli_dump_x732q_panel(uc);
     }
 }
 
@@ -1574,7 +1779,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     platform_name_get_str (fmt, sizeof (fmt));
 
     aim_printf (&uc->pvs, "Ver    %s, %s\n",
-                VERSION_NUMBER, "8.9.x");
+                VERSION_NUMBER, "9.13.x-lts");
 
     aim_printf (&uc->pvs, "Platform  : %s\n",
                 bf_pltfm_bd_product_name_get());
@@ -1600,7 +1805,9 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                     (each_element + 1), fmt);
     }
     aim_printf (&uc->pvs, "Max DPUs  : ");
-    if (platform_type_equal(X532P) || platform_type_equal(X564P)) {
+    if (platform_type_equal(AFN_X532PT) ||
+        platform_type_equal(AFN_X564PT) ||
+        platform_type_equal(AFN_X732QT)) {
         aim_printf (&uc->pvs, "%s\n",
                 "Not Supported");
     } else {
@@ -1612,8 +1819,8 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                     dpu1_status ? "Present" : "Absent");
         aim_printf (&uc->pvs, "    DPU2  : %s\n",
                     dpu2_status ? "Present" : "Absent");
-        if (platform_type_equal(X308P) &&
-            platform_subtype_equal(v3dot0)) {
+        if (platform_type_equal(AFN_X308PT) &&
+            platform_subtype_equal(V3P0)) {
             aim_printf (&uc->pvs, "     PTP  : %s\n",
                         ptpx_status ? "Present" : "Absent");
         }
@@ -1708,12 +1915,12 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
         redirect_ptp  ? "PTP  " : \
         "Unknown");
 
-    if (platform_type_equal (X312P) ||
-        platform_type_equal (X308P)) {
+    if (platform_type_equal (AFN_X312PT) ||
+        platform_type_equal (AFN_X308PT)) {
         has_dpu = true;
     }
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         if (redirect_bmc){
             buf[0] = 0x02;
             bf_pltfm_bmc_write_read(0x3e, 0x7c, buf, 2, 0xff, NULL, 0, usec_delay);
@@ -1729,21 +1936,21 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
         } else {
             return 0;
         }
-    } else if (platform_type_equal (X308P) ||
-               platform_type_equal (X532P) ||
-               platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X308PT) ||
+               platform_type_equal (AFN_X532PT) ||
+               platform_type_equal (AFN_X564PT)) {
         if (bf_pltfm_compare_bmc_ver("v3.1.0") < 0) {
             aim_printf (&uc->pvs, "Not supported on this BMC version yet! "
                                   "Please upgrade to v3.1.0 and above.\n");
             return 0;
         }
 
-        if (platform_type_equal (X532P) || platform_type_equal (X564P)) {
+        if (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT)) {
             has_dpu = false;
             has_ptp = false;
         } else {
             /* X308P-T V3. */
-            if (platform_type_equal (X308P) && platform_subtype_equal (v3dot0)) {
+            if (platform_type_equal (AFN_X308PT) && platform_subtype_equal (V3P0)) {
                 has_ptp = true;
             }
         }
@@ -1796,9 +2003,9 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
     bf_pltfm_get_bmc_ver (&bmc_ver[0], true);
     aim_printf (&uc->pvs, "\nCurrent BMC version: %s\n\n", bmc_ver);
 
-    if ((platform_type_equal (X308P) ||
-         platform_type_equal (X532P) ||
-         platform_type_equal (X564P)) &&
+    if ((platform_type_equal (AFN_X308PT) ||
+         platform_type_equal (AFN_X532PT) ||
+         platform_type_equal (AFN_X564PT)) &&
         (bf_pltfm_compare_bmc_ver("v3.1.0") >= 0)) {
         aim_printf (&uc->pvs, "\nThere could be port link risk when upgrade BMC online.\n");
         aim_printf (
@@ -1835,7 +2042,7 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
         }
         bf_pltfm_health_monitor_enable (true);
     } else {
-        if (platform_type_equal (X312P)) {
+        if (platform_type_equal (AFN_X312PT)) {
             aim_printf (&uc->pvs, "Not supported on this platform yet!\n");
         } else {
             aim_printf (&uc->pvs, "Not supported on this BMC version yet!\n"
@@ -1898,7 +2105,7 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
     uint8_t boff = 0;       /* Bit offset. */
     uint8_t val = 0, val_rd = 0;
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         cpld_index = 1;
         /* Implemented in address offset 13. */
         aoff = 13;
@@ -1920,7 +2127,7 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
             /* Prepared, do it right now. */
             perform = true;
         }
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         /* X308P-T equiped with only 1 cpld */
         cpld_index = 1;
         /* Implemented in address offset 2. */
@@ -1948,7 +2155,7 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
             boff = 7;
             /* Prepared, do it right now. */
             perform = true;
-        } else if ((reset_ptp) && platform_subtype_equal (v3dot0)) {
+        } else if ((reset_ptp) && platform_subtype_equal (V3P0)) {
             /* Implemented in address offset 2. */
             aoff = 3;
             /* Implemented in bit offset 7. */
@@ -1956,7 +2163,7 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
             /* Prepared, do it right now. */
             perform = true;
         }
-    } else if (platform_type_equal (X532P)) {
+    } else if (platform_type_equal (AFN_X532PT)) {
         cpld_index = 1;
         aoff = 2;
         do_reset_by_val_1 = true;
@@ -1974,11 +2181,11 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
 
         /* Not support. */
         if ((reset_bmc || reset_tof) &&
-            (platform_subtype_equal(v1dot0) || platform_subtype_equal(v1dot1))) {
+            (platform_subtype_equal(V1P0) || platform_subtype_equal(V1P1))) {
             perform = false;
         }
 
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         /* Not ready so far. */
         cpld_index = 1;
         aoff = 2;
@@ -1996,7 +2203,7 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
         }
         /* Not support. */
         if ((reset_bmc || reset_tof) &&
-            (platform_subtype_equal(v1dot0) || platform_subtype_equal(v1dot1) || platform_subtype_equal(v1dot2))) {
+            (platform_subtype_equal(V1P0) || platform_subtype_equal(V1P1) || platform_subtype_equal(V1P2))) {
             perform = false;
         }
     }
@@ -2377,9 +2584,9 @@ void bf_pltfm_platform_exit (void *arg)
     /* Make it very clear for those platforms which need cp2112 de-init by doing below operations.
      * Because we cann't and shouldn't assume platforms which are NOT X312P-T could de-init cp2112.
      * by tsihang, 2022-04-27. */
-    if (platform_type_equal (X564P) ||
-        platform_type_equal (X532P) ||
-        platform_type_equal (X308P)) {
+    if (platform_type_equal (AFN_X564PT) ||
+        platform_type_equal (AFN_X532PT) ||
+        platform_type_equal (AFN_X308PT)) {
         if (bf_pltfm_cp2112_de_init()) {
             LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr CP2112.");
         }
@@ -2397,6 +2604,8 @@ void bf_pltfm_platform_exit (void *arg)
         bf_drv_shell_unregister_ucli (bf_pltfm_ucli_node);
         //ucli_node_destroy (bf_pltfm_ucli_node);
     }
+
+    platform_bd_deinit();
 
     bf_sys_rmutex_del (&mav_i2c_lock);
 }
@@ -2468,12 +2677,19 @@ bf_status_t bf_pltfm_platform_init (
         return -1;
     }
 
+    err = platform_bd_init();
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: chassis mgmt library init failed\n");
+        return -1;
+    }
+
     /* Make it very clear for those platforms which need cp2112 init by doing below operations.
      * Because we cann't and shouldn't assume platforms which are NOT X312P-T could init cp2112.
      * by tsihang, 2022-04-27. */
-    if (platform_type_equal (X564P) ||
-        platform_type_equal (X532P) ||
-        platform_type_equal (X308P)) {
+    if (platform_type_equal (AFN_X564PT) ||
+        platform_type_equal (AFN_X532PT) ||
+        platform_type_equal (AFN_X308PT) ||
+        platform_type_equal (AFN_X732QT)) {
         /* Initialize the CP2112 devices for the platform */
         err = cp2112_init();
         if (err) {
@@ -2587,16 +2803,12 @@ bf_pltfm_status_t bf_pltfm_platform_port_init (
     bool warm_init)
 {
     (void)warm_init;
-    bf_pltfm_board_id_t bd_id;
-    bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
 
-    if (bd_id != BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU) {
-        /* Init led module */
-        if (bf_pltfm_led_init (dev_id)) {
-            LOG_ERROR ("Error in led init dev_id %d\n",
+    /* Init led module */
+    if (bf_pltfm_led_init (dev_id)) {
+        LOG_ERROR ("Error in led init dev_id %d\n",
                        dev_id);
-            return BF_PLTFM_COMM_FAILED;
-        }
+        return BF_PLTFM_COMM_FAILED;
     }
     return BF_PLTFM_SUCCESS;
 }
@@ -2606,28 +2818,7 @@ bf_pltfm_platform_ext_phy_config_set (
     bf_dev_id_t dev_id, uint32_t conn,
     bf_pltfm_qsfp_type_t qsfp_type)
 {
-    bf_status_t sts;
-
-    bf_pltfm_board_id_t bd_id;
-    bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
-    if ((bd_id == BF_PLTFM_BD_ID_MAVERICKS_P0B) ||
-        (bd_id == BF_PLTFM_BD_ID_MAVERICKS_P0A)) {
-        sts = bf_pltfm_rptr_config_set (dev_id, conn,
-                                        qsfp_type);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error: in setting rptr config for port %d at %s:%d",
-                       conn,
-                       __func__,
-                       __LINE__);
-        }
-    } else if (bd_id ==
-               BF_PLTFM_BD_ID_MAVERICKS_P0C) {
-        /* nothing to do for retimers */
-        sts = BF_PLTFM_SUCCESS;
-    } else {
-        sts = BF_PLTFM_OTHER;
-    }
-    return sts;
+    return BF_PLTFM_SUCCESS;
 }
 
 /* acquire lock to perform an endpoint i2c operation on a cp2112 topology */
@@ -2641,4 +2832,3 @@ void bf_pltfm_i2c_unlock()
 {
     bf_sys_rmutex_unlock (&mav_i2c_lock);
 }
-

@@ -19,20 +19,8 @@ exception InvalidPltfmPmOperation {
 }
 
 enum pltfm_pm_board_type_t {
-    /* legacy start */
-    BF_PLTFM_BD_ID_MAVERICKS_P0A     = 0x0234,
-    BF_PLTFM_BD_ID_MAVERICKS_P0B     = 0x1234,
-    BF_PLTFM_BD_ID_MONTARA_P0A       = 0x2234,
-    BF_PLTFM_BD_ID_MONTARA_P0B       = 0x3234,
-    BF_PLTFM_BD_ID_MAVERICKS_P0B_EMU = 0x4234,
-    BF_PLTFM_BD_ID_MAVERICKS_P0C     = 0x5234,
-    BF_PLTFM_BD_ID_MONTARA_P0C       = 0x6234,
-    BF_PLTFM_BD_ID_NEWPORT_P0A       = 0x1134,
-    BF_PLTFM_BD_ID_NEWPORT_P0B       = 0x2134,
-    /* legacy end */
-
     /* Override bf_pltfm_board_id_e to private board powered by Asterfusion.
-    * by tsihang, 2022-06-20. */
+     * by tsihang, 2022-06-20. */
     /* X308P-T and its subtype. */
     BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
     BF_PLTFM_BD_ID_X308PT_V1DOT1 = 0x3081,
@@ -57,9 +45,39 @@ enum pltfm_pm_board_type_t {
     BF_PLTFM_BD_ID_X564PT_V1DOT1 = 0x5641,
     BF_PLTFM_BD_ID_X564PT_V1DOT2 = 0x5642,
     BF_PLTFM_BD_ID_X564PT_V2DOT0 = 0x5643,
+    BF_PLTFM_BD_ID_X732QT_V1DOT0 = 0x7320,
     /* HC36Y24C-T and its subtype. */
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT0 = 0x2400,
     BF_PLTFM_BD_ID_HC36Y24C_V1DOT1 = 0x2401,
+
+    /* AFN_X564PT-T and its subtype. */
+    AFN_BD_ID_X564PT_V1P0 = 0x5640,
+    AFN_BD_ID_X564PT_V1P1 = 0x5641,
+    AFN_BD_ID_X564PT_V1P2 = 0x5642,
+    AFN_BD_ID_X564PT_V2P0 = 0x5643,
+    /* AFN_X532PT-T and its subtype. */
+    AFN_BD_ID_X532PT_V1P0 = 0x5320,
+    AFN_BD_ID_X532PT_V1P1 = 0x5321,
+    AFN_BD_ID_X532PT_V2P0 = 0x5322,
+    AFN_BD_ID_X532PT_V3P0 = 0x5323,
+    /* AFN_X308PT-T and its subtype. */
+    AFN_BD_ID_X308PT_V1P0 = 0x3080,
+    AFN_BD_ID_X308PT_V1P1 = 0x3081,
+    AFN_BD_ID_X308PT_V2P0 = 0x3082,  /* Announced as HW V2 to customer. */
+    AFN_BD_ID_X308PT_V3P0 = 0x3083,  /* Announced as HW v3.0 with PTP hwcomp. */
+    /* AFN_X312PT-T and its subtype. */
+    AFN_BD_ID_X312PT_V1P0 = 0x3120,
+    AFN_BD_ID_X312PT_V1P1 = 0x3120,
+    AFN_BD_ID_X312PT_V1P2 = 0x3122,
+    AFN_BD_ID_X312PT_V1P3 = 0x3123,
+    AFN_BD_ID_X312PT_V2P0 = 0x3122,
+    AFN_BD_ID_X312PT_V3P0 = 0x3123,
+    AFN_BD_ID_X312PT_V4P0 = 0x3124,
+    AFN_BD_ID_X312PT_V5P0 = 0x3125,
+    AFN_BD_ID_X732QT_V1P0 = 0x7320,  /* Since Dec 2023. */
+    /* HC36Y24C-T and its subtype. */
+    AFN_BD_ID_HC36Y24C_V1P0 = 0x2400,
+    AFN_BD_ID_HC36Y24C_V1P1 = 0x2401,
 
     BF_PLTFM_BD_ID_UNKNOWN = 0XFFFF
 }

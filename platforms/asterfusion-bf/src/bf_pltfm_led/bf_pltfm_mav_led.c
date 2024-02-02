@@ -38,22 +38,37 @@
 #define HAVE_LEDCTX_FAST_LKT
 
 void bf_pltfm_mav_led_init_x308p (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn);
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con);
 
 void bf_pltfm_mav_led_init_x312p (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn);
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con);
 
 void bf_pltfm_mav_led_init_x564p (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn);
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con);
 
 void bf_pltfm_mav_led_init_x532p (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn);
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con);
 
 void bf_pltfm_mav_led_init_hc36y24c (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn);
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con);
+
+void bf_pltfm_mav_led_init_x732q (struct led_ctx_t **led_ctx,
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con);
 
 led_sync_fun_ptr g_mav_led_sync_func;
-
+led_convert_fun_ptr g_mav_led_convert_func;
 
 #if defined(HAVE_ASYNC_LED)
 #include "lq.h"
@@ -135,12 +150,13 @@ connID_chnlID_to_led_ctx_index[BF_PLAT_MAX_QSFP +
 static struct led_ctx_t *g_led_ctx = NULL;
 static int g_max_led_ctx = 0;
 
-struct color_t {
+struct val2str_t {
     uint8_t v;
     const char *str;
 };
 
-static struct color_t colors[] = {
+static struct val2str_t led_colors[] = {
+    { BF_MAV_PORT_LED_OFF, "Off"},
     { BF_MAV_PORT_LED_BLUE, "Blue"},
     { BF_MAV_PORT_LED_GREEN, "Green"},
     { BF_MAV_PORT_LED_GREEN | BF_MAV_PORT_LED_BLUE, "Light Green"},
@@ -148,6 +164,21 @@ static struct color_t colors[] = {
     { BF_MAV_PORT_LED_BLUE  | BF_MAV_PORT_LED_RED, "Purple"},
     { BF_MAV_PORT_LED_GREEN | BF_MAV_PORT_LED_RED, "Yellow"},
     { BF_MAV_PORT_LED_GREEN | BF_MAV_PORT_LED_RED | BF_MAV_PORT_LED_BLUE, "White"}
+};
+
+static struct val2str_t led_conds[] = {
+    { BF_LED_POST_PORT_DEL,  "Port deleted"},
+    { BF_LED_POST_PORT_DIS,  "Port disabled"},
+    { BF_LED_PRE_PORT_EN,    "Port enabled"},
+    { BF_LED_PORT_LINK_UP,   "Link up"},
+    { BF_LED_PORT_LINK_DOWN, "Link dn"},
+    { BF_LED_PORT_LINKUP_1G_10G, "Link at 1G/10G"},
+    { BF_LED_PORT_LINKUP_25G,    "Link at 25G"},
+    { BF_LED_PORT_LINKUP_40G,    "Link at 40G"},
+    { BF_LED_PORT_LINKUP_50G,    "Link at 50G"},
+    { BF_LED_PORT_LINKUP_100G,   "Link at 100G"},
+    { BF_LED_PORT_LINKUP_200G,   "Link at 200G"},
+    { BF_LED_PORT_LINKUP_400G,   "Link at 400G"}
 };
 
 /* led ctx fast lookup table init */
@@ -326,12 +357,17 @@ static int bf_pltfm_port_led_by_tofino_sync_set (
     bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
     uint8_t val = 0;
     struct led_ctx_t *p;
+    uint32_t max_chnl_id = 4;  // default
+
+    if (platform_type_equal (AFN_X732QT)) {
+        max_chnl_id = 8;
+    }
 
     if (bf_pltfm_led_initialized == 0 || !port_info ||
         (port_info->conn_id <= 0 ||
          port_info->conn_id > (uint32_t)
          platform_num_ports_get() ||
-         port_info->chnl_id > 3)) {
+         port_info->chnl_id > max_chnl_id)) {
         return -1;
     }
 
@@ -397,12 +433,17 @@ static int bf_pltfm_port_led_by_tofino_async_set (
     bf_pltfm_status_t err = BF_PLTFM_SUCCESS;
     uint8_t val = 0;
     struct lq_element_t *lqe;
+    uint32_t max_chnl_id = 4;  // default
+
+    if (platform_type_equal (AFN_X732QT)) {
+        max_chnl_id = 8;
+    }
 
     if (bf_pltfm_led_initialized == 0 || !port_info ||
         (port_info->conn_id <= 0 ||
          port_info->conn_id > (uint32_t)
          platform_num_ports_get() ||
-         port_info->chnl_id > 3)) {
+         port_info->chnl_id > max_chnl_id)) {
         return -1;
     }
 
@@ -447,7 +488,7 @@ void *led_async_func (void *arg)
 
     FOREVER {
         while ((lqe = oryx_lq_dequeue (async_led_q)) != NULL) {
-            if (platform_type_equal (X312P)) {
+            if (platform_type_equal (AFN_X312PT)) {
                 g_rt_async_led_q_length = oryx_lq_length (async_led_q);
             }
             port_info.conn_id = lqe->module;
@@ -533,42 +574,32 @@ static int bf_pltfm_port_led_by_tofino_set (
 #endif
 }
 
-
-/** Platform port led set (for Mavericks) using sysCPLD access
-*
-*  @param chip_id
-*   chip_id
-*  @param port_info
-*    bf_pltfm_port_info_t *, NULL for all ports
-*  @param led_cond
-*   bf_led_condition_t
-*  @return
-*   0 on success and -1 on error
-*/
-int bf_pltfm_port_led_set (int chip_id,
-                           bf_pltfm_port_info_t *port_info,
-                           bf_led_condition_t led_cond)
+/* Legacy convert function. */
+#if 0
+static inline void led_cond_convert_to_color (bf_led_condition_t led_cond,
+    uint8_t *led_color)
 {
-    uint8_t led_col = BF_MAV_PORT_LED_OFF;
-
+    uint8_t led_col = *led_color;
     switch (led_cond) {
         case BF_LED_POST_PORT_DIS:
-            //if (platform_type_equal(X532P) ||
-            //    platform_type_equal(X564P)) {
+            //if (platform_type_equal(AFN_X532PT) ||
+            //    platform_type_equal(AFN_X564PT)) {
             //    led_col = BF_MAV_PORT_LED_RED |
             //              BF_MAV_PORT_LED_GREEN;
             //}
             break;
         case BF_LED_PRE_PORT_EN:
-            if (platform_type_equal(X532P) ||
-                platform_type_equal(X564P)) {
+            if (platform_type_equal(AFN_X532PT) ||
+                platform_type_equal(AFN_X564PT) ||
+                platform_type_equal(AFN_X732QT)) {
                 led_col = BF_MAV_PORT_LED_RED |
                           BF_MAV_PORT_LED_GREEN;
             }
             break;
         case BF_LED_PORT_LINK_DOWN:
-            if (platform_type_equal(X532P) ||
-                platform_type_equal(X564P)) {
+            if (platform_type_equal(AFN_X532PT) ||
+                platform_type_equal(AFN_X564PT) ||
+                platform_type_equal(AFN_X732QT)) {
                 led_col = BF_MAV_PORT_LED_RED |
                           BF_MAV_PORT_LED_GREEN;
             }
@@ -586,14 +617,13 @@ int bf_pltfm_port_led_set (int chip_id,
             led_col = BF_MAV_PORT_LED_BLUE;
             break;
 
-        /* by tsihang, 21 Nov. 2019 */
+        /* by tsihang, 21 Nov. 2019.
+         * 25/10/1G in Green, 22 Dec, 2023. */
         case BF_LED_PORT_LINKUP_1G_10G:
+        case BF_LED_PORT_LINKUP_25G:
             led_col = BF_MAV_PORT_LED_GREEN;
             break;
-        case BF_LED_PORT_LINKUP_25G:
-            led_col = BF_MAV_PORT_LED_GREEN |
-                      BF_MAV_PORT_LED_BLUE;
-            break;
+
         case BF_LED_PORT_LINKUP_40G:
             led_col = BF_MAV_PORT_LED_BLUE;
             break;
@@ -607,12 +637,40 @@ int bf_pltfm_port_led_set (int chip_id,
                       BF_MAV_PORT_LED_GREEN;
             break;
 
+        case BF_LED_PORT_LINKUP_400G:
+            led_col = BF_MAV_PORT_LED_RED;
+            break;
+        case BF_LED_PORT_LINKUP_200G:
+            led_col = BF_MAV_PORT_LED_BLUE |
+                      BF_MAV_PORT_LED_GREEN;
+            break;
+
         case BF_LED_POST_PORT_DEL:
         default:
             led_col = BF_MAV_PORT_LED_OFF;
             break;
     }
+    *led_color |= led_col;
+}
+#endif
 
+/** Platform port led set (for Mavericks) using sysCPLD access
+*
+*  @param chip_id
+*   chip_id
+*  @param port_info
+*    bf_pltfm_port_info_t *, NULL for all ports
+*  @param led_cond
+*   bf_led_condition_t
+*  @return
+*   0 on success and -1 on error
+*/
+int bf_pltfm_port_led_set (int chip_id,
+                           bf_pltfm_port_info_t *port_info,
+                           bf_led_condition_t led_cond)
+{
+    uint8_t led_col = BF_MAV_PORT_LED_OFF;
+    g_mav_led_convert_func(led_cond, &led_col);
     return (bf_pltfm_port_led_by_tofino_set (
                 chip_id, port_info, led_col, LED_NO_BLINK));
 }
@@ -951,7 +1009,7 @@ bf_pltfm_ucli_ucli__led_loop_tofino_
     int i;
     int secs = 1, usecs = 100000;
 
-    struct color_t *col;
+    struct val2str_t *col;
 
     UCLI_COMMAND_INFO (
         uc, "led-loop", 0, " Test LED");
@@ -980,11 +1038,11 @@ bf_pltfm_ucli_ucli__led_loop_tofino_
     }
 
     // light one by one with each color(no blink)
-    for (i = 0; i < (int)ARRAY_LENGTH (colors);
+    for (i = 0; i < (int)ARRAY_LENGTH (led_colors);
          i ++) {
-        col = &colors[i];
+        col = &led_colors[i];
         aim_printf (&uc->pvs,
-                    "light one by one with each color(no blink) %s\n",
+                    "LED (no blink) %s\n",
                     col->str);
         foreach_element (0, g_max_led_ctx) {
             err = 0;
@@ -1005,17 +1063,17 @@ bf_pltfm_ucli_ucli__led_loop_tofino_
             bf_sys_usleep (usecs);
         }
         bf_sys_usleep (secs * 1000000);
-        if (platform_type_equal (X312P)) {
+        if (platform_type_equal (AFN_X312PT)) {
             break;
         }
     }
 
     // light one by one with each color(blink)
-    for (i = 0; i < (int)ARRAY_LENGTH (colors);
+    for (i = 0; i < (int)ARRAY_LENGTH (led_colors);
          i ++) {
-        col = &colors[i];
+        col = &led_colors[i];
         aim_printf (&uc->pvs,
-                    "light one by one with each color(blink) %s\n",
+                    "LED (blink) %s\n",
                     col->str);
         foreach_element (0, g_max_led_ctx) {
             err = 0;
@@ -1036,7 +1094,7 @@ bf_pltfm_ucli_ucli__led_loop_tofino_
             bf_sys_usleep (usecs);
         }
         bf_sys_usleep (secs * 1000000);
-        if (platform_type_equal (X312P)) {
+        if (platform_type_equal (AFN_X312PT)) {
             break;
         }
     }
@@ -1128,6 +1186,35 @@ bf_pltfm_ucli_ucli__led_set_tofino_
     return 0;
 }
 
+static ucli_status_t
+bf_pltfm_ucli_ucli__led_define_
+(ucli_context_t *uc)
+{
+    uint8_t led_color = 0;
+    struct val2str_t *col;
+    struct val2str_t *cond;
+
+    UCLI_COMMAND_INFO (
+        uc, "led-define", 0, " Display LED definition");
+
+    for (int c = 0; c < (int)ARRAY_LENGTH (led_conds);
+         c ++) {
+        cond = &led_conds[c];
+        led_color = 0;
+        g_mav_led_convert_func(cond->v, &led_color);
+        for (int i = 0; i < (int)ARRAY_LENGTH (led_colors);
+             i ++) {
+            col = &led_colors[i];
+            if (col->v == led_color) {
+                aim_printf (&uc->pvs,
+                            "%15s -> %15s\n",
+                            cond->str, col->str);
+            }
+        }
+    }
+    return 0;
+}
+
 /* <auto.ucli.handlers.start> */
 static ucli_command_handler_f
 bf_pltfm_led_ucli_ucli_handlers__[] = {
@@ -1135,6 +1222,7 @@ bf_pltfm_led_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__led_cpld_rd_tofino_,
     bf_pltfm_ucli_ucli__led_cpld_wr_tofino_,
     bf_pltfm_ucli_ucli__led_loop_tofino_,
+    bf_pltfm_ucli_ucli__led_define_,
     bf_pltfm_ucli_ucli__loc_led__,
 #if defined(HAVE_ASYNC_LED)
     bf_pltfm_ucli_ucli__led_async_debug_,
@@ -1165,6 +1253,9 @@ int bf_pltfm_led_init (int chip_id)
 {
     int err = 0;
 
+    fprintf (stdout,
+             "\n\nInitializing LED    ...\n");
+
     /* No matter in SYNC led mode or ASYNC led mode,
      * a lock should be used to protect TF i2c.
      * by tsihang, 2021-07-07. */
@@ -1174,10 +1265,11 @@ int bf_pltfm_led_init (int chip_id)
     }
 
     /* PIN pair 0:1 go to upper CPLD */
-    if (platform_type_equal (X564P) ||
-        platform_type_equal (X532P) ||
-        platform_type_equal (X308P) ||
-        platform_type_equal (HC)) {
+    if (platform_type_equal (AFN_X564PT) ||
+        platform_type_equal (AFN_X532PT) ||
+        platform_type_equal (AFN_X308PT) ||
+        platform_type_equal (AFN_X732QT) ||
+        platform_type_equal (AFN_HC36Y24C)) {
         /* PIN pair 0:1 go to upper CPLD */
         if (bf_pltfm_tf_i2c_init (chip_id, PIN01)) {
             LOG_ERROR ("error upper tof_i2c_led_init\n");
@@ -1185,9 +1277,9 @@ int bf_pltfm_led_init (int chip_id)
         }
     }
 
-    if (platform_type_equal (X564P) ||
-        platform_type_equal (X308P) ||
-        platform_type_equal (HC)) {
+    if (platform_type_equal (AFN_X564PT) ||
+        platform_type_equal (AFN_X308PT) ||
+        platform_type_equal (AFN_HC36Y24C)) {
         /* PIN pair 4:5 go to lower CPLD */
         if (bf_pltfm_tf_i2c_init (chip_id, PIN45)) {
             LOG_ERROR ("error lower tof_i2c_led_init\n");
@@ -1195,19 +1287,28 @@ int bf_pltfm_led_init (int chip_id)
         }
     }
 
-    if (platform_type_equal (X532P)) {
-        bf_pltfm_mav_led_init_x532p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx, &g_mav_led_sync_func);
-    } else if (platform_type_equal (X564P)) {
-        bf_pltfm_mav_led_init_x564p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx, &g_mav_led_sync_func);
-    } else if (platform_type_equal (X308P)) {
-        bf_pltfm_mav_led_init_x308p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx, &g_mav_led_sync_func);
-    } else if (platform_type_equal (X312P)) {
-        bf_pltfm_mav_led_init_x312p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx, &g_mav_led_sync_func);
-    } else if (platform_type_equal (HC)) {
-        bf_pltfm_mav_led_init_hc36y24c ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx, &g_mav_led_sync_func);
+    if (platform_type_equal (AFN_X532PT)) {
+        bf_pltfm_mav_led_init_x532p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx,
+            &g_mav_led_sync_func, &g_mav_led_convert_func);
+    } else if (platform_type_equal (AFN_X564PT)) {
+        bf_pltfm_mav_led_init_x564p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx,
+            &g_mav_led_sync_func, &g_mav_led_convert_func);
+    } else if (platform_type_equal (AFN_X308PT)) {
+        bf_pltfm_mav_led_init_x308p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx,
+            &g_mav_led_sync_func, &g_mav_led_convert_func);
+    } else if (platform_type_equal (AFN_X732QT)) {
+        bf_pltfm_mav_led_init_x732q ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx,
+            &g_mav_led_sync_func, &g_mav_led_convert_func);
+    } else if (platform_type_equal (AFN_X312PT)) {
+        bf_pltfm_mav_led_init_x312p ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx,
+            &g_mav_led_sync_func, &g_mav_led_convert_func);
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
+        bf_pltfm_mav_led_init_hc36y24c ((struct led_ctx_t **)&g_led_ctx, &g_max_led_ctx,
+            &g_mav_led_sync_func, &g_mav_led_convert_func);
     }
     BUG_ON (g_led_ctx == NULL);
     BUG_ON (g_mav_led_sync_func == NULL);
+    BUG_ON (g_mav_led_convert_func == NULL);
 
 #if defined (HAVE_LEDCTX_FAST_LKT)
     /* init led ctx fast lookup table. */
@@ -1228,7 +1329,7 @@ int bf_pltfm_led_init (int chip_id)
 
     oryx_lq_new ("LED ASYNC QUEUE", lq_cfg,
                  (void **)&async_led_q);
-    oryx_lq_dump (async_led_q);
+    //oryx_lq_dump (async_led_q);
 
     /* Start async led first. */
     err |= pthread_attr_init (&async_led_q_attr);
@@ -1254,7 +1355,7 @@ int bf_pltfm_led_init (int chip_id)
     while (!bf_pltfm_led_initialized);
 #endif
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         ;
     } else {
         bf_pltfm_port_info_t port_info;
@@ -1309,6 +1410,26 @@ int bf_pltfm_led_init (int chip_id)
     }
 #endif
 
+    uint8_t led_color = 0;
+    struct val2str_t *col;
+    struct val2str_t *cond;
+    /* Display the definition of LED. */
+    for (int c = 0; c < (int)ARRAY_LENGTH (led_conds);
+         c ++) {
+        cond = &led_conds[c];
+        led_color = 0;
+        g_mav_led_convert_func(cond->v, &led_color);
+        for (int i = 0; i < (int)ARRAY_LENGTH (led_colors);
+             i ++) {
+            col = &led_colors[i];
+            if (col->v == led_color) {
+                fprintf (stdout,
+                            "%15s -> %15s\n",
+                            cond->str, col->str);
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -1320,13 +1441,14 @@ int bf_pltfm_led_de_init ()
     /* Make sure all LED off. */
     bf_pltfm_port_info_t port_info;
 
-    fprintf(stdout, "================== Deinit .... %48s ================== \n",
-        __func__);
+    fprintf (stdout,
+             "\n\nDe-nitializing LED    ...\n");
+
     if (!bf_pltfm_led_initialized) {
         return BF_PLTFM_SUCCESS;
     }
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         ;
     } else {
         foreach_element (0, g_max_led_ctx) {
@@ -1405,8 +1527,6 @@ int bf_pltfm_led_de_init ()
     /* Make warm init happy. Added by tsihang, 2021-11-01. */
     bf_pltfm_led_initialized = 0;
 
-    fprintf(stdout, "================== Deinit done %48s ================== \n",
-        __func__);
     return 0;
 }
 

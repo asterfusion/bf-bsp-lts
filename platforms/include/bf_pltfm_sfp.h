@@ -199,8 +199,7 @@ struct sfp_ctx_info_t {
     uint32_t chnl;
     uint8_t i2c_chnl_addr;
     uint32_t rev; /* moudle -> rev, by tsihang, 2021-07-13.
-                * for HC, use rev to store address of PCA9548
-                */
+                   * for HC, use rev to store address of PCA9548 */
 };
 
 /* User defined sfp ctx. */

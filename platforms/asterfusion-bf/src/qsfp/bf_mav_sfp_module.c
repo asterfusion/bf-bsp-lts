@@ -69,6 +69,8 @@ void bf_pltfm_sfp_init_x312p (struct opt_ctx_t **opt,
     uint32_t *num, uint32_t *xsfp_num);
 void bf_pltfm_sfp_init_hc36y24c (struct opt_ctx_t **opt,
     uint32_t *num, uint32_t *xsfp_num);
+void bf_pltfm_sfp_init_x732q (struct opt_ctx_t **opt,
+    uint32_t *num, uint32_t *xsfp_num);
 
 static void hex_dump (uint8_t *buf, uint32_t len)
 {
@@ -700,25 +702,27 @@ int bf_pltfm_sfp_init (void *arg)
     uint32_t sfp28_num = 0, xsfp_num = 0;
 
     fprintf (stdout,
-             "\n\n================== SFPs INIT ==================\n");
+             "\n\nInitializing SFP    ...\n");
 
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         bf_pltfm_sfp_init_x532p ((struct opt_ctx_t **)&g_sfp_opt, &sfp28_num, &xsfp_num);
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         bf_pltfm_sfp_init_x564p ((struct opt_ctx_t **)&g_sfp_opt, &sfp28_num, &xsfp_num);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         bf_pltfm_sfp_init_x308p ((struct opt_ctx_t **)&g_sfp_opt, &sfp28_num, &xsfp_num);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         bf_pltfm_sfp_init_x312p ((struct opt_ctx_t **)&g_sfp_opt, &sfp28_num, &xsfp_num);
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         bf_pltfm_sfp_init_hc36y24c ((struct opt_ctx_t **)&g_sfp_opt, &sfp28_num, &xsfp_num);
+    } else if (platform_type_equal (AFN_X732QT)) {
+        bf_pltfm_sfp_init_x732q ((struct opt_ctx_t **)&g_sfp_opt, &sfp28_num, &xsfp_num);
     }
     BUG_ON (g_sfp_opt == NULL);
     g_xsfp_ctx = g_sfp_opt->xsfp_ctx;
     g_xsfp_num = xsfp_num;
     bf_sfp_set_num (sfp28_num);
 
-    fprintf (stdout, "num of SFPs : %d : num of xSFPs : %d\n",
+    fprintf (stdout, "SFPs/xSFPs : %2d/%2d\n",
              bf_sfp_get_max_sfp_ports(), g_xsfp_num);
 
     /* init SFP map */
@@ -844,7 +848,7 @@ EXPORT bf_dev_port_t bf_get_dev_port_by_interface_name (
         return -2;
     }
 
-    if (name[0] == 'C') {
+    if ((name[0] == 'C') || (name[0] == 'Q')) {
         port_hdl.chnl_id = 0;
         if (is_panel_qsfp_module (module)) {
             err = bf_pltfm_qsfp_lookup_by_module (module,
@@ -888,7 +892,7 @@ EXPORT bf_dev_port_t bf_get_dev_port_by_interface_name (
     }
 
 fetch_dp:
-    FP2DP (dev_id, &port_hdl, &d_p);
+    bfn_fp2_dp (dev_id, &port_hdl, &d_p);
     /* D_P may start from zero. */
     return d_p;
 }

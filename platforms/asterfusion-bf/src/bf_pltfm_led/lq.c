@@ -127,8 +127,8 @@ static struct oryx_lq_ctx_t *
 
 
 #if defined(LQ_ENABLE_PASSIVE)
-    fprintf (stdout, "init passive queue... %d\n",
-             lq_type_blocked (lq));
+    //fprintf (stdout, "init passive queue... %d\n",
+    //         lq_type_blocked (lq));
     if (lq_type_blocked (lq)) {
         oryx_sys_mutex_create (&lq->cond_mtx);
         oryx_sys_cond_create (&lq->cond);

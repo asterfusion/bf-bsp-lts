@@ -15,6 +15,7 @@
 #include <port_mgr/port_mgr_intf.h>
 #include <lld/lld_reg_if.h>
 #include <bf_pltfm.h>
+#include "pltfm_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -197,31 +198,37 @@ typedef struct bf_pltfm_temperature_info_t {
     /* x308p-t -> Mainboard Front Left */
     /* x532p-t -> Mainboard Front Left */
     /* x564p-t -> Mainboard Front Left */
+    /* x732q-t -> Mainboard Front Left */
     float tmp1;  /* tempearture of sensor 1 in C */
     /* x312p-t -> LM63 */
     /* x308p-t -> Mainboard Front Right */
     /* x532p-t -> Mainboard Front Right */
     /* x564p-t -> Mainboard Front Right */
+    /* x732q-t -> Mainboard Front Right */
     float tmp2;  /* tempearture of sensor 2 in C */
     /* x312p-t -> LM86 */
     /* x308p-t -> FAN1 <Save temp of FAN2 to temp10. > */
     /* x532p-t -> ASIC Ambient */
     /* x564p-t -> ASIC Ambient */
+    /* x732q-t -> ASIC Ambient */
     float tmp3;  /* tempearture of sensor 3 in C */
     /* x312p-t -> DPU-1 Junction */
     /* x308p-t -> DPU-1 Junction */
     /* x532p-t -> ASIC Junction */
     /* x564p-t -> ASIC Junction */
+    /* x732q-t -> ASIC Junction */
     float tmp4;  /* tempearture of sensor 4 in C */
     /* x312p-t -> DPU-1 Ambient */
     /* x308p-t -> DPU-1 Ambient */
     /* x532p-t -> Fan 1 */
     /* x564p-t -> Fan 1 */
+    /* x732q-t -> Fan 1 */
     float tmp5;  /* tempearture of sensor 5 in C */
     /* x312p-t -> DPU-2 Junction */
     /* x308p-t -> DPU-2 Junction */
     /* x532p-t -> Fan 2 */
     /* x564p-t -> Fan 2 */
+    /* x732q-t -> Fan 2 */
     float tmp6;  /* tempearture of sensor 6 in C */
     /* x312p-t -> DPU-2 Ambient */
     /* x308p-t -> DPU-2 Ambient */
@@ -359,15 +366,8 @@ bf_pltfm_status_t pltfm_mgr_sensor_out_get (
     char *info,
     size_t info_size);
 
-bf_pltfm_status_t
-bf_pltfm_chss_mgmt_platform_type_get (
-    uint8_t *type, uint8_t *subtype);
-
 bf_pltfm_status_t bf_pltfm_get_suboard_status (bool *dpu1_installed,
     bool *dpu2_installed, bool *ptpx_installed);
-
-bool platform_type_equal (uint8_t type);
-bool platform_subtype_equal (uint8_t subtype);
 
 #define BMC_COMM_INTERVAL_US    500000
 

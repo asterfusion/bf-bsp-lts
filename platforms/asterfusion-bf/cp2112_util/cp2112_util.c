@@ -22,8 +22,7 @@ bool dbg_print = false;
 /*********************************************************************
 * create_server
 *********************************************************************/
-int create_server (int listen_port)
-{
+int create_server (int listen_port) {
     int socket_desc, client_sock, c;
     struct sockaddr_in server, client;
     int so_reuseaddr = 1;
@@ -82,8 +81,7 @@ int create_server (int listen_port)
 * write_to_socket
 *********************************************************************/
 void write_to_socket (int sock, uint8_t *buf,
-                      int len)
-{
+                      int len) {
     if (send (sock, buf, len, 0) < 0) {
         puts ("Send failed");
         exit (3);
@@ -94,8 +92,7 @@ void write_to_socket (int sock, uint8_t *buf,
 * read_from_socket
 *********************************************************************/
 int read_from_socket (int sock, uint8_t *buf,
-                      int len)
-{
+                      int len) {
     int n_read = 0, n_read_this_time = 0, i = 1;
 
     // Receive a message from client
@@ -127,22 +124,32 @@ int read_from_socket (int sock, uint8_t *buf,
   "detect"};*/
 
 static char *usage[] = {
-    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> read <dev(Lower->0, Upper->1)> "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> read <dev(Lower->0, Upper->1)> "
     "<i2c_addr> <length>",
-    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> write <dev(Lower->0, Upper->1)> "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> write <dev(Lower->0, Upper->1)> "
     "<i2c_addr> <length> <byte1> "
     "[<byte2> ...]",
-    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> addr-read <dev(Lower->0, "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> addr-read <dev(Lower->0, "
     "Upper->1)> <i2c_addr> <read_length> "
     "<write_length> <byte1> [<byte2> ...]",
-    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> addr-read-unsafe <dev(Lower->0, "
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> addr-read-unsafe <dev(Lower->0, "
     "Upper->1)> <i2c_addr> "
     "<read_length> <write_length> <byte1> [<byte2> ...]",
-    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2> detect <dev(Lower->0, Upper->1)>"
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> detect <dev(Lower->0, Upper->1)>",
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> read-with-offset <dev(Lower->0, "
+    "Upper->1)> <i2c_addr> <read_offset> <read_length>",
+    "cp2112_util <X532P-T->0, X564P-T->1, X308P-T->2, X732Q-T->3> write-with-offset <dev(Lower->0, "
+    "Upper->1)> <i2c_addr> <write_offset> <write_length> byte1 [<byte2> ...]",
+    "",
+    "",
+    "",
+    "Examples:",
+    "./cp2112_util 0 detect 1",
+    "./cp2112_util 1 read 0 0xe0 1",
+    ""
 };
 
-static int proc_read (int count, char *cmd[])
-{
+static int proc_read (int count, char *cmd[]) {
     if (count < 3) {
         printf ("Error: Insufficient arguments\nUsage : %s\n",
                 usage[0]);
@@ -205,8 +212,7 @@ static int proc_read (int count, char *cmd[])
     return 0;
 }
 
-static int proc_write (int count, char *cmd[])
-{
+static int proc_write (int count, char *cmd[]) {
     if (count < 3) {
         printf ("Error: Insufficient arguments\nUsage: %s\n",
                 usage[1]);
@@ -273,8 +279,7 @@ static int proc_write (int count, char *cmd[])
 }
 
 int proc_addr_read (int count, char *cmd[],
-                    bool is_unsafe, uint8_t *rb)
-{
+                    bool is_unsafe, uint8_t *rb) {
     if (count < 4) {
         if (is_unsafe == false) {
             printf ("Error: Insufficient arguments\nUsage: %s\n",
@@ -300,7 +305,7 @@ int proc_addr_read (int count, char *cmd[],
                                            NULL, 16);
 
     if (read_byte_buf_size > 256 ||
-        write_byte_buf_size > 60) {
+            write_byte_buf_size > 60) {
         printf ("Error: unsupported read or write data size\n");
         return -1;
     }
@@ -391,8 +396,7 @@ int proc_addr_read (int count, char *cmd[],
     return 0;
 }
 
-static int proc_detect (int count, char *cmd[])
-{
+static int proc_detect (int count, char *cmd[]) {
     if (count < 1) {
         printf ("Error: Insufficient arguments\nUsage : %s\n",
                 usage[4]);
@@ -443,12 +447,160 @@ static int proc_detect (int count, char *cmd[])
     return 0;
 }
 
+static int proc_read_with_offset(int count, char *cmd[]) {
+    if (count != 5) {
+        printf("Error: Insufficient arguments\nUsage: %s\n", usage[5]);
+        return -1;
+    }
+
+    uint8_t i2c_addr;
+    uint32_t read_byte_buf_size;
+    uint8_t *read_byte_buf;
+    uint8_t cp2112_id_;
+    uint8_t offset;
+    uint32_t i;
+    bf_pltfm_cp2112_id_t cp2112_id;
+    bf_pltfm_cp2112_device_ctx_t *cp2112_dev;
+
+    cp2112_id_ = (uint8_t)strtol(cmd[0], NULL, 16);
+    i2c_addr = (uint8_t)strtol(cmd[1], NULL, 16);
+    offset = (uint8_t)strtol(cmd[2], NULL, 0);
+    read_byte_buf_size = (uint32_t)strtol(cmd[3], NULL, 0);
+
+    if (cp2112_id_ == 0) {
+        cp2112_id = CP2112_ID_2;
+    } else if (cp2112_id_ == 1) {
+        cp2112_id = CP2112_ID_1;
+    } else {
+        printf("Error: addr read failed\nUsage: %s\n", usage[2]);
+        return -1;
+    }
+
+    cp2112_dev = bf_pltfm_cp2112_get_handle(cp2112_id);
+    if (cp2112_dev == NULL) {
+        printf("Error: unable to get the handle for dev %d\n", cp2112_id_);
+        return -1;
+    }
+
+    read_byte_buf = (uint8_t *)malloc(read_byte_buf_size * sizeof(uint8_t));
+
+    bf_pltfm_status_t sts;
+    sts = bf_pltfm_cp2112_write(cp2112_dev,
+                                i2c_addr,
+                                &offset,
+                                1,
+                                DEFAULT_TIMEOUT_MS);
+    sts |= bf_pltfm_cp2112_read(cp2112_dev,
+                                i2c_addr,
+                                read_byte_buf,
+                                read_byte_buf_size,
+                                DEFAULT_TIMEOUT_MS);
+
+    if (sts != BF_PLTFM_SUCCESS) {
+        printf("Error: addr read failed for dev %d addr %02x \n",
+               cp2112_id_,
+               (unsigned)i2c_addr);
+        free(read_byte_buf);
+        return -1;
+    } else {
+        for (i = 0; i < read_byte_buf_size; i++) {
+            printf("%02x ", (unsigned)read_byte_buf[i]);
+            if((i + 1) % 16 == 0) {
+                printf("\n");
+            }
+        }
+        printf("\n");
+    }
+
+    free(read_byte_buf);
+    return 0;
+}
+
+static int proc_write_with_offset(int count, char *cmd[]) {
+    if (count < 6) {
+        printf("Error: Insufficient arguments\nUsage: %s\n", usage[6]);
+        return -1;
+    }
+
+    uint8_t i2c_addr;
+    uint32_t write_byte_buf_size;
+    uint8_t *write_byte_buf;
+    uint8_t *new_buf;
+    uint8_t cp2112_id_;
+    uint8_t offset;
+    uint32_t i;
+    bf_pltfm_cp2112_id_t cp2112_id;
+    bf_pltfm_cp2112_device_ctx_t *cp2112_dev;
+
+    cp2112_id_ = (uint8_t)strtol(cmd[0], NULL, 16);
+    i2c_addr = (uint8_t)strtol(cmd[1], NULL, 16);
+    offset = (uint8_t)strtol(cmd[2], NULL, 0);
+    write_byte_buf_size = (uint32_t)strtol(cmd[3], NULL, 0);
+
+    if (count < (int)(5 + write_byte_buf_size)) {
+        printf("Error: Insufficient arguments\nUsage: %s\n", usage[6]);
+        return -1;
+    }
+
+    if (cp2112_id_ == 0) {
+        cp2112_id = CP2112_ID_2;
+    } else if (cp2112_id_ == 1) {
+        cp2112_id = CP2112_ID_1;
+    } else {
+        printf("Error: addr read failed\nUsage: %s\n", usage[2]);
+        return -1;
+    }
+
+    cp2112_dev = bf_pltfm_cp2112_get_handle(cp2112_id);
+    if (cp2112_dev == NULL) {
+        printf("Error: unable to get the handle for dev %d\n", cp2112_id_);
+        return -1;
+    }
+
+    write_byte_buf = (uint8_t *)malloc(write_byte_buf_size * sizeof(uint8_t));
+    new_buf = (uint8_t *)malloc((write_byte_buf_size + 1) * sizeof(uint8_t));
+
+    for (i = 0; i < write_byte_buf_size; i++) {
+        write_byte_buf[i] = strtol(cmd[4 + i], NULL, 16);
+    }
+
+    new_buf[0] = offset;
+    memcpy(new_buf + 1, write_byte_buf, write_byte_buf_size);
+
+    bf_pltfm_status_t sts;
+    sts = bf_pltfm_cp2112_write(cp2112_dev,
+                                i2c_addr,
+                                new_buf,
+                                write_byte_buf_size + 1,
+                                DEFAULT_TIMEOUT_MS);
+
+    if (sts != BF_PLTFM_SUCCESS) {
+        printf("Error: addr write failed for dev %d addr %02x \n",
+               cp2112_id_,
+               (unsigned)i2c_addr);
+        free(write_byte_buf);
+        free(new_buf);
+        return -1;
+    } else {
+        for (i = 0; i < write_byte_buf_size; i++) {
+            printf("%02x ", (unsigned)write_byte_buf[i]);
+            if((i + 1) % 16 == 0) {
+                printf("\n");
+            }
+        }
+        printf("\n");
+    }
+
+    free(write_byte_buf);
+    free(new_buf);
+    return 0;
+}
+
 // static def for server rd/wr
 uint8_t static_byte_buf[64] = {0};
 
 static uint32_t proc_server_reg_read (
-    uint32_t addr)
-{
+    uint32_t addr) {
     uint16_t ret_val;
     uint8_t i2c_addr;
     uint32_t byte_buf_size;
@@ -528,8 +680,7 @@ static uint32_t proc_server_reg_read (
 }
 
 static int proc_server_reg_write (uint32_t addr,
-                                  uint32_t val)
-{
+                                  uint32_t val) {
     uint8_t i2c_addr;
     uint32_t byte_buf_size;
     uint8_t *byte_buf = &static_byte_buf[0];
@@ -600,8 +751,7 @@ static int proc_server_reg_write (uint32_t addr,
 *
 * means "0x9818 = 0x0666"
 *****************************************************************/
-static int proc_server (int count, char *cmd[])
-{
+static int proc_server (int count, char *cmd[]) {
     reg_chnl = create_server (9001);
     if (-1 == reg_chnl) {
         /* Indicates bind/accept error in create server */
@@ -723,8 +873,7 @@ static int proc_server (int count, char *cmd[])
     return reg_chnl;
 }
 
-int process_request (int count, char *cmd[])
-{
+int process_request (int count, char *cmd[]) {
     if (strcmp (cmd[1], "read") == 0) {
         return proc_read (count, &cmd[2]);
     } else if (strcmp (cmd[1], "write") == 0) {
@@ -740,6 +889,10 @@ int process_request (int count, char *cmd[])
         return proc_detect (count, &cmd[2]);
     } else if (strcmp (cmd[1], "server") == 0) {
         return proc_server (count, &cmd[2]);
+    } else if (strcmp(cmd[1], "read-with-offset") == 0) {
+        return proc_read_with_offset (count, &cmd[2]);
+    } else if (strcmp(cmd[1], "write-with-offset") == 0) {
+        return proc_write_with_offset (count, &cmd[2]);
     } else {
         printf ("Error: Invalid command\n");
         return -1;
@@ -747,13 +900,12 @@ int process_request (int count, char *cmd[])
 }
 
 #ifndef NO_MAIN
-int main (int argc, char *argv[])
-{
+int main (int argc, char *argv[]) {
     if (argc < 4) {
         uint32_t i = 0;
         printf ("Usage: \n");
         for (i = 0;
-             i < (sizeof (usage) / sizeof (usage[0])); i++) {
+                i < (sizeof (usage) / sizeof (usage[0])); i++) {
             printf ("%s\n", usage[i]);
         }
         return 1;
@@ -784,14 +936,12 @@ int main (int argc, char *argv[])
 }
 #endif
 /* stub functions to make cp2112_util build */
-int platform_num_ports_get (void)
-{
+int platform_num_ports_get (void) {
     return 0;
 }
 
 pltfm_bd_map_t *platform_pltfm_bd_map_get (
-    int *rows)
-{
+    int *rows) {
     *rows = 0;
     return NULL;
 }

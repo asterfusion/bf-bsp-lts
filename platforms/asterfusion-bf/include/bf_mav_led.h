@@ -60,6 +60,12 @@ struct led_init_t {
 extern bool async_led_debug_on;
 
 typedef int (*led_sync_fun_ptr) (int, struct led_ctx_t *, uint8_t);
+/* By tsihang, 2023/12/26. */
+typedef void (*led_convert_fun_ptr) (bf_led_condition_t,
+    uint8_t *);
+
+/* Light on/off LOC LED */
+int bf_pltfm_location_led_set (int on_off);
 
 /* Light on/off LOC LED */
 int bf_pltfm_location_led_set (int on_off);

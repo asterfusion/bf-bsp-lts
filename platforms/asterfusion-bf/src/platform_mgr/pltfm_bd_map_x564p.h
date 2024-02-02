@@ -1,4 +1,4 @@
-bd_map_ent_t mavericks_P0B_bd_map_x564p[] = {
+bd_map_ent_t asterfusion_bd_map_x564p[] = {
     //
     // QSFP Port: 1 : Channel: 0 : Types : QSFP_Cu_0.5m, QSFP_Cu_1m, QSFP_Cu_2m, QSFP_Cu_3m, QSFP_Cu_Loop_0dB, QSFP_Opt,
     //

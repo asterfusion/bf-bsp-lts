@@ -145,12 +145,12 @@ __bf_pltfm_chss_mgmt_fan_data_get_x532p__ (
 
         /* If BMC version is earlier than 1.2.3(hwver == 1.x), do not read MODEL/SN/REV...
          * If BMC version is earlier than 1.0.5(hwver == 2.0), do not read MODEL/SN/REV... */
-        if (platform_subtype_equal(v1dot0) ||
-            platform_subtype_equal(v1dot1)) {
+        if (platform_subtype_equal(V1P0) ||
+            platform_subtype_equal(V1P1)) {
             if (bf_pltfm_compare_bmc_ver("v1.2.3") < 0) {
                 return BF_PLTFM_SUCCESS;
             }
-        } else if (platform_subtype_equal(v2dot0)) {
+        } else if (platform_subtype_equal(V2P0)) {
             if (bf_pltfm_compare_bmc_ver("v1.0.5") < 0) {
                 return BF_PLTFM_SUCCESS;
             }
@@ -343,13 +343,13 @@ __bf_pltfm_chss_mgmt_fan_data_get_x564p__ (
 
         /* If BMC version is earlier than 2.0.4(hwver == 1.x), do not read MODEL/SN/REV...
          * If BMC version is earlier than 1.0.2(hwver == 2.0), do not read MODEL/SN/REV... */
-        if (platform_subtype_equal(v1dot0) ||
-            platform_subtype_equal(v1dot1) ||
-            platform_subtype_equal(v1dot2)) {
+        if (platform_subtype_equal(V1P0) ||
+            platform_subtype_equal(V1P1) ||
+            platform_subtype_equal(V1P2)) {
             if (bf_pltfm_compare_bmc_ver("v2.0.4") < 0) {
                 return BF_PLTFM_SUCCESS;
             }
-        } else if (platform_subtype_equal(v2dot0)) {
+        } else if (platform_subtype_equal(V2P0)) {
             if (bf_pltfm_compare_bmc_ver("v1.0.2") < 0) {
                 return BF_PLTFM_SUCCESS;
             }
@@ -667,7 +667,7 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
     uint8_t data[I2C_SMBUS_BLOCK_MAX] = {0};
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v2dot0)) {
+    if (platform_subtype_equal(V2P0)) {
 
         // fan status
         for (uint32_t i = 0;
@@ -718,9 +718,9 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
             if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 10)
                 fdata->F[num].group = 5;
         }
-    } else if (platform_subtype_equal(v3dot0) ||
-               platform_subtype_equal(v4dot0) ||
-               platform_subtype_equal(v5dot0)) {
+    } else if (platform_subtype_equal(V3P0) ||
+               platform_subtype_equal(V4P0) ||
+               platform_subtype_equal(V5P0)) {
         // fan status
         buf[0] = 0x03;
         buf[1] = 0x32;
@@ -816,6 +816,160 @@ __bf_pltfm_chss_mgmt_fan_data_get_x312p__ (
 }
 
 static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_fan_data_get_x732q__ (
+    bf_pltfm_fan_data_t *fdata)
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    int err = BF_PLTFM_COMM_FAILED, ret;
+    uint32_t num = 0;
+
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        wr_buf[0] = 0xAA;
+        wr_buf[1] = 0xAA;
+
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_FAN_ALL, wr_buf, 2, rd_buf, (128 - 1),
+                  BMC_COMM_INTERVAL_US);
+        if ((ret == 27) && (rd_buf[0] == 26)) {
+            for (uint32_t i = 0;
+                 i < bf_pltfm_mgr_ctx()->fan_group_count *
+                     bf_pltfm_mgr_ctx()->fan_per_group; i ++) {
+                fdata->F[i].fan_num     = i + 1;
+                fdata->F[i].present     = (rd_buf[1] & (0x01 <<
+                                                        (i >> 1))) ? 1 : 0;
+                fdata->F[i].direction   = 1;
+                fdata->F[i].front_speed = (rd_buf[2 * i + 3] << 8)
+                                          + rd_buf[2 * i + 4];
+
+                num = i;
+                /* Map to group */
+                if (fdata->F[num].fan_num == 1 || fdata->F[num].fan_num == 2)
+                    fdata->F[num].group = 1;
+                if (fdata->F[num].fan_num == 3 || fdata->F[num].fan_num == 4)
+                    fdata->F[num].group = 2;
+                if (fdata->F[num].fan_num == 5 || fdata->F[num].fan_num == 6)
+                    fdata->F[num].group = 3;
+                if (fdata->F[num].fan_num == 7 || fdata->F[num].fan_num == 8)
+                    fdata->F[num].group = 4;
+                if (fdata->F[num].fan_num == 9 || fdata->F[num].fan_num == 10)
+                    fdata->F[num].group = 5;
+                if (fdata->F[num].fan_num == 11 || fdata->F[num].fan_num == 12)
+                    fdata->F[num].group = 6;
+            }
+            err = BF_PLTFM_SUCCESS;
+        }
+
+        for (uint32_t i = 0; i < bf_pltfm_mgr_ctx()->fan_group_count; i ++) {
+            wr_buf[0] = i + 1;
+
+            wr_buf[1] = BMC_SUB2_SN;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US*2);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+
+                if ((strlen (bmc_fan_data.F[num].serial) == rd_buf[0]) &&
+                    (memcmp (bmc_fan_data.F[num].serial, &rd_buf[1], rd_buf[0]) == 0)) {
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    num ++;
+                    memcpy (fdata->F[num].serial, bmc_fan_data.F[num].serial, sizeof(fdata->F[num].serial));
+                    memcpy (fdata->F[num].model,  bmc_fan_data.F[num].model,  sizeof(fdata->F[num].model));
+                    fdata->F[num].direction = bmc_fan_data.F[num].direction;
+                    fdata->F[num].max_speed = bmc_fan_data.F[num].max_speed;
+                    if (fdata->F[num].max_speed != 0) {
+                        fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    }
+                    fdata->F[num].fvalid = bmc_fan_data.F[num].fvalid;
+
+                    continue;
+                }
+
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+
+                num ++;
+                memset (fdata->F[num].serial, 0x00, sizeof(fdata->F[num].serial));
+                memcpy (fdata->F[num].serial, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_SERIAL;
+            } else {
+                /* If there is no SN on FAN module, then no need to read following info */
+                continue;
+            }
+
+            wr_buf[1] = BMC_SUB2_MODEL;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US*2);
+
+            if ((ret == rd_buf[0] + 1) && (ret > 1)) {
+                num = i * 2;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+
+                num ++;
+                memset (fdata->F[num].model, 0x00, sizeof(fdata->F[num].model));
+                memcpy (fdata->F[num].model, &rd_buf[1], rd_buf[0]);
+                fdata->F[num].fvalid |= FAN_INFO_VALID_MODEL;
+            }
+
+            wr_buf[1] = BMC_SUB2_MAX;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US*2);
+
+            if ((ret == 5) && (ret == rd_buf[0] + 1)) {
+                num = i * 2;
+                fdata->F[num].max_speed  = (rd_buf[1] << 8) + rd_buf[2];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+
+                num ++;
+                fdata->F[num].max_speed  = (rd_buf[3] << 8) + rd_buf[4];
+                if (fdata->F[num].max_speed != 0) {
+                    fdata->F[num].percent = fdata->F[num].front_speed * 100 / fdata->F[num].max_speed;
+                    fdata->F[num].fvalid |= FAN_INFO_VALID_MAX_SPEED;
+                }
+            }
+
+            wr_buf[1] = BMC_SUB2_DIR;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),
+                    BMC_COMM_INTERVAL_US*2);
+
+            if ((ret == 4) && (ret == rd_buf[0] + 1)) {
+                if ((rd_buf[1] == 'F') && (rd_buf[2] == '2') && ((rd_buf[3] == 'R') || (rd_buf[3] == 'B'))) {
+                    num = i * 2;
+                    fdata->F[num].direction = 1;
+                    fdata->F[num + 1].direction = 1;
+                } else if (((rd_buf[1] == 'R') || (rd_buf[1] == 'B')) && (rd_buf[2] == '2') && (rd_buf[3] == 'F')) {
+                    num = i * 2;
+                    fdata->F[num].direction = 2;
+                    fdata->F[num +1].direction = 2;
+                }
+            }
+        }
+
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_data_get_hc36y24c__ (
     bf_pltfm_fan_data_t *fdata)
 {
@@ -904,7 +1058,7 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
     fdata = fdata;
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v2dot0)) {
+    if (platform_subtype_equal(V2P0)) {
         uint8_t buf[2] = {0};
         uint8_t res[I2C_SMBUS_BLOCK_MAX + 2];
         int rdlen;
@@ -918,9 +1072,9 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
             LOG_ERROR("write fan speed to bmc error!\n");
             return BF_PLTFM_COMM_FAILED;
         }
-    } else if (platform_subtype_equal(v3dot0) ||
-               platform_subtype_equal(v4dot0) ||
-               platform_subtype_equal(v5dot0)) {
+    } else if (platform_subtype_equal(V3P0) ||
+               platform_subtype_equal(V4P0) ||
+               platform_subtype_equal(V5P0)) {
         uint8_t buf[5] = {0};
         uint8_t data[32] = {0};
         int rdlen = 0;
@@ -952,6 +1106,30 @@ __bf_pltfm_chss_mgmt_fan_speed_set_x312p__ (
 }
 
 static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_fan_speed_set_x732q__ (
+    bf_pltfm_fan_info_t *fdata)
+{
+    uint8_t wr_buf[2];
+    int err = BF_PLTFM_COMM_FAILED;
+
+    wr_buf[0] = fdata->fan_num;
+    wr_buf[1] = fdata->speed_level;
+
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        err = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_FAN_SET, wr_buf, 2, NULL, 0,
+                  BMC_COMM_INTERVAL_US);
+    } else {
+        err = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                  BMC_CMD_FAN_SET, wr_buf, 2, 0, NULL, 0, BMC_COMM_INTERVAL_US);
+    }
+
+    /* read back to checkout. */
+
+    return err;
+}
+
+static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_fan_speed_set_hc36y24c__ (
     bf_pltfm_fan_info_t *fdata)
 {
@@ -972,19 +1150,22 @@ __bf_pltfm_chss_mgmt_fan_data_get__ (
 
     clr_fan_data(fdata);
 
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x532p__
               (fdata);
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x564p__
               (fdata);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x308p__
               (fdata);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_x312p__
               (fdata);
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        err = __bf_pltfm_chss_mgmt_fan_data_get_x732q__
+              (fdata);
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         err = __bf_pltfm_chss_mgmt_fan_data_get_hc36y24c__
               (fdata);
     }
@@ -1010,19 +1191,22 @@ __bf_pltfm_chss_mgmt_fan_speed_set__ (
         return BF_PLTFM_INVALID_ARG;
     }
 
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_x532p__
               (fdata);
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_x564p__
               (fdata);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_x308p__
               (fdata);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_x312p__
               (fdata);
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        err = __bf_pltfm_chss_mgmt_fan_speed_set_x732q__
+              (fdata);
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         err = __bf_pltfm_chss_mgmt_fan_speed_set_hc36y24c__
               (fdata);
     }
@@ -1057,9 +1241,6 @@ bf_pltfm_status_t
 bf_pltfm_chss_mgmt_fan_init()
 {
     bf_pltfm_fan_data_t fdata;
-
-    fprintf (stdout,
-             "\n\n================== FANs INIT ==================\n");
 
     clr_fan_data(&bmc_fan_data);
 

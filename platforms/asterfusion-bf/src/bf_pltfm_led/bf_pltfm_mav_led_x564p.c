@@ -127,6 +127,66 @@ bf_pltfm_status_t bf_pltfm_tf_cpld_read (
     uint8_t offset,
     uint8_t *rd_buf);
 
+static void led_cond_convert_to_color_x564p (bf_led_condition_t led_cond,
+    uint8_t *led_color)
+{
+    uint8_t led_col = BF_MAV_PORT_LED_OFF;
+    switch (led_cond) {
+        case BF_LED_POST_PORT_DEL:
+        case BF_LED_POST_PORT_DIS:
+            break;
+
+        case BF_LED_PRE_PORT_EN:
+        case BF_LED_PORT_LINK_DOWN:
+            /* Yellow when port is enabled but link is no up. */
+            led_col = BF_MAV_PORT_LED_RED |
+                      BF_MAV_PORT_LED_GREEN;
+            break;
+
+        /* Green when link is up. The color will be reset to the one which indicates current speed. */
+        case BF_LED_PORT_LINK_UP:
+        /* Green at 25/10/1G, 22 Dec, 2023. */
+        case BF_LED_PORT_LINKUP_1G_10G:
+        case BF_LED_PORT_LINKUP_25G:
+            led_col = BF_MAV_PORT_LED_GREEN;
+            break;
+
+        case BF_LED_PORT_LINKUP_40G:
+            /* Blue at 50G */
+            led_col = BF_MAV_PORT_LED_BLUE;
+            break;
+
+        case BF_LED_PORT_LINKUP_50G:
+            /* Purple at 50G */
+            led_col = BF_MAV_PORT_LED_BLUE |
+                      BF_MAV_PORT_LED_RED;
+            break;
+
+        case BF_LED_PORT_LINKUP_100G:
+            /* White at 100G */
+            led_col = BF_MAV_PORT_LED_BLUE |
+                      BF_MAV_PORT_LED_RED |
+                      BF_MAV_PORT_LED_GREEN;
+            break;
+
+        /* Test only */
+        case BF_LED_PORT_RED:
+            led_col = BF_MAV_PORT_LED_RED;
+            break;
+        case BF_LED_PORT_GREEN:
+            led_col = BF_MAV_PORT_LED_GREEN;
+            break;
+        case BF_LED_PORT_BLUE:
+            led_col = BF_MAV_PORT_LED_BLUE;
+            break;
+
+        default:
+            led_col = BF_MAV_PORT_LED_OFF;
+            break;
+    }
+
+    *led_color |= led_col;
+}
 
 static int
 bf_pltfm_port_led_by_tofino_sync_set_x564p (
@@ -145,7 +205,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x564p (
     err = bf_pltfm_tf_cpld_read (p->idx,
                 AF_LED_CPLD_I2C_ADDR, p->off, &val0);
     if (err) {
-        fprintf (stdout, "1 tf cpld read error<%d>\n",
+        LOG_WARNING ("1 tf cpld read error<%d>\n",
                  err);
         return -1;
     }
@@ -159,7 +219,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x564p (
     err = bf_pltfm_tf_cpld_write (p->idx,
                 AF_LED_CPLD_I2C_ADDR, p->off, val0);
     if (err) {
-        fprintf (stdout, "2 tf cpld write error<%d>\n",
+        LOG_WARNING ("2 tf cpld write error<%d>\n",
                  err);
         return -2;
     }
@@ -179,9 +239,11 @@ bf_pltfm_port_led_by_tofino_sync_set_x564p (
 }
 
 void bf_pltfm_mav_led_init_x564p (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn) {
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con) {
     *led_ctx = &led_ctx_x564p[0];
     *led_siz = ARRAY_LENGTH (led_ctx_x564p);
     *led_syn = bf_pltfm_port_led_by_tofino_sync_set_x564p;
+    *led_con = led_cond_convert_to_color_x564p;
 }
-

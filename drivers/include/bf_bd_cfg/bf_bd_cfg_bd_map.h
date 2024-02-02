@@ -99,6 +99,15 @@ typedef struct bd_map_ent_t {
     serdes_lane_tx_eq_t
     *tx_eq_for_qsfpdd[2];  // 0: NRZ 1:PAM4
     serdes_lane_tx_eq_t *tx_eq_for_internal_port[2];
+
+    /* tof3 related is ignored. */
+    //multi_lane_map_t multi_lane_map[2];
+    //uint32_t nlanes_per_ch;
+    //bool is_multi_lanes_per_ch;
+    //char pack_pin_name[50];
+    //uint32_t mod_head_channel;  // for N-ports per module
+
+    bool is_this_port_non_func;
 } bd_map_ent_t;
 
 typedef struct pltfm_bd_map_t {

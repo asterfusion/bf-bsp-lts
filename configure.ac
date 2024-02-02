@@ -140,7 +140,7 @@ AM_CONDITIONAL([IS_THRIFT_ENABLED], [test "x$enable_thrift" = "xyes"])
 AS_IF([test "x$enable_thrift" = "xyes"], [
   AC_PATH_PROG([THRIFT], [thrift], [])
   AS_IF([test x"$THRIFT" = x], [AC_MSG_ERROR([cannot find thrift])])
-  AC_CHECK_LIB([thrift], [_init], [], [AC_MSG_ERROR([Missing thrift library])])
+  #AC_CHECK_LIB([thrift], [_init], [], [AC_MSG_ERROR([Missing thrift library])])
   AC_CHECK_HEADER([thrift/Thrift.h], [], [AC_MSG_ERROR([Thrift headers not found])])
   AC_SUBST([THRIFT_LIB], ["-lthrift"])
   AC_CHECK_HEADER([thrift/stdcxx.h],

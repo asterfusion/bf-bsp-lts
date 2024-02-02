@@ -369,153 +369,6 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_mac_lane_info_get__
 }
 
 static ucli_status_t
-bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_rptr_info_get__
-(
-    ucli_context_t *uc)
-{
-    bf_pltfm_port_info_t port_info;
-    bf_pltfm_rptr_mode_t mode;
-    bf_pltfm_rptr_info_t rptr_info;
-    bf_pltfm_qsfp_type_t qsfp_type = 0;
-    int ret;
-    char usage[] =
-        "Usage: rptr_info_get <conn_id/chnl_id> <Egress->0, Ingress->1> "
-        "<qsfp_type:0->Cu_0.5m, 1->Cu_1m, 2->Cu_2m, 3->Cu_3m, 4->Cu_loop, "
-        "5->Opt>";
-
-    UCLI_COMMAND_INFO (uc,
-                       "rptr_info_get",
-                       3,
-                       "<conn_id/chnl_id> <Egress->0, Ingress->1> "
-                       "<qsfp_type:0->Cu_0.5m, 1->Cu_1m, 2->Cu_2m, 3->Cu_3m, "
-                       "4->Cu_loop, 5->Opt>");
-
-    ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
-    if (ret != 0) {
-        aim_printf (&uc->pvs, "%s\n", usage);
-        return 0;
-    }
-
-    mode = (uint8_t)strtol (uc->pargs->args[1], NULL,
-                            10);
-    qsfp_type = strtoul (uc->pargs->args[2], NULL,
-                         10);
-    if (qsfp_type > BF_PLTFM_QSFP_OPT) {
-        qsfp_type = BF_PLTFM_QSFP_CU_0_5_M;
-    }
-
-    aim_printf (&uc->pvs,
-                "Bd Cfg:: rptr_info_get <%d/%d> <mode=%d>\n",
-                port_info.conn_id,
-                port_info.chnl_id,
-                mode);
-
-    bf_pltfm_status_t sts =
-        bf_pltfm_bd_cfg_rptr_info_get (&port_info, mode,
-                                       qsfp_type, &rptr_info);
-
-    if (sts != BF_PLTFM_SUCCESS) {
-        aim_printf (&uc->pvs,
-                    "ERROR: Unable to get the Repeater info for port %d/%d\n",
-                    port_info.conn_id,
-                    port_info.chnl_id);
-    } else {
-        aim_printf (
-            &uc->pvs,
-            "Repeater num :%d \nChannel num :%d \nEq boost 1 :%d \nEq boost 2 :%d "
-            "\nEq bw :%d \nEq bypass boost :%d \nVOD :%d \nRegF :%d\nHigh_Gain "
-            ":%d\n",
-            rptr_info.rptr_num,
-            rptr_info.chnl_num,
-            rptr_info.eq_bst1,
-            rptr_info.eq_bst2,
-            rptr_info.eq_bw,
-            rptr_info.eq_bypass_bst1,
-            rptr_info.vod,
-            rptr_info.regF,
-            rptr_info.high_gain);
-    }
-
-    return 0;
-}
-
-static ucli_status_t
-bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_rtmr_info_get__
-(
-    ucli_context_t *uc)
-{
-    bf_pltfm_port_info_t port_info;
-    bf_pltfm_rtmr_info_t rtmr_info;
-    int ret;
-    char usage[] =
-        "Usage: rtmr_info_get <conn_id/chnl_id>";
-    bf_pltfm_status_t sts;
-    bool rtmr_present;
-
-    UCLI_COMMAND_INFO (uc, "rtmr_info_get", 1,
-                       "<conn_id/chnl_id>");
-
-    ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
-    if (ret != 0) {
-        aim_printf (&uc->pvs, "%s\n", usage);
-        return 0;
-    }
-
-    aim_printf (&uc->pvs,
-                "Bd Cfg:: rtmr_info_get <%d/%d>\n",
-                port_info.conn_id,
-                port_info.chnl_id);
-
-    sts = bf_bd_cfg_port_has_rtmr (&port_info,
-                                   &rtmr_present);
-    if (sts != BF_PLTFM_SUCCESS) {
-        aim_printf (
-            &uc->pvs,
-            "ERROR: Unable to get the Retimer presence info for port %d/%d\n",
-            port_info.conn_id,
-            port_info.chnl_id);
-    }
-
-    if (!rtmr_present) {
-        aim_printf (&uc->pvs,
-                    "ERROR: Retimer absent for port %d/%d\n",
-                    port_info.conn_id,
-                    port_info.chnl_id);
-        return 0;
-    }
-
-    sts = bf_bd_cfg_rtmr_info_get (&port_info,
-                                   &rtmr_info);
-    if (sts != BF_PLTFM_SUCCESS) {
-        aim_printf (&uc->pvs,
-                    "ERROR: Unable to get the Retimer info for port %d/%d\n",
-                    port_info.conn_id,
-                    port_info.chnl_id);
-    } else {
-        aim_printf (&uc->pvs,
-                    "Retimer num : %d \nRetimer I2C addr : %d (0x%x) \nHost side "
-                    "lane num : %d \nHost side TX PN Swap : %d "
-                    "\nHost side RX PN Swap : %d \nLine side lane num : %d \nLine "
-                    "side TX PN Swap : %d \nLine side RX PN Swap : %d\n",
-                    rtmr_info.num,
-                    rtmr_info.i2c_addr,
-                    rtmr_info.i2c_addr,
-                    rtmr_info.host_side_lane,
-                    rtmr_info.host_side_tx_pn_swap,
-                    rtmr_info.host_side_rx_pn_swap,
-                    rtmr_info.line_side_lane,
-                    rtmr_info.line_side_tx_pn_swap,
-                    rtmr_info.line_side_rx_pn_swap);
-    }
-
-    return 0;
-}
-
-static ucli_status_t
 bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_bd_type_get__ (
     ucli_context_t *uc)
 {
@@ -1121,6 +974,94 @@ bf_pltfm_bd_cfg_ucli_ucli__tx_sds_eq_set__ (
     return 0;
 }
 
+static ucli_status_t bf_pltfm_bd_cfg_ucli_ucli__bd_map_dump__(ucli_context_t *uc) {
+    UCLI_COMMAND_INFO(uc, "board-map", 0, NULL);
+
+    int num_conn, num_ch, is_internal, is_non_func = 0;
+    uint32_t num_lanes, mac, mac_ch, itr = 0;
+    char pin_name[50], conn_str[20];
+    bf_pltfm_port_info_t port_info;
+
+    aim_printf(&uc->pvs,
+               "-----------------------------------------------------------------"
+               "-------------------------------------------------------\n");
+    aim_printf(
+        &uc->pvs,
+        "| %10s | %9s | %8s | %3s | %6s | %6s | %6s | %10s | %10s | %11s | %-8s |\n",
+        "Front Port",
+        "QSFPDD Ch",
+        "Internal",
+        "Mac",
+        "Mac ch",
+        "PCB RX",
+        "PCB TX",
+        "RX PN Swap",
+        "TX PN Swap",
+        "Package Pin",
+        "non-func");
+    aim_printf(&uc->pvs,
+               "-----------------------------------------------------------------"
+               "-------------------------------------------------------\n");
+
+    num_conn = bf_bd_cfg_bd_num_port_get();
+    num_ch = MAX_CHAN_PER_CONNECTOR;
+    for (int conn = 1; conn <= num_conn; conn++) {
+        port_info.conn_id = conn;
+        for (int ch = 0; ch < num_ch; ch++) {
+            port_info.chnl_id = ch;
+            if (!bf_bd_is_this_channel_valid(conn, ch)) {
+                continue;
+            }
+            if (bf_bd_cfg_port_nlanes_per_ch_get(&port_info, &num_lanes) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+
+            int tx_inv[num_lanes], rx_inv[num_lanes];
+            uint32_t tx_lane[num_lanes], rx_lane[num_lanes], qsfp_ch[num_lanes];
+
+            is_internal = bf_bd_is_this_port_internal(conn, ch);
+            is_non_func = bf_bd_is_this_port_non_func(conn, ch);
+
+            if (bf_bd_cfg_qsfp_ch_get(&port_info, qsfp_ch) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+            if (bf_bd_cfg_port_mac_get(&port_info, &mac, &mac_ch) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+            if (bf_bd_cfg_port_tx_phy_lane_get(&port_info, tx_lane) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+            if (bf_bd_cfg_port_rx_phy_lane_get(&port_info, rx_lane) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+            if (bf_bd_port_serdes_polarity_get(&port_info, rx_inv, tx_inv) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+            if (bf_bd_cfg_pin_name_get(&port_info, pin_name) != BF_PLTFM_SUCCESS) {
+                continue;
+            }
+
+            sprintf(conn_str, "%d/%d", conn, ch);
+            for(itr = 0; itr < num_lanes; itr++) {
+                aim_printf(
+                    &uc->pvs,
+                    "| %10s | %9d | %8s | %3d | %6d | %6d | %6d | %10d | %10d | %11s | %8s |\n",
+                    conn_str,
+                    qsfp_ch[0],
+                    is_internal ? "Yes" : "No",
+                    mac,
+                    mac_ch,
+                    rx_lane[itr],
+                    tx_lane[itr],
+                    rx_inv[itr],
+                    tx_inv[itr],
+                    pin_name,
+                    is_non_func ? "Yes" : "No");
+            }
+        }
+    }
+    return 0;
+}
 
 
 static ucli_command_handler_f
@@ -1131,11 +1072,10 @@ bf_pltfm_bd_cfg_ucli_ucli_handlers__[] = {
     bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_tx_pn_swap_get__,
     bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_rx_pn_swap_get__,
     bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_mac_lane_info_get__,
-    bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_rptr_info_get__,
-    bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_rtmr_info_get__,
     bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_bd_type_get__,
     bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_dump__,
     bf_pltfm_bd_cfg_ucli_ucli__tx_sds_eq_set__,
+    bf_pltfm_bd_cfg_ucli_ucli__bd_map_dump__,
     NULL
 };
 

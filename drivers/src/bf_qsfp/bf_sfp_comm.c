@@ -42,6 +42,7 @@ typedef struct bf_sfp_info_t {
     uint8_t media_type;
 
     sfp_alarm_threshold_t alarm_threshold;
+    uint rxlos_debounce_cnt;
     double module_temper_cache;
 
     //bf_qsfp_special_info_t special_case_port;
@@ -868,6 +869,20 @@ bool bf_sfp_update_optional_status (int port)
     return true;
 }
 
+int bf_sfp_get_rx_los (int port,
+                              bool *rx_los)
+{
+    int rc;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    rc = bf_pltfm_sfp_los_read (port, rx_los);
+
+    return rc;
+}
+
 /** detect sfp module by accessing its memory and update cached information
  * accordingly
  *
@@ -1086,6 +1101,8 @@ int bf_sfp_init()
         //bf_sfp_info_arr[i].num_ch = 0;
         bf_sfp_info_arr[i].memmap_format =
             MMFORMAT_UNKNOWN;
+        bf_sfp_info_arr[i].rxlos_debounce_cnt =
+            SFP_RXLOS_DEBOUNCE_DFLT;
         bf_sfp_info_arr[i].trans_state = 0;
         //bf_sfp_info_arr[i].suppress_repeated_rd_fail_msgs = false;
     }
@@ -1106,6 +1123,8 @@ int bf_sfp_port_deinit (int port)
     //bf_sfp_info_arr[port].num_ch = 0;
     bf_sfp_info_arr[port].memmap_format =
         MMFORMAT_UNKNOWN;
+    bf_sfp_info_arr[port].rxlos_debounce_cnt =
+        SFP_RXLOS_DEBOUNCE_DFLT;
     //bf_sfp_info_arr[port].suppress_repeated_rd_fail_msgs = false;
 
     return 0;
@@ -1344,5 +1363,25 @@ int bf_sfp_ctrlmask_get (int port,
 
     *ctrlmask = bf_sfp_info_arr[port].ctrlmask;
 
+    return 0;
+}
+
+int bf_sfp_rxlos_debounce_get (int port)
+{
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    return bf_sfp_info_arr[port].rxlos_debounce_cnt;
+}
+
+int bf_sfp_rxlos_debounce_set (int port,
+                                int count)
+{
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    bf_sfp_info_arr[port].rxlos_debounce_cnt = count;
     return 0;
 }

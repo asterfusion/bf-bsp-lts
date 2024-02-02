@@ -62,7 +62,7 @@ enum {
     /* limit of memory address space in QSFP */
     MAX_QSFP_PAGE_SIZE_255 = 255,
     /* Maximum number of channels per module */
-    CHANNEL_COUNT = 4,
+    CHANNEL_COUNT = 8,
     /* Maximum cable length reported */
     MAX_CABLE_LEN = 255,
 };

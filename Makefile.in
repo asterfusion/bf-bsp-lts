@@ -88,18 +88,9 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@TCL_ONLY_FALSE@am__append_1 = drivers
-@IS_THRIFT_ENABLED_TRUE@am__append_2 = -DTHRIFT_ENABLED
-@TCL_ONLY_TRUE@am__append_3 = -DTCL_ONLY
-@IS_STATIC_LINKED_LIB_TRUE@am__append_4 = -DSTATIC_LINK_LIB
-@BUILD_ASTERFUSIONBF_PLAT_TRUE@am__append_5 = $(builddir)/platforms/asterfusion-bf/src/libasterfusionbf_driver.la
-#if BUILD_TOFINO_BRINGUP_PLAT
-#libpltfm_mgr_la_LIBADD += $(builddir)/platforms/tofino-bringup/libtofbringup_driver.la
-#endif
-#if BUILD_NEWPORT_PLAT
-#libpltfm_mgr_la_LIBADD += $(builddir)/platforms/newport/src/libnewport_driver.la
-#endif
-@TCL_ONLY_FALSE@am__append_6 = $(builddir)/drivers/src/libpltfm_driver.la
+@IS_THRIFT_ENABLED_TRUE@am__append_1 = -DTHRIFT_ENABLED
+@IS_STATIC_LINKED_LIB_TRUE@am__append_2 = -DSTATIC_LINK_LIB
+@BUILD_ASTERFUSIONBF_PLAT_TRUE@am__append_3 = $(builddir)/platforms/asterfusion-bf/src/libasterfusionbf_driver.la
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/adl_recursive_eval.m4 \
@@ -146,7 +137,8 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libpltfm_mgr_la_DEPENDENCIES = $(am__append_5) $(am__append_6)
+libpltfm_mgr_la_DEPENDENCIES = $(am__append_3) \
+	$(builddir)/drivers/src/libpltfm_driver.la
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libpltfm_mgr_la_OBJECTS =  \
 	drivers/src/bf_pltfm_mgr/libpltfm_mgr_la-pltfm_mgr_init.lo \
@@ -238,7 +230,7 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 CSCOPE = cscope
-DIST_SUBDIRS = platforms drivers
+DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in README \
 	compile config.guess config.sub depcomp install-sh ltmain.sh \
 	missing py-compile
@@ -426,18 +418,19 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
-SUBDIRS = platforms $(am__append_1)
+SUBDIRS = platforms drivers
 libpltfm_mgr_la_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS) \
-	-DINC_PLTFM_UCLI $(am__append_2) $(am__append_3)
+	-DINC_PLTFM_UCLI $(am__append_1)
 @IS_ASIC_FALSE@libpltfm_mgr_la_CPPFLAGS = $(AM_CPPFLAGS) \
-@IS_ASIC_FALSE@	-DDEVICE_IS_SW_MODEL $(am__append_4)
+@IS_ASIC_FALSE@	-DDEVICE_IS_SW_MODEL $(am__append_2)
 @IS_ASIC_TRUE@libpltfm_mgr_la_CPPFLAGS = $(AM_CPPFLAGS) \
-@IS_ASIC_TRUE@	-DDEVICE_IS_ASIC $(am__append_4)
+@IS_ASIC_TRUE@	-DDEVICE_IS_ASIC $(am__append_2)
 libpltfm_mgr_la_SOURCES = \
 drivers/src/bf_pltfm_mgr/pltfm_mgr_init.c \
 drivers/src/bf_pltfm_mgr/pltfm_mgr_handlers.c
 
-libpltfm_mgr_la_LIBADD = $(am__append_5) $(am__append_6)
+libpltfm_mgr_la_LIBADD = $(am__append_3) \
+	$(builddir)/drivers/src/libpltfm_driver.la
 lib_LTLIBRARIES = libpltfm_mgr.la
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive

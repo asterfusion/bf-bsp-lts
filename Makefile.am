@@ -2,16 +2,11 @@ ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
 SUBDIRS =
 SUBDIRS += platforms
-if !TCL_ONLY
 SUBDIRS += drivers
-endif
 
 libpltfm_mgr_la_CFLAGS = $(AM_CFLAGS) $(BFPLATFORMS_CFLAGS) -DINC_PLTFM_UCLI
 if IS_THRIFT_ENABLED
 libpltfm_mgr_la_CFLAGS += -DTHRIFT_ENABLED
-endif
-if TCL_ONLY
-libpltfm_mgr_la_CFLAGS += -DTCL_ONLY
 endif
 
 if IS_ASIC
@@ -33,15 +28,7 @@ libpltfm_mgr_la_LIBADD =
 if BUILD_ASTERFUSIONBF_PLAT
 libpltfm_mgr_la_LIBADD += $(builddir)/platforms/asterfusion-bf/src/libasterfusionbf_driver.la
 endif
-#if BUILD_TOFINO_BRINGUP_PLAT
-#libpltfm_mgr_la_LIBADD += $(builddir)/platforms/tofino-bringup/libtofbringup_driver.la
-#endif
-#if BUILD_NEWPORT_PLAT
-#libpltfm_mgr_la_LIBADD += $(builddir)/platforms/newport/src/libnewport_driver.la
-#endif
 
-if !TCL_ONLY
 libpltfm_mgr_la_LIBADD += $(builddir)/drivers/src/libpltfm_driver.la
-endif
 
 lib_LTLIBRARIES = libpltfm_mgr.la

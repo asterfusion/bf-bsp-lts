@@ -348,14 +348,34 @@ static void bf_pltfm_chss_mgmt_onlp_pwr_rails (
 
     sprintf (fonlp, ONLP_LOG_CHASSIS_VRAIL_PATH);
 
-    l += sprintf (value + l, "BAREFOOT_CORE_0V9 : %d\n", pwr_rails->vrail1);
-    l += sprintf (value + l, "BAREFOOT_AVDD_0V9 : %d\n", pwr_rails->vrail2);
-    l += sprintf (value + l, "Payload_12V       : %d\n", pwr_rails->vrail3);
-    l += sprintf (value + l, "Payload_3V3       : %d\n", pwr_rails->vrail4);
-    l += sprintf (value + l, "Payload_5V0       : %d\n", pwr_rails->vrail5);
-    l += sprintf (value + l, "Payload_2V5       : %d\n", pwr_rails->vrail6);
-    l += sprintf (value + l, "88e6XXX_1V9       : %d\n", pwr_rails->vrail7);
-    l += sprintf (value + l, "88e6XXX_1V2       : %d\n", pwr_rails->vrail8);
+    if (platform_type_equal (AFN_X312PT)) {
+        if (platform_subtype_equal (V2P0)) {
+            /* Not supported. */
+        } else {
+            /* V3 and later. */
+            l += sprintf (value + l, "BAREFOOT_CORE_0V9 : %5d\n", pwr_rails->vrail1);
+            l += sprintf (value + l, "BAREFOOT_AVDD_0V9 : %5d\n", pwr_rails->vrail2);
+            l += sprintf (value + l, "PAYLOAD_2V5       : %5d\n", pwr_rails->vrail6);
+        }
+    } else if (platform_type_equal (AFN_X732QT)) {
+        l += sprintf (value + l, "BAREFOOT_VDDA_1V8  : %d\n", pwr_rails->vrail1);
+        l += sprintf (value + l, "BAREFOOT_VDDA_1V7  : %d\n", pwr_rails->vrail2);
+        l += sprintf (value + l, "PAYLOAD_12V        : %d\n", pwr_rails->vrail3);
+        l += sprintf (value + l, "PAYLOAD_3V3        : %d\n", pwr_rails->vrail4);
+        l += sprintf (value + l, "PAYLOAD_5V0        : %d\n", pwr_rails->vrail5);
+        l += sprintf (value + l, "BAREFOOT_VDD_1V8   : %d\n", pwr_rails->vrail6);
+        l += sprintf (value + l, "BAREFOOT_CORE_VOLT : %d\n", pwr_rails->vrail7);
+        l += sprintf (value + l, "BAREFOOT_VDDT_0V86 : %d\n", pwr_rails->vrail8);
+    } else {
+        l += sprintf (value + l, "BAREFOOT_CORE_0V9 : %d\n", pwr_rails->vrail1);
+        l += sprintf (value + l, "BAREFOOT_AVDD_0V9 : %d\n", pwr_rails->vrail2);
+        l += sprintf (value + l, "PAYLOAD_12V       : %d\n", pwr_rails->vrail3);
+        l += sprintf (value + l, "PAYLOAD_3V3       : %d\n", pwr_rails->vrail4);
+        l += sprintf (value + l, "PAYLOAD_5V0       : %d\n", pwr_rails->vrail5);
+        l += sprintf (value + l, "PAYLOAD_2V5       : %d\n", pwr_rails->vrail6);
+        l += sprintf (value + l, "88E6131_1V9       : %d\n", pwr_rails->vrail7);
+        l += sprintf (value + l, "88E6131_1V2       : %d\n", pwr_rails->vrail8);
+    }
 
     onlp_save (fonlp, value, strlen (value));
 }
@@ -427,7 +447,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
             bf_qsfp_is_detected(i)/* FSM_ST_DETECTED */) {
             qsfp_channel_t chnl[CHANNEL_COUNT];
             qsfp_global_sensor_t trans;
-            for (int ch = 0; ch < CHANNEL_COUNT; ch++) {
+            for (int ch = 0; ch < bf_qsfp_get_ch_cnt (i); ch++) {
                 chnl[ch].chn = ch;
             }
             bf_qsfp_get_module_sensor_info (i, &trans);
@@ -547,21 +567,21 @@ static void bf_pltfm_onlp_mntr_tmp ()
         LOG_ERROR ("Error in reading temperature from cache.\n");
     } else {
         int id = 1;
-        if (platform_type_equal (X532P)) {
+        if (platform_type_equal (AFN_X532PT)) {
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
-        } else if (platform_type_equal (X564P)) {
+        } else if (platform_type_equal (AFN_X564PT)) {
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
-        } else if (platform_type_equal (X308P)) {
+        } else if (platform_type_equal (AFN_X308PT)) {
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
@@ -572,7 +592,7 @@ static void bf_pltfm_onlp_mntr_tmp ()
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp8);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp9);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp10);
-        } else if (platform_type_equal (X312P)) {
+        } else if (platform_type_equal (AFN_X312PT)) {
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
@@ -584,7 +604,14 @@ static void bf_pltfm_onlp_mntr_tmp ()
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp9);
             /* Not Defined. */
             //bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp10);
-        }
+        } else if (platform_type_equal (AFN_X732QT)) {
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp1);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp2);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp3);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
+            bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
+        } 
     }
 }
 
@@ -718,7 +745,7 @@ void *onlp_mntr_init (void *arg)
     (void)arg;
     uint32_t flags = 0, update_flags = 0;
 
-    printf ("ONLP monitor started \n");
+    fprintf (stdout, "ONLP monitor started \n");
     ul_dbg_update_times_pwr = 0;
     ul_dbg_update_times_fan = 0;
     ul_dbg_update_times_tmp = 0;
@@ -795,7 +822,6 @@ void *onlp_mntr_init (void *arg)
 #endif
         }
     }
-    printf ("====== ONLP monitor cancelled ======\n");
 
     return NULL;
 }
@@ -1068,15 +1094,16 @@ void *health_mntr_init (void *arg)
     static uint64_t try_trans_poll = 0;
     extern uint64_t g_rt_async_led_q_length;
 
-    printf ("Health monitor started \n");
+    fprintf (stdout, "\n\nHealth monitor started \n");
     FOREVER {
         err = 0;
         flags = bf_pltfm_mgr_ctx()->flags;
         update_flags = 0;
 
-        if ((platform_type_equal (X532P) ||
-            platform_type_equal (X564P) ||
-            platform_type_equal (X308P)) &&
+        if ((platform_type_equal (AFN_X532PT) ||
+            platform_type_equal (AFN_X564PT) ||
+            platform_type_equal (AFN_X308PT) ||
+            platform_type_equal (AFN_X732QT)) &&
             (bf_pltfm_compare_bmc_ver("v3.0.0") >= 0)) {
 
             if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
@@ -1171,7 +1198,7 @@ void *health_mntr_init (void *arg)
                          ctime ((time_t *)
                                 &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
 
-                if (platform_type_equal (X312P)) {
+                if (platform_type_equal (AFN_X312PT)) {
                     bf_pltfm_start_312_i2c_wdt();
                 }
 
@@ -1207,6 +1234,5 @@ void *health_mntr_init (void *arg)
             UPDATE_UNLOCK;
         }
     }
-    printf ("====== Health monitor cancelled ======\n");
     return NULL;
 }

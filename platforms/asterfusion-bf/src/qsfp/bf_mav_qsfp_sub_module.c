@@ -28,13 +28,13 @@
  * For some platforms, SFP IO is using the same lock.
  * by tsihang, 2021-07-18. */
 #define MAV_QSFP_LOCK   \
-    if(platform_type_equal(X312P)) {\
+    if(platform_type_equal(AFN_X312PT)) {\
         MASTER_I2C_LOCK;\
     } else {\
         bf_pltfm_i2c_lock();\
     }
 #define MAV_QSFP_UNLOCK \
-    if(platform_type_equal(X312P)) {\
+    if(platform_type_equal(AFN_X312PT)) {\
         MASTER_I2C_UNLOCK;\
     } else {\
         bf_pltfm_i2c_unlock();\
@@ -77,6 +77,9 @@ extern int bf_pltfm_get_sub_module_pres_x532p (
 extern int bf_pltfm_get_sub_module_pres_x564p (
     bf_pltfm_cp2112_device_ctx_t *hndl,
     uint32_t *pres_l, uint32_t *pres_h);
+extern int bf_pltfm_get_sub_module_pres_x732q (
+    bf_pltfm_cp2112_device_ctx_t *hndl,
+    uint32_t *pres_l, uint32_t *pres_h);
 
 void bf_pltfm_qsfp_init_x312p (struct qsfp_ctx_t **ctx,
     uint32_t *num,
@@ -94,6 +97,10 @@ void bf_pltfm_qsfp_init_x532p (struct qsfp_ctx_t **ctx,
     uint32_t *num,
     struct qsfp_ctx_t **vctx,
     uint32_t *vnum);
+void bf_pltfm_qsfp_init_x732q (struct qsfp_ctx_t **ctx,
+    uint32_t *num,
+    struct qsfp_ctx_t **vctx,
+    uint32_t *vnum);
 void bf_pltfm_qsfp_init_hc36y24c (struct qsfp_ctx_t **ctx,
     uint32_t *num,
     struct qsfp_ctx_t **vctx,
@@ -107,7 +114,7 @@ static bool
 select_2nd_layer_pca9548 (struct qsfp_ctx_t *qsfp,
                           unsigned char *pca9548, unsigned char *channel)
 {
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         uint8_t l1_pca9548_addr = 0x71;
         uint8_t l1_pca9548_chnl = 1;
 
@@ -144,7 +151,7 @@ unselect_2nd_layer_pca9548 (struct qsfp_ctx_t
                             *qsfp,
                             unsigned char *pca9548, unsigned char *channel)
 {
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         uint8_t l1_pca9548_addr = 0x71;
         //uint8_t l1_pca9548_chnl = 1;
 
@@ -219,7 +226,7 @@ unselect_1st_layer_pca9548 (int module,
 
 
 /* intialize PCA 9548 and PCA 9535 on the qsfp subsystem i2c bus to
- * ensure a consistent state on i2c addreesed devices
+ * ensure a consistent state on i2c addressed devices
  */
 static int qsfp_init_sub_bus (
     bf_pltfm_cp2112_device_ctx_t *hndl)
@@ -228,12 +235,14 @@ static int qsfp_init_sub_bus (
     int rc;
     int max_pca9548_cnt = 0;
 
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         max_pca9548_cnt = 4;
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         max_pca9548_cnt = 8;
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         max_pca9548_cnt = 7;
+    } else if (platform_type_equal (AFN_X732QT)) {
+        max_pca9548_cnt = 5;
     }
 
     /* Initialize all PCA9548 devices to select channel 0 */
@@ -274,19 +283,22 @@ int bf_pltfm_init_cp2112_qsfp_bus (
 #endif
 
     uint32_t qsfp28_num = 0, vqsfp_num = 0;
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         bf_pltfm_qsfp_init_x532p((struct qsfp_ctx_t **)&g_qsfp_ctx,
             &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         bf_pltfm_qsfp_init_x564p((struct qsfp_ctx_t **)&g_qsfp_ctx,
             &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         bf_pltfm_qsfp_init_x308p((struct qsfp_ctx_t **)&g_qsfp_ctx,
             &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         bf_pltfm_qsfp_init_x312p((struct qsfp_ctx_t **)&g_qsfp_ctx,
             &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        bf_pltfm_qsfp_init_x732q((struct qsfp_ctx_t **)&g_qsfp_ctx,
+            &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         bf_pltfm_qsfp_init_hc36y24c((struct qsfp_ctx_t **)&g_qsfp_ctx,
             &qsfp28_num, (struct qsfp_ctx_t **)&g_vqsfp_ctx, &vqsfp_num);
     }
@@ -294,37 +306,46 @@ int bf_pltfm_init_cp2112_qsfp_bus (
     bf_qsfp_set_num (qsfp28_num);
     max_vqsfp = vqsfp_num;
 
+    fprintf (stdout, "QSFPs/vQSFPs : %2d/%2d\n",
+             bf_qsfp_get_max_qsfp_ports(), bf_pltfm_get_max_vqsfp_ports());
+
     return 0;
 }
 
 bool is_internal_port_need_autonegotiate (
     uint32_t conn_id, uint32_t chnl_id)
 {
-    if (platform_type_equal (X564P)) {
+    if (platform_type_equal (AFN_X564PT)) {
         if (conn_id == 65) {
             if ((chnl_id == 2) || (chnl_id == 3)) {
                 return true;
             }
         }
-    } else if (platform_type_equal (X532P)) {
+    } else if (platform_type_equal (AFN_X532PT)) {
         if (conn_id == 33) {
             if ((chnl_id == 2) || (chnl_id == 3)) {
                 return true;
             }
         }
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         if (conn_id == 33) {
             if (chnl_id <= 3) {
                 return true;
             }
         }
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         if (conn_id == 33) {
             if ((chnl_id == 2) || (chnl_id == 3)) {
                 return true;
             }
         }
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        if (conn_id == 33) {
+            if ((chnl_id == 2) || (chnl_id == 3)) {
+                return true;
+            }
+        }
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         if (conn_id == 65) {
             if ((chnl_id == 2) || (chnl_id == 3)) {
                 return true;
@@ -392,7 +413,7 @@ static int unselect_qsfp (
         return -1;
     }
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         /* select QSFP in CPLD1, i2c_addr is offset, chnl is value */
         rc = bf_pltfm_cpld_write_byte (
                  BF_MAV_SYSCPLD1, i2c_addr, 0xff);
@@ -451,7 +472,7 @@ static int select_qsfp (
         return -1;
     }
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         /* select QSFP in CPLD1, i2c_addr is offset, chnl is value */
         rc = bf_pltfm_cpld_write_byte (
                  BF_MAV_SYSCPLD1, i2c_addr, chnl);
@@ -567,7 +588,7 @@ bf_pltfm_status_t bf_mav_qsfp_sub_module_read (
         MAV_QSFP_UNLOCK;
         return BF_PLTFM_COMM_FAILED;
     }
-    if (!platform_type_equal (X312P)) {
+    if (!platform_type_equal (AFN_X312PT)) {
         rc = bf_pltfm_cp2112_write_byte (hndl, i2c_addr,
                                          offset, DEFAULT_TIMEOUT_MS);
         if (rc != BF_PLTFM_SUCCESS) {
@@ -660,7 +681,7 @@ bf_pltfm_status_t bf_mav_qsfp_sub_module_write (
         return BF_PLTFM_COMM_FAILED;
     }
 
-    if (!platform_type_equal (X312P)) {
+    if (!platform_type_equal (AFN_X312PT)) {
         out_buf[0] = offset;
         memcpy (out_buf + 1, buf, len);
 
@@ -705,12 +726,14 @@ int bf_pltfm_sub_module_reset (
     qsfp = &g_qsfp_ctx[module];
     st = &qsfp->rst;
 
-    if (platform_type_equal (X312P)) {
+    /* for X312P/X732Q, 0 means reset, 1 means de-reset, so reverse reset */
+    if (platform_type_equal (AFN_X312PT)) {
         if (!reset) {
-            /* X312P, there's no need to de-reset! It will auto de-reset after 200ms, so just return */
+            /* There's no need to de-reset! It will auto de-reset after 200ms, so just return */
             return 0;
         }
-        /* for X312P, 0 means reset, 1 means de-reset, so reverse reset */
+        reset = !reset;
+    } else if (platform_type_equal (AFN_X732QT)) {
         reset = !reset;
     }
 
@@ -778,19 +801,22 @@ int bf_pltfm_get_sub_module_pres (
     bf_pltfm_cp2112_device_ctx_t *hndl,
     uint32_t *pres_l, uint32_t *pres_h)
 {
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         return bf_pltfm_get_sub_module_pres_x532p (hndl,
                 pres_l, pres_h);
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         return bf_pltfm_get_sub_module_pres_x564p (hndl,
                 pres_l, pres_h);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         return bf_pltfm_get_sub_module_pres_x308p (hndl,
                 pres_l, pres_h);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         return bf_pltfm_get_sub_module_pres_x312p (hndl,
                 pres_l, pres_h);
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        return bf_pltfm_get_sub_module_pres_x732q (hndl,
+                pres_l, pres_h);
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         /* HCv1, HCv2, HCv3, ... */
         return bf_pltfm_get_sub_module_pres_hc (hndl,
                                                 pres_l, pres_h);

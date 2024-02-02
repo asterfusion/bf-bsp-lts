@@ -30,74 +30,77 @@ class pltfm_pm_rpcHandler : virtual public pltfm_pm_rpcIf {
   pltfm_pm_rpcHandler() {}
 
   pltfm_pm_board_type_t::type pltfm_pm_board_type_get () {
-    
+
     bf_pltfm_board_id_t bd_id;
     bf_status_t sts;
     pltfm_pm_board_type_t::type bd;
 
     bf_pltfm_chss_mgmt_bd_type_get(&bd_id);
-    
+
     switch (bd_id) {
-      case BF_PLTFM_BD_ID_X308PT_V1DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X308PT_V1DOT0;
+      case AFN_BD_ID_X308PT_V1P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X308PT_V1P0;
         break;
-      case BF_PLTFM_BD_ID_X308PT_V1DOT1:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X308PT_V1DOT1;
+      case AFN_BD_ID_X308PT_V1P1:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X308PT_V1P1;
         break;
-      case BF_PLTFM_BD_ID_X308PT_V3DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X308PT_V3DOT0;
+      case AFN_BD_ID_X308PT_V3P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X308PT_V3P0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V1DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V1DOT0;
+      case AFN_BD_ID_X312PT_V1P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X312PT_V1P0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V2DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V2DOT0;
+      case AFN_BD_ID_X312PT_V2P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X312PT_V2P0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V3DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V3DOT0;
+      case AFN_BD_ID_X312PT_V3P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X312PT_V3P0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V4DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V4DOT0;
+      case AFN_BD_ID_X312PT_V4P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X312PT_V4P0;
         break;
-      case BF_PLTFM_BD_ID_X312PT_V5DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X312PT_V5DOT0;
+      case AFN_BD_ID_X312PT_V5P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X312PT_V5P0;
         break;
-      case BF_PLTFM_BD_ID_X532PT_V1DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V1DOT0;
+      case AFN_BD_ID_X532PT_V1P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X532PT_V1P0;
         break;
-      case BF_PLTFM_BD_ID_X532PT_V1DOT1:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V1DOT1;
+      case AFN_BD_ID_X532PT_V1P1:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X532PT_V1P1;
         break;
-      case BF_PLTFM_BD_ID_X532PT_V2DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V2DOT0;
+      case AFN_BD_ID_X532PT_V2P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X532PT_V2P0;
         break;
-      case BF_PLTFM_BD_ID_X532PT_V3DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X532PT_V3DOT0;
+      case AFN_BD_ID_X532PT_V3P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X532PT_V3P0;
         break;
-      case BF_PLTFM_BD_ID_X564PT_V1DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V1DOT0;
+      case AFN_BD_ID_X564PT_V1P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X564PT_V1P0;
         break;
-      case BF_PLTFM_BD_ID_X564PT_V1DOT1:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V1DOT1;
+      case AFN_BD_ID_X564PT_V1P1:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X564PT_V1P1;
         break;
-      case BF_PLTFM_BD_ID_X564PT_V1DOT2:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V1DOT2;
+      case AFN_BD_ID_X564PT_V1P2:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X564PT_V1P2;
         break;
-      case BF_PLTFM_BD_ID_X564PT_V2DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_X564PT_V2DOT0;
+      case AFN_BD_ID_X564PT_V2P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X564PT_V2P0;
         break;
-      case BF_PLTFM_BD_ID_HC36Y24C_V1DOT0:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_HC36Y24C_V1DOT0;
+      case AFN_BD_ID_X732QT_V1P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X732QT_V1P0;
         break;
-      case BF_PLTFM_BD_ID_HC36Y24C_V1DOT1:
-        bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_HC36Y24C_V1DOT1;
+      case AFN_BD_ID_HC36Y24C_V1P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_HC36Y24C_V1P0;
+        break;
+      case AFN_BD_ID_HC36Y24C_V1P1:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_HC36Y24C_V1P1;
         break;
       case BF_PLTFM_BD_ID_UNKNOWN:
       default:
         bd = pltfm_pm_board_type_t::BF_PLTFM_BD_ID_UNKNOWN;
         break;
     }
-    return bd; 
+    return bd;
   }
 
 };

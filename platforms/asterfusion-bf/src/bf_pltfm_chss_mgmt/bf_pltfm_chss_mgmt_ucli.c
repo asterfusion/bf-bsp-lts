@@ -122,8 +122,8 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_vrail_show__ (
         return -1;
     }
 
-    if (platform_type_equal (X312P)) {
-        if (platform_subtype_equal (v2dot0)) {
+    if (platform_type_equal (AFN_X312PT)) {
+        if (platform_subtype_equal (V2P0)) {
             /* Not supported. */
         } else {
             /* V3 and later. */
@@ -134,6 +134,23 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_vrail_show__ (
             aim_printf (&uc->pvs,
                      "Payload_2V5         %5d mV\n", t.vrail6);
         }
+    } else if (platform_type_equal (AFN_X732QT)) {
+        aim_printf (&uc->pvs,
+                    "Barefoot_VDDA_1V8   %5d mV\n", t.vrail1);
+        aim_printf (&uc->pvs,
+                    "Barefoot_VDDA_1V7   %5d mV\n", t.vrail2);
+        aim_printf (&uc->pvs,
+                    "Payload_12V         %5d mV\n", t.vrail3);
+        aim_printf (&uc->pvs,
+                    "Payload_3V3         %5d mV\n", t.vrail4);
+        aim_printf (&uc->pvs,
+                    "Payload_5V0         %5d mV\n", t.vrail5);
+        aim_printf (&uc->pvs,
+                    "Barefoot_VDD_1V8    %5d mV\n", t.vrail6);
+        aim_printf (&uc->pvs,
+                    "Barefoot_Core_Volt  %5d mV\n", t.vrail7);
+        aim_printf (&uc->pvs,
+                    "Barefoot_VDDT_0V86  %5d mV\n", t.vrail8);
     } else {
         aim_printf (&uc->pvs,
                     "Barefoot_Core_0V9   %5d mV\n", t.vrail1);
@@ -205,7 +222,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
 
     /* The number of the sensor may vary in different platform.
      * by tsihang, 2021-07-13. */
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "Mainboard Front Left");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
@@ -219,7 +236,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
                     t.tmp6, "Fan 2");
         /* Added more sensors. */
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "Mainboard Front Left");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
@@ -233,14 +250,14 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
                     t.tmp6, "Fan 2");
 
-        if (platform_subtype_equal(v2dot0)) {
+        if (platform_subtype_equal(V2P0)) {
             aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
                     t.tmp7, "Mainboard Rear Left");
             aim_printf (&uc->pvs, "tmp8    %.1f C   \"%s\"\n",
                     t.tmp8, "Mainboard Rear Right");
         }
         /* Added more sensors. */
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "Mainboard Front Left");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
@@ -269,13 +286,13 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                     t.tmp10, "Fan 2");
 
         /* Added more sensors. */
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "lm75");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
                     t.tmp2, "lm63");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
-                    t.tmp3, (platform_subtype_equal(v3dot0) || platform_subtype_equal(v4dot0) || platform_subtype_equal(v5dot0)) ? "lm86" : "Not Defined");
+                    t.tmp3, (platform_subtype_equal(V3P0) || platform_subtype_equal(V4P0) || platform_subtype_equal(V5P0)) ? "lm86" : "Not Defined");
         // if == 0, means no DPU-1 installed
         if (t.tmp4 != 0) {
             aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
@@ -296,7 +313,20 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
                     t.tmp9, "BF Ambient <- from tofino");
         /* Added more sensors. */
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
+                    t.tmp1, "Mainboard Front Left");
+        aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
+                    t.tmp2, "Mainboard Front Right");
+        aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
+                    t.tmp3, "BF Ambient  <- from BMC");
+        aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
+                    t.tmp4, "BF Junction <- from BMC");
+        aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
+                    t.tmp5, "Fan 1");
+        aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
+                    t.tmp6, "Fan 2");
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "Unkonwn");
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",

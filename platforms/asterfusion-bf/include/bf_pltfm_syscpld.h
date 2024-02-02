@@ -61,6 +61,11 @@ typedef enum {
 } x312p_cpld_addr_t;
 
 typedef enum {
+    X732Q_SYSCPLD1_I2C_ADDR = 0x40,
+    X732Q_SYSCPLD2_I2C_ADDR = 0x40,
+} x732q_cpld_addr_t;
+
+typedef enum {
     X312P_QSFP_RST_1 = 0x00,
     X312P_QSFP_RST_2 = 0x01,
     X312P_QSFP_PRS_1 = 0x02,

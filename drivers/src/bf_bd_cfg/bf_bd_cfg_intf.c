@@ -975,7 +975,27 @@ bf_pltfm_status_t bf_bd_cfg_pin_name_get (
         return BF_PLTFM_OBJECT_NOT_FOUND;
     }
 
+    /* There's no pin_name for tof/tof2 platforms. */
     //strcpy (pin_name, bd_map->pack_pin_name);
+    strcpy (pin_name, "UNKNOWN");
     return BF_PLTFM_SUCCESS;
 }
 
+/*
+ * returns 1, if conn/channel is found in the board-map,
+ * but non functional like temp non-operational or
+ * some mac chans are not routed * on hardware.
+ *
+ * Note: Mark this port is_internal_port = 1 as well to avoid qsfp-fsm
+ *
+ */
+int bf_bd_is_this_port_non_func(uint32_t conn_id, uint32_t chnl_id) {
+
+    bd_map_ent_t *bd_map = pltfm_bd_map_find(conn_id, chnl_id);
+
+    if (NULL == bd_map) {
+        return 0;
+    }
+
+    return (bd_map->is_this_port_non_func ? 1 : 0);
+}
