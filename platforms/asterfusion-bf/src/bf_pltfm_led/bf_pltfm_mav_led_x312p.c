@@ -200,6 +200,43 @@ static bf_pltfm_status_t bf_pltfm_led_cpld_read (
                   idx, offset, rd_buf);
 }
 
+static void led_cond_convert_to_color_x312p (bf_led_condition_t led_cond,
+    uint8_t *led_color)
+{
+    uint8_t led_col = BF_MAV_PORT_LED_OFF;
+    switch (led_cond) {
+        case BF_LED_POST_PORT_DEL:
+        case BF_LED_POST_PORT_DIS:
+        case BF_LED_PRE_PORT_EN:
+        case BF_LED_PORT_LINK_DOWN:
+            break;
+        case BF_LED_PORT_LINK_UP:
+        case BF_LED_PORT_LINKUP_1G_10G:
+        case BF_LED_PORT_LINKUP_25G:
+        case BF_LED_PORT_LINKUP_40G:
+        case BF_LED_PORT_LINKUP_50G:
+        case BF_LED_PORT_LINKUP_100G:
+            led_col = BF_MAV_PORT_LED_GREEN;
+            break;
+
+        /* Test only */
+        case BF_LED_PORT_RED:
+            led_col = BF_MAV_PORT_LED_RED;
+            break;
+        case BF_LED_PORT_GREEN:
+            led_col = BF_MAV_PORT_LED_GREEN;
+            break;
+        case BF_LED_PORT_BLUE:
+            led_col = BF_MAV_PORT_LED_BLUE;
+            break;
+
+        default:
+            led_col = BF_MAV_PORT_LED_OFF;
+            break;
+    }
+    *led_color |= led_col;
+}
+
 int
 bf_pltfm_port_led_by_tofino_sync_set_x312p (
     int chip_id, struct led_ctx_t *p, uint8_t val)
@@ -229,7 +266,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x312p (
         err = bf_pltfm_led_cpld_read (
                   p->idx, INVALID, lightoff(p->off), &val0);
         if (err) {
-            fprintf (stdout, "%d/%d read light error<%d>\n",
+            LOG_WARNING ("%d/%d read light error<%d>\n",
                      p->conn_id,
                      p->chnl_id,
                      err);
@@ -248,7 +285,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x312p (
         err = bf_pltfm_led_cpld_write (
                   p->idx, INVALID, lightoff(p->off), val1);
         if (err) {
-            fprintf (stdout, "%d/%d write light error<%d>\n",
+            LOG_WARNING ("%d/%d write light error<%d>\n",
                      p->conn_id,
                      p->chnl_id,
                      err);
@@ -262,7 +299,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x312p (
         err = bf_pltfm_led_cpld_read (
                   p->idx, INVALID, blinkoff(p->off), &val0);
         if (err) {
-            fprintf (stdout, "%d/%d read blink error<%d>\n",
+            LOG_WARNING ("%d/%d read blink error<%d>\n",
                      p->conn_id,
                      p->chnl_id,
                      err);
@@ -281,7 +318,7 @@ bf_pltfm_port_led_by_tofino_sync_set_x312p (
         err = bf_pltfm_led_cpld_write (
                   p->idx, INVALID, blinkoff(p->off), val1);
         if (err) {
-            fprintf (stdout, "%d/%d write blink error<%d>\n",
+            LOG_WARNING ("%d/%d write blink error<%d>\n",
                      p->conn_id,
                      p->chnl_id,
                      err);
@@ -306,10 +343,14 @@ bf_pltfm_port_led_by_tofino_sync_set_x312p (
 }
 
 void bf_pltfm_mav_led_init_x312p (struct led_ctx_t **led_ctx,
-    int *led_siz, led_sync_fun_ptr *led_syn) {
+    int *led_siz,
+    led_sync_fun_ptr *led_syn,
+    led_convert_fun_ptr *led_con) {
     *led_ctx = &led_ctx_x312p[0];
     *led_siz = ARRAY_LENGTH (led_ctx_x312p);
     *led_syn = bf_pltfm_port_led_by_tofino_sync_set_x312p;
+    *led_con = led_cond_convert_to_color_x312p;
+
     /* Let all LED be off quickly. */
     foreach_element (0, ARRAY_LENGTH (led_init_x312p)) {
         bf_pltfm_cpld_write_byte(led_init_x312p[each_element].idx,
@@ -317,4 +358,3 @@ void bf_pltfm_mav_led_init_x312p (struct led_ctx_t **led_ctx,
                                  led_init_x312p[each_element].val);
     }
 }
-

@@ -24,6 +24,7 @@
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
 #include <bf_switchd/bf_switchd.h>
+#include <bf_pm/bf_pm_intf.h>
 #include <bf_pltfm.h>
 
 /* Local header includes */
@@ -142,9 +143,9 @@ __bf_pltfm_chss_mgmt_temperature_get_x564p__ (
 
     }
 
-    if ((platform_subtype_equal(v1dot0) ||
-         platform_subtype_equal(v1dot1) ||
-         platform_subtype_equal(v1dot2)) &&
+    if ((platform_subtype_equal(V1P0) ||
+         platform_subtype_equal(V1P1) ||
+         platform_subtype_equal(V1P2)) &&
         (ret == 7) && (rd_buf[0] == 6)) {
         tmp->tmp1 = (float)rd_buf[1];
         tmp->tmp2 = (float)rd_buf[2];
@@ -154,7 +155,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x564p__ (
         tmp->tmp6 = (float)rd_buf[6];
 
         err = BF_PLTFM_SUCCESS;
-    } else if (platform_subtype_equal(v2dot0) &&
+    } else if (platform_subtype_equal(V2P0) &&
                (ret == 9 && (rd_buf[0] == 8))) {
         tmp->tmp1 = (float)rd_buf[1];
         tmp->tmp2 = (float)rd_buf[2];
@@ -247,7 +248,7 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
     bf_pltfm_switch_temperature_info_t stemp = {0, 0};
 
     /* Example code for a subversion in a given platform. */
-    if (platform_subtype_equal(v2dot0)) {
+    if (platform_subtype_equal(V2P0)) {
         uint8_t lm75_63[3] = {0};
 
         /*00: 02 <LM75 temp> <LM63 temp>*/
@@ -320,9 +321,9 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
                 tmp->tmp6 = ghc2_temp[1][2];
             }
         }
-    } else if (platform_subtype_equal(v3dot0) ||
-               platform_subtype_equal(v4dot0) ||
-               platform_subtype_equal(v5dot0)) {
+    } else if (platform_subtype_equal(V3P0) ||
+               platform_subtype_equal(V4P0) ||
+               platform_subtype_equal(V5P0)) {
         uint8_t lm75[3] = {0};
         uint8_t lm63[3] = {0};
         uint8_t lm86[3] = {0};
@@ -436,6 +437,43 @@ __bf_pltfm_chss_mgmt_temperature_get_x312p__ (
 }
 
 static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_temperature_get_x732q__ (
+    bf_pltfm_temperature_info_t *tmp)
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    int err = BF_PLTFM_COMM_FAILED, ret;
+
+    wr_buf[0] = 0xAA;
+    wr_buf[1] = 0xAA;
+
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        ret = bf_pltfm_bmc_uart_write_read (
+                  BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, rd_buf,
+                  (128 - 1),
+                  BMC_COMM_INTERVAL_US);
+    } else {
+        ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
+                                       BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
+                                       BMC_COMM_INTERVAL_US);
+
+    }
+
+    if ((ret == 7) && (rd_buf[0] == 6)) {
+        tmp->tmp1 = (float)rd_buf[1];
+        tmp->tmp2 = (float)rd_buf[2];
+        tmp->tmp3 = (float)rd_buf[3];
+        tmp->tmp4 = (float)rd_buf[4];
+        tmp->tmp5 = (float)rd_buf[5];
+        tmp->tmp6 = (float)rd_buf[6];
+
+        err = BF_PLTFM_SUCCESS;
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_temperature_get_hc36y24c__ (
     bf_pltfm_temperature_info_t *tmp)
 {
@@ -456,19 +494,22 @@ __bf_pltfm_chss_mgmt_temperature_get__ (
 
     clr_temp_info (tmp);
 
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x532p__
               (tmp);
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x564p__
               (tmp);
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x308p__
               (tmp);
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_x312p__
               (tmp);
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        err = __bf_pltfm_chss_mgmt_temperature_get_x732q__
+              (tmp);
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         err = __bf_pltfm_chss_mgmt_temperature_get_hc36y24c__
               (tmp);
     }
@@ -491,6 +532,7 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
     bf_status_t err;
 
     clr_stemp_info (tmp);
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) return BF_PLTFM_SUCCESS;
 
     if (BF_SUCCESS !=
         bf_serdes_temperature_read_start (
@@ -606,9 +648,6 @@ bf_pltfm_chss_mgmt_tmp_init()
     bf_pltfm_temperature_info_t t;
     bf_pltfm_switch_temperature_info_t *s;
 
-    fprintf (stdout,
-             "\n\n================== TMPs INIT ==================\n");
-
     clr_temp_info (&bmc_tmp_data);
     for (int i = 0; i < MAX_SWITCH_SENSORS; i ++) {
         s = &switch_tmp_data[i];
@@ -620,7 +659,7 @@ bf_pltfm_chss_mgmt_tmp_init()
         fprintf (stdout,
                  "Error in reading temperature \n");
     } else {
-        if (platform_type_equal (X532P)) {
+        if (platform_type_equal (AFN_X532PT)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
                      t.tmp1, "Mainboard Front Left");
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
@@ -634,7 +673,7 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
                      t.tmp6, "Fan 2");
             /* Added more sensors. */
-        } else if (platform_type_equal (X564P)) {
+        } else if (platform_type_equal (AFN_X564PT)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
                      t.tmp1, "Mainboard Front Left");
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
@@ -648,7 +687,7 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
                      t.tmp6, "Fan 2");
 
-            if (platform_subtype_equal(v2dot0)) {
+            if (platform_subtype_equal(V2P0)) {
                 fprintf (stdout, "tmp7    %.1f C   \"%s\"\n",
                         t.tmp7, "Mainboard Rear Left");
                 fprintf (stdout, "tmp8    %.1f C   \"%s\"\n",
@@ -656,7 +695,7 @@ bf_pltfm_chss_mgmt_tmp_init()
             }
 
             /* Added more sensors. */
-        } else if (platform_type_equal (X308P)) {
+        } else if (platform_type_equal (AFN_X308PT)) {
             fprintf (stdout,
                 "tmp1    %.1f C   \"%s\"\n",
                         t.tmp1, "Mainboard Front Left");
@@ -702,13 +741,13 @@ bf_pltfm_chss_mgmt_tmp_init()
             //    bf_pltfm_mgr_ctx()->fan_group_count = 4;
             //}
             /* Added more sensors. */
-        } else if (platform_type_equal (X312P)) {
+        } else if (platform_type_equal (AFN_X312PT)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
                      t.tmp1, "lm75");
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
                      t.tmp2, "lm63");
             fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
-                     t.tmp3, (platform_subtype_equal(v3dot0) || platform_subtype_equal(v4dot0) || platform_subtype_equal(v5dot0)) ? "lm86" : "Not Defined");
+                     t.tmp3, (platform_subtype_equal(V3P0) || platform_subtype_equal(V4P0) || platform_subtype_equal(V5P0)) ? "lm86" : "Not Defined");
             // if == 0, means no DPU-1 installed
             if (t.tmp4 != 0) {
                 fprintf (stdout,
@@ -734,7 +773,21 @@ bf_pltfm_chss_mgmt_tmp_init()
                 "tmp9    %.1f C   \"%s\"\n",
                         t.tmp9, "BF Ambient");
             /* Added more sensors. */
-        } else if (platform_type_equal (HC)) {
+        } else if (platform_type_equal (AFN_X732QT)) {
+            fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
+                     t.tmp1, "Mainboard Front Left");
+            fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
+                     t.tmp2, "Mainboard Front Right");
+            fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
+                     t.tmp3, "ASIC Ambient");
+            fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
+                     t.tmp4, "ASIC Junction");
+            fprintf (stdout, "tmp5    %.1f C   \"%s\"\n",
+                     t.tmp5, "Fan 1");
+            fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
+                     t.tmp6, "Fan 2");
+            /* Added more sensors. */
+        } else if (platform_type_equal (AFN_HC36Y24C)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",
                      t.tmp1, "Unknown");
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
@@ -769,24 +822,24 @@ __bf_pltfm_chss_mgmt_bmc_data_tmp_decode__ (uint8_t* p_src)
 
     memset(&temp_tmp_data, 0, sizeof (bf_pltfm_temperature_info_t));
 
-    if (platform_type_equal (X532P)) {
+    if (platform_type_equal (AFN_X532PT)) {
         temp_tmp_data.tmp1  = p_src[3];
         temp_tmp_data.tmp2  = p_src[4];
         temp_tmp_data.tmp3  = p_src[5];
         temp_tmp_data.tmp4  = p_src[6];
         temp_tmp_data.tmp5  = p_src[7];
         temp_tmp_data.tmp6  = p_src[8];
-    } else if (platform_type_equal (X564P)) {
-        if (platform_subtype_equal(v1dot0) ||
-            platform_subtype_equal(v1dot1) ||
-            platform_subtype_equal(v1dot2)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
+        if (platform_subtype_equal(V1P0) ||
+            platform_subtype_equal(V1P1) ||
+            platform_subtype_equal(V1P2)) {
             temp_tmp_data.tmp1  = p_src[3];
             temp_tmp_data.tmp2  = p_src[4];
             temp_tmp_data.tmp3  = p_src[5];
             temp_tmp_data.tmp4  = p_src[6];
             temp_tmp_data.tmp5  = p_src[7];
             temp_tmp_data.tmp6  = p_src[8];
-        } else if (platform_subtype_equal(v2dot0)) {
+        } else if (platform_subtype_equal(V2P0)) {
             temp_tmp_data.tmp1  = p_src[3];
             temp_tmp_data.tmp2  = p_src[4];
             temp_tmp_data.tmp3  = p_src[7];
@@ -796,7 +849,7 @@ __bf_pltfm_chss_mgmt_bmc_data_tmp_decode__ (uint8_t* p_src)
             temp_tmp_data.tmp7  = p_src[5];
             temp_tmp_data.tmp8  = p_src[6];
         }
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         temp_tmp_data.tmp1  = p_src[3];
         temp_tmp_data.tmp2  = p_src[4];
         temp_tmp_data.tmp3  = p_src[5];
@@ -807,6 +860,13 @@ __bf_pltfm_chss_mgmt_bmc_data_tmp_decode__ (uint8_t* p_src)
         temp_tmp_data.tmp4  = (int8_t)p_src[10];
         temp_tmp_data.tmp7  = (int8_t)p_src[11];
         temp_tmp_data.tmp6  = (int8_t)p_src[12];
+    } else if (platform_type_equal (AFN_X732QT)) {
+        temp_tmp_data.tmp1  = p_src[3];
+        temp_tmp_data.tmp2  = p_src[4];
+        temp_tmp_data.tmp3  = p_src[5];
+        temp_tmp_data.tmp4  = p_src[6];
+        temp_tmp_data.tmp5  = p_src[7];
+        temp_tmp_data.tmp6  = p_src[8];
     }
 
     memcpy (&bmc_tmp_data, &temp_tmp_data, sizeof (bf_pltfm_temperature_info_t));

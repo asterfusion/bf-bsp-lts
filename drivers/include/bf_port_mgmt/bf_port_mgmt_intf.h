@@ -456,7 +456,7 @@ bf_pltfm_status_t bf_pltfm_pm_port_qsfp_type_get (
 
 /* qsfp soft state maintenance functions (maintained by bf_pltfm_pm layer) */
 void qsfp_lpmode_sw_set (bf_dev_id_t dev_id,
-                         int conn_id, uint8_t val);
+                         int conn_id, bool lpmode);
 
 /* Maybe ucli use this API later. */
 void qsfp_fsm_update_cdr (bf_dev_id_t dev_id,
@@ -635,6 +635,8 @@ bf_pltfm_status_t bf_pltfm_pm_port_sfp_type_get (
     bf_pltfm_qsfp_type_t *qsfp_type);
 void sfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
                               int module);
+
+int bf_pm_num_sfp_get (void);
 
 //#endif
 

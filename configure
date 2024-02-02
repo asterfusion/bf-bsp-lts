@@ -17753,53 +17753,7 @@ fi
   if test x"$THRIFT" = x; then :
   as_fn_error $? "cannot find thrift" "$LINENO" 5
 fi
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for _init in -lthrift" >&5
-$as_echo_n "checking for _init in -lthrift... " >&6; }
-if ${ac_cv_lib_thrift__init+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lthrift  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char _init ();
-int
-main ()
-{
-return _init ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_cxx_try_link "$LINENO"; then :
-  ac_cv_lib_thrift__init=yes
-else
-  ac_cv_lib_thrift__init=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_thrift__init" >&5
-$as_echo "$ac_cv_lib_thrift__init" >&6; }
-if test "x$ac_cv_lib_thrift__init" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBTHRIFT 1
-_ACEOF
-
-  LIBS="-lthrift $LIBS"
-
-else
-  as_fn_error $? "Missing thrift library" "$LINENO" 5
-fi
-
+  #AC_CHECK_LIB([thrift], [_init], [], [AC_MSG_ERROR([Missing thrift library])])
   ac_fn_cxx_check_header_mongrel "$LINENO" "thrift/Thrift.h" "ac_cv_header_thrift_Thrift_h" "$ac_includes_default"
 if test "x$ac_cv_header_thrift_Thrift_h" = xyes; then :
 

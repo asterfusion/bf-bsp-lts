@@ -167,10 +167,10 @@ static void qsfp_present_actions (int conn_id)
 {
     uint8_t module_type = 0;
 
-    if (conn_id > bf_qsfp_get_max_qsfp_ports()) {
+    if (conn_id > bf_pm_num_qsfp_get()) {
         LOG_ERROR ("PM_INTF QSFP    %2d : Invalid. Max supported = %2d",
                    conn_id,
-                   bf_qsfp_get_max_qsfp_ports());
+                   bf_pm_num_qsfp_get());
         return;
     }
 
@@ -589,7 +589,7 @@ bf_pltfm_status_t qsfp_scan (bf_dev_id_t dev_id)
         cpu_mask = qsfp_quick_rmv_pres_mask[2];
     }
 
-    if (bf_pltfm_equal (X564P)) {
+    if (platform_type_equal (AFN_X564PT)) {
         sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
@@ -612,7 +612,7 @@ bf_pltfm_status_t qsfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-    } else if (bf_pltfm_equal (X532P)) {
+    } else if (platform_type_equal (AFN_X532PT)) {
         sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
@@ -627,15 +627,7 @@ bf_pltfm_status_t qsfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-    } else if (bf_pltfm_equal (X308P)) {
-        sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
-                       bf_pltfm_err_str (sts),
-                       __func__,
-                       __LINE__);
-        }
-    } else if (bf_pltfm_equal (X312P)) {
+    }  else if (platform_type_equal (AFN_X732QT)) {
         sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
@@ -650,7 +642,30 @@ bf_pltfm_status_t qsfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-    } else if (bf_pltfm_equal (HC)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
+        sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+    } else if (platform_type_equal (AFN_X312PT)) {
+        sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+        sts = qsfp_scan_helper (dev_id, 33, cpu_mask, 2);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the QSFP (33) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         sts = qsfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the QSFPs (1-32) at %s:%d\n",
@@ -717,6 +732,11 @@ void qsfp_fsm_timer_cb (struct bf_sys_timer_s
                    bf_pltfm_err_str (sts),
                    __func__,
                    __LINE__);
+    }
+
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_interface_fsm();
     }
 
     (void)timer;
@@ -936,12 +956,12 @@ void sfp_scan_removed (bf_dev_id_t dev_id,
     sfp_fsm_removed (module);
 }
 
-void sfp_present_actions (int module)
+static void sfp_present_actions (int module)
 {
-    if (module > bf_sfp_get_max_sfp_ports()) {
-        LOG_ERROR (" SFP    %2d : Invalid. Max supported = %2d",
+    if (module > bf_pm_num_sfp_get()) {
+        LOG_ERROR ("PM_INTF  SFP    %2d : Invalid. Max supported = %2d",
                    module,
-                   bf_sfp_get_max_sfp_ports());
+                   bf_pm_num_sfp_get());
         return;
     }
 
@@ -950,7 +970,7 @@ void sfp_present_actions (int module)
     pm_sfp_info_arr[module].is_optic =
         bf_sfp_is_optical (module);
 
-    LOG_DEBUG ("Port    %2d : contains %s module",
+    LOG_DEBUG ("PM_INTF  SFP    %2d : contains %s module",
                module,
                pm_qsfp_info_arr[module].is_optic ? "Optical" :
                "Copper");
@@ -1042,20 +1062,6 @@ static bf_pltfm_status_t sfp_scan_helper (
     bool is_present = false;
 
     res_mask = sfp_pres_mask[mask_id] ^ mask;
-
-#if 0
-    if (sfp_pres_mask[mask_id] != mask) {
-        fprintf (stdout, "%s\n",
-                 (mask_id == 0) ? "Upper" : (mask_id == 1) ?
-                 "Lower" : "XXX");
-        fprintf (stdout, "\t sfp_pres_mask   0x%08x\n",
-                 sfp_pres_mask[mask_id]);
-        fprintf (stdout, "\t          mask   0x%08x\n",
-                 mask);
-        fprintf (stdout, "\t      res_mask   0x%08x\n",
-                 res_mask);
-    }
-#endif
 
     if ((res_mask != 0) && ((res_mask & mask) != res_mask)) {
         /* If any transceiver pluged, wait for the transceiver, 100ms is theoretical. */
@@ -1192,6 +1198,11 @@ handle_removal:
         }
         if (is_present == true) {
             bf_sfp_set_detected (module, false);
+            if (!bf_pm_intf_is_device_family_tofino (
+                    dev_id)) {
+                // determines sfp type only
+                sfp_present_actions (module);
+            }
             // kick off the module FSM
             if (!bf_pltfm_pm_is_ha_mode()) {
                 sfp_fsm_inserted (module);
@@ -1248,7 +1259,7 @@ bf_pltfm_status_t sfp_scan (bf_dev_id_t dev_id)
         upper_mask = sfp_quick_rmv_pres_mask[0];
     }
 
-    if (bf_pltfm_equal (X564P)) {
+    if (platform_type_equal (AFN_X564PT)) {
         sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
@@ -1256,7 +1267,7 @@ bf_pltfm_status_t sfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-    } else if (bf_pltfm_equal (X532P)) {
+    } else if (platform_type_equal (AFN_X532PT)) {
         sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
@@ -1264,7 +1275,7 @@ bf_pltfm_status_t sfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-    } else if (bf_pltfm_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
         sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
@@ -1272,15 +1283,7 @@ bf_pltfm_status_t sfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-        sts = sfp_scan_helper (dev_id, 33, upper_mask,
-                               0);
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR ("Error:%s in scanning the SFPs (33-64)  at %s:%d\n",
-                       bf_pltfm_err_str (sts),
-                       __func__,
-                       __LINE__);
-        }
-    } else if (bf_pltfm_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
@@ -1296,7 +1299,23 @@ bf_pltfm_status_t sfp_scan (bf_dev_id_t dev_id)
                        __func__,
                        __LINE__);
         }
-    } else if (bf_pltfm_equal (HC)) {
+    } else if (platform_type_equal (AFN_X312PT)) {
+        sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+        sts = sfp_scan_helper (dev_id, 33, upper_mask,
+                               0);
+        if (sts != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error:%s in scanning the SFPs (33-64)  at %s:%d\n",
+                       bf_pltfm_err_str (sts),
+                       __func__,
+                       __LINE__);
+        }
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         sts = sfp_scan_helper (dev_id, 1, lower_mask, 1);
         if (sts != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error:%s in scanning the SFPs (1-32) at %s:%d\n",
@@ -1340,6 +1359,11 @@ void sfp_fsm_timer_cb (struct bf_sys_timer_s
                    bf_pltfm_err_str (sts),
                    __func__,
                    __LINE__);
+    }
+
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_interface_sfp_fsm();
     }
 
     (void)timer;
@@ -1442,7 +1466,7 @@ void sfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
     /* get conn_id and chnl_id by module. */
     bf_sfp_get_conn (module, &port_hdl.conn_id,
                      &port_hdl.chnl_id);
-    FP2DP (dev_id_of_port, &port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id_of_port, &port_hdl, &dev_port);
     dev_id = dev_id_of_port;
 
     bf_serdes_tx_loop_bandwidth_set (
@@ -1453,6 +1477,12 @@ void sfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
 
     sfp_detection_actions (dev_id, module);
 
+}
+
+bf_pm_sfp_info_t *bf_pltfm_get_pm_sfp_info_ptr (
+    int module)
+{
+    return &pm_sfp_info_arr[module];
 }
 #endif
 
@@ -1597,11 +1627,6 @@ bf_pltfm_status_t bf_pltfm_pm_init (
     /* Real QSFPs of current platforms. */
     bf_pm_num_qsfp = bf_qsfp_get_max_qsfp_ports();
     bf_pm_num_mac  = platform_num_ports_get ();
-    LOG_DEBUG ("num of QSFPs = %2d, BF_DRV_VER %s",
-               bf_pm_num_qsfp, bf_drv_get_version());
-    fprintf (stdout,
-             "num of QSFPs = %d, BF_DRV_VER %s\n",
-             bf_pm_num_qsfp, bf_drv_get_version());
 
     for (conn_id = 0; conn_id < bf_pm_num_qsfp;
          conn_id++) {
@@ -1647,11 +1672,6 @@ bf_pltfm_status_t bf_pltfm_pm_init (
 
 #if defined(HAVE_SFP)
     bf_pm_num_sfp = bf_sfp_get_max_sfp_ports();
-    LOG_DEBUG ("num of SFPs = %d, BF_DRV_VER %s",
-               bf_pm_num_sfp, bf_drv_get_version());
-    fprintf (stdout,
-             "num of SFPs = %2d, BF_DRV_VER %s\n",
-             bf_pm_num_sfp, bf_drv_get_version());
 
     for (conn_id = 0; conn_id < bf_pm_num_sfp;
          conn_id++) {
@@ -1714,10 +1734,6 @@ bf_pltfm_status_t bf_pltfm_pm_deinit()
 {
     bf_sys_timer_status_t rc;
 
-    fprintf (stdout,
-             "================== Deinit .... %48s ================== \n",
-             __func__);
-
     // Stop the timers only if the board type is not Emulator/Model
     if (platform_is_hw()) {
         rc = bf_sys_timer_stop (&qsfp_scan_timer);
@@ -1779,9 +1795,6 @@ bf_pltfm_status_t bf_pltfm_pm_deinit()
         }
     }
 #endif
-    fprintf (stdout,
-             "================== Deinit done %48s ================== \n",
-             __func__);
     return BF_PLTFM_SUCCESS;
 }
 
@@ -1819,7 +1832,7 @@ void qsfp_fsm_notify_bf_pltfm (bf_dev_id_t dev_id,
     port_hdl.conn_id = conn_id;
     for (chnl = 0; chnl < 4; chnl++) {
         port_hdl.chnl_id = chnl;
-        FP2DP (dev_id_of_port, &port_hdl, &dev_port);
+        bfn_fp2_dp (dev_id_of_port, &port_hdl, &dev_port);
         dev_id = dev_id_of_port;
 
         if (is_luxtera) {

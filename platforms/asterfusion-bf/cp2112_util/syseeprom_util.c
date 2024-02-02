@@ -34,8 +34,10 @@ int main (int argc, char **argv)
 {
     static uint8_t eeprom[2048];
     bf_pltfm_status_t sts;
+    bf_pltfm_board_id_t bd_id =
+        BF_PLTFM_BD_ID_UNKNOWN;
     sts = bf_pltfm_cp2112_util_init (
-              BF_PLTFM_BD_ID_MONTARA_P0C);
+              bd_id);
     read_sys_eeprom (eeprom, 0, 2048);
     if (!is_checksum_valid (eeprom)) {
         show_eeprom (eeprom);

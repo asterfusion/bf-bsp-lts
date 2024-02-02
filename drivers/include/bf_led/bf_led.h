@@ -32,6 +32,9 @@ typedef enum {
     BF_LED_PORT_LINKUP_40G = 10,
     BF_LED_PORT_LINKUP_50G = 11,
     BF_LED_PORT_LINKUP_100G = 12,
+    /* by tsihang, 25 Dec. 2023. */
+    BF_LED_PORT_LINKUP_200G = 13,
+    BF_LED_PORT_LINKUP_400G = 14,
 } bf_led_condition_t;
 
 typedef enum { LED_NO_BLINK = 0, LED_BLINK } bf_led_blink_t;

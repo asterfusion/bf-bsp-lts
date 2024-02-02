@@ -30,14 +30,14 @@
 #include <bf_pltfm_syscpld.h>
 #include <bf_switchd/bf_switchd.h>
 #include <bf_bd_cfg/bf_bd_cfg_intf.h>
-#include <bf_pltfm.h>
-
-#include "pltfm_types.h"
 
 // Local header files
 #include "bf_pltfm_bd_eeprom.h"
 
 #define lqe_valen  256
+
+extern bf_pltfm_status_t bf_pltfm_bd_type_set_by_key (
+    uint8_t type, uint8_t subtype);
 
 COME_type global_come_type = COME_UNKNOWN;
 static char g_bmc_version[32] = {0};
@@ -85,25 +85,26 @@ typedef struct pltfm_cpld_path_t {
     bf_pltfm_subtype ver;
     cpld_path_e default_path;
     cpld_path_e forced_path;
-}pltfm_cpld_path_t;
+} pltfm_cpld_path_t;
 
 /* There is an issue of cgoslx hung on for CG15xx COM-Express
  * when switching installed system from SONiC to ONL or from ONL to SONiC.
  * It is strongly recommended to access CPLD through cp2112 on X532P under all possible COM-Express.
  * Pls upgrade BMC to v1.2.1 or later. */
 static pltfm_cpld_path_t pltfm_cpld_path[] = {
-    {X564P, v1dot0, VIA_CGOS,   VIA_CGOS},
-    {X564P, v1dot1, VIA_CGOS,   VIA_CGOS},
-    {X564P, v1dot2, VIA_CGOS,   VIA_CP2112},
-    {X564P, v2dot0, VIA_CP2112, VIA_CP2112},
-    {X532P, v1dot0, VIA_CGOS,   VIA_CP2112},
-    {X532P, v1dot1, VIA_CGOS,   VIA_CP2112},
-    {X532P, v2dot0, VIA_CP2112, VIA_CGOS},
-    {X532P, v3dot0, VIA_CP2112, VIA_CGOS},
-    {X308P, v1dot0, VIA_CP2112, VIA_CGOS},
-    {X308P, v1dot1, VIA_CP2112, VIA_CGOS},
-    {X308P, v2dot0, VIA_CP2112, VIA_CGOS},
-    {X308P, v3dot0, VIA_CP2112, VIA_CGOS},
+    {AFN_X564PT, V1P0, VIA_CGOS,   VIA_CGOS},
+    {AFN_X564PT, V1P1, VIA_CGOS,   VIA_CGOS},
+    {AFN_X564PT, V1P2, VIA_CGOS,   VIA_CP2112},
+    {AFN_X564PT, V2P0, VIA_CP2112, VIA_CP2112},
+    {AFN_X532PT, V1P0, VIA_CGOS,   VIA_CP2112},
+    {AFN_X532PT, V1P1, VIA_CGOS,   VIA_CP2112},
+    {AFN_X532PT, V2P0, VIA_CP2112, VIA_CGOS},
+    {AFN_X532PT, V3P0, VIA_CP2112, VIA_CGOS},
+    {AFN_X308PT, V1P0, VIA_CP2112, VIA_CGOS},
+    {AFN_X308PT, V1P1, VIA_CP2112, VIA_CGOS},
+    {AFN_X308PT, V2P0, VIA_CP2112, VIA_CGOS},
+    {AFN_X308PT, V3P0, VIA_CP2112, VIA_CGOS},
+    {AFN_X732QT, V1P0, VIA_CP2112, VIA_CP2112},
 };
 
 pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
@@ -117,27 +118,27 @@ static void bf_pltfm_parse_subversion (const char *subver,
     *subtype = INVALID_SUBTYPE;
 
     if (strstr (subver, "1.0")) {
-        *subtype = v1dot0;
+        *subtype = V1P0;
     } else if (strstr (subver, "1.1")) {
-        *subtype = v1dot1;
+        *subtype = V1P1;
     } else if (strstr (subver, "1.2")) {
-        *subtype = v1dot2;
+        *subtype = V1P2;
     } else if (strstr (subver, "2.0")) {
-        *subtype = v2dot0;
+        *subtype = V2P0;
     } else if (strstr (subver, "2.1")) {
-        *subtype = v2dot1;
+        *subtype = V2P1;
     } else if (strstr (subver, "2.2")) {
-        *subtype = v2dot2;
+        *subtype = V2P2;
     } else if (strstr (subver, "3.0")) {
-        *subtype = v3dot0;
+        *subtype = V3P0;
     } else if (strstr (subver, "3.1")) {
-        *subtype = v3dot1;
+        *subtype = V3P1;
     } else if (strstr (subver, "3.2")) {
-        *subtype = v3dot2;
+        *subtype = V3P2;
     } else if (strstr (subver, "4.0")) {
-        *subtype = v4dot0;
+        *subtype = V4P0;
     } else if (strstr (subver, "5.0")) {
-        *subtype = v5dot0;
+        *subtype = V5P0;
     } else {
         /* TBD: */
         *find = false;
@@ -169,27 +170,29 @@ static void bf_pltfm_parse_platorm (const char *str,
         return;
     }
 
-    bf_pltfm_bd_type_get (
+    bf_pltfm_bd_type_get_priv (
         &type, &subtype);
 
     if (strstr (c, "532")) {
-        type = X532P;
+        type = AFN_X532PT;
     } else if (strstr (c, "564")) {
-        type = X564P;
+        type = AFN_X564PT;
     } else if (strstr (c, "308")) {
-        type = X308P;
+        type = AFN_X308PT;
     } else if (strstr (c, "312")) {
-        type = X312P;
+        type = AFN_X312PT;
+    } else if (strstr (c, "732")) {
+        type = AFN_X732QT;
     } else if (strstr (c, "hc")) {
-        type = HC;
+        type = AFN_HC36Y24C;
     } else if (strstr (c, "3056")) {
-        type = X308P;
+        type = AFN_X308PT;
     } else {
         find = false;
     }
 
     if (find) {
-        bf_pltfm_bd_type_set (
+        bf_pltfm_bd_type_set_priv (
             type, subtype);
     } else {
         fprintf (stdout,
@@ -225,59 +228,61 @@ static void bf_pltfm_parse_hwversion (const char *str,
         return;
     }
 
-    bf_pltfm_bd_type_get (
+    bf_pltfm_bd_type_get_priv (
         &type, &subtype);
 
     bf_pltfm_parse_subversion (c, &subtype, &find);
 
     /* Overwrite subversion to 3.x when not given in eeprom.
      * Overwrite subversion to 3.x as it is widely shipped for x312p-t. */
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         /* 0x26 and 0x27. */
-        if (subtype != v2dot0 && subtype != v2dot1 && subtype != v2dot2 && subtype != v2dot3 &&
-            subtype != v3dot0 && subtype != v3dot1 && subtype != v3dot2 && subtype != v3dot3 &&
-            subtype != v4dot0 && subtype != v5dot0) {
-            subtype = v3dot0;
+        if (subtype != V2P0 && subtype != V2P1 && subtype != V2P2 && subtype != V2P3 &&
+            subtype != V3P0 && subtype != V3P1 && subtype != V3P2 && subtype != V3P3 &&
+            subtype != V4P0 && subtype != V5P0) {
+            subtype = V3P0;
             fprintf (stdout,
                      "WARNNING: Overwrite %02x's subversion to %02x\n", type, subtype);
             LOG_WARNING(
                      "WARNNING: Overwrite %02x's subversion to %02x\n", type, subtype);
         }
-    } else if (platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X564PT)) {
         /* 0x31. */
-        if (subtype != v1dot1 &&
-            subtype != v1dot2 &&
-            subtype != v2dot0) {
+        if (subtype != V1P1 &&
+            subtype != V1P2 &&
+            subtype != V2P0) {
             find = false;
         }
-    } else if (platform_type_equal (X532P)) {
+    } else if (platform_type_equal (AFN_X532PT)) {
         /* 0x31. */
-        if (subtype != v1dot0 &&
-            subtype != v1dot1 &&
-            subtype != v2dot0 &&
-            subtype != v3dot0) {
+        if (subtype != V1P0 &&
+            subtype != V1P1 &&
+            subtype != V2P0 &&
+            subtype != V3P0) {
             find = false;
         }
-    } else if (platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X308PT)) {
         /* 0x31. */
-        if (subtype != v1dot0 &&
-            subtype != v1dot1 &&
-            subtype != v2dot0 &&
-            subtype != v3dot0) {
+        if (subtype != V1P0 &&
+            subtype != V1P1 &&
+            subtype != V2P0 &&
+            subtype != V3P0) {
             find = false;
         }
-    } else if (platform_type_equal (HC)) {
+    } else if (platform_type_equal (AFN_X732QT)) {
+        /* 0x31. */
+        if (subtype != V1P0) {
+            find = false;
+        }
+    } else if (platform_type_equal (AFN_HC36Y24C)) {
         /* 0x31. */
         /* TBD */
     } else {
         find = false;
     }
 
-    fprintf (stdout,
-             "Type : %02x : %02x\n", type, subtype);
-
     if (find) {
-        bf_pltfm_bd_type_set (
+        bf_pltfm_bd_type_set_priv (
             type, subtype);
     } else {
         fprintf (stdout,
@@ -312,9 +317,6 @@ static void bf_pltfm_parse_i2c (const char *str,
 
     /* I2C MUST be disabled or set to 127 for those platforms which are not used it in /etc/platform.conf. */
     bmc_i2c_bus = atoi(c);
-    if (bmc_i2c_bus != INVALID_BMC_I2C)
-    fprintf (stdout,
-             "I2C  : %d (CPLD or BMC)\n", bmc_i2c_bus);
 }
 
 static void bf_pltfm_parse_cme(const char *str,
@@ -349,8 +351,6 @@ static void bf_pltfm_parse_cme(const char *str,
         }
     }
     BUG_ON (cb == NULL);
-    fprintf (stdout,
-             "COME : %s \n", cb->desc);
 }
 
 static void bf_pltfm_parse_uart(const char *str,
@@ -382,8 +382,6 @@ static void bf_pltfm_parse_uart(const char *str,
 
     /* Identify to open UART. */
     uart_ctx.flags |= AF_PLAT_UART_ENABLE;
-    fprintf (stdout,
-             "UART : %s\n", (uart_ctx.flags & AF_PLAT_UART_ENABLE) ? "enabled (BMC)" : "disabled");
 }
 
 static void access_cpld_through_cp2112()
@@ -392,7 +390,7 @@ static void access_cpld_through_cp2112()
     uint8_t rd_buf[128] = {0};
     uint8_t cmd = 0x0F;
     uint8_t wr_buf[2] = {0x01, 0xAA};
-    fprintf (stdout, "CPLD <- CP2112\n");
+    LOG_DEBUG ("CPLD <- CP2112\n");
     bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                             2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 2);
     bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_CPLD_CP2112;
@@ -409,7 +407,7 @@ static void access_cpld_through_superio()
     * to tell the caller there's no need to wait for the return status.
     * Haven't see bad affect so far. Keep tracking.
     * by tsihang, 2022-06-20. */
-    fprintf (stdout, "CPLD <- SuperIO\n");
+    LOG_DEBUG ("CPLD <- SuperIO\n");
     bf_sys_usleep (100);
     bf_pltfm_bmc_uart_write_read (cmd, wr_buf,
                             2, rd_buf, 128 - 1, BMC_COMM_INTERVAL_US * 3);
@@ -428,7 +426,7 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced) {
         return 0;
     }
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         cmd = 0x11;
         wr_buf[0] = 0xAA;
         wr_buf[1] = 0xAA;
@@ -443,9 +441,10 @@ bf_pltfm_status_t bf_pltfm_get_bmc_ver(char *bmc_ver, bool forced) {
             sprintf (g_bmc_version, "%s", "N/A");
         }
     } else {
-        if (platform_type_equal (X532P) ||
-            platform_type_equal (X564P) ||
-            platform_type_equal (X308P)) {
+        if (platform_type_equal (AFN_X532PT) ||
+            platform_type_equal (AFN_X564PT) ||
+            platform_type_equal (AFN_X308PT) ||
+            platform_type_equal (AFN_X732QT)) {
             cmd = 0x0D;
             wr_buf[0] = 0xAA;
             wr_buf[1] = 0xAA;
@@ -481,12 +480,13 @@ bf_pltfm_status_t bf_pltfm_compare_bmc_ver(char *cmp_ver_str) {
         return -1;
     }
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         sscanf (cmp_ver_str, "v%d.%d.%d-%c", &cmp_ver_digit[0], &cmp_ver_digit[1], &cmp_ver_digit[2], &cmp_ver_char);
         sscanf (g_bmc_version, "v%d.%d.%d-%c", &bmc_ver_digit[0], &bmc_ver_digit[1], &bmc_ver_digit[2], &bmc_ver_char);
-    } else if (platform_type_equal (X532P) ||
-               platform_type_equal (X564P) ||
-               platform_type_equal (X308P)) {
+    } else if (platform_type_equal (AFN_X532PT) ||
+               platform_type_equal (AFN_X564PT) ||
+               platform_type_equal (AFN_X308PT) ||
+               platform_type_equal (AFN_X732QT)) {
         sscanf (cmp_ver_str, "v%d.%d.%d", &cmp_ver_digit[0], &cmp_ver_digit[1], &cmp_ver_digit[2]);
         sscanf (g_bmc_version, "v%d.%d.%d", &bmc_ver_digit[0], &bmc_ver_digit[1], &bmc_ver_digit[2]);
     }
@@ -523,18 +523,20 @@ uint32_t bf_pltfm_get_312_bmc_comm_interval(void) {
 void bf_pltfm_load_conf () {
     // Initialize all the sub modules
     FILE *fp = NULL;
-    const char *cfg = "/etc/platform.conf";
+    char *cfg = "/etc/platform.conf";
     char entry[lqe_valen] = {0};
     uint8_t type = INVALID_TYPE;
     uint8_t subtype = INVALID_SUBTYPE;
 
-    bf_pltfm_bd_type_set (type, subtype);
+    bf_pltfm_bd_type_set_priv (type, subtype);
 
     fp = fopen (cfg, "r");
     if (!fp) {
-        fp = fopen("/usr/share/sonic/platform/platform.conf", "r");
-        if (fp) goto good;
-
+        /* For SONiC, use path below as fallback. by sunzheng, 2024.01.03 */
+        cfg = "/usr/share/sonic/platform/platform.conf";
+        fp = fopen(cfg, "r");
+    }
+    if (!fp) {
         fprintf (stdout,
                  "Exiting due to fopen(%s) : "
                  "%s : %s.\n", cfg, strerror (errno),
@@ -545,9 +547,8 @@ void bf_pltfm_load_conf () {
                  (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
         exit (0);
     } else {
-good:
         fprintf (stdout,
-                 "\n\n================== %s ==================\n", cfg);
+                 "\n\nLoading %s ...\n", cfg);
         while (fgets (entry, lqe_valen, fp)) {
             char *p;
             if (entry[0] == '#') {
@@ -586,7 +587,7 @@ good:
         fclose (fp);
     }
 
-    bf_pltfm_bd_type_get (&type, &subtype);
+    bf_pltfm_bd_type_get_priv (&type, &subtype);
     if (((type == INVALID_TYPE) || (subtype == INVALID_SUBTYPE)) ||
         bf_pltfm_bd_type_set_by_key(type, subtype)) {
         /* Must never reach here.
@@ -649,9 +650,12 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
     }
 
     bf_pltfm_get_bmc_ver (&bmc_ver[0], true);
-    fprintf (stdout, "\nBMC version : %s\n\n", bmc_ver);
+    fprintf (stdout, "########################\n");
+    fprintf (stdout, "BMC %s\n", bmc_ver);
+    LOG_DEBUG ("BMC %s", bmc_ver);
+    fprintf (stdout, "########################\n");
 
-    if (platform_type_equal (X312P)) {
+    if (platform_type_equal (AFN_X312PT)) {
         uint8_t rd_buf[128] = {0};
         uint8_t cmd = 0x0D;
         uint8_t wr_buf[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
@@ -693,20 +697,20 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
             bf_pltfm_bmc_write_read (bmc_i2c_addr,
                                            cmd, wr_buf, 1, 0xFF, rd_buf, sizeof(rd_buf),
                                            bmc_comm_interval_us_for_312);
-            LOG_DEBUG ("X312P i2c watchdog %s, interval = %ds\n", rd_buf[1] ? "enabled" : "disabled", rd_buf[2]);
+            LOG_DEBUG ("AFN_X312PT i2c watchdog %s, interval = %ds\n", rd_buf[1] ? "enabled" : "disabled", rd_buf[2]);
         }
-        if (platform_subtype_equal (v2dot0)) {
+        if (platform_subtype_equal (V2P0)) {
             LOG_DEBUG ("CPLD <- cp2112\n");
-        } else if (platform_subtype_equal (v3dot0) ||
-                   platform_subtype_equal (v4dot0) ||
-                   platform_subtype_equal (v5dot0)) {
+        } else if (platform_subtype_equal (V3P0) ||
+                   platform_subtype_equal (V4P0) ||
+                   platform_subtype_equal (V5P0)) {
             LOG_DEBUG ("CPLD <- super io\n");
         }
-    } else if (platform_type_equal (X308P) ||
-               platform_type_equal (X532P) ||
-               platform_type_equal (X564P)) {
+    } else if (platform_type_equal (AFN_X308PT) ||
+               platform_type_equal (AFN_X532PT) ||
+               platform_type_equal (AFN_X564PT) ||
+               platform_type_equal (AFN_X732QT)) {
         if (is_HVXXX || is_ADV15XX || is_S02XXX) {
-            LOG_DEBUG ("CPLD <- cp2112\n");
             access_cpld_through_cp2112();
         } else if (is_CG15XX){
             cpld_path_e path = bf_pltfm_find_path_to_cpld();
@@ -714,10 +718,8 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
             if (path == VIA_CGOS) {
                 LOG_DEBUG ("CPLD <- cgoslx\n");
             } else if (path == VIA_CP2112) {
-                LOG_DEBUG ("CPLD <- cp2112\n");
                 access_cpld_through_cp2112();
             } else if (path == VIA_SIO) {
-                LOG_DEBUG ("CPLD <- super io\n");
                 access_cpld_through_superio();
             }
         }
@@ -730,14 +732,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
 bf_pltfm_status_t bf_pltfm_chss_mgmt_bd_type_get (
     bf_pltfm_board_id_t *board_id)
 {
-    return bf_pltfm_bd_type_get_ext (board_id);
-}
-
-bf_pltfm_status_t
-bf_pltfm_chss_mgmt_platform_type_get (
-    uint8_t *type, uint8_t *subtype)
-{
-    return bf_pltfm_bd_type_get (type, subtype);
+    return bf_pltfm_bd_type_get (board_id);
 }
 
 bf_pltfm_status_t bf_pltfm_device_type_get (

@@ -3435,7 +3435,7 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
 {
     int module, err;
     uint32_t conn_id, chnl_id = 0;
-    char alias[16] = {0}, connc[16] = {0};
+    char alias[16] = {0}, connc[16] = {0}, prefix = ' ';
 
     UCLI_COMMAND_INFO (uc, "map", 0,
                        "Display QSFP map.");
@@ -3444,6 +3444,10 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
     aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
                 "MODULE", "ALIAS", "PORT", "TX_DISABLED");
 
+    if (platform_type_equal(AFN_X732QT)) {
+        prefix = 'Q';
+    };
+
     /* QSFP */
     for (int i = 0; i < bf_qsfp_get_max_qsfp_ports();
          i ++) {
@@ -3451,7 +3455,7 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
         err = bf_pltfm_qsfp_lookup_by_module (module,
                                               &conn_id);
         if (!err) {
-            sprintf (alias, "C%d",
+            sprintf (alias, "%cC%d", prefix,
                      module % (BF_PLAT_MAX_QSFP * 4));
             sprintf (connc, "%2d/%d",
                      (conn_id % BF_PLAT_MAX_QSFP),
@@ -3483,6 +3487,8 @@ bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
     return 0;
 }
 
+extern char *bf_pm_intf_fsm_st_get (int conn_id,
+                               int ch);
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_fsm (ucli_context_t *uc)
 {
@@ -3532,6 +3538,22 @@ bf_pltfm_ucli_ucli__qsfp_fsm (ucli_context_t *uc)
             }
         }
         aim_printf (&uc->pvs, "\n");
+
+#if 0
+        if (platform_type_equal (AFN_X732QT)) {
+            aim_printf (&uc->pvs, "%-4s | %s | ", " ",
+                        " ");
+            for (i = 0; i < MAX_CHAN_PER_CONNECTOR; i++) {
+                 if (i >= bf_qsfp_get_ch_cnt (port)) {
+                     aim_printf (&uc->pvs, "%-29s | ", "NA");
+                 } else {
+                     aim_printf (&uc->pvs, "%-29s | ",
+                         bf_pm_intf_fsm_st_get (port, i));
+                 }
+             }
+            aim_printf (&uc->pvs, "\n");
+        }
+#endif
     }
     return 0;
 }
@@ -3569,6 +3591,35 @@ bf_pltfm_ucli_ucli__qsfp_fsm_set (ucli_context_t *uc)
         qsfp_module_fsm_st_set (port, st);
     }
     aim_printf (&uc->pvs, "\n");
+    return 0;
+}
+
+static ucli_status_t bf_pltfm_ucli_ucli__qsfp_rxlos_debounce_set(
+    ucli_context_t *uc) {
+    UCLI_COMMAND_INFO(uc, "qsfp-rxlos-debounce-set", 2, "<port> <count>");
+    char usage[] = "qsfp-rxlos-debounce-set <port> <count>";
+    int port, count, max_port;
+
+    if (uc->pargs->count != 2) {
+        aim_printf(&uc->pvs, "Incorrect syntax\n");
+        aim_printf(&uc->pvs, "Usage : %s\n", usage);
+        return 0;
+    }
+
+    max_port = bf_qsfp_get_max_qsfp_ports();
+    port = atoi(uc->pargs->args[0]);
+    if (port < 1 || port > max_port) {
+        aim_printf(&uc->pvs, "port must be 1-%d\n", max_port);
+        return 0;
+    }
+
+    count = atoi(uc->pargs->args[1]);
+    if (count < 0) {
+        aim_printf(&uc->pvs, "count must be 0 or more\n");
+        return 0;
+    }
+
+    bf_qsfp_rxlos_debounce_set(port, count);
     return 0;
 }
 
@@ -3702,6 +3753,7 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monitor_enable,
     bf_pltfm_ucli_ucli__qsfp_db,
     bf_pltfm_ucli_ucli__qsfp_map,
+    bf_pltfm_ucli_ucli__qsfp_rxlos_debounce_set,
     NULL,
 };
 

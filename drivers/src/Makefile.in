@@ -160,6 +160,7 @@ libpltfm_driver_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(LDFLAGS) -o $@
 libpm_la_LIBADD =
 am_libpm_la_OBJECTS = bf_port_mgmt/libpm_la-bf_pm_intf.lo \
+	bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo \
 	bf_port_mgmt/libpm_la-bf_pm_qsfp_mgmt.lo \
 	bf_port_mgmt/libpm_la-bf_pm_sfp_mgmt.lo \
 	bf_port_mgmt/libpm_la-bf_pm_porting.lo
@@ -412,6 +413,7 @@ bf_led/bf_led.c
 
 libpm_la_SOURCES = \
 bf_port_mgmt/bf_pm_intf.c \
+bf_port_mgmt/bf_pm_intf_tf2.c \
 bf_port_mgmt/bf_pm_qsfp_mgmt.c \
 bf_port_mgmt/bf_pm_sfp_mgmt.c \
 bf_port_mgmt/bf_pm_priv.h \
@@ -550,6 +552,8 @@ bf_port_mgmt/$(DEPDIR)/$(am__dirstamp):
 	@: > bf_port_mgmt/$(DEPDIR)/$(am__dirstamp)
 bf_port_mgmt/libpm_la-bf_pm_intf.lo: bf_port_mgmt/$(am__dirstamp) \
 	bf_port_mgmt/$(DEPDIR)/$(am__dirstamp)
+bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo: bf_port_mgmt/$(am__dirstamp) \
+	bf_port_mgmt/$(DEPDIR)/$(am__dirstamp)
 bf_port_mgmt/libpm_la-bf_pm_qsfp_mgmt.lo:  \
 	bf_port_mgmt/$(am__dirstamp) \
 	bf_port_mgmt/$(DEPDIR)/$(am__dirstamp)
@@ -609,6 +613,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@bf_bd_cfg/$(DEPDIR)/libbd_cfg_la-bf_bd_cfg_porting.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_led/$(DEPDIR)/libled_la-bf_led.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_intf.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_intf_tf2.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_porting.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_qsfp_mgmt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_sfp_mgmt.Plo@am__quote@
@@ -681,6 +686,13 @@ bf_port_mgmt/libpm_la-bf_pm_intf.lo: bf_port_mgmt/bf_pm_intf.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_port_mgmt/bf_pm_intf.c' object='bf_port_mgmt/libpm_la-bf_pm_intf.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpm_la_CFLAGS) $(CFLAGS) -c -o bf_port_mgmt/libpm_la-bf_pm_intf.lo `test -f 'bf_port_mgmt/bf_pm_intf.c' || echo '$(srcdir)/'`bf_port_mgmt/bf_pm_intf.c
+
+bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo: bf_port_mgmt/bf_pm_intf_tf2.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpm_la_CFLAGS) $(CFLAGS) -MT bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo -MD -MP -MF bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_intf_tf2.Tpo -c -o bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo `test -f 'bf_port_mgmt/bf_pm_intf_tf2.c' || echo '$(srcdir)/'`bf_port_mgmt/bf_pm_intf_tf2.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_intf_tf2.Tpo bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_intf_tf2.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bf_port_mgmt/bf_pm_intf_tf2.c' object='bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpm_la_CFLAGS) $(CFLAGS) -c -o bf_port_mgmt/libpm_la-bf_pm_intf_tf2.lo `test -f 'bf_port_mgmt/bf_pm_intf_tf2.c' || echo '$(srcdir)/'`bf_port_mgmt/bf_pm_intf_tf2.c
 
 bf_port_mgmt/libpm_la-bf_pm_qsfp_mgmt.lo: bf_port_mgmt/bf_pm_qsfp_mgmt.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpm_la_CFLAGS) $(CFLAGS) -MT bf_port_mgmt/libpm_la-bf_pm_qsfp_mgmt.lo -MD -MP -MF bf_port_mgmt/$(DEPDIR)/libpm_la-bf_pm_qsfp_mgmt.Tpo -c -o bf_port_mgmt/libpm_la-bf_pm_qsfp_mgmt.lo `test -f 'bf_port_mgmt/bf_pm_qsfp_mgmt.c' || echo '$(srcdir)/'`bf_port_mgmt/bf_pm_qsfp_mgmt.c

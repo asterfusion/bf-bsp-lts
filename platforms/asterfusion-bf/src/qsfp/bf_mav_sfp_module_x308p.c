@@ -559,7 +559,7 @@ static struct opt_ctx_t sfp28_opt_x308p = {
 void bf_pltfm_sfp_init_x308p (struct opt_ctx_t **opt,
     uint32_t *num, uint32_t *xsfp_num) {
     uint32_t n = 2;
-    if (platform_subtype_equal (v3dot0))
+    if (platform_subtype_equal (V3P0))
         n = ARRAY_LENGTH(xsfp_ctx_x308p);
     *opt = &sfp28_opt_x308p;
     *num = ARRAY_LENGTH(sfp28_ctx_x308p);

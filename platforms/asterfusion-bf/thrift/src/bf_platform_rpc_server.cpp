@@ -168,16 +168,15 @@ default_ip:
     static void bf_pltfm_get_rpc_listen_point () {
         // Initialize all the sub modules
         FILE *fp = NULL;
-        const char *cfg = "/etc/platform.conf";
         char entry[128] = {0};
 
-        fp = fopen (cfg, "r");
+        fp = fopen ("/etc/platform.conf", "r");
         if (!fp) {
             fp = fopen("/usr/share/sonic/platform/platform.conf", "r");
-            if (fp) goto good;
+        }
+        if (!fp) {
             exit (0);
         } else {
-    good:
             while (fgets (entry, 128, fp)) {
                 char *p;
                 if (entry[0] == '#') {

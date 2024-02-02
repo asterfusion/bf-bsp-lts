@@ -87,12 +87,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-#SUBDIRS += tcl_server
-@IS_THRIFT_ENABLED_TRUE@@TCL_ONLY_FALSE@am__append_1 = thrift
-#SUBDIRS += include src cp2112_util tofino_spi_util uart_util
-@TCL_ONLY_FALSE@am__append_2 = include src cp2112_util uart_util tofino_spi_util tofino_pci_util
-@BUILD_ASTERFUSIONBF_DIAGS_TRUE@@TCL_ONLY_FALSE@am__append_3 = diags
-@TCL_ONLY_TRUE@am__append_4 = src
+@IS_THRIFT_ENABLED_TRUE@am__append_1 = thrift include src cp2112_util \
+@IS_THRIFT_ENABLED_TRUE@	uart_util tofino_spi_util \
+@IS_THRIFT_ENABLED_TRUE@	tofino_pci_util
+@IS_THRIFT_ENABLED_FALSE@am__append_2 = src
 subdir = platforms/asterfusion-bf
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/adl_recursive_eval.m4 \
@@ -162,7 +160,7 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = thrift include src cp2112_util uart_util \
-	tofino_spi_util tofino_pci_util diags
+	tofino_spi_util tofino_pci_util
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \
@@ -332,8 +330,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
-SUBDIRS = $(am__append_1) $(am__append_2) $(am__append_3) \
-	$(am__append_4)
+SUBDIRS = $(am__append_1) $(am__append_2)
 all: all-recursive
 
 .SUFFIXES:

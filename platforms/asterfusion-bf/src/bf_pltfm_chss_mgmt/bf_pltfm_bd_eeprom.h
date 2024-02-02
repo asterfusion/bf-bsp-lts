@@ -35,15 +35,8 @@ struct tlv_t {
 };
 
 bf_pltfm_status_t bf_pltfm_bd_type_init();
-bf_pltfm_status_t bf_pltfm_bd_type_get_ext (
-    bf_pltfm_board_id_t *board_id);
 bf_pltfm_status_t bf_pltfm_bd_type_get (
-    uint8_t *type, uint8_t *subtype);
-bf_pltfm_status_t bf_pltfm_bd_type_set (
-    uint8_t type, uint8_t subtype);
-bf_pltfm_status_t bf_pltfm_bd_type_set_by_key (
-    uint8_t type, uint8_t subtype);
-bf_pltfm_status_t bf_pltfm_bd_type_set_by_keystring (char *ptr);
+    bf_pltfm_board_id_t *board_id);
 bf_pltfm_status_t bf_pltfm_bd_tlv_get (int idx,
                                        char *code, char *desc, char *content);
 

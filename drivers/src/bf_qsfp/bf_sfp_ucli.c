@@ -956,6 +956,7 @@ bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
     return 0;
 }
 
+extern char *bf_pm_intf_sfp_fsm_st_get (int port);
 static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_fsm (ucli_context_t *uc)
 {
@@ -982,14 +983,22 @@ bf_pltfm_ucli_ucli__sfp_fsm (ucli_context_t *uc)
 
     aim_printf (&uc->pvs, "%s | ", "Port");
     aim_printf (&uc->pvs, "%-28s | ", "Module FSM");
-    aim_printf (&uc->pvs, "%-29s | \n", "CH ");
+    aim_printf (&uc->pvs, "%-29s | ", "CH ");
+    aim_printf (&uc->pvs, "%-29s | \n", "PM_INTF FSM");
 
     for (port = first_port; port <= last_port;
       port++) {
         aim_printf (&uc->pvs, "%-4d | %s | ", port,
                     sfp_module_fsm_st_get (port));
-        aim_printf (&uc->pvs, "%-29s | ",
+        aim_printf (&uc->pvs, "%-28s | ",
                     sfp_channel_fsm_st_get (port));
+        if (platform_type_equal(AFN_X732QT)) {
+            aim_printf (&uc->pvs, "%-29s | ",
+                        bf_pm_intf_sfp_fsm_st_get (port));
+        } else {
+            aim_printf (&uc->pvs, "%-29s | ",
+                        "----------");
+        }
 
         aim_printf (&uc->pvs, "\n");
     }
@@ -1168,6 +1177,35 @@ bf_pltfm_ucli_ucli__sfp_soft_remove_show (
     return 0;
 }
 
+static ucli_status_t bf_pltfm_ucli_ucli__sfp_rxlos_debounce_set(
+    ucli_context_t *uc) {
+    UCLI_COMMAND_INFO(uc, "rxlos-debounce-set", 2, "<port> <count>");
+    char usage[] = "rxlos-debounce-set <port> <count>";
+    int port, count, max_port;
+
+    if (uc->pargs->count != 2) {
+        aim_printf(&uc->pvs, "Incorrect syntax\n");
+        aim_printf(&uc->pvs, "Usage : %s\n", usage);
+        return 0;
+    }
+
+    max_port = bf_sfp_get_max_sfp_ports();
+    port = atoi(uc->pargs->args[0]);
+    if (port < 1 || port > max_port) {
+        aim_printf(&uc->pvs, "port must be 1-%d\n", max_port);
+        return 0;
+    }
+
+    count = atoi(uc->pargs->args[1]);
+    if (count < 0) {
+        aim_printf(&uc->pvs, "count must be 0 or more\n");
+        return 0;
+    }
+
+    bf_sfp_rxlos_debounce_set(port, count);
+    return 0;
+}
+
 static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_period_set (
     ucli_context_t *uc)
@@ -1325,7 +1363,7 @@ bf_pltfm_sfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_period_set,
     bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_log_enable,
     bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable,
-
+    bf_pltfm_ucli_ucli__sfp_rxlos_debounce_set,
     /* Closed by tsihang since dump-info include the CC. */
     //bf_pltfm_ucli_ucli__check_reg,
     NULL,

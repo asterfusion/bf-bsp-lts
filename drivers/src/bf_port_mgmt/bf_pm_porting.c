@@ -36,6 +36,22 @@
 #define BF_DEVPORT_ENA      (1 << 0)
 static uint32_t bf_devport_flags[BF_MAX_DEV_PORT] = {0};
 
+/* X-T is desinged without retimer/repeater. */
+bf_pltfm_status_t bf_pltfm_ext_phy_set_mode(bf_pltfm_port_info_t *port_info,
+                                            bf_pltfm_ext_phy_cfg_t *port_cfg) {
+    port_info = port_info;
+    port_cfg  = port_cfg;
+    return 0;
+}
+
+/* X-T is desinged without retimer/repeater. */
+bf_pltfm_status_t bf_pltfm_ext_phy_conn_eq_set(bf_pltfm_port_info_t *port_info,
+                                            bf_pltfm_ext_phy_cfg_t *port_cfg) {
+    port_info = port_info;
+    port_cfg  = port_cfg;
+    return 0;
+}
+
 bool devport_state_tx_mode_chk (bf_dev_id_t dev_id,
                             bf_pal_front_port_handle_t *port_hdl)
 {
@@ -64,7 +80,7 @@ void devport_state_enabled_set(bf_dev_id_t dev_id,
                             bf_pal_front_port_handle_t *port_hdl, bool set)
 {
     bf_dev_port_t dev_port = 0;
-    FP2DP (dev_id, port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, port_hdl, &dev_port);
     set ? (bf_devport_flags[dev_port % BF_MAX_DEV_PORT] |= BF_DEVPORT_ENA) :\
           (bf_devport_flags[dev_port % BF_MAX_DEV_PORT] &= ~BF_DEVPORT_ENA);
 }
@@ -73,7 +89,7 @@ bool devport_state_enabled_chk (bf_dev_id_t dev_id,
                             bf_pal_front_port_handle_t *port_hdl)
 {
     bf_dev_port_t dev_port = 0;
-    FP2DP (dev_id, port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, port_hdl, &dev_port);
     return (bf_devport_flags[dev_port % BF_MAX_DEV_PORT] & BF_DEVPORT_ENA);
 }
 
@@ -93,6 +109,12 @@ int devport_speed_to_led_color (bf_port_speed_t speed,
     } else if ((speed &
                 BF_SPEED_100G)) {
         *led_cond = BF_LED_PORT_LINKUP_100G;
+    } else if ((speed &
+                BF_SPEED_400G)) {
+        *led_cond = BF_LED_PORT_LINKUP_400G;
+    } else if ((speed &
+                BF_SPEED_200G)) {
+        *led_cond = BF_LED_PORT_LINKUP_200G;
     } else {
         *led_cond = BF_LED_PORT_LINK_DOWN;
     }
@@ -210,13 +232,13 @@ bf_status_t bf_pm_pre_port_add_cfg_set (
 
     if (!bf_pm_intf_is_device_family_tofino (
             dev_id)) {
-        FP2DP (dev_id_of_port, port_hdl, &dev_port);
+        bfn_fp2_dp (dev_id_of_port, port_hdl, &dev_port);
         dev_id = dev_id_of_port;
 
         bf_pm_encoding_mode_get (
             port_cfg->speed_cfg, port_cfg->num_lanes,
             &encoding);
-        //bf_pm_intf_add(&port_info, dev_id, dev_port, port_cfg, encoding);
+        bf_pm_intf_add(&port_info, dev_id, dev_port, port_cfg, encoding);
         return BF_SUCCESS;
     }
 
@@ -259,7 +281,7 @@ static bf_status_t bf_pm_port_fc_mac_set (
         return BF_INVALID_ARG;
     }
 
-    FP2DP (dev_id, port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, port_hdl, &dev_port);
     sts = bf_port_flow_control_frame_src_mac_address_set (
               dev_id, dev_port, mac_addr);
     if (sts != BF_SUCCESS) {
@@ -296,7 +318,7 @@ bf_status_t bf_pm_post_port_add_cfg_set (
     //
     port_info.conn_id = port_hdl->conn_id;
     port_info.chnl_id = port_hdl->chnl_id;
-    FP2DP (dev_id, port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, port_hdl, &dev_port);
 
     bf_bd_cfg_port_has_rtmr (&port_info, &is_present);
     if (is_present) {
@@ -335,9 +357,19 @@ bf_status_t bf_pm_pre_port_delete_cfg_set (
     bf_pal_front_port_handle_t *port_hdl,
     bf_pal_front_port_cb_cfg_t *port_cfg)
 {
+    bf_pltfm_port_info_t port_info;
+    bf_dev_id_t dev_id = 0;
+
     // Safety Checks
     if (!port_hdl) {
         return BF_INVALID_ARG;
+    }
+
+    port_info.conn_id = port_hdl->conn_id;
+    port_info.chnl_id = port_hdl->chnl_id;
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_del(&port_info, port_cfg);
+        return BF_SUCCESS;
     }
 
     ENTER_DBG;
@@ -400,7 +432,7 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_pltfm_port_info_t port_info;
     bf_dev_id_t dev_id = 0;
-    bool is_present = false;
+    bool is_present = false, is_optic = false;
     bf_dev_port_t dev_port = 0;
     bf_led_condition_t led_cond =
         BF_LED_POST_PORT_DIS;
@@ -413,10 +445,13 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
     // Change the LED to milder blue
     port_info.conn_id = port_hdl->conn_id;
     port_info.chnl_id = port_hdl->chnl_id;
-    FP2DP (dev_id, port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, port_hdl, &dev_port);
 
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
+        if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+            bf_pm_intf_enable(&port_info, port_cfg);
+        }
         /* AN is required by X86 KR, while not required by DPU KR. */
         if (bf_pltfm_qsfp_is_vqsfp (port_info.conn_id)) {
             an_required = false;
@@ -437,58 +472,82 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
         return BF_SUCCESS;
     }
 
-    pltfm_pm_port_qsfp_is_present (&port_info,
-                                   &is_present);
-    if (is_present) {
-        int ln;
-        bool is_optic = false;
-        is_optic = bf_qsfp_is_optical (port_info.conn_id);
+    bool is_sfp = is_panel_sfp (port_hdl->conn_id,
+                           port_hdl->chnl_id);
 
-        if (is_optic) {
-            bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                         true);
-        } else {
-            bf_port_is_optical_xcvr_set (dev_id, dev_port,
-                                         false);
+    if (is_sfp) {
+        pltfm_pm_port_sfp_is_present (&port_info,
+                                       &is_present);
+        if (is_present) {
+            int module;
+            bf_sfp_get_port (port_info.conn_id,
+                             port_info.chnl_id, &module);
+            is_optic = bf_sfp_is_optical (module);
         }
+    } else {
+        /* QSFP/QSFP-DD */
+        pltfm_pm_port_qsfp_is_present (&port_info,
+                                       &is_present);
+        if (is_present) {
+            is_optic = bf_qsfp_is_optical (port_info.conn_id);
+        }
+    }
 
-        if (bf_qsfp_is_luxtera_optic (
-                port_info.conn_id)) {
-            // no need for special-case o retimer ports
-            bf_bd_cfg_port_has_rtmr (&port_info, &is_present);
-            for (ln = 0; ln < port_cfg->num_lanes; ln++) {
-                if (is_present) {
+
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_enable(&port_info, port_cfg);
+    } else {
+        if (is_present) {
+            int ln;
+            if (is_optic) {
+                bf_port_is_optical_xcvr_set (dev_id, dev_port,
+                                             true);
+            } else {
+                bf_port_is_optical_xcvr_set (dev_id, dev_port,
+                                             false);
+            }
+
+            if (bf_qsfp_is_luxtera_optic (
+                    port_info.conn_id)) {
+                // no need for special-case o retimer ports
+                bf_bd_cfg_port_has_rtmr (&port_info, &is_present);
+                for (ln = 0; ln < port_cfg->num_lanes; ln++) {
+                    if (is_present) {
+                        sts = bf_serdes_tx_loop_bandwidth_set (
+                                  dev_id, dev_port, ln,
+                                  BF_SDS_TOF_TX_LOOP_BANDWIDTH_DEFAULT);
+                    } else {
+                        sts = bf_serdes_tx_loop_bandwidth_set (
+                                  dev_id, dev_port, ln,
+                                  BF_SDS_TOF_TX_LOOP_BANDWIDTH_9MHZ);
+                    }
+                }
+            } else {
+                for (ln = 0; ln < port_cfg->num_lanes; ln++) {
                     sts = bf_serdes_tx_loop_bandwidth_set (
                               dev_id, dev_port, ln,
                               BF_SDS_TOF_TX_LOOP_BANDWIDTH_DEFAULT);
-                } else {
-                    sts = bf_serdes_tx_loop_bandwidth_set (
-                              dev_id, dev_port, ln,
-                              BF_SDS_TOF_TX_LOOP_BANDWIDTH_9MHZ);
                 }
             }
-        } else {
-            for (ln = 0; ln < port_cfg->num_lanes; ln++) {
-                sts = bf_serdes_tx_loop_bandwidth_set (
-                          dev_id, dev_port, ln,
-                          BF_SDS_TOF_TX_LOOP_BANDWIDTH_DEFAULT);
+            if (sts != BF_PLTFM_SUCCESS) {
+                LOG_ERROR (
+                    "Unable to set Tx Loop bandwidth for front port %d/%d : "
+                    "%s (%d)",
+                    port_info.conn_id,
+                    port_info.chnl_id,
+                    bf_pltfm_err_str (sts),
+                    sts);
             }
         }
-        if (sts != BF_PLTFM_SUCCESS) {
-            LOG_ERROR (
-                "Unable to set Tx Loop bandwidth for front port %d/%d : "
-                "%s (%d)",
-                port_info.conn_id,
-                port_info.chnl_id,
-                bf_pltfm_err_str (sts),
-                sts);
-        }
-        LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
-                   port_info.conn_id,
-                   port_info.chnl_id,
-                   dev_port,
-                   is_optic ? "OPTICAL" : "COPPER");
     }
+
+    LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s/%s",
+               port_info.conn_id,
+               port_info.chnl_id,
+               dev_port,
+               is_present ? "PRESENT" : "ABSENT",
+               is_optic   ? "OPTICAL" : "COPPER");
 
     /* TBD: Add force Tx conditions. */
     if (is_present || devport_state_tx_mode_chk(dev_id, port_hdl)) {
@@ -524,6 +583,7 @@ bf_status_t bf_pm_post_port_enable_cfg_set (
     bool is_present = false;
     int num_lanes, log_lane;
     bool is_optic = false;
+    bf_dev_id_t dev_id = 0;
 
     // Safety Checks
     if (!port_hdl) {
@@ -531,6 +591,10 @@ bf_status_t bf_pm_post_port_enable_cfg_set (
     }
     if (!port_cfg) {
         return BF_INVALID_ARG;
+    }
+
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        return BF_PLTFM_SUCCESS;
     }
 
     num_lanes = port_cfg->num_lanes;
@@ -598,6 +662,10 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
     // Safety Checks
     if (!port_hdl) {
         return BF_INVALID_ARG;
+    }
+
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        return BF_PLTFM_SUCCESS;
     }
 
     num_lanes = port_cfg->num_lanes;
@@ -672,7 +740,9 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
 
     if (bf_bd_is_this_port_internal (
             port_info.conn_id, port_info.chnl_id)) {
-        // nothing todo
+        if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+            bf_pm_intf_disable(&port_info, port_cfg);
+        }
         return BF_SUCCESS;
     }
 
@@ -700,10 +770,16 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
         }
     }
 
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_disable(&port_info, port_cfg);
+    }
+
     // Run Retimer deletion steps
     bf_bd_cfg_port_has_rtmr (&port_info, &is_present);
     if (is_present) {
         if (!bf_pltfm_pm_is_ha_mode()) {
+            #if 0
             bf_pltfm_ext_phy_cfg_t rtmr_cfg;
 
             rtmr_cfg.speed_cfg = port_cfg->speed_cfg;
@@ -713,6 +789,7 @@ bf_status_t bf_pm_post_port_disable_cfg_set (
                 LOG_ERROR ("Error(%d) running rtmr post deletion steps.",
                            sts);
             }
+            #endif
         }
     }
 
@@ -747,6 +824,11 @@ bf_status_t bf_pm_port_link_up_actions (
                  "%2d/%d : %s\n",
                  (port_hdl)->conn_id, (port_hdl)->chnl_id, "up");
         return BF_SUCCESS;
+    }
+
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_set_link_state(&port_info, true);
     }
 
     is_sfp = is_panel_sfp (port_hdl->conn_id,
@@ -812,6 +894,11 @@ bf_status_t bf_pm_port_link_down_actions (
                  "%2d/%d : %s\n",
                  (port_hdl)->conn_id, (port_hdl)->chnl_id, "dn");
         return BF_SUCCESS;
+    }
+
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_set_link_state(&port_info, false);
     }
 
     is_sfp = is_panel_sfp (port_hdl->conn_id,
@@ -1102,52 +1189,13 @@ bf_status_t bf_pltfm_pm_rtmr_lane_reset_cb (
     bf_fsm_st *next_state,
     uint32_t *next_state_wait_ms)
 {
-    bf_pal_front_port_handle_t port_hdl;
-    int num_lanes;
-    bf_status_t rc;
-    bool is_optical = false, is_rtmr = false;
-
-    bf_pltfm_port_info_t port_info;
-    rc = bf_pm_port_dev_port_to_front_panel_port_get (
-             dev_id, dev_port, &port_hdl);
-    if (rc) {
-        LOG_ERROR ("Error (%d) Mapping dev_port (%d) to conn_id",
-                   rc, dev_port);
-        return BF_INVALID_ARG;
-    }
-    // Check type, this fn only deals with optical QSFPs on retimer ports
-    port_info.conn_id = port_hdl.conn_id;
-    port_info.chnl_id = port_hdl.chnl_id;
-    bf_bd_cfg_port_has_rtmr (&port_info, &is_rtmr);
-    // Nothing to do here if not a retimer port
-    if (!is_rtmr) {
-        return BF_SUCCESS;
-    }
-
-    is_optical = bf_qsfp_is_optical (
-                     port_info.conn_id);
-    // nothing to do here (either) if not optical
-    if (!is_optical) {
-        return BF_SUCCESS;
-    }
-    LOG_DEBUG (
-        "RTMR: %2d : ch[%d] : dev_port=%3d : is OPTICAL. Reset rtmr lane(s)",
-        port_info.conn_id,
-        port_info.chnl_id,
-        dev_port);
-    rc = bf_pm_pltfm_front_port_num_lanes_get (dev_id,
-            &port_hdl, &num_lanes);
-    if (rc) {
-        LOG_ERROR ("Error (%d) Getting num_lanes for dev_port (%d)",
-                   rc, dev_port);
-        return BF_INVALID_ARG;
-    }
-    rc = bf_pltfm_ext_phy_lane_reset (&port_info,
-                                      num_lanes);
-    return rc;
+    dev_id = dev_id;
+    dev_port = dev_port;
+    next_state = next_state;
+    next_state_wait_ms = next_state_wait_ms;
+    return BF_SUCCESS;
 }
 
-int in_rtmr_init = 0;
 extern void qsfp_reset_pres_mask (void);
 extern void sfp_reset_pres_mask (void);
 
@@ -1158,7 +1206,6 @@ bf_status_t bf_pm_cold_init (bf_dev_init_mode_t
                              warm_init_mode)
 #endif
 {
-    bf_pltfm_status_t sts = BF_PLTFM_SUCCESS;
     bf_dev_id_t dev_id = 0;
     bool warm_init_mode_cfg;
 
@@ -1166,7 +1213,8 @@ bf_status_t bf_pm_cold_init (bf_dev_init_mode_t
     warm_init_mode_cfg = false;
 #else
     if (warm_init_mode != BF_DEV_INIT_COLD) {
-        //bf_pm_intf_obj_reset();
+        /* For x732q_t. */
+        bf_pm_intf_obj_reset();
         warm_init_mode_cfg = true;
     } else {
         warm_init_mode_cfg = false;
@@ -1186,6 +1234,12 @@ bf_status_t bf_pm_cold_init (bf_dev_init_mode_t
         sfp_reset_pres_mask ();
     }
 
+    /* For x732q_t. */
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_init();
+        return BF_PLTFM_SUCCESS;
+    }
+
     /* I don't know why call qsfp_scan here.
      * Disable it to perform a quick boot when transceivers already plugged-in.
      * by tsihang, 2023-06-26. */
@@ -1201,19 +1255,9 @@ bf_status_t bf_pm_cold_init (bf_dev_init_mode_t
     }
 #endif
 
-    // Initialize retimers
-    in_rtmr_init = 1;
-
     if (!bf_pltfm_pm_is_ha_mode()) {
-        sts = bf_pltfm_ext_phy_init();
-        if (sts) {
-            LOG_ERROR ("Error (%d) while initializing retimers.",
-                       sts);
-            in_rtmr_init = 0;
-            return sts;
-        }
+        /* initializing retimers */
     }
-    in_rtmr_init = 0;
 
     bf_status_t rc;
 
@@ -1301,8 +1345,9 @@ bf_status_t bf_pm_prbs_cfg_set (
                    port_cfg->speed_cfg);
         return BF_INVALID_ARG;
     }
-    bf_pltfm_ext_phy_init_speed (port_hdl->conn_id,
-                                 speed);
+    speed = speed;
+    //bf_pltfm_ext_phy_init_speed (port_hdl->conn_id,
+    //                             speed);
 
     return BF_SUCCESS;
 }
@@ -1317,4 +1362,40 @@ bf_status_t bf_pm_ha_mode_disable()
 {
     bf_pltfm_pm_ha_mode_clear();
     return BF_SUCCESS;
+}
+
+// At the end of warm-init/fast-reconfig, this will be called to move
+// the fsm state.
+bf_status_t bf_pm_ha_link_state_notify(bf_dev_id_t dev_id,
+                                       bf_pal_front_port_handle_t *port_hdl,
+                                       bool link_up) {
+    bf_pltfm_port_info_t port_info;
+
+    if (!port_hdl) return BF_INVALID_ARG;
+
+    port_info.conn_id = port_hdl->conn_id;
+    port_info.chnl_id = port_hdl->chnl_id;
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_ha_link_state_notiy(&port_info, link_up);
+        return BF_SUCCESS;
+    }
+    return BF_SUCCESS;
+}
+
+bf_status_t bf_pm_ha_wait_port_cfg_done(bf_dev_id_t dev_id) {
+    if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+        bf_pm_intf_ha_wait_port_cfg_done(dev_id);
+    }
+    return BF_SUCCESS;
+}
+
+// Note that SDE removes non-func from port-database
+// to avoid port operations
+int bf_pm_is_port_non_func(bf_dev_id_t dev_id,
+                           bf_pal_front_port_handle_t *port_hdl) {
+    (void)dev_id;
+
+    if (!port_hdl) return 0;
+
+    return bf_bd_is_this_port_non_func(port_hdl->conn_id, port_hdl->chnl_id);
 }

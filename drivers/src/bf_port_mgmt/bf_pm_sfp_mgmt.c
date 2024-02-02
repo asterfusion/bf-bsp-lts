@@ -76,15 +76,15 @@ typedef enum {
 } sfp_fsm_state_t;
 
 static char *sfp_fsm_st_to_str[] = {
-    "SFP_FSM_ST_IDLE               ",
-    "SFP_FSM_ST_REMOVED            ",
-    "SFP_FSM_ST_INSERTED           ",
-    "SFP_FSM_ST_WAIT_T_RESET       ",
-    "SFP_FSM_ST_WAIT_TON_TXDIS     ",
-    "SFP_FSM_ST_WAIT_TOFF_TXDIS    ",
-    "SFP_FSM_ST_DETECTED           ",
-    "SFP_FSM_ST_UPDATE             ",
-    "SFP_FSM_ST_WAIT_UPDATE        ",
+    "SFP_FSM_ST_IDLE             ",
+    "SFP_FSM_ST_REMOVED          ",
+    "SFP_FSM_ST_INSERTED         ",
+    "SFP_FSM_ST_WAIT_T_RESET     ",
+    "SFP_FSM_ST_WAIT_TON_TXDIS   ",
+    "SFP_FSM_ST_WAIT_TOFF_TXDIS  ",
+    "SFP_FSM_ST_DETECTED         ",
+    "SFP_FSM_ST_UPDATE           ",
+    "SFP_FSM_ST_WAIT_UPDATE      ",
 };
 
 /* Module CH FSM states */
@@ -98,12 +98,12 @@ typedef enum {
 } sfp_fsm_ch_en_state_t;
 
 static char *sfp_ch_fsm_en_st_to_str[] = {
-    "SFP_CH_FSM_ST_DISABLED        ",
-    "SFP_CH_FSM_ST_ENABLING        ",
-    "SFP_CH_FSM_ST_ENA_OPTICAL_TX  ",
-    "SFP_CH_FSM_ST_NOTIFY_ENABLED  ",
-    "SFP_CH_FSM_ST_ENABLED         ",
-    "SFP_CH_FSM_ST_DISABLING       ",
+    "SFP_CH_FSM_ST_DISABLED      ",
+    "SFP_CH_FSM_ST_ENABLING      ",
+    "SFP_CH_FSM_ST_ENA_OPTICAL_TX",
+    "SFP_CH_FSM_ST_NOTIFY_ENABLED",
+    "SFP_CH_FSM_ST_ENABLED       ",
+    "SFP_CH_FSM_ST_DISABLING     ",
 };
 
 typedef enum sfp_typ_t {
@@ -178,7 +178,8 @@ typedef struct sfp_state_t {
     uint32_t flags;
     bool sfp_quick_removed;
     bool wr_inprog;
-    bool los_detected;
+    bool rx_los;
+    bool rx_lol;
     bool immediate_enable;  // used when retrying port init
     sfp_status_and_alarms_t status_and_alarms;
 } sfp_state_t;
@@ -194,6 +195,7 @@ sfp_state_t sfp_state[BF_PLAT_MAX_SFP + 1] = {
         0,
         false,
         false,
+        true,
         true,
         false,
         sfp_status_and_alarm_init_val
@@ -465,8 +467,8 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
 
     /* Read LOS signal via CPLD. Not very sure, but very helpful. */
     bool rx_los_now = false;   /* Init to false in case a misjudge to a GOOD link when i2c hang on. */
-    bool rx_los_before = sfp_state[module].los_detected;
-    rc = bf_pltfm_sfp_los_read (module, &rx_los_now);
+    bool rx_los_before = sfp_state[module].rx_los;
+    rc = bf_sfp_get_rx_los (module, &rx_los_now);
     if (!rc) {
         bf_dev_port_t dev_port;
         bf_status_t bf_status;
@@ -478,7 +480,7 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
             &port_hdl.conn_id,
             &port_hdl.chnl_id);
 
-        FP2DP (dev_id, &port_hdl, &dev_port);
+        bfn_fp2_dp (dev_id, &port_hdl, &dev_port);
 
         // hack, really need # lanes on port
         // TBD: Move optical-type to qsfp_detection_actions
@@ -494,7 +496,7 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
         bf_status = bf_port_optical_los_set (dev_id, dev_port,
                                  los);
         if (bf_status == BF_SUCCESS) {
-            sfp_state[module].los_detected = los;
+            sfp_state[module].rx_los = los;
             if (rx_los_now ^ rx_los_before) {
                 LOG_DEBUG (" SFP    %2d : dev_port=%3d : LOS=%d",
                            module, dev_port, los);
@@ -534,7 +536,7 @@ static int sfp_fsm_special_case_handled (
 
         port_hdl.conn_id = conn;
         port_hdl.chnl_id = chnl;
-        FP2DP (dev_id, &port_hdl, &dev_port);
+        bfn_fp2_dp (dev_id, &port_hdl, &dev_port);
 
         if (bf_sfp_cmp_vendor (module,
                                      "TRIXON") == 0) {
@@ -687,7 +689,7 @@ void sfp_fsm_notify_ready (bf_dev_id_t dev_id,
 
     port_hdl.conn_id = conn;
     port_hdl.chnl_id = chnl;
-    FP2DP (dev_id, &port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, &port_hdl, &dev_port);
 
     bf_port_optical_los_set (dev_id, dev_port, false);
     bf_port_optical_xcvr_ready_set (dev_id, dev_port, true);
@@ -709,7 +711,7 @@ void sfp_fsm_notify_not_ready (bf_dev_id_t dev_id,
 
     port_hdl.conn_id = conn;
     port_hdl.chnl_id = chnl;
-    FP2DP (dev_id, &port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, &port_hdl, &dev_port);
 
     bf_port_optical_xcvr_ready_set (dev_id, dev_port, false);
     bf_port_optical_los_set (dev_id, dev_port, true);
@@ -828,7 +830,7 @@ static void sfp_fsm_st_removed (bf_dev_id_t
 
     port_hdl.conn_id = conn;
     port_hdl.chnl_id = chnl;
-    FP2DP (dev_id, &port_hdl, &dev_port);
+    bfn_fp2_dp (dev_id, &port_hdl, &dev_port);
 
     // deassert reset, in case module was removed while reset was asserted
     sfp_fsm_reset_de_assert (dev_id, module);
@@ -971,7 +973,8 @@ static void sfp_module_fsm_run (bf_dev_id_t
             if (is_optical) {
                 /* Insert detected, make sure the fsm_ch_st is DISABLED. */
                 sfp_state[module].fsm_ch_st = SFP_CH_FSM_ST_DISABLED;
-                sfp_state[module].los_detected = true;
+                sfp_state[module].rx_los = true;
+                sfp_state[module].rx_lol = true;
                 sfp_fsm_st_inserted (dev_id, module);
 
                 next_st = SFP_FSM_ST_WAIT_T_RESET;
@@ -981,7 +984,9 @@ static void sfp_module_fsm_run (bf_dev_id_t
                          " SFP    %2d : (%02d/%d) Notify platform ...\n",
                          module, conn, chnl);
                 /* Every thing ready, notify barefoot core to start PM FSM. */
-                sfp_fsm_notify_bf_pltfm (dev_id, module);
+                if (bf_pm_intf_is_device_family_tofino(dev_id))  {
+                    sfp_fsm_notify_bf_pltfm (dev_id, module);
+                }
 
                 next_st = SFP_FSM_ST_DETECTED;
                 delay_ms = 0;
@@ -1000,7 +1005,9 @@ static void sfp_module_fsm_run (bf_dev_id_t
             sfp_fsm_st_tx_off (dev_id, module);
 
             /* Every thing ready, notify barefoot core to start PM FSM. */
-            sfp_fsm_notify_bf_pltfm (dev_id, module);
+            if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+                sfp_fsm_notify_bf_pltfm (dev_id, module);
+            }
 
 #if defined (DEFAULT_LASER_ON)
             next_st = SFP_FSM_ST_WAIT_TOFF_TXDIS;
@@ -1318,6 +1325,42 @@ bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id)
     }
 #endif
     return BF_PLTFM_SUCCESS;
+}
+
+/* TF2 */
+int sfp_fsm_get_rx_los (int module,
+                         bool *rx_los_flag) {
+    if (!rx_los_flag) {
+        return -1;
+    }
+
+    if (sfp_state[module].rx_los) {
+        *rx_los_flag = true;
+        return 0;
+    }
+
+    *rx_los_flag = false;
+    return 0;
+}
+/* TF2 */
+int sfp_fsm_get_rx_lol (int module,
+                         bool *rx_lol_flag) {
+    /* Always false. */
+    *rx_lol_flag = false;
+    return 0;
+}
+
+/* TF2 */
+int sfp_get_rx_los_support (int port,
+                             bool *rx_los_support) {
+    *rx_los_support = true;
+    return 0;
+}
+/* TF2 */
+int sfp_get_rx_lol_support (int port,
+                             bool *rx_lol_support) {
+    *rx_lol_support = false;
+    return 0;
 }
 
 void bf_port_sfp_mgmnt_temper_monitor_period_set (

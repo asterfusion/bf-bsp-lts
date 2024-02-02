@@ -12,14 +12,6 @@
 extern "C" {
 #endif
 
-#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0A.h"
-#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B.h"
-#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0C.h"
-//#include "../src/platform_mgr/pltfm_bd_map_montara_P0A.h"
-#include "../src/platform_mgr/pltfm_bd_map_montara_P0B.h"
-#include "../src/platform_mgr/pltfm_bd_map_mavericks_P0B_emu.h"
-#include "../src/platform_mgr/pltfm_bd_map_montara_P0C.h"
-
 /* Supported platforms below.
  * by tsihang, 2021-07-14. */
 #include "../src/platform_mgr/pltfm_bd_map_x532p.h"
@@ -29,8 +21,6 @@ extern "C" {
 #include "../src/platform_mgr/pltfm_bd_map_x308p-v3dot0.h"
 #include "../src/platform_mgr/pltfm_bd_map_hc36y24c.h"
 #include "../src/platform_mgr/pltfm_bd_map_x312p.h"
-
-
 
 #ifdef __cplusplus
 }

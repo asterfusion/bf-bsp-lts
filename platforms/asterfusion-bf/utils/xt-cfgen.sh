@@ -345,6 +345,27 @@ if [[ $xt_platform =~ "564" ]]; then
     echo -e "${YELLOW}${BLINK}It looks like x564p-t detected.${RES}${RES}"
 fi
 
+# Detect X732Q-T.
+# BMC  <- UART
+# CPLD <- cp2112
+# SFP  <- CP2112
+# QSFP <- cp2112
+if [[ $xt_platform =~ "732" ]]; then
+    enable_iic=0
+    if [[ $default_cme =~ "CG" ]]; then
+        # At least, cgosdrv is forced required to access cpld and sfp under CG15xx.
+        install_cgosdrv
+    fi
+    if [[ $default_cme =~ "CME3000" ]]; then
+        install_nct6779d
+        i2c=`i2cdetect -l | awk -F '[ -]' '/sio_smbus/{print $2}'`
+        default_i2c=${i2c:0:1}
+        enable_iic=1
+    fi
+    hw_platform="X732Q-T"
+    echo -e "${YELLOW}${BLINK}It looks like x732q-t detected.${RES}${RES}"
+fi
+
 echo "COMe     : $default_cme"
 
 if [ -f $cfgfile ]; then

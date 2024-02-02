@@ -106,7 +106,7 @@ typedef struct bf_qsfp_info_t {
     bf_qsfp_special_info_t special_case_port;
     bf_sys_mutex_t qsfp_mtx;
     bool internal_port;  // via ucli for special purposes
-    uint rxlos_debounce_cnt;
+    int rxlos_debounce_cnt;
     double module_temper_cache;
     bool checksum;
 } bf_qsfp_info_t;
@@ -596,13 +596,14 @@ cmis_app_host_if_speed_map[] = {
     {0, BF_SPEED_NONE, "Undefined"},
     {1, BF_SPEED_1G, "1000BASE-CX      1 x 1.25Gbd NRZ"},
     //  {2, BF_SPEED_???,     "XAUI             4 x 3.125Gbd NRZ"},
+    {4, BF_SPEED_10G, "SFI           1 x 9.95-11.18Gbd NRZ"},
     {5, BF_SPEED_25G, "25GAUI           1 x 25.78125Gbd NRZ"},
     {6, BF_SPEED_40G, "XLAUI            4 X 10.3125Gbd NRZ"},  // typ CFP
     {7, BF_SPEED_40G, "XLPPI            4 X 10.3125Gbd NRZ"},  // typ QSFP
     {8, BF_SPEED_50G, "LAUI-2           2 X 25.78125Gbd NRZ"},
     {9, BF_SPEED_50G, "50GAUI-2         2 X 26.5625Gbd NRZ"},  // KP FEC
     {10, BF_SPEED_50G, "50GAUI-1         1 x 26.5625Gbd PAM4"},
-    {11, BF_SPEED_100G, "CAUI-4           4 x 25.78125Gbd NRZ"},  // KR FEC
+    {11, BF_SPEED_100G, "CAUI-4 FEC       4 x 25.78125Gbd NRZ"},  // KR FEC
     {12, BF_SPEED_100G, "100GAUI-4        4 x 26.5625Gbd NRZ"},   // KP FEC
     {13, BF_SPEED_100G, "100GAUI-2        2 x 26.5625Gbd PAM4"},
     {14, BF_SPEED_200G, "200GAUI-8        8 x 26.5625Gbd NRZ"},
@@ -618,6 +619,7 @@ cmis_app_host_if_speed_map[] = {
     {27, BF_SPEED_100G, "100GBASE-CR2     2 x 26.5625Gbd PAM4"},
     {28, BF_SPEED_200G, "200GBASE-CR4     4 x 26.5625Gbd PAM4"},
     {29, BF_SPEED_400G, "400GBASE-CR8     8 x 26.5625Gbd PAM4"},
+    {65, BF_SPEED_100G, "CAUI-4 NOFEC     4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/01/23. */
     {70, BF_SPEED_100G, "100GBASE-CR1     1 x 53.125GBd PAM4"},
     {71, BF_SPEED_200G, "200GBASE-CR2     2 x 53.125GBd PAM4"},
     {72, BF_SPEED_400G, "400GBASE-CR4     4 x 53.125GBd PAM4"},
@@ -682,8 +684,9 @@ cmis_app_media_if_speed_map[] = {
     {MEDIA_TYPE_MMF, 11, "100GE BiDi       2 X 25.5625 Gbd PAM4"},
     {MEDIA_TYPE_MMF, 12, "100GBASE-SR2     2 X 25.5625 Gbd PAM4"},
     {MEDIA_TYPE_MMF, 13, "100GBASE-SR      1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 14, "200GBASE-SR4     24 X 25.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, 14, "200GBASE-SR4     4 X 26.5625 Gbd PAM4"},
     {MEDIA_TYPE_MMF, 15, "400GBASE-SR16    16 X 25.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, 16, "400GBASE-SR8     8 X 26.5625 Gbd PAM4"}, /* by Hang Tsi, 2024/01/23. */
     {MEDIA_TYPE_MMF, 17, "400GBASE-SR4     4 X 53.125 Gbd PAM4"},
     {MEDIA_TYPE_MMF, 18, "800GBASE-SR8     8 X 53.125 Gbd PAM4"},
     {MEDIA_TYPE_MMF, 26, "400GE BiDi       8 X 25.5625 Gbd PAM4"},
@@ -748,6 +751,11 @@ innolight_cmis_app_media_if_speed_map[] = {
     {MEDIA_TYPE_SMF, 251, "200GBASE-DR2     2 X 53.125 Gbd PAM4"},
     {MEDIA_TYPE_SMF, 252, "800GBASE-DR8     8 X 53.125 Gbd PAM4"},
 };
+/* by Hang Tsi, 2024/01/23.
+ * Temporary code and will be removed later. */
+typedef enum {
+    QSFPDD_400G_SR8 = 0x07, /* Asterfusion QFDD-8G400-01 50GBASE-SR (Clause 138) */
+} Custom_Module_MMF_media_interface_code;
 
 static cmis_app_host_id_map_t
 *bf_qsfp_get_custom_host_if_speed_map (
@@ -1869,60 +1877,6 @@ int bf_qsfp_module_read (
     return rc;
 }
 
-/** read the memory of qsfp  transceiver
- *
- *  @param port
- *   port
- *  @param offset
- *    offset into QSFP memory to read from
- *  @param len
- *    number of bytes to read
- *  @param buf
- *    buffer to read into
- *  @return
- *    0 on success, -1 on error
- */
-int bf_qsfp_read_transceiver (unsigned int port,
-                              int offset,
-                              int len,
-                              uint8_t *buf)
-{
-#if 0
-    // For Tofino based system compatibility
-    if (!bf_qsfp_flat_mem[port]) &&
-        (offset >= MAX_QSFP_PAGE_SIZE) &&
-        (!bf_qsfp_cache_dirty[port])) {
-        uint8_t pg = (uint8_t)page;
-        rc = bf_pltfm_qsfp_write_module (port, 127, 1,
-                                       &pg);
-    }
-#endif
-    return (bf_pltfm_qsfp_read_module (port, offset,
-                                       len, buf));
-}
-
-/** write into the memory of qsfp  transceiver
- *
- *  @param port
- *   port
- *  @param offset
- *    offset into QSFP memory to write into
- *  @param len
- *    number of bytes to write
- *  @param buf
- *    buffer to write
- *  @return
- *    0 on success, -1 on error
- */
-int bf_qsfp_write_transceiver (unsigned int port,
-                               int offset,
-                               int len,
-                               uint8_t *buf)
-{
-    return (bf_pltfm_qsfp_write_module (port, offset,
-                                        len, buf));
-}
-
 /** write to a specific location in the memory map
  * It is recommended that bf_qsfp_field_write_onebank be used where possible and
  * bf_qsfp_module_write be used only to write vendor proprietary locations that
@@ -1983,6 +1937,60 @@ int bf_qsfp_module_write (
     bf_sys_mutex_unlock (
         &bf_qsfp_info_arr[port].qsfp_mtx);
     return rc;
+}
+
+/** read the memory of qsfp  transceiver
+ *
+ *  @param port
+ *   port
+ *  @param offset
+ *    offset into QSFP memory to read from
+ *  @param len
+ *    number of bytes to read
+ *  @param buf
+ *    buffer to read into
+ *  @return
+ *    0 on success, -1 on error
+ */
+int bf_qsfp_read_transceiver (unsigned int port,
+                              int offset,
+                              int len,
+                              uint8_t *buf)
+{
+#if 0
+    // For Tofino based system compatibility
+    if (!bf_qsfp_flat_mem[port]) &&
+        (offset >= MAX_QSFP_PAGE_SIZE) &&
+        (!bf_qsfp_cache_dirty[port])) {
+        uint8_t pg = (uint8_t)page;
+        rc = bf_pltfm_qsfp_write_module (port, 127, 1,
+                                       &pg);
+    }
+#endif
+    return (bf_pltfm_qsfp_read_module (port, offset,
+                                       len, buf));
+}
+
+/** write into the memory of qsfp  transceiver
+ *
+ *  @param port
+ *   port
+ *  @param offset
+ *    offset into QSFP memory to write into
+ *  @param len
+ *    number of bytes to write
+ *  @param buf
+ *    buffer to write
+ *  @return
+ *    0 on success, -1 on error
+ */
+int bf_qsfp_write_transceiver (unsigned int port,
+                               int offset,
+                               int len,
+                               uint8_t *buf)
+{
+    return (bf_pltfm_qsfp_write_module (port, offset,
+                                        len, buf));
 }
 
 /* Refresh the cache for all of the per-module and per-lane flags.
@@ -3796,7 +3804,7 @@ static int set_qsfp_idprom (int port)
         (id == QSFP_28)) {
         bf_qsfp_info_arr[port].memmap_format =
             MMFORMAT_SFF8636;
-        bf_qsfp_info_arr[port].num_ch = CHANNEL_COUNT;
+        bf_qsfp_info_arr[port].num_ch = 4;
     } else {  // CMIS
         // now determine if the CMIS memory map is rev 3.0 or 4.0+
         if (bf_cmis_spec_rev_get (port, &major_rev,
@@ -4236,11 +4244,11 @@ static int qsfp_sff8636_populate_app_list (
 
     if ((eth_comp >> 4) &
         0x1) {  // 10GBASE-SR - assume breakout x4
-        qsfp_sff8636_add_app (port, 0x1, 7, 2, 1, 1, 0xF,
+        qsfp_sff8636_add_app (port, 0x1, 4, 2, 1, 1, 0xF,
                               0xF);
     } else if ((eth_comp >> 5) &
                0x1) {  // 10GBASE-LR - assume breakout x4
-        qsfp_sff8636_add_app (port, 0x2, 7, 4, 1, 1, 0xF,
+        qsfp_sff8636_add_app (port, 0x2, 4, 4, 1, 1, 0xF,
                               0xF);
     }
 
@@ -4261,7 +4269,7 @@ static int qsfp_sff8636_populate_app_list (
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x4, 5, 2, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, 0x4, 4, 2, 1, 1, 0xF,
                                   0xF);
             break;
         case SR4_100GBASE:  // 100GBASE-SR4 or 25GBASE-SR
@@ -6180,6 +6188,23 @@ static const char
         }
     }
 
+    /* by Hang Tsi, 2024/01/23. */
+    if (!strncmp (vendor.name, "Asterfusion",
+                  strlen ("Asterfusion"))) {
+        /* It's better to check PN here as. */
+        if (!strncmp (vendor.part_number, "QFDD-8G400",
+                  strlen ("QFDD-8G400"))) {
+            switch (media_type) {
+                case MEDIA_TYPE_MMF:
+                    switch (media_id) {
+                        case QSFPDD_400G_SR8:
+                            return "400G-SR8";
+                    }
+                    break;
+            }
+        }
+    }
+
     return NULL;
 }
 
@@ -6214,7 +6239,17 @@ const char *bf_cmis_get_media_type_string (
         0) {
         return "Unknown";
     }
-
+#if 0
+    /* by Hang Tsi, 2024/01/23. */
+    char media_id_str[64] = {0};
+    if (bf_qsfp_decode_media_id (port,
+                             media_type,
+                             media_id,
+                             media_id_str)) {
+        return media_id_str;
+        //fprintf (stdout, "Hang Tsi : %s\n", media_id_str);
+    }
+#endif
     switch (media_type) {
         case MEDIA_TYPE_MMF:
             switch (media_id) {
@@ -6887,7 +6922,7 @@ int bf_qsfp_tc_entry_add (char *vendor, char *pn, char *option,
             //strncpy (&tc_entry->option[0], option, 16);
             tc_entry->ctrlmask = ctrlmask;
             tc_entry->is_set = true;
-            fprintf (stdout, "add entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, ctrlmask);
+            LOG_DEBUG ("add entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, ctrlmask);
             return 0;
         }
     }
@@ -6908,10 +6943,10 @@ int bf_qsfp_tc_entry_find (char *vendor, char *pn, char *option,
             if (0 == bf_qsfp_tc_entry_cmp (tc_entry, vendor, pn, option)) {
                 /* Find the entry and return its ctrlmask. */
                 *ctrlmask = tc_entry->ctrlmask;
-                fprintf (stdout, "find entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, tc_entry->ctrlmask);
+                LOG_DEBUG ("find entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, tc_entry->ctrlmask);
                 if (rmv) {
                     /* Remove it if required. */
-                    fprintf (stdout, "remove entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, tc_entry->ctrlmask);
+                    LOG_DEBUG ("remove entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, tc_entry->ctrlmask);
                     tc_entry->is_set = false;
                 }
                 return 0;
@@ -6932,16 +6967,12 @@ int bf_qsfp_tc_entry_dump (char *vendor, char *pn, char *option)
         else {
             if (vendor && pn /* && option */) {
                 if (0 == bf_qsfp_tc_entry_cmp (tc_entry, vendor, pn, option)) {
-                    fprintf (stdout, "find entry[%d] : %-16s : %-16s : %-4x\n",
-                        i, tc_entry->vendor, tc_entry->pn, tc_entry->ctrlmask);
                     LOG_DEBUG ("find entry[%d] : %-16s : %-16s : %-4x",
                         i, tc_entry->vendor, tc_entry->pn, tc_entry->ctrlmask);
                     return 0;
                 }
             } else {
                 /* Dump all if vendor=NULL and pn=NULL */
-                fprintf (stdout, "dump entry[%d] : %-16s : %-16s : %-4x\n",
-                        i, tc_entry->vendor, tc_entry->pn, tc_entry->ctrlmask);
                 LOG_DEBUG ("dump entry[%d] : %-16s : %-16s : %-4x",
                         i, tc_entry->vendor, tc_entry->pn, tc_entry->ctrlmask);
             }
@@ -6968,7 +6999,7 @@ void bf_pltfm_qsfp_load_conf ()
     char pn[16];
     char option[16] = {0};
     uint32_t ctrlmask;
-    int length;
+    int length, num_entries = 0;
 
     char *desc = "#The CTRLMASK defined in $SDE_INSTALL/include/bf_qsfp/bf_qsfp.h as below:\n" \
         "#  #define BF_TRANS_CTRLMASK_RX_CDR_OFF        (1 << 0)\n"   \
@@ -7043,7 +7074,8 @@ void bf_pltfm_qsfp_load_conf ()
 
     /* Read all entries back. */
     fprintf (stdout,
-             "\n\n================== %s ==================\n", cfg);
+             "\n\nLoading %s ...", cfg);
+
     /* To the start-of-file. */
     fseek(fp, 0, SEEK_SET);
     while (fgets (entry, 256, fp)) {
@@ -7051,8 +7083,11 @@ void bf_pltfm_qsfp_load_conf ()
             continue;
         }
         sscanf (entry, "%s   %s   %x", &vendor[0], &pn[0], &ctrlmask);
-        bf_qsfp_tc_entry_add (vendor, pn, option, ctrlmask);
+        if (0 == bf_qsfp_tc_entry_add (vendor, pn, option, ctrlmask))
+            num_entries ++;
         memset (&entry[0], 0, 256);
     }
     fclose (fp);
+    fprintf (stdout,
+                "   done(%d entries)\n", num_entries);
 }

@@ -26,6 +26,7 @@ bf_led/bf_led.c
 
 libpm_la_SOURCES = \
 bf_port_mgmt/bf_pm_intf.c \
+bf_port_mgmt/bf_pm_intf_tf2.c \
 bf_port_mgmt/bf_pm_qsfp_mgmt.c \
 bf_port_mgmt/bf_pm_sfp_mgmt.c \
 bf_port_mgmt/bf_pm_priv.h \

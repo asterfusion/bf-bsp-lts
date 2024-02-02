@@ -54,7 +54,7 @@ int bf_pltfm_qsfp_init (void *arg)
     (void)arg;
 
     fprintf (stdout,
-             "\n\n================== QSFPs INIT ==================\n");
+             "\n\nInitializing QSFP   ...\n");
 
     MAV_QSFP_PAGE_LOCK_INIT;
     bf_pltfm_chss_mgmt_bd_type_get (&board_id);
@@ -65,19 +65,19 @@ int bf_pltfm_qsfp_init (void *arg)
                    __func__);
         return -1;
     }
-    if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X532PT_V3DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V3DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
+    if ((board_id == AFN_BD_ID_X532PT_V1P0) ||
+        (board_id == AFN_BD_ID_X532PT_V1P1) ||
+        (board_id == AFN_BD_ID_X532PT_V2P0) ||
+        (board_id == AFN_BD_ID_X532PT_V3P0) ||
+        (board_id == AFN_BD_ID_X564PT_V1P0) ||
+        (board_id == AFN_BD_ID_X564PT_V1P1) ||
+        (board_id == AFN_BD_ID_X564PT_V1P2) ||
+        (board_id == AFN_BD_ID_X564PT_V2P0) ||
+        (board_id == AFN_BD_ID_X308PT_V1P0) ||
+        (board_id == AFN_BD_ID_X308PT_V1P1) ||
+        (board_id == AFN_BD_ID_X308PT_V2P0) ||
+        (board_id == AFN_BD_ID_X308PT_V3P0) ||
+        (board_id == AFN_BD_ID_HC36Y24C_V1P0)) {
         qsfp_hndl[CP2112_ID_2] =
             bf_pltfm_cp2112_get_handle (CP2112_ID_2);
         if (!qsfp_hndl[CP2112_ID_2]) {
@@ -92,8 +92,6 @@ int bf_pltfm_qsfp_init (void *arg)
         LOG_ERROR ("Error initing QSFP CP2112 sub-bus\n");
         return -1;
     }
-    fprintf (stdout, "num of QSFPs/MACs : %2d/%2d\n",
-             bf_qsfp_get_max_qsfp_ports(), platform_num_ports_get());
 
     return 0;
 }
@@ -110,12 +108,12 @@ static int mav_qsfp_param_get (unsigned int
     bf_pltfm_board_id_t board_id;
     bf_pltfm_chss_mgmt_bd_type_get (&board_id);
 
-    if ((board_id == BF_PLTFM_BD_ID_X312PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X312PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X312PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X312PT_V3DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X312PT_V4DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X312PT_V5DOT0)) {
+    if ((board_id == AFN_BD_ID_X312PT_V1P0) ||
+        (board_id == AFN_BD_ID_X312PT_V1P1) ||
+        (board_id == AFN_BD_ID_X312PT_V2P0) ||
+        (board_id == AFN_BD_ID_X312PT_V3P0) ||
+        (board_id == AFN_BD_ID_X312PT_V4P0) ||
+        (board_id == AFN_BD_ID_X312PT_V5P0)) {
         if (module < 1 ||
             module > (BF_MAV_SUB_PORT_CNT + 1)) {
             return -1;
@@ -130,19 +128,20 @@ static int mav_qsfp_param_get (unsigned int
             *handle = qsfp_hndl[CP2112_ID_1];
             *sub_module = BF_MAV_SUB_PORT_CNT;
         }
-    } else if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X532PT_V3DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
-        (board_id == BF_PLTFM_BD_ID_X564PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V2DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_X308PT_V3DOT0) ||
-        (board_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
+    } else if ((board_id == AFN_BD_ID_X532PT_V1P0) ||
+        (board_id == AFN_BD_ID_X532PT_V1P1) ||
+        (board_id == AFN_BD_ID_X532PT_V2P0) ||
+        (board_id == AFN_BD_ID_X532PT_V3P0) ||
+        (board_id == AFN_BD_ID_X564PT_V1P0) ||
+        (board_id == AFN_BD_ID_X564PT_V1P1) ||
+        (board_id == AFN_BD_ID_X564PT_V1P2) ||
+        (board_id == AFN_BD_ID_X564PT_V2P0) ||
+        (board_id == AFN_BD_ID_X308PT_V1P0) ||
+        (board_id == AFN_BD_ID_X308PT_V1P1) ||
+        (board_id == AFN_BD_ID_X308PT_V2P0) ||
+        (board_id == AFN_BD_ID_X308PT_V3P0) ||
+        (board_id == AFN_BD_ID_X732QT_V1P0) ||
+        (board_id == AFN_BD_ID_HC36Y24C_V1P0)) {
         if (module < 1 ||
             module > (BF_MAV_SUB_PORT_CNT * 2 + 1)) {
             return -1;

@@ -341,6 +341,17 @@ bf_pltfm_status_t bf_bd_cfg_qsfp_ch_get (
 bf_pltfm_status_t bf_bd_cfg_pin_name_get (
     bf_pltfm_port_info_t *port_info,
     char *pin_name);
+
+/*
+ * returns 1, if conn/channel is found in the board-map,
+ * but non functional like temp non-operational or
+ * some mac chans are not routed * on hardware.
+ *
+ * Note: Mark this port is_internal_port = 1 as well to avoid qsfp-fsm
+ *
+ */
+int bf_bd_is_this_port_non_func(uint32_t conn_id, uint32_t chnl_id);
+
 #ifdef __cplusplus
 }
 #endif /* C++ */

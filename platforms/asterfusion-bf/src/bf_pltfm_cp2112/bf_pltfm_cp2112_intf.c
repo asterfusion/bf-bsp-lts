@@ -917,11 +917,11 @@ static int differentiate_cp2112_devices (
             }
             // Indicates that this cp2112 is on the upper board
             cp2112_id_map[CP2112_ID_2] = i;
-            fprintf(stdout, "Not Detected ... %d\n", cp2112_id_map[CP2112_ID_2]);
+            LOG_DEBUG("Not Detected ... %d\n", cp2112_id_map[CP2112_ID_2]);
         } else {
             // Success indicates that this cp2112 is on the lower board
             cp2112_id_map[CP2112_ID_1] = i;
-            fprintf(stdout, "Detected ... %d\n", cp2112_id_map[CP2112_ID_1]);
+            LOG_DEBUG("Detected ... %d\n", cp2112_id_map[CP2112_ID_1]);
         }
     }
 
@@ -932,8 +932,8 @@ static int differentiate_cp2112_devices (
         cp2112_id_map[CP2112_ID_1] = 1;
         cp2112_id_map[CP2112_ID_2] = 0;
     }
-    fprintf(stdout, "cp2112_id_map[CP2112_ID_1] ... %d\n", cp2112_id_map[CP2112_ID_1]);
-    fprintf(stdout, "cp2112_id_map[CP2112_ID_2] ... %d\n", cp2112_id_map[CP2112_ID_2]);
+    LOG_DEBUG("cp2112_id_map[CP2112_ID_1] ... %d\n", cp2112_id_map[CP2112_ID_1]);
+    LOG_DEBUG("cp2112_id_map[CP2112_ID_2] ... %d\n", cp2112_id_map[CP2112_ID_2]);
 
     return 0;
 }
@@ -968,12 +968,13 @@ static bf_pltfm_status_t bf_pltfm_cp2112_open (
         is_big_endian_flag = false;
     }
 
-    if (platform_type_equal (X532P) ||
-        (platform_type_equal (X564P) && (platform_subtype_equal (v1dot2) || platform_subtype_equal (v2dot0))) ||
-        platform_type_equal (X308P) ||
-        platform_type_equal (HC)) {
+    if (platform_type_equal (AFN_X532PT) ||
+        (platform_type_equal (AFN_X564PT) && (platform_subtype_equal (V1P2) || platform_subtype_equal (V2P0))) ||
+        platform_type_equal (AFN_X308PT) ||
+        platform_type_equal (AFN_HC36Y24C)) {
         g_max_cp2112_num = 2;
-    } else if (platform_type_equal (X312P)) {
+    } else if (platform_type_equal (AFN_X312PT) ||
+        platform_type_equal (AFN_X732QT)) {
         g_max_cp2112_num = 1;
     }
 
@@ -1110,14 +1111,6 @@ static bf_pltfm_status_t bf_pltfm_cp2112_close (
         __FILE__, __LINE__,
         (void *)dev->usb_device, (void *)dev->usb_context,
         (void *)dev->usb_device_handle);
-
-    fprintf (stdout,
-             "%s[%d], "
-             "cp2112.close(dev %p : context %p : handle %p)"
-             "\n",
-             __FILE__, __LINE__,
-             (void *)dev->usb_device, (void *)dev->usb_context,
-             (void *)dev->usb_device_handle);
 
     if (dev == NULL) {
         LOG_ERROR ("Error: Invalid argument at %s:%d",
@@ -1431,29 +1424,30 @@ bf_pltfm_cp2112_device_ctx_t
     bf_pltfm_cp2112_id_t cp2112_id)
 {
 #if !defined(HAVE_ONE_CP2112_ON_DUTY)
-    if ((bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X312PT_V1DOT1) ||
-        (bd_id == BF_PLTFM_BD_ID_X312PT_V2DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X312PT_V3DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X312PT_V4DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X312PT_V5DOT0)) {
+    if ((bd_id == AFN_BD_ID_X312PT_V1P0) ||
+        (bd_id == AFN_BD_ID_X312PT_V1P1) ||
+        (bd_id == AFN_BD_ID_X312PT_V2P0) ||
+        (bd_id == AFN_BD_ID_X312PT_V3P0) ||
+        (bd_id == AFN_BD_ID_X312PT_V4P0) ||
+        (bd_id == AFN_BD_ID_X312PT_V5P0)) {
         if (cp2112_id != CP2112_ID_1) {
             return NULL;
         }
         return &cp2112_dev_arr[cp2112_id_map[cp2112_id]];
-    } else if ((board_id == BF_PLTFM_BD_ID_X532PT_V1DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X532PT_V1DOT1) ||
-        (bd_id == BF_PLTFM_BD_ID_X532PT_V2DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X532PT_V3DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT1) ||
-        (bd_id == BF_PLTFM_BD_ID_X564PT_V1DOT2) ||
-        (bd_id == BF_PLTFM_BD_ID_X564PT_V2DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X308PT_V1DOT1) ||
-        (bd_id == BF_PLTFM_BD_ID_X308PT_V2DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_X308PT_V3DOT0) ||
-        (bd_id == BF_PLTFM_BD_ID_HC36Y24C_V1DOT0)) {
+    } else if ((bd_id == AFN_BD_ID_X532PT_V1P0) ||
+        (bd_id == AFN_BD_ID_X532PT_V1P1) ||
+        (bd_id == AFN_BD_ID_X532PT_V2P0) ||
+        (bd_id == AFN_BD_ID_X532PT_V3P0) ||
+        (bd_id == AFN_BD_ID_X564PT_V1P0) ||
+        (bd_id == AFN_BD_ID_X564PT_V1P1) ||
+        (bd_id == AFN_BD_ID_X564PT_V1P2) ||
+        (bd_id == AFN_BD_ID_X564PT_V2P0) ||
+        (bd_id == AFN_BD_ID_X308PT_V1P0) ||
+        (bd_id == AFN_BD_ID_X308PT_V1P1) ||
+        (bd_id == AFN_BD_ID_X308PT_V2P0) ||
+        (bd_id == AFN_BD_ID_X308PT_V3P0) ||
+        (bd_id == AFN_BD_ID_X732QT_V1P0) ||
+        (bd_id == AFN_BD_ID_HC36Y24C_V1P0)) {
         if ((cp2112_id != CP2112_ID_2) &&
             (cp2112_id != CP2112_ID_1)) {
             return NULL;
@@ -1481,9 +1475,10 @@ bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
     /* Make it very clear for those platforms which could offer cp2112 reset oper by doing below operations.
      * Because we cann't and shouldn't assume platforms which are NOT X312P-T could reset cp2112 like this.
      * by tsihang, 2022-04-27. */
-    if (platform_type_equal (X564P) ||
-        platform_type_equal (X532P) ||
-        platform_type_equal (X308P)) {
+    if (platform_type_equal (AFN_X564PT) ||
+        platform_type_equal (AFN_X532PT) ||
+        platform_type_equal (AFN_X308PT) ||
+        platform_type_equal (AFN_X732QT)) {
         if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
             uint8_t rd_buf[128];
             uint8_t cmd = 0x10;
@@ -1498,9 +1493,9 @@ bf_pltfm_status_t bf_pltfm_bmc_cp2112_reset (
         } else {
             /* Early Hardware with I2C interface. */
         }
-    } else if (platform_type_equal(X312P)) {
+    } else if (platform_type_equal(AFN_X312PT)) {
         /* TBD */
-    } else if (platform_type_equal(HC)) {
+    } else if (platform_type_equal(AFN_HC36Y24C)) {
         /* TBD */
     }
 
@@ -1574,7 +1569,8 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
     bf_pltfm_status_t sts;
 
     fprintf (stdout,
-             "\n\n================== CP2112s INIT ==================\n");
+             "\n\nInitializing CP2112 ...\n");
+
     bf_pltfm_cp2112_initialized = 0;
     bf_pltfm_chss_mgmt_bd_type_get (&bd_id);
 
@@ -1610,22 +1606,13 @@ bf_pltfm_status_t bf_pltfm_cp2112_init()
             bf_sys_sleep (2);
         } else {
             LOG_DEBUG ("CP2112 summary: ");
-            fprintf (stdout, "CP2112 summary: \n");
             for (i = 0; i < g_max_cp2112_num; i++) {
                 LOG_DEBUG ("The USB dev[%d] dev %p.", i,
                            (void *)cp2112_dev_arr[i].usb_device);
-                fprintf (stdout, "The USB dev[%d] dev %p.\n", i,
-                         (void *)cp2112_dev_arr[i].usb_device);
                 LOG_DEBUG ("The USB dev[%d] contex %p.", i,
                            (void *)cp2112_dev_arr[i].usb_context);
-                fprintf (stdout, "The USB dev[%d] contex %p.\n",
-                         i,
-                         (void *)cp2112_dev_arr[i].usb_context);
                 LOG_DEBUG ("The USB dev[%d] handle %p.", i,
                            (void *)cp2112_dev_arr[i].usb_device_handle);
-                fprintf (stdout, "The USB dev[%d] handle %p.\n",
-                         i,
-                         (void *)cp2112_dev_arr[i].usb_device_handle);
             }
             bf_pltfm_cp2112_device_ctx_t *dev =
                 &cp2112_dev_arr[cp2112_id_map[CP2112_ID_1]];
@@ -1698,8 +1685,8 @@ bf_pltfm_status_t bf_pltfm_cp2112_de_init()
 {
     int i;
 
-    fprintf(stdout, "================== Deinit .... %48s ================== \n",
-        __func__);
+    fprintf (stdout,
+             "\n\nDe-initializing CP2112 ...\n");
 
     LOG_DEBUG (
         "%s[%d], "
@@ -1707,13 +1694,6 @@ bf_pltfm_status_t bf_pltfm_cp2112_de_init()
         "\n",
         __FILE__, __LINE__,
         "starting");
-
-    fprintf (stdout,
-             "%s[%d], "
-             "cp2112.deinit(%s)"
-             "\n",
-             __FILE__, __LINE__,
-             "starting");
 
     /* Not initialized before */
     if (!bf_pltfm_cp2112_initialized) {
@@ -1749,9 +1729,6 @@ bf_pltfm_status_t bf_pltfm_cp2112_de_init()
     }
 
     bf_pltfm_cp2112_initialized = 0;
-
-    fprintf(stdout, "================== Deinit done %48s ================== \n",
-        __func__);
 
     return BF_PLTFM_SUCCESS;
 }

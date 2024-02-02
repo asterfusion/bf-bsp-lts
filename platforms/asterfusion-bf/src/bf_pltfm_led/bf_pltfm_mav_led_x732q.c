@@ -1,6 +1,6 @@
 /*!
  * @file bf_pltfm_mav_led.c
- * @date 2022/06/10
+ * @date 2023/08/21
  *
  * TSIHANG (tsihang@asterfusion.com)
  */
@@ -29,49 +29,49 @@
 
 #include <pltfm_types.h>
 
-static struct led_ctx_t led_ctx_x532p[] = {
-    {"C1",   1, UINT8_MAX, PIN01, 0x53, 0, 0xFF},
-    {"C2",   2, UINT8_MAX, PIN01, 0x53, 4, 0xFF},
-    {"C3",   3, UINT8_MAX, PIN01, 0x52, 0, 0xFF},
-    {"C4",   4, UINT8_MAX, PIN01, 0x52, 4, 0xFF},
+static struct led_ctx_t led_ctx_x732q[] = {
+    {"QC1",   1, UINT8_MAX, PIN01, 0x00, 0, 0xFF},
+    {"QC2",   2, UINT8_MAX, PIN01, 0x00, 4, 0xFF},
+    {"QC3",   3, UINT8_MAX, PIN01, 0x01, 0, 0xFF},
+    {"QC4",   4, UINT8_MAX, PIN01, 0x01, 4, 0xFF},
 
-    {"C5",   5, UINT8_MAX, PIN01, 0x51, 0, 0xFF},
-    {"C6",   6, UINT8_MAX, PIN01, 0x51, 4, 0xFF},
-    {"C7",   7, UINT8_MAX, PIN01, 0x50, 0, 0xFF},
-    {"C8",   8, UINT8_MAX, PIN01, 0x50, 4, 0xFF},
+    {"QC5",   5, UINT8_MAX, PIN01, 0x02, 0, 0xFF},
+    {"QC6",   6, UINT8_MAX, PIN01, 0x02, 4, 0xFF},
+    {"QC7",   7, UINT8_MAX, PIN01, 0x03, 0, 0xFF},
+    {"QC8",   8, UINT8_MAX, PIN01, 0x03, 4, 0xFF},
 
-    {"C9",   9, UINT8_MAX, PIN01, 0x4F, 0, 0xFF},
-    {"C10", 10, UINT8_MAX, PIN01, 0x4F, 4, 0xFF},
-    {"C11", 11, UINT8_MAX, PIN01, 0x4E, 0, 0xFF},
-    {"C12", 12, UINT8_MAX, PIN01, 0x4E, 4, 0xFF},
+    {"QC9",   9, UINT8_MAX, PIN01, 0x04, 0, 0xFF},
+    {"QC10", 10, UINT8_MAX, PIN01, 0x04, 4, 0xFF},
+    {"QC11", 11, UINT8_MAX, PIN01, 0x05, 0, 0xFF},
+    {"QC12", 12, UINT8_MAX, PIN01, 0x05, 4, 0xFF},
 
-    {"C13", 13, UINT8_MAX, PIN01, 0x4D, 0, 0xFF},
-    {"C14", 14, UINT8_MAX, PIN01, 0x4D, 4, 0xFF},
-    {"C15", 15, UINT8_MAX, PIN01, 0x4C, 0, 0xFF},
-    {"C16", 16, UINT8_MAX, PIN01, 0x4C, 4, 0xFF},
+    {"QC13", 13, UINT8_MAX, PIN01, 0x06, 0, 0xFF},
+    {"QC14", 14, UINT8_MAX, PIN01, 0x06, 4, 0xFF},
+    {"QC15", 15, UINT8_MAX, PIN01, 0x07, 0, 0xFF},
+    {"QC16", 16, UINT8_MAX, PIN01, 0x07, 4, 0xFF},
 
-    {"C17", 17, UINT8_MAX, PIN01, 0x4B, 0, 0xFF},
-    {"C18", 18, UINT8_MAX, PIN01, 0x4B, 4, 0xFF},
-    {"C19", 19, UINT8_MAX, PIN01, 0x4A, 0, 0xFF},
-    {"C20", 20, UINT8_MAX, PIN01, 0x4A, 4, 0xFF},
+    {"QC17", 17, UINT8_MAX, PIN01, 0x08, 0, 0xFF},
+    {"QC18", 18, UINT8_MAX, PIN01, 0x08, 4, 0xFF},
+    {"QC19", 19, UINT8_MAX, PIN01, 0x09, 0, 0xFF},
+    {"QC20", 20, UINT8_MAX, PIN01, 0x09, 4, 0xFF},
 
-    {"C21", 21, UINT8_MAX, PIN01, 0x49, 0, 0xFF},
-    {"C22", 22, UINT8_MAX, PIN01, 0x49, 4, 0xFF},
-    {"C23", 23, UINT8_MAX, PIN01, 0x48, 0, 0xFF},
-    {"C24", 24, UINT8_MAX, PIN01, 0x48, 4, 0xFF},
+    {"QC21", 21, UINT8_MAX, PIN01, 0x0A, 0, 0xFF},
+    {"QC22", 22, UINT8_MAX, PIN01, 0x0A, 4, 0xFF},
+    {"QC23", 23, UINT8_MAX, PIN01, 0x0B, 0, 0xFF},
+    {"QC24", 24, UINT8_MAX, PIN01, 0x0B, 4, 0xFF},
 
-    {"C25", 25, UINT8_MAX, PIN01, 0x57, 0, 0xFF},
-    {"C26", 26, UINT8_MAX, PIN01, 0x57, 4, 0xFF},
-    {"C27", 27, UINT8_MAX, PIN01, 0x56, 0, 0xFF},
-    {"C28", 28, UINT8_MAX, PIN01, 0x56, 4, 0xFF},
+    {"QC25", 25, UINT8_MAX, PIN01, 0x0C, 0, 0xFF},
+    {"QC26", 26, UINT8_MAX, PIN01, 0x0C, 4, 0xFF},
+    {"QC27", 27, UINT8_MAX, PIN01, 0x0D, 0, 0xFF},
+    {"QC28", 28, UINT8_MAX, PIN01, 0x0D, 4, 0xFF},
 
-    {"C29", 29, UINT8_MAX, PIN01, 0x55, 0, 0xFF},
-    {"C30", 30, UINT8_MAX, PIN01, 0x55, 4, 0xFF},
-    {"C31", 31, UINT8_MAX, PIN01, 0x54, 0, 0xFF},
-    {"C32", 32, UINT8_MAX, PIN01, 0x54, 4, 0xFF},
+    {"QC29", 29, UINT8_MAX, PIN01, 0x0E, 0, 0xFF},
+    {"QC30", 30, UINT8_MAX, PIN01, 0x0E, 4, 0xFF},
+    {"QC31", 31, UINT8_MAX, PIN01, 0x0F, 0, 0xFF},
+    {"QC32", 32, UINT8_MAX, PIN01, 0x0F, 4, 0xFF},
 
-    {"Y1",  33,         0, PIN01, 0x58, 4, 0xFF},
-    {"Y2",  33,         1, PIN01, 0x58, 0, 0xFF},
+    {"Y1",  33,         0, PIN01, 0x10, 0, 0xFF},
+    {"Y2",  33,         1, PIN01, 0x10, 4, 0xFF},
 };
 
 /* Write CPLD by tofino I2C. */
@@ -87,7 +87,7 @@ bf_pltfm_status_t bf_pltfm_tf_cpld_read (
     uint8_t offset,
     uint8_t *rd_buf);
 
-static void led_cond_convert_to_color_x532p (bf_led_condition_t led_cond,
+static void led_cond_convert_to_color_x732q (bf_led_condition_t led_cond,
     uint8_t *led_color)
 {
     uint8_t led_col = BF_MAV_PORT_LED_OFF;
@@ -95,10 +95,9 @@ static void led_cond_convert_to_color_x532p (bf_led_condition_t led_cond,
         case BF_LED_POST_PORT_DEL:
         case BF_LED_POST_PORT_DIS:
             break;
-
         case BF_LED_PRE_PORT_EN:
         case BF_LED_PORT_LINK_DOWN:
-            /* Yellow when port is enabled but link is not up. */
+            /* Yellow when port is enabled but link is not up */
             led_col = BF_MAV_PORT_LED_RED |
                       BF_MAV_PORT_LED_GREEN;
             break;
@@ -129,6 +128,17 @@ static void led_cond_convert_to_color_x532p (bf_led_condition_t led_cond,
                       BF_MAV_PORT_LED_GREEN;
             break;
 
+        case BF_LED_PORT_LINKUP_200G:
+            /* Light Green at 200G */
+            led_col = BF_MAV_PORT_LED_BLUE |
+                      BF_MAV_PORT_LED_GREEN;
+            break;
+
+        case BF_LED_PORT_LINKUP_400G:
+            /* Red at 400G */
+            led_col = BF_MAV_PORT_LED_RED;
+            break;
+
         /* Test only */
         case BF_LED_PORT_RED:
             led_col = BF_MAV_PORT_LED_RED;
@@ -149,7 +159,7 @@ static void led_cond_convert_to_color_x532p (bf_led_condition_t led_cond,
 }
 
 static int
-bf_pltfm_port_led_by_tofino_sync_set_x532p (
+bf_pltfm_port_led_by_tofino_sync_set_x732q (
     int chip_id, struct led_ctx_t *p, uint8_t val
 )
 {
@@ -199,12 +209,12 @@ bf_pltfm_port_led_by_tofino_sync_set_x532p (
     return err;
 }
 
-void bf_pltfm_mav_led_init_x532p (struct led_ctx_t **led_ctx,
+void bf_pltfm_mav_led_init_x732q (struct led_ctx_t **led_ctx,
     int *led_siz,
     led_sync_fun_ptr *led_syn,
     led_convert_fun_ptr *led_con) {
-    *led_ctx = &led_ctx_x532p[0];
-    *led_siz = ARRAY_LENGTH (led_ctx_x532p);
-    *led_syn = bf_pltfm_port_led_by_tofino_sync_set_x532p;
-    *led_con = led_cond_convert_to_color_x532p;
+    *led_ctx = &led_ctx_x732q[0];
+    *led_siz = ARRAY_LENGTH (led_ctx_x732q);
+    *led_syn = bf_pltfm_port_led_by_tofino_sync_set_x732q;
+    *led_con = led_cond_convert_to_color_x732q;
 }

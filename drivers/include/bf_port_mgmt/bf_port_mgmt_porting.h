@@ -194,4 +194,20 @@ bf_status_t bf_pm_ha_mode_enable();
  * @return Status of the API call
  */
 bf_status_t bf_pm_ha_mode_disable();
+
+/**
+ * @brief At the end of fast-reconfig or warm-init, bf-swithcd will invoke this
+ * API, so that platform's can move their state machines, generally to init or
+ * end-state.
+ * Note the link-up state received is read from hardware.
+ *
+ * @return Status of the API call
+ */
+bf_status_t bf_pm_ha_link_state_notify(bf_dev_id_t dev_id,
+                                       bf_pal_front_port_handle_t *port_hdl,
+                                       bool link_up);
+bf_status_t bf_pm_ha_wait_port_cfg_done(bf_dev_id_t dev_id);
+int bf_pm_is_port_non_func(bf_dev_id_t dev_id,
+                           bf_pal_front_port_handle_t *port_hdl);
+
 #endif

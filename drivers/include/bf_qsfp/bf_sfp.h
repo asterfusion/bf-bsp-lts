@@ -16,6 +16,11 @@
 extern "C" {
 #endif
 
+#define SFP_RXLOS_DEBOUNCE_DFLT \
+  0  // Can modify depending on if debouncing is required. This value can be set
+     // in corelation with FLAG_POLL_INTERVAL_MS. If FLAG_POLL_INTERVAL_MS is
+     // high enough, then debouncing can be avoided.
+
 #define MAX_SFF_PAGE_SIZE       128
 
 #define MAX_NAME_LEN                80
@@ -62,7 +67,9 @@ MemMap_Format bf_sfp_get_memmap_format (int port);
 
 bool bf_sfp_is_optical (int port);
 bool bf_sfp_is_passive_cu (int port);
-
+int bf_sfp_rxlos_debounce_get (int port);
+int bf_sfp_rxlos_debounce_set (int port,
+                                int count);
 void bf_sfp_set_num (int num_ports);
 int bf_sfp_get_max_sfp_ports (void);
 
@@ -102,6 +109,8 @@ bool bf_sfp_update_optional_status (int port);
 int bf_sfp_update_cache (int port);
 int bf_sfp_get_cached_info (int port, int page,
                             uint8_t *buf);
+int bf_sfp_get_rx_los (int port,
+                              bool *rx_los);
 
 int bf_sfp_detect_transceiver (int port,
                                bool *present);

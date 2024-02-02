@@ -104,6 +104,25 @@ void qsfp_state_ha_config_delete (int conn_id);
 void qsfp_fsm_ch_notify_not_ready (
     bf_dev_id_t dev_id, int conn_id, int ch);
 
+bf_pm_qsfp_info_t *bf_pltfm_get_pm_qsfp_info_ptr(int connector);
+void bf_pm_intf_add(bf_pltfm_port_info_t *port_info,
+                    bf_dev_id_t dev_id,
+                    bf_dev_port_t dev_port,
+                    bf_pal_front_port_cb_cfg_t *port_cfg,
+                    bf_pltfm_encoding_type_t encoding);
+void bf_pm_intf_del(bf_pltfm_port_info_t *port_info,
+                    bf_pal_front_port_cb_cfg_t *port_cfg);
+void bf_pm_intf_enable(bf_pltfm_port_info_t *port_info,
+                       bf_pal_front_port_cb_cfg_t *port_cfg);
+void bf_pm_intf_disable(bf_pltfm_port_info_t *port_info,
+                        bf_pal_front_port_cb_cfg_t *port_cfg);
+void bf_pm_intf_ha_link_state_notiy(bf_pltfm_port_info_t *port_info,
+                                    bool link_up);
+bf_status_t bf_pm_intf_ha_wait_port_cfg_done(bf_dev_id_t dev_id);
+
+void bf_pm_intf_init();
+void bf_pm_interface_fsm(void);
+void bf_pm_interface_sfp_fsm(void);
 void bf_pm_qsfp_quick_removal_detected_set (
     uint32_t conn_id, bool flag);
 bool bf_pm_qsfp_quick_removal_detected_get (
@@ -116,6 +135,16 @@ int qsfp_fsm_update_cfg (int conn_id,
                          bf_pltfm_encoding_type_t encoding);
 int qsfp_fsm_deinit_cfg (int conn_id,
                          int first_ch);
+int qsfp_fsm_get_enabled_mask(int conn_id, int first_ch);
+void bf_pm_intf_set_link_state(bf_pltfm_port_info_t *port_info,
+                               bool link_state);
+
+void bf_pm_intf_obj_reset(void);
+int qsfp_fsm_get_rx_los(int conn_id, int first_ch, int n_ch, bool *rx_los_flag);
+int qsfp_fsm_get_rx_lol(int conn_id, int first_ch, int n_ch, bool *rx_lol_flag);
+int qsfp_get_rx_los_support(int port, bool *rx_los_support);
+int qsfp_get_rx_lol_support(int port, bool *rx_lol_support);
+void qsfp_reset_pres_mask(void);
 
 bf_status_t bf_pltfm_pm_media_type_get (
     bf_pltfm_port_info_t *port_info,
@@ -125,6 +154,15 @@ bf_pltfm_status_t bf_pltfm_pm_ha_mode_clear();
 bool bf_pltfm_pm_is_ha_mode();
 
 #if defined(HAVE_SFP)
+bf_pm_sfp_info_t *bf_pltfm_get_pm_sfp_info_ptr (
+    int module);
+int sfp_fsm_get_rx_los(int module, bool *rx_los_flag);
+int sfp_fsm_get_rx_lol(int module, bool *rx_lol_flag);
+int sfp_get_rx_los_support (int port,
+                             bool *rx_los_support);
+int sfp_get_rx_lol_support (int port,
+                             bool *rx_lol_support);
+
 bf_pltfm_status_t sfp_fsm (bf_dev_id_t dev_id);
 extern void sfp_fsm_inserted (int module);
 extern void sfp_fsm_removed (int module);

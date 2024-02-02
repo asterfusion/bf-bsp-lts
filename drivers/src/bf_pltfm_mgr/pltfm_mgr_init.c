@@ -125,7 +125,19 @@ bf_status_t pltfm_mgr_init (bf_switchd_context_t
         bf_pm_interface.pltfm_ha_mode_clear =
             &bf_pm_ha_mode_disable;
         bf_pm_interface.pltfm_deinit = 0;
+#if SDE_VERSION_GT(980)
+        bf_pm_interface.pltfm_ha_link_state_notify = &bf_pm_ha_link_state_notify;
+        /* Since 9.9.x */
+        bf_pm_interface.pltfm_mac_to_multi_serdes_map_get =
+            &bf_bd_cfg_mac_to_multi_serdes_map_get;
+#endif
 
+#if SDE_VERSION_GT(9110)
+        bf_pm_interface.pltfm_ha_wait_port_cfg_done = &bf_pm_ha_wait_port_cfg_done;
+        /* Since 9.13.x */
+        bf_pm_interface.pltfm_is_port_non_func =
+            &bf_pm_is_port_non_func;
+#endif
         // atexit(pltfm_mgr_exit); // not tested
 
         sts = bf_pal_pltfm_all_interface_set (

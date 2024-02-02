@@ -33,4 +33,7 @@ void pltfm_mgr_register_ucli_node();
 
 void pltfm_mgr_unregister_ucli_node();
 
+bf_pltfm_status_t platform_bd_deinit(void);
+bf_pltfm_status_t platform_bd_init(void);
+
 #endif

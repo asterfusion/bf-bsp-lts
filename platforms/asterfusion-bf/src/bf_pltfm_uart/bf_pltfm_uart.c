@@ -775,14 +775,12 @@ int bf_pltfm_uart_init ()
     struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
     fprintf (stdout,
-             "\n\n================== %s ==================\n", "UART INIT");
+             "\n\nInitializing uart   ...");
+
     if (unlikely (! (ctx->flags &
                      AF_PLAT_UART_ENABLE))) {
-        fprintf (stdout, "Skip ...\n");
+        fprintf (stdout, "   Skip ...\n");
         return 0;
-    } else {
-        fprintf (stdout, "Using UART : %s\n",
-                 (char *)&ctx->dev[0]);
     }
 
     /* Check UART */
@@ -796,19 +794,17 @@ int bf_pltfm_uart_init ()
         return -1;
     }
 
-    fprintf (stdout, "Uart %s init done !\n",
-             ctx->dev);
-    LOG_DEBUG ("Uart %s init done !",
-               ctx->dev);
-
     bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_BMC_UART;
-    LOG_WARNING ("Seems that you want to access BMC thru Uart.");
 
     if (bf_sys_rmutex_init (&uart_lock) != 0) {
         LOG_ERROR ("pltfm_mgr: uart lock init failed\n");
         return -1;
     }
 
+    fprintf (stdout, "   %s\n",
+             (char *)&ctx->dev[0]);
+    LOG_DEBUG ("   %s\n",
+               (char *)&ctx->dev[0]);
     return 0;
 }
 
@@ -816,8 +812,8 @@ int bf_pltfm_uart_de_init ()
 {
     struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
 
-    fprintf(stdout, "================== Deinit .... %48s ================== \n",
-        __func__);
+    fprintf (stdout,
+             "\n\nDe-initializing uart   ...");
 
     if (unlikely (! (ctx->flags &
                      AF_PLAT_UART_ENABLE))) {
@@ -827,9 +823,8 @@ int bf_pltfm_uart_de_init ()
 
     uart_close(ctx);
     bf_sys_rmutex_del (&uart_lock);
-
-    fprintf(stdout, "================== Deinit done %48s ================== \n",
-        __func__);
+    fprintf (stdout, "   done(%s)\n",
+             (char *)&ctx->dev[0]);
 
     return 0;
 }
