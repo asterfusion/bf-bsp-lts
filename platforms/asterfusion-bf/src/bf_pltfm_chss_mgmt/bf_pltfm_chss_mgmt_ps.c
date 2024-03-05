@@ -1044,6 +1044,7 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
 //        char *psu_fan_rot[2]= {"Fan ok", "Fan warning"};
 //        char *psu_ac_dc[2]= {"AC", "DC"};
         int retry;
+        static bool psu_pres_buf[2][3];
 
         buf[0] = 0x5;
         buf[3] = 0x3;
@@ -1058,7 +1059,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 LOG_ERROR("Read psu present error\n");
                 return BF_PLTFM_COMM_FAILED;
             } else {
-                *present = psu_present_data[1] ? false : true;
+                psu_pres_buf[0][0] = psu_pres_buf[0][1];
+                psu_pres_buf[0][1] = psu_pres_buf[0][2];
+                psu_pres_buf[0][2] = psu_present_data[1] ? false : true;
+                *present = psu_pres_buf[0][2] || psu_pres_buf[0][1];
                 info->presence = *present;
                 if (debug_print) {
                     fprintf (stdout, "PSU1  : %s\n",
@@ -1076,7 +1080,10 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 LOG_ERROR("Read psu present error\n");
                 return BF_PLTFM_COMM_FAILED;
             } else {
-                *present = psu_present_data[1] ? false : true;
+                psu_pres_buf[1][0] = psu_pres_buf[1][1];
+                psu_pres_buf[1][1] = psu_pres_buf[1][2];
+                psu_pres_buf[1][2] = psu_present_data[1] ? false : true;
+                *present = psu_pres_buf[1][2] || psu_pres_buf[1][1];
                 info->presence = *present;
                 if (debug_print) {
                     fprintf (stdout, "PSU2  : %s\n",
@@ -1087,15 +1094,48 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
             return BF_PLTFM_COMM_FAILED;
         }
 
-        if (psu_present_data[1] == 0) {
-            info->presence = true;
-        } else {
-            info->presence = false;
-        }
-
         // if not present return
         if (! (*present)) {
             clr_psu_data(info);
+            return BF_PLTFM_SUCCESS;
+        }
+
+        // When the PSU is not present for the first time, copy the data from previous one
+        if (psu_pres_buf[pwr - 1][2] == false) {
+            cpy_psu_data(info, &bmc_psu_data[pwr - 1]);
+            return BF_PLTFM_SUCCESS;
+        }
+
+        /* PSU Vin : 0x3e 0x30 0x5 0x58/0x59 0x88 0x3 */
+        /* PSU Vin : 02 <psu low> <psu high> CRC8*/
+        buf[2] = 0x88;
+        buf[3] = 0x3;
+        for (retry = 0; ; retry ++) {
+            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vin_data, buf[3] + 1, usec_delay);
+            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_vin_data)) {
+                value = (psu_vin_data[2] << 8) | psu_vin_data[1];
+                n = (value & 0xF800) >> 11;
+                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
+                y = (value & 0x07FF);
+                y = y * pow (2, (double)n) + 0.05;
+                info->vin = y * 1000;
+                if (debug_print) {
+                    fprintf (stdout, "VIN   : %d\n",
+                            info->vin);
+                }
+                break;
+            } else if (retry >= 2) {
+                LOG_ERROR("Read psu vin error\n");
+                return BF_PLTFM_COMM_FAILED;
+            }
+        }
+
+        /* Set power good as true if input voltage > 30V,
+           otherwiase, skip reading rest of the info */
+        if (info->vin > 30 * 1000) {
+            info->power = true;
+        } else {
+            info->vin = 0;
             return BF_PLTFM_SUCCESS;
         }
 
@@ -1121,15 +1161,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 LOG_ERROR("Read psu pin error\n");
                 return BF_PLTFM_COMM_FAILED;
             }
-        }
-
-        /* Set power good as true if input power > 5W,
-           otherwiase, skip reading rest of the info */
-        if (info->pwr_in > 5000) {
-            info->power = true;
-        } else {
-            info->pwr_in = 0;
-            return BF_PLTFM_SUCCESS;
         }
 
         /* PSU Pout : 0x3e 0x30 0x5 0x58/0x59 0x96 0x3 */
@@ -1191,30 +1222,6 @@ __bf_pltfm_chss_mgmt_pwr_supply_prsnc_get_x312p__
                 break;
             } else if (retry >= 2) {
                 LOG_ERROR("Read psu vout error\n");
-                return BF_PLTFM_COMM_FAILED;
-            }
-        }
-
-        /* PSU Vin : 0x3e 0x30 0x5 0x58/0x59 0x88 0x3 */
-        /* PSU Vin : 02 <psu low> <psu high> CRC8*/
-        buf[2] = 0x88;
-        buf[3] = 0x3;
-        for (retry = 0; ; retry ++) {
-            ret = bf_pltfm_bmc_write_read(0x3e, 0x30, buf, 4, 0xff, psu_vin_data, buf[3] + 1, usec_delay);
-            if ((ret == buf[3] + 1) && psu_check_crc(buf, psu_vin_data)) {
-                value = (psu_vin_data[2] << 8) | psu_vin_data[1];
-                n = (value & 0xF800) >> 11;
-                n = (n & 0x10) ? (n - 0x1F) - 1 : n;
-                y = (value & 0x07FF);
-                y = y * pow (2, (double)n) + 0.05;
-                info->vin = y * 1000;
-                if (debug_print) {
-                    fprintf (stdout, "VIN   : %d\n",
-                            info->vin);
-                }
-                break;
-            } else if (retry >= 2) {
-                LOG_ERROR("Read psu vin error\n");
                 return BF_PLTFM_COMM_FAILED;
             }
         }

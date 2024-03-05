@@ -1985,8 +1985,14 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
     int sec = 30;
     char fname[256], bmc_ver[32] = {0};
     char c = 'N';
+    bool forced = false;
 
-    UCLI_COMMAND_INFO (uc, "bmc-ota", 1, "bmc-ota <file name>, upgrade BMC firmware");
+    UCLI_COMMAND_INFO (uc, "bmc-ota", -1, "bmc-ota <file name> <-f>, upgrade BMC firmware");
+
+    if ((uc->pargs->count < 1) || (uc->pargs->count > 2)) {
+        aim_printf (&uc->pvs, "Usage: bmc-ota <file name> <-f>\n");
+        return 0;
+    }
 
     strncpy (fname, uc->pargs->args[0],
              sizeof (fname) - 1);
@@ -1995,6 +2001,15 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
     if (strstr(fname, ".rbl") == NULL) {
         aim_printf (&uc->pvs, "Only support .rbl file!\n");
         return 0;
+    }
+
+    if (uc->pargs->count == 2) {
+        if (memcmp (uc->pargs->args[1], "-f", 2) == 0) {
+            forced = true;
+        } else {
+            aim_printf (&uc->pvs, "Usage: bmc-ota <file name> <-f>\n");
+            return 0;
+        }
     }
 
     /* Get real version to make a right decision and update the cache.
@@ -2008,15 +2023,18 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
          platform_type_equal (AFN_X564PT)) &&
         (bf_pltfm_compare_bmc_ver("v3.1.0") >= 0)) {
         aim_printf (&uc->pvs, "\nThere could be port link risk when upgrade BMC online.\n");
-        aim_printf (
-                &uc->pvs,"Enter Y/N: ");
-        int x = scanf("%c", &c); x = x;
-        aim_printf (
-                &uc->pvs,"%c\n", c);
-        if ((c != 'Y') && (c != 'y')) {
+
+        if (!forced) {
             aim_printf (
-                    &uc->pvs,"Abort\n");
-            return 0;
+                    &uc->pvs,"Enter Y/N: ");
+            int x = scanf("%c", &c); x = x;
+            aim_printf (
+                    &uc->pvs,"%c\n", c);
+            if ((c != 'Y') && (c != 'y')) {
+                aim_printf (
+                        &uc->pvs,"Abort\n");
+                return 0;
+            }
         }
 
         sleep (1);
@@ -2066,10 +2084,16 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
     bool reset_ptp  = false;
     bool do_reset_by_val_1 = false; /* perform reset by value 1 or value 0. */
     bool perform = false;
+    bool forced  = false;
     bool dbg = false;
 
     /* Keep the name consistent with the document X-T Programmable Bare Metal. */
-    UCLI_COMMAND_INFO (uc, "reset", 1, "Reset <tof/bmc/ptp/dpu1/dpu2>");
+    UCLI_COMMAND_INFO (uc, "reset", -1, "Reset <tof/bmc/ptp/dpu1/dpu2> <-f>");
+
+    if ((uc->pargs->count < 1) || (uc->pargs->count > 2)) {
+        aim_printf (&uc->pvs, "Usage: reset <tof/bmc/ptp/dpu1/dpu2> <-f>\n");
+        return 0;
+    }
 
     if (memcmp (uc->pargs->args[0], "tof", 3) == 0){
         reset_tof  = true;
@@ -2083,8 +2107,17 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
     } else if (memcmp (uc->pargs->args[0], "ptp", 3) == 0){
         reset_ptp  = true;
     } else {
-        aim_printf (&uc->pvs, "Usage: reset <tof/bmc/ptp/dpu1/dpu2>\n");
+        aim_printf (&uc->pvs, "Usage: reset <tof/bmc/ptp/dpu1/dpu2> <-f>\n");
         return 0;
+    }
+
+    if (uc->pargs->count == 2) {
+        if (memcmp (uc->pargs->args[1], "-f", 2) == 0) {
+            forced = true;
+        } else {
+            aim_printf (&uc->pvs, "Usage: reset <tof/bmc/ptp/dpu1/dpu2> <-f>\n");
+            return 0;
+        }
     }
 
     if (dbg) {
@@ -2244,17 +2277,19 @@ bf_pltfm_ucli_ucli__reset_hwcomp__ (ucli_context_t
         LOG_WARNING ("Reset DPU2 ...\n");
     }
 
-    char c = 0;
-    aim_printf (
-            &uc->pvs,"Enter Y/N: ");
-    int x = scanf("%c", &c); x = x;
-    aim_printf (
-            &uc->pvs,"%c\n", c);
-    if (reset_tof) c = 'N'; /* Force abort when perform tof reset. */
-    if ((c != 'Y') && (c != 'y')) {
+    if (!forced) {
+        char c = 0;
         aim_printf (
-                &uc->pvs,"Abort\n");
-        return 0;
+                &uc->pvs,"Enter Y/N: ");
+        int x = scanf("%c", &c); x = x;
+        aim_printf (
+                &uc->pvs,"%c\n", c);
+        if (reset_tof) c = 'N'; /* Force abort when perform tof reset. */
+        if ((c != 'Y') && (c != 'y')) {
+            aim_printf (
+                    &uc->pvs,"Abort\n");
+            return 0;
+        }
     }
 
     sleep (1);

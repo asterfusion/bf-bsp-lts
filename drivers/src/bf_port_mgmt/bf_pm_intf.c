@@ -232,6 +232,7 @@ static void qsfp_detection_actions (
     bf_status_t sts;
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
+    bool is_subport_cfg_lp_mode = false, is_subport_cfg_force_tx_mode = false;
 
     if (!bf_pm_intf_is_device_family_tofino (
             dev_id)) {
@@ -282,6 +283,30 @@ static void qsfp_detection_actions (
 
     fprintf (stdout, "QSFP    %2d : inserted\n",
              conn_id);
+
+    bool kick_off_ch_fsm = false;
+    port_hdl.conn_id = conn_id;
+    for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+         chnl_id++) {
+        port_hdl.chnl_id = chnl_id;
+        is_subport_cfg_lp_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
+        is_subport_cfg_force_tx_mode = devport_state_tx_mode_chk (dev_id, &port_hdl);
+        if ((is_subport_cfg_lp_mode || is_subport_cfg_force_tx_mode) &&
+            devport_state_enabled_chk (dev_id, &port_hdl)) {
+            kick_off_ch_fsm = true;
+        }
+    }
+
+    if (kick_off_ch_fsm) {
+        port_hdl.conn_id = conn_id;
+        for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+             chnl_id++) {
+            port_hdl.chnl_id = chnl_id;
+            /* Kick off channel FSM  to enable opt Tx.
+             * by Hang Tsi, 2024/02/04. */
+            qsfp_fsm_ch_enable (dev_id, port_hdl.conn_id, port_hdl.chnl_id);
+        }
+    }
 }
 
 static void qsfp_removal_actions (bf_dev_id_t
@@ -307,9 +332,11 @@ static void qsfp_removal_actions (bf_dev_id_t
             if (!bf_pm_port_speed_get (dev_id, &port_hdl, &max_speed)) {
                 speed = (speed > max_speed) ? speed : max_speed;
             }
+            goto  skip_bring_port_dwn;
         }
         if (devport_state_tx_mode_chk (dev_id, &port_hdl)) {
             is_subport_cfg_force_tx_mode = true;
+            goto  skip_bring_port_dwn;
         }
         sts = bf_pal_pm_front_port_eligible_for_autoneg (
                   dev_id, &port_hdl, false);
@@ -340,19 +367,16 @@ static void qsfp_removal_actions (bf_dev_id_t
         }
     }
 
+skip_bring_port_dwn:
     fprintf (stdout, "QSFP    %2d : removed\n",
              port_hdl.conn_id);
 
-    /* Loopback/ForceTx with removal action.
-     * No breakout LED, so treat port_hdl.chnl_id = 0. */
+    /* Loopback/ForceTx with removal action. */
     if (is_subport_cfg_lp_mode || is_subport_cfg_force_tx_mode) {
-        //devport_speed_to_led_color(speed, &led_cond);
-        //fprintf (stdout, "XSFP    %2d : in loopback/ForceTx. speed : %d, color : %d\n",
-        //         port_hdl.conn_id, speed, led_cond);
-        /* No need to change port led when loopback/tx mode. */
         return;
     }
 
+    /* No breakout LED, so treat port_hdl.chnl_id = 0. */
     bf_pltfm_port_info_t port_info;
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = 0; /* this is QSFP. */
@@ -879,13 +903,18 @@ static void sfp_removal_actions (bf_dev_id_t
     bf_sfp_get_conn (module, &port_hdl.conn_id,
                      &port_hdl.chnl_id);
     is_subport_cfg_lp_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
-     if (is_subport_cfg_lp_mode) {
-         /* Get Max speeed to choose a suitable led color. */
-         if (!bf_pm_port_speed_get (dev_id, &port_hdl, &max_speed)) {
-             speed = (speed > max_speed) ? speed : max_speed;
-         }
-     }
-    is_subport_cfg_force_tx_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
+    if (is_subport_cfg_lp_mode) {
+        /* Get Max speeed to choose a suitable led color. */
+        if (!bf_pm_port_speed_get (dev_id, &port_hdl, &max_speed)) {
+            speed = (speed > max_speed) ? speed : max_speed;
+        }
+        goto  skip_bring_port_dwn;
+    }
+    is_subport_cfg_force_tx_mode = devport_state_tx_mode_chk (dev_id, &port_hdl);
+    if (is_subport_cfg_force_tx_mode) {
+       goto  skip_bring_port_dwn;
+    }
+
     sts = bf_pal_pm_front_port_eligible_for_autoneg (
               dev_id, &port_hdl, false);
     if (sts != BF_SUCCESS) {
@@ -912,19 +941,14 @@ static void sfp_removal_actions (bf_dev_id_t
             sts);
     }
 
+skip_bring_port_dwn:
     fprintf (stdout,
              " SFP    %2d : %2d/%d : removed\n",
              module,
              port_hdl.conn_id,
              port_hdl.chnl_id);
 
-    /* Loopback/ForceTx with removal action.
-    * No breakout LED, so treat port_hdl.chnl_id = 0. */
     if (is_subport_cfg_lp_mode || is_subport_cfg_force_tx_mode) {
-        //devport_speed_to_led_color(speed, &led_cond);
-        //fprintf (stdout, "XSFP    %2d : in loopback/ForceTx. speed : %d, color : %d\n",
-        //         port_hdl.conn_id, speed, led_cond);
-        /* No need to change port led when loopback/tx mode. */
         return;
     }
 
@@ -985,6 +1009,7 @@ static void sfp_detection_actions (
     bf_status_t sts;
     bf_pal_front_port_handle_t port_hdl;
     bool an_elig = false;
+    bool is_subport_cfg_lp_mode = false, is_subport_cfg_force_tx_mode = false;
 
     sfp_all_info_read (module);
 
@@ -1023,6 +1048,15 @@ static void sfp_detection_actions (
              module,
              port_hdl.conn_id,
              port_hdl.chnl_id);
+
+    is_subport_cfg_lp_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
+    is_subport_cfg_force_tx_mode = devport_state_tx_mode_chk (dev_id, &port_hdl);
+    if ((is_subport_cfg_lp_mode || is_subport_cfg_force_tx_mode) &&
+        devport_state_enabled_chk (dev_id, &port_hdl)) {
+        /* Kick off channel FSM  to enable opt Tx.
+         * by Hang Tsi, 2024/02/04. */
+        sfp_fsm_st_enable (dev_id, module);
+    }
 }
 
 void bf_pm_sfp_quick_removal_detected_set (

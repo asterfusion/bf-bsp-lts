@@ -229,6 +229,9 @@ typedef enum {
     QSFP_PAGE3,
     QSFP_PAGE16 = 16,
     QSFP_PAGE17 = 17,
+    QSFP_PAGE18 = 18,
+    QSFP_PAGE19 = 19,
+    QSFP_PAGE47 = 47,
 
     /* for SFP */
     SFP_A0 = -1,
@@ -368,6 +371,7 @@ typedef enum {
     MEDIA_TYPE_SMF = 0x02,
     MEDIA_TYPE_PASSIVE_CU = 0x03,
     MEDIA_TYPE_ACTIVE_CBL = 0x04,
+    MEDIA_TYPE_BASE_T = 0x05,   // by Hang Tsi, 2024/02/26.
 } Media_type_enc_for_CMIS;
 
 typedef enum {
@@ -419,11 +423,14 @@ typedef enum {
     MMFORMAT_CMIS3P0,
     MMFORMAT_CMIS4P0,
     MMFORMAT_CMIS5P0,
+    MMFORMAT_CMIS5P1,
     /*
      * SFF-8636        : https://www.snia.org/technology-communities/sff/specifications?field_doc_status_value=All&combine=8636&items_per_page=20
      * QSFP-DD CMIS3.0 : http://www.qsfp-dd.com/wp-content/uploads/2018/09/QSFP-DD-mgmt-rev3p0-final-9-18-18-Default-clean.pdf
      * QSFP-DD HDW3.0  : http://www.qsfp-dd.com/wp-content/uploads/2017/09/QSFP-DD-Hardware-rev3p0.pdf
      * QSFP-DD CMIS4.0 : http://www.qsfp-dd.com/wp-content/uploads/2019/05/QSFP-DD-CMIS-rev4p0.pdf
+     * QSFP-DD CMIS5.0 : http://www.qsfp-dd.com/wp-content/uploads/2021/05/CMIS5p0.pdf
+     * QSFP-DD CMIS5.1 : http://www.qsfp-dd.com/wp-content/uploads/2021/11/CMIS5p1.pdf
      *
      * by tsihang, 2021-07-14.
      */

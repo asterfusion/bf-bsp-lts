@@ -74,6 +74,25 @@ typedef struct bf_pm_qsfp_apps_t {
     // supported starting lane for this application
     uint8_t media_lane_assign_mask;  // each set bit location corresponds to
     // supported starting lane for this application
+
+#if !defined (APP_ALLOC)
+    /* Belowing added by Hang Tsi, 2024/02/29 */
+#define BF_QSFP_MAX_APPLICATIONS    32   /* The CMIS spec supports maximum 16 applications. */
+#define BF_QSFP_APP_VALID           (1 << 0)
+    uint8_t ul_flags;
+#endif
+
+#if defined (APP_ALLOC)
+#define BF_APP_VALID(app)   (1)
+#define BF_APP_INVALID(app) (0)
+#define BF_APP_VALID_SET(app)
+#define BF_APP_INVALID_SET(app)
+#else
+#define BF_APP_VALID(app)       ((((app).ul_flags) & BF_QSFP_APP_VALID) == 1)
+#define BF_APP_INVALID(app)     ((((app).ul_flags) & BF_QSFP_APP_VALID) == 0)
+#define BF_APP_VALID_SET(app)   (((app).ul_flags) |= BF_QSFP_APP_VALID)
+#define BF_APP_INVALID_SET(app) (((app).ul_flags) &= ~BF_QSFP_APP_VALID)
+#endif
 } bf_pm_qsfp_apps_t;
 
 typedef struct bf_qsfp_info_t {
@@ -94,13 +113,21 @@ typedef struct bf_qsfp_info_t {
     uint8_t page1[MAX_QSFP_PAGE_SIZE];
     uint8_t page2[MAX_QSFP_PAGE_SIZE];
     uint8_t page3[MAX_QSFP_PAGE_SIZE];
+    uint8_t page17[MAX_QSFP_PAGE_SIZE];
+    uint8_t page18[MAX_QSFP_PAGE_SIZE];
+    uint8_t page19[MAX_QSFP_PAGE_SIZE];
+    uint8_t page47[MAX_QSFP_PAGE_SIZE];
     uint8_t module_flags[MODULE_FLAG_BYTES];
     uint32_t module_flag_cnt[MODULE_FLAG_BYTES][8];
     uint8_t lane_flags[LANE_FLAG_BYTES];
     uint32_t lane_flag_cnt[LANE_FLAG_BYTES][8];
 
     uint8_t media_type;
+#if defined (APP_ALLOC)
     bf_pm_qsfp_apps_t *app_list;
+#else
+    bf_pm_qsfp_apps_t app_list[BF_QSFP_MAX_APPLICATIONS];
+#endif
     int num_apps;
 
     bf_qsfp_special_info_t special_case_port;
@@ -608,6 +635,7 @@ cmis_app_host_if_speed_map[] = {
     {13, BF_SPEED_100G, "100GAUI-2        2 x 26.5625Gbd PAM4"},
     {14, BF_SPEED_200G, "200GAUI-8        8 x 26.5625Gbd NRZ"},
     {15, BF_SPEED_200G, "200GAUI-4        4 x 26.5625Gbd PAM4"},
+    //  {16, BF_SPEED_400G,    "400GAUI-16 C2M     16 x 26.5625Gbd NRZ"}, /* by Hang Tsi, 2024/02/26. */
     {17, BF_SPEED_400G, "400GAUI-8        8 x 26.5625Gbd PAM4"},
     //  {19, BF_SPEED_???,    "10GBASE-CX4      4 x 3.125Gbd NRZ"},
     {20, BF_SPEED_25G, "25GBASE-CR CA-L  1 x 25.78125 Gbd NRZ"},
@@ -619,7 +647,8 @@ cmis_app_host_if_speed_map[] = {
     {27, BF_SPEED_100G, "100GBASE-CR2     2 x 26.5625Gbd PAM4"},
     {28, BF_SPEED_200G, "200GBASE-CR4     4 x 26.5625Gbd PAM4"},
     {29, BF_SPEED_400G, "400GBASE-CR8     8 x 26.5625Gbd PAM4"},
-    {65, BF_SPEED_100G, "CAUI-4 NOFEC     4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/01/23. */
+    {65, BF_SPEED_100G, "CAUI-4 C2M NOFEC 4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/01/23. */
+    {66, BF_SPEED_100G, "CAUI-4 C2M   FEC 4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/02/26. */
     {70, BF_SPEED_100G, "100GBASE-CR1     1 x 53.125GBd PAM4"},
     {71, BF_SPEED_200G, "200GBASE-CR2     2 x 53.125GBd PAM4"},
     {72, BF_SPEED_400G, "400GBASE-CR4     4 x 53.125GBd PAM4"},
@@ -657,6 +686,7 @@ static cmis_media_type_t cmis_media_type_desc[] =
     {MEDIA_TYPE_SMF, "Optical interface - SMF"},
     {MEDIA_TYPE_PASSIVE_CU, "Passive copper"},
     {MEDIA_TYPE_ACTIVE_CBL, "Active cable"},
+    {MEDIA_TYPE_BASE_T, "Base-T"},
 };
 
 typedef struct {
@@ -786,6 +816,37 @@ static cmis_app_host_id_map_t
     return NULL;
 }
 
+static cmis_app_media_id_map_t
+*bf_qsfp_get_custom_media_if_speed_map (
+    int port, uint8_t media_type, uint8_t media_id)
+{
+    cmis_app_media_id_map_t *map_ptr;
+    int array_ind = 0, array_size;
+    qsfp_vendor_info_t vendor;
+    bf_qsfp_get_vendor_info (port, &vendor);
+
+    if (!strncmp (vendor.name, "INNOLIGHT",
+                  strlen ("INNOLIGHT"))) {
+        map_ptr = innolight_cmis_app_media_if_speed_map;
+        array_size = sizeof (
+                         innolight_cmis_app_media_if_speed_map) /
+                     sizeof (cmis_app_media_id_map_t);
+    } else {
+        return NULL;
+    }
+
+    while (array_ind < array_size) {
+        if ((map_ptr[array_ind].media_type == media_type)
+            &&
+            (map_ptr[array_ind].media_id == media_id)) {
+            return &map_ptr[array_ind];
+        } else {
+            array_ind++;
+        }
+    }
+    return NULL;
+}
+
 static bf_port_speed_t bf_qsfp_decode_host_speed (
     int port, uint8_t host_id)
 {
@@ -831,7 +892,8 @@ static bf_port_speed_t bf_qsfp_decode_host_speed (
 
 static bool bf_qsfp_decode_host_id (int port,
                                     uint8_t host_id,
-                                    char *host_id_desc)
+                                    char *host_id_desc,
+                                    bool show)
 {
     // all Applications are stored as CMIS codes, even SFF-8636.
     // For 8636 supported compliance codes, the equivalent CMIS host id
@@ -842,7 +904,7 @@ static bool bf_qsfp_decode_host_id (int port,
     bool matchfound = false;
     cmis_app_host_id_map_t *host_id_map;
 
-    if (qsfp_needs_hi_pwr_init (port)) {
+    if (!show && qsfp_needs_hi_pwr_init (port)) {
         array_size =
             1;  // hardware init uses only first app
     }
@@ -875,41 +937,11 @@ static bool bf_qsfp_decode_host_id (int port,
     return matchfound;
 }
 
-static cmis_app_media_id_map_t
-*bf_qsfp_get_custom_media_if_speed_map (
-    int port, uint8_t media_type, uint8_t media_id)
-{
-    cmis_app_media_id_map_t *map_ptr;
-    int array_ind = 0, array_size;
-    qsfp_vendor_info_t vendor;
-    bf_qsfp_get_vendor_info (port, &vendor);
-
-    if (!strncmp (vendor.name, "INNOLIGHT",
-                  strlen ("INNOLIGHT"))) {
-        map_ptr = innolight_cmis_app_media_if_speed_map;
-        array_size = sizeof (
-                         innolight_cmis_app_media_if_speed_map) /
-                     sizeof (cmis_app_media_id_map_t);
-    } else {
-        return NULL;
-    }
-
-    while (array_ind < array_size) {
-        if ((map_ptr[array_ind].media_type == media_type)
-            &&
-            (map_ptr[array_ind].media_id == media_id)) {
-            return &map_ptr[array_ind];
-        } else {
-            array_ind++;
-        }
-    }
-    return NULL;
-}
-
 static bool bf_qsfp_decode_media_id (int port,
                                      uint8_t media_type,
                                      uint8_t media_id,
-                                     char *media_id_desc)
+                                     char *media_id_desc,
+                                     bool show)
 {
     // all Applications are stored as CMIS codes, even SFF-8636.
     // For 8636 supported compliance codes, the equivalent CMIS host id
@@ -921,7 +953,7 @@ static bool bf_qsfp_decode_media_id (int port,
     bool matchfound = false;
     cmis_app_media_id_map_t *media_id_map;
 
-    if (qsfp_needs_hi_pwr_init (port)) {
+    if (!show && qsfp_needs_hi_pwr_init (port)) {
         array_size =
             1;  // hardware init uses only first app
     }
@@ -975,8 +1007,9 @@ static int bf_qsfp_id_matching_app (int port,
     bool matchfound = false;
     while ((cur_app < qsfp_info->num_apps) &&
            (!matchfound)) {
-        if (intf_lanes ==
-            qsfp_info->app_list[cur_app].host_lane_cnt) {
+        if (BF_APP_VALID(qsfp_info->app_list[cur_app]) &&
+            (intf_lanes ==
+                qsfp_info->app_list[cur_app].host_lane_cnt)) {
             if ((intf_speed != 0) &&
                 (intf_speed == bf_qsfp_decode_host_speed (
                      port, qsfp_info->app_list[cur_app].host_if_id))) {
@@ -1044,6 +1077,14 @@ int bf_cmis_get_Application_media_info (int port,
 
     int app = curr_app -
               1;  // Since ApSel is 1-based but app_list is 0 indexed
+
+    /* Not neccesarry indeed for real world. */
+    if (BF_APP_INVALID(bf_qsfp_info_arr[port].app_list[app])) {
+        LOG_ERROR ("QSFP    %2d : INVALID ApSel (%d)",
+                   port,
+                   curr_app);
+        return -1;
+    }
 
     if ((bf_qsfp_info_arr[port].app_list[app].media_lane_cnt)
         == 0) {
@@ -1172,18 +1213,44 @@ int bf_qsfp_get_application (int port,
     app_info->host_if_id = cur_app->host_if_id;
     app_info->media_if_id = cur_app->media_if_id;
     bf_qsfp_decode_host_id (port, cur_app->host_if_id,
-                            app_info->host_if_id_str);
+                            app_info->host_if_id_str,
+                            false);
     bf_qsfp_decode_media_id (port,
                              bf_qsfp_info_arr[port].media_type,
                              cur_app->media_if_id,
-                             app_info->media_if_id_str);
-    app_info->host_lane_cnt = cur_app->host_lane_cnt;
-    app_info->media_lane_cnt =
-        cur_app->media_lane_cnt;
-    app_info->host_lane_assign_mask =
-        cur_app->host_lane_assign_mask;
-    app_info->media_lane_assign_mask =
-        cur_app->media_lane_assign_mask;
+                             app_info->media_if_id_str,
+                             false);
+    app_info->host_lane_cnt  = cur_app->host_lane_cnt;
+    app_info->media_lane_cnt = cur_app->media_lane_cnt;
+    app_info->host_lane_assign_mask  = cur_app->host_lane_assign_mask;
+    app_info->media_lane_assign_mask = cur_app->media_lane_assign_mask;
+    return 0;
+}
+
+/* return the requested Application info
+ * NOTE: ApSel is 1-based, to be consistent with the CMIS spec.
+ * For ucli ONLy
+ * by Hang Tsi, 2024/02/29. */
+int bf_qsfp_get_application0 (int port,
+                             int ApSel,
+                             qsfp_application_info_t *app_info)
+{
+    bf_pm_qsfp_apps_t *cur_app =
+        &bf_qsfp_info_arr[port].app_list[ApSel - 1];
+    app_info->host_if_id = cur_app->host_if_id;
+    app_info->media_if_id = cur_app->media_if_id;
+    bf_qsfp_decode_host_id (port, cur_app->host_if_id,
+                            app_info->host_if_id_str,
+                            true);
+    bf_qsfp_decode_media_id (port,
+                             bf_qsfp_info_arr[port].media_type,
+                             cur_app->media_if_id,
+                             app_info->media_if_id_str,
+                             true);
+    app_info->host_lane_cnt  = cur_app->host_lane_cnt;
+    app_info->media_lane_cnt = cur_app->media_lane_cnt;
+    app_info->host_lane_assign_mask  = cur_app->host_lane_assign_mask;
+    app_info->media_lane_assign_mask = cur_app->media_lane_assign_mask;
     return 0;
 }
 
@@ -2343,12 +2410,16 @@ static int get_qsfp_module_sensor_flags (int port,
         return -1;
     }
 
-    if (fieldName == TEMPERATURE_ALARMS) {
-        bf_qsfp_info_arr[port].idprom[6] = data;
-    } else if (fieldName == VCC_ALARMS) {
-        bf_qsfp_info_arr[port].idprom[7] = data;
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        if (fieldName == TEMPERATURE_ALARMS) {
+            bf_qsfp_info_arr[port].idprom[6] = data;
+        } else if (fieldName == VCC_ALARMS) {
+            bf_qsfp_info_arr[port].idprom[7] = data;
+        }
     }
-
     return extract_qsfp_flags (fieldName, port, &data,
                                0, flags);
 }
@@ -2364,14 +2435,26 @@ static double get_qsfp_module_sensor (int port,
         return 0.0;
     }
 
-    if (fieldName == TEMPERATURE) {
-        bf_qsfp_info_arr[port].idprom[22] = data[0];
-        bf_qsfp_info_arr[port].idprom[23] = data[1];
-    } else if (fieldName == VCC) {
-        bf_qsfp_info_arr[port].idprom[26] = data[0];
-        bf_qsfp_info_arr[port].idprom[27] = data[1];
+    /* Update cache. */
+    if (bf_qsfp_is_cmis(port))  {
+        /* CMIS */
+        if (fieldName == TEMPERATURE) {
+            bf_qsfp_info_arr[port].idprom[14] = data[0];
+            bf_qsfp_info_arr[port].idprom[15] = data[1];
+        } else if (fieldName == VCC) {
+            bf_qsfp_info_arr[port].idprom[16] = data[0];
+            bf_qsfp_info_arr[port].idprom[17] = data[1];
+        }
+    } else {
+        /* SFF-8636 */
+        if (fieldName == TEMPERATURE) {
+            bf_qsfp_info_arr[port].idprom[22] = data[0];
+            bf_qsfp_info_arr[port].idprom[23] = data[1];
+        } else if (fieldName == VCC) {
+            bf_qsfp_info_arr[port].idprom[26] = data[0];
+            bf_qsfp_info_arr[port].idprom[27] = data[1];
+        }
     }
-
     return con_fn (data[0] << 8 | data[1]);
 }
 
@@ -2861,43 +2944,43 @@ bool bf_qsfp_get_dp_state_info (int port,
             switch (dp_state_info[sub_ch].datapath_state) {
                 case DATAPATH_ST_DEACTIVATED:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathDeactivated");
+                            "DPDeactivated(or unused)");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "DAct");
                     break;
                 case DATAPATH_ST_INIT:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathInit");
+                            "DPInit");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "Init");
                     break;
                 case DATAPATH_ST_DEINIT:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathDeinit");
+                            "DPDeinit");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "DInt");
                     break;
                 case DATAPATH_ST_ACTIVATED:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathActivated");
+                            "DPActivated");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "Act");
                     break;
                 case DATAPATH_ST_TXTURNON:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathTxTurnOn");
+                            "DPTxTurnOn");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "TOn");
                     break;
                 case DATAPATH_ST_TXTURNOFF:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathTxTurnOff");
+                            "DPTxTurnOff");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "TOff");
                     break;
                 case DATAPATH_ST_INITIALIZED:
                     strcpy (dp_state_info[sub_ch].datapath_state_str,
-                            "DataPathInitialized");
+                            "DPInitialized");
                     strcpy (dp_state_info[sub_ch].datapath_state_str_short,
                             "Ized");
                     break;
@@ -3054,22 +3137,27 @@ bool bf_qsfp_get_chan_tx_bias (int port,
         return false;
     }
 
-    /* Currently only update the first eight bytes to support SFF-8636.
-     * Support for CMIS will be added in the future.
-     * by sunzheng, 2023-08-04. */
-    for (i=0; i < 8; i++) {
-        bf_qsfp_info_arr[port].idprom[i+42] = data[i];
-    }
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        /* SFF-8636 */
+        /* Currently only update the first eight bytes to support SFF-8636.
+         * Support for CMIS will be added in the future.
+         * by sunzheng, 2023-08-04. */
+        for (i=0; i < 8; i++) {
+            bf_qsfp_info_arr[port].idprom[i + 42] = data[i];
+        }
 
-    for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-         i < MAX_CHAN_PER_CONNECTOR;
-         i++) {
-        uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
-                                                1];
-        chn[i].sensors.tx_bias.value = get_txbias (val);
-        chn[i].sensors.tx_bias._isset.value = true;
+        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
+                                                    1];
+            chn[i].sensors.tx_bias.value = get_txbias (val);
+            chn[i].sensors.tx_bias._isset.value = true;
+        }
     }
-
     return true;
 }
 
@@ -3097,20 +3185,25 @@ bool bf_qsfp_get_chan_tx_pwr (int port,
         return false;
     }
 
-    for (i=0; i < 8; i++) {
-        bf_qsfp_info_arr[port].idprom[i+50] = data[i];
-    }
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        /* SFF-8636 */
+        for (i=0; i < 8; i++) {
+            bf_qsfp_info_arr[port].idprom[i + 50] = data[i];
+        }
 
-    for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-         i < MAX_CHAN_PER_CONNECTOR;
-         i++) {
-        uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
-                                                1];
-        /* Convert to dBm. */
-        chn[i].sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
-        chn[i].sensors.tx_pwr._isset.value = true;
+        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
+                                                    1];
+            /* Convert to dBm. */
+            chn[i].sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
+            chn[i].sensors.tx_pwr._isset.value = true;
+        }
     }
-
     return true;
 }
 
@@ -3138,20 +3231,25 @@ bool bf_qsfp_get_chan_rx_pwr (int port,
         return false;
     }
 
-    for (i=0; i < 8; i++) {
-        bf_qsfp_info_arr[port].idprom[i+34] = data[i];
-    }
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        /* SFF-8636 */
+        for (i=0; i < 8; i++) {
+            bf_qsfp_info_arr[port].idprom[i + 34] = data[i];
+        }
 
-    for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-         i < MAX_CHAN_PER_CONNECTOR;
-         i++) {
-        uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
-                                                1];
-        /* Convert to dBm. */
-        chn[i].sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
-        chn[i].sensors.rx_pwr._isset.value = true;
+        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
+                                                    1];
+            /* Convert to dBm. */
+            chn[i].sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
+            chn[i].sensors.rx_pwr._isset.value = true;
+        }
     }
-
     return true;
 }
 
@@ -3179,19 +3277,24 @@ bool bf_qsfp_get_chan_tx_bias_alarm (int port,
         return false;
     }
 
-    for (i=0; i < 2; i++) {
-        bf_qsfp_info_arr[port].idprom[i+11] = data[i];
-    }
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        /* SFF-8636 */
+        for (i = 0; i < 2; i ++) {
+            bf_qsfp_info_arr[port].idprom[i + 11] = data[i];
+        }
 
-    for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-         i < MAX_CHAN_PER_CONNECTOR;
-         i++) {
-        extract_qsfp_flags (
-            CHANNEL_TX_BIAS_ALARMS, port, data, i,
-            &chn[i].sensors.tx_bias.flags);
-        chn[i].sensors.tx_bias._isset.flags = true;
+        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            extract_qsfp_flags (
+                CHANNEL_TX_BIAS_ALARMS, port, data, i,
+                &chn[i].sensors.tx_bias.flags);
+            chn[i].sensors.tx_bias._isset.flags = true;
+        }
     }
-
     return true;
 }
 
@@ -3219,19 +3322,24 @@ bool bf_qsfp_get_chan_tx_pwr_alarm (int port,
         return false;
     }
 
-    for (i=0; i < 2; i++) {
-        bf_qsfp_info_arr[port].idprom[i+13] = data[i];
-    }
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        /* SFF-8636 */
+        for (i = 0; i < 2; i++) {
+            bf_qsfp_info_arr[port].idprom[i + 13] = data[i];
+        }
 
-    for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-         i < MAX_CHAN_PER_CONNECTOR;
-         i++) {
-        extract_qsfp_flags (
-            CHANNEL_TX_PWR_ALARMS, port, data, i,
-            &chn[i].sensors.tx_pwr.flags);
-        chn[i].sensors.tx_pwr._isset.flags = true;
+        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            extract_qsfp_flags (
+                CHANNEL_TX_PWR_ALARMS, port, data, i,
+                &chn[i].sensors.tx_pwr.flags);
+            chn[i].sensors.tx_pwr._isset.flags = true;
+        }
     }
-
     return true;
 }
 
@@ -3259,19 +3367,24 @@ bool bf_qsfp_get_chan_rx_pwr_alarm (int port,
         return false;
     }
 
-    for (i=0; i < 2; i++) {
-        bf_qsfp_info_arr[port].idprom[i+9] = data[i];
-    }
+    /* Update cache. */
+    if (bf_qsfp_is_cmis (port)) {
+        /* TBD */
+    } else {
+        /* SFF-8636 */
+        for (i = 0; i < 2; i++) {
+            bf_qsfp_info_arr[port].idprom[i + 9] = data[i];
+        }
 
-    for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-         i < MAX_CHAN_PER_CONNECTOR;
-         i++) {
-        extract_qsfp_flags (
-            CHANNEL_RX_PWR_ALARMS, port, data, i,
-            &chn[i].sensors.rx_pwr.flags);
-        chn[i].sensors.rx_pwr._isset.flags = true;
+        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            extract_qsfp_flags (
+                CHANNEL_RX_PWR_ALARMS, port, data, i,
+                &chn[i].sensors.rx_pwr.flags);
+            chn[i].sensors.rx_pwr._isset.flags = true;
+        }
     }
-
     return true;
 }
 
@@ -3399,6 +3512,14 @@ static void bf_qsfp_idprom_clr (int port)
             MAX_QSFP_PAGE_SIZE);
     memset (& (bf_qsfp_info_arr[port].page3[0]), 0,
             MAX_QSFP_PAGE_SIZE);
+    memset (& (bf_qsfp_info_arr[port].page17[0]), 0,
+            MAX_QSFP_PAGE_SIZE);
+    memset (& (bf_qsfp_info_arr[port].page18[0]), 0,
+            MAX_QSFP_PAGE_SIZE);
+    memset (& (bf_qsfp_info_arr[port].page19[0]), 0,
+            MAX_QSFP_PAGE_SIZE);
+    memset (& (bf_qsfp_info_arr[port].page47[0]), 0,
+            MAX_QSFP_PAGE_SIZE);
 
     bf_qsfp_info_arr[port].cache_dirty = true;
 }
@@ -3492,10 +3613,17 @@ int bf_qsfp_port_deinit (int port)
     bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs
         = false;
 
+#if defined (APP_ALLOC)
     if (bf_qsfp_info_arr[port].app_list) {
         bf_sys_free (bf_qsfp_info_arr[port].app_list);
         bf_qsfp_info_arr[port].app_list = NULL;
     }
+#else
+    for (int app = 0; app < BF_QSFP_MAX_APPLICATIONS; app ++) {
+        memset (&bf_qsfp_info_arr[port].app_list[app], 0, sizeof (bf_pm_qsfp_apps_t));
+        bf_qsfp_info_arr[port].num_apps = 0;
+    }
+#endif
     return 0;
 }
 
@@ -4108,11 +4236,10 @@ static int qsfp_cmis_populate_app_list (int port)
                 &bf_qsfp_info_arr[port].app_list[cur_app_num].host_lane_cnt,
                 &bf_qsfp_info_arr[port].app_list[cur_app_num].media_lane_cnt,
                 &bf_qsfp_info_arr[port].app_list[cur_app_num].host_lane_assign_mask,
-                &bf_qsfp_info_arr[port]
-                .app_list[cur_app_num]
-                .media_lane_assign_mask) != 0) {
+                &bf_qsfp_info_arr[port].app_list[cur_app_num].media_lane_assign_mask) != 0) {
             return -1;
         }
+        BF_APP_VALID_SET(bf_qsfp_info_arr[port].app_list[cur_app_num]);
         cur_app_num++;
     }
     return 0;
@@ -4130,6 +4257,7 @@ static int qsfp_sff8636_add_app (int port,
     int cur_app = bf_qsfp_info_arr[port].num_apps;
 
     bf_qsfp_info_arr[port].num_apps++;
+#if defined (APP_ALLOC)
     if (bf_qsfp_info_arr[port].num_apps == 1) {
         bf_qsfp_info_arr[port].app_list =
             (bf_pm_qsfp_apps_t *)bf_sys_malloc (sizeof (
@@ -4150,7 +4278,19 @@ static int qsfp_sff8636_add_app (int port,
             __LINE__);
         return -1;
     }
-
+#else
+    if (cur_app
+            == BF_QSFP_MAX_APPLICATIONS) {
+         LOG_ERROR (
+            "Error in adding app_list at "
+            "%s:%d\n",
+            __func__,
+            __LINE__);
+        bf_qsfp_info_arr[port].num_apps --;
+        return -1;
+    }
+    BF_APP_VALID_SET(bf_qsfp_info_arr[port].app_list[cur_app]);
+#endif
     bf_qsfp_info_arr[port].media_type = media_type;
     bf_qsfp_info_arr[port].app_list[cur_app].host_if_id
         = host_if_id;
@@ -4161,8 +4301,7 @@ static int qsfp_sff8636_add_app (int port,
     bf_qsfp_info_arr[port].app_list[cur_app].media_lane_cnt
         = media_lane_cnt;
     bf_qsfp_info_arr[port].app_list[cur_app].host_lane_assign_mask
-        =
-            host_lane_assign_mask;
+        = host_lane_assign_mask;
     return 0;
 }
 
@@ -4244,10 +4383,12 @@ static int qsfp_sff8636_populate_app_list (
 
     if ((eth_comp >> 4) &
         0x1) {  // 10GBASE-SR - assume breakout x4
+        //qsfp_sff8636_add_app (port, 0x1, 7, 2, 1, 1, 0xF, 0xF);
         qsfp_sff8636_add_app (port, 0x1, 4, 2, 1, 1, 0xF,
                               0xF);
     } else if ((eth_comp >> 5) &
                0x1) {  // 10GBASE-LR - assume breakout x4
+        //qsfp_sff8636_add_app (port, 0x2, 7, 4, 1, 1, 0xF, 0xF);
         qsfp_sff8636_add_app (port, 0x2, 4, 4, 1, 1, 0xF,
                               0xF);
     }
@@ -4269,6 +4410,7 @@ static int qsfp_sff8636_populate_app_list (
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
+            //qsfp_sff8636_add_app (port, 0x4, 5, 2, 1, 1, 0xF, 0xF);
             qsfp_sff8636_add_app (port, 0x4, 4, 2, 1, 1, 0xF,
                                   0xF);
             break;
@@ -4453,8 +4595,8 @@ static int cmis_calc_application_count (int port,
             port, APSEL1_HOST_ID, 0,
             (*app_count * BYTES_PER_APP), 1, &host_id);
         (*app_count)++;
-        //  LOG_DEBUG("QSFP    %2d : App00 %d : host_id 0x%x", port, cur_app,
-        //  host_id);
+        LOG_DEBUG("QSFP    %2d : App00 %d : host_id 0x%x", port, (*app_count),
+                host_id);
     } while ((host_id != 0xFF) && (*app_count < 8));
 
     if ((host_id != 0xFF) &&
@@ -4468,8 +4610,8 @@ static int cmis_calc_application_count (int port,
                                         1,
                                         &host_id);
             (*app_count)++;
-            //    LOG_DEBUG("QSFP %2d : App01 %d : host_id 0x%x", port, cur_app,
-            //    host_id);
+            LOG_DEBUG("QSFP    %2d : App01 %d : host_id 0x%x", port, (*app_count),
+                    host_id);
         } while ((host_id != 0xFF) && (*app_count < 15));
     }
     (*app_count)--;
@@ -4517,93 +4659,6 @@ static int bf_qsfp_chksum_chk (int port,
     return 0;
 }
 
-/** ONLY update qsfp's ddm (module and channel monitor value) for caller.
-*
-*  @param port
-*   port
-*/
-int bf_qsfp_update_monitor_value (int port)
-{
-    int rc;
-    bool fatal_detected = false;
-    uint8_t *idprom = &bf_qsfp_info_arr[port].idprom[0];
-    if (port > bf_plt_max_qsfp) {
-        return -1;
-    }
-
-    if (bf_qsfp_is_present(port) &&
-        !bf_qsfp_get_reset(port)) {
-        /* Module Monitor, pg0 lower, offset from 22 to 33. */
-        rc = bf_qsfp_read_transceiver (port, 22, 12,
-                &idprom[22]);
-        if (rc) {
-            LOG_WARNING ("Error<%d>: "
-                      "Reading QSFP %2d\n", rc, port);
-            return -1;
-        }
-        if (fatal_detected) {
-            LOG_DEBUG (
-                "QSFP    %2d : Module Monitor (Bytes 22-33) :"
-                " %02x %02x %02x %02x %02x %02x"
-                " %02x %02x %02x %02x %02x %02x",
-                port,
-                idprom[22],
-                idprom[23],
-                idprom[24],
-                idprom[25],
-                idprom[26],
-                idprom[27],
-                idprom[28],
-                idprom[29],
-                idprom[30],
-                idprom[31],
-                idprom[32],
-                idprom[33]);
-        }
-
-        /* Module Channel Monitor, pg0 lower, offset from 34 to 57. */
-        rc = bf_qsfp_read_transceiver (port, 34, 24,
-                &idprom[34]);
-        if (rc) {
-            LOG_WARNING ("Error<%d>: "
-                      "Reading QSFP %2d\n", rc, port);
-            return -1;
-        }
-        if (fatal_detected) {
-            LOG_DEBUG (
-                "QSFP    %2d : Module Channel Monitor (Bytes 34-57) :"
-                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x"
-                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-                port,
-                idprom[34],
-                idprom[35],
-                idprom[36],
-                idprom[37],
-                idprom[38],
-                idprom[39],
-                idprom[40],
-                idprom[41],
-                idprom[42],
-                idprom[43],
-                idprom[44],
-                idprom[45],
-                idprom[46],
-                idprom[47],
-                idprom[48],
-                idprom[49],
-                idprom[50],
-                idprom[51],
-                idprom[52],
-                idprom[53],
-                idprom[54],
-                idprom[55],
-                idprom[56],
-                idprom[57]);
-        }
-    }
-    return 0;
-}
-
 /** update qsfp cached memory map data
  *
  *  @param port
@@ -4623,7 +4678,7 @@ static int bf_qsfp_update_cache (int port)
     // first, figure out memory map format.
     if (set_qsfp_idprom (port)) {
         if (!bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_WARNING ("Error setting idprom for qsfp %d\n",
+            LOG_WARNING ("Error setting idprom for QSFP %2d\n",
                        port);
         }
         return -1;
@@ -4641,7 +4696,7 @@ static int bf_qsfp_update_cache (int port)
                              0, /* offset */
                              3, /* length */
                              &bf_qsfp_info_arr[port].idprom[0]) < 0) {
-        LOG_WARNING ("Error reading Qsfp %d lower memory\n",
+        LOG_WARNING ("Error reading QSFP %2d lower memory\n",
                    port);
         return -1;
     }
@@ -4654,7 +4709,7 @@ static int bf_qsfp_update_cache (int port)
                              128, /* offset */
                              128, /* length */
                              &bf_qsfp_info_arr[port].page0[0]) < 0) {
-        LOG_WARNING ("Error reading Qsfp %d page 0\n",
+        LOG_WARNING ("Error reading QSFP %2d page 0\n",
                    port);
         return -1;
     }
@@ -4663,7 +4718,7 @@ static int bf_qsfp_update_cache (int port)
             port, &bf_qsfp_info_arr[port].page0[0],
             bf_qsfp_is_cmis (port))) {
         if (!bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs) {
-            LOG_ERROR ("ChkSum not matched for %d\n", port);
+            LOG_ERROR ("ChkSum not matched for QSFP %2d\n", port);
         }
         bf_qsfp_info_arr[port].checksum = false;
     }
@@ -4676,7 +4731,7 @@ static int bf_qsfp_update_cache (int port)
                                  85, /* offset */
                                  33, /* length */
                                  &bf_qsfp_info_arr[port].idprom[85]) < 0) {
-            LOG_WARNING ("Error reading Qsfp %d lower memory\n",
+            LOG_WARNING ("Error reading QSFP %2d lower memory\n",
                        port);
             return -1;
         }
@@ -4689,7 +4744,7 @@ static int bf_qsfp_update_cache (int port)
                                      130, /* offset */
                                      126, /* length */
                                      &bf_qsfp_info_arr[port].page1[2]) < 0) {
-                LOG_WARNING ("Error reading Qsfp %d page 1\n",
+                LOG_WARNING ("Error reading QSFP %2d page 1 offset <130-255>\n",
                            port);
                 return -1;
             }
@@ -4701,7 +4756,31 @@ static int bf_qsfp_update_cache (int port)
                                      128, /* offset */
                                      128, /* length */
                                      &bf_qsfp_info_arr[port].page2[0]) < 0) {
-                LOG_ERROR ("Error reading Qsfp %d page 2\n",
+                LOG_ERROR ("Error reading QSFP %2d page 2\n",
+                           port);
+                return -1;
+            }
+
+            // page 13h, bytes 128
+            if (bf_qsfp_module_read (port,
+                                     0,   /* bank */
+                                     19,  /* page */
+                                     128, /* offset */
+                                     1,   /* length */
+                                     &bf_qsfp_info_arr[port].page19[0]) < 0) {
+                LOG_ERROR ("Error reading QSFP %2d page 13 offset <19-19>\n",
+                           port);
+                return -1;
+            }
+
+            // page 2fh, bytes 128
+            if (bf_qsfp_module_read (port,
+                                     0,   /* bank */
+                                     47,  /* page */
+                                     128, /* offset */
+                                     1,   /* length */
+                                     &bf_qsfp_info_arr[port].page47[0]) < 0) {
+                LOG_ERROR ("Error reading QSFP %2d page 2f offset <128-128>\n",
                            port);
                 return -1;
             }
@@ -4743,6 +4822,7 @@ static int bf_qsfp_update_cache (int port)
                    port,
                    bf_qsfp_info_arr[port].num_apps);
 
+#if defined (APP_ALLOC)
         bf_qsfp_info_arr[port].app_list =
             (bf_pm_qsfp_apps_t *)bf_sys_malloc (
                 bf_qsfp_info_arr[port].num_apps * sizeof (
@@ -4755,7 +4835,7 @@ static int bf_qsfp_update_cache (int port)
                 __LINE__);
             return -1;
         }
-
+#endif
         if (qsfp_cmis_populate_app_list (port) != 0) {
             LOG_ERROR (
                 "Error : populating the Application list at "
@@ -4771,7 +4851,7 @@ static int bf_qsfp_update_cache (int port)
                                  86, /* offset */
                                  14, /* length */
                                  &bf_qsfp_info_arr[port].idprom[86]) < 0) {
-            LOG_WARNING ("Error reading Qsfp %d lower memory\n",
+            LOG_WARNING ("Error reading QSFP %2d lower memory\n",
                        port);
             return -1;
         }
@@ -4783,14 +4863,14 @@ static int bf_qsfp_update_cache (int port)
                                  107, /* offset */
                                  10,  /* length */
                                  &bf_qsfp_info_arr[port].idprom[107]) < 0) {
-            LOG_WARNING ("Error reading Qsfp %d lower memory\n",
+            LOG_WARNING ("Error reading QSFP %2d lower memory\n",
                        port);
             return -1;
         }
 
         bf_pltfm_qsfp_type_t qsfp_type;
         if (bf_qsfp_type_get (port, &qsfp_type) != 0) {
-            LOG_WARNING ("Error: in getting the QSFP type for port %d at %s:%d",
+            LOG_WARNING ("Error: in getting the QSFP type for port %2d at %s:%d",
                        port,
                        __func__,
                        __LINE__);
@@ -4809,7 +4889,7 @@ static int bf_qsfp_update_cache (int port)
                                      128, /* offset */
                                      102, /* length */
                                      &bf_qsfp_info_arr[port].page3[0]) < 0) {
-                LOG_WARNING ("Error reading Qsfp %d page 1\n",
+                LOG_WARNING ("Error reading QSFP %2d page 3 offset <128-299>\n",
                            port);
                 return -1;
             }
@@ -4833,6 +4913,154 @@ static int bf_qsfp_update_cache (int port)
     bf_qsfp_info_arr[port].cache_dirty = false;
     LOG_DEBUG ("QSFP    %2d : Update cache complete",
                port);
+    return 0;
+}
+
+/** Update module/channel monitor and control functions.
+ *
+ *  @param port
+ *   port
+ */
+int bf_qsfp_update_cache2 (int port)
+{
+    int rc;
+    bool debug = false;
+    uint8_t *idprom;
+
+    if (port > bf_plt_max_qsfp) {
+        return -1;
+    }
+
+    idprom = &bf_qsfp_info_arr[port].idprom[0];
+
+    if (!bf_qsfp_is_present(port) ||
+        bf_qsfp_get_reset(port)) {
+        return 0;
+    }
+
+    /* As we have know the kind of current trans, that's much easier to update cache. */
+
+    if (bf_qsfp_is_cmis (port)) {
+        /* CMIS */
+        // page 11h (upper)
+        if ((rc = bf_qsfp_module_read (port,
+                                0,
+                                17,
+                                128,
+                                128,
+                                &bf_qsfp_info_arr[port].page17[0])) < 0) {
+            LOG_WARNING ("Error<%d>: "
+                      "Reading QSFP %2d page 17 offset <128-255>\n", rc, port);
+            return -1;
+        }
+        // page 12h (upper)
+        if ((rc = bf_qsfp_module_read (port,
+                                0,
+                                18,
+                                128,
+                                128,
+                                &bf_qsfp_info_arr[port].page18[0])) < 0) {
+            LOG_WARNING ("Error<%d>: "
+                      "Reading QSFP %2d page 18\n", rc, port);
+            return -1;
+        }
+    } else {
+        /* SFF-8636 */
+        // page 00h (lower), bytes 3-14, Interrupt Flags.
+        if ((rc = bf_qsfp_module_read (port,
+                                0,
+                                0,
+                                3,
+                                12,
+                                &idprom[3])) < 0) {
+            LOG_WARNING ("Error<%d>: "
+                      "Reading QSFP %2d page 0 offset <3-14>\n", rc, port);
+            return -1;
+        }
+
+        // page 00h (lower), bytes 86-99, Control Functions.
+        if ((rc = bf_qsfp_module_read (port,
+                                 0,  /* bank */
+                                 0,  /* page */
+                                 86, /* offset */
+                                 14, /* length */
+                                 &idprom[86])) < 0) {
+            LOG_WARNING ("Error<%d>: "
+                       "Reading QSFP %2d page 0 offset <86-99>\n", rc, port);
+            return -1;
+        }
+
+        /* Belowing is done by health monitor. */
+#if 0
+        // page 00h (lower), bytes 22-33, Module Monitor.
+        if ((rc = bf_qsfp_module_read (port,
+                                0,
+                                0,
+                                22,
+                                12,
+                                &idprom[22])) < 0) {
+            LOG_WARNING ("Error<%d>: "
+                      "Reading QSFP %2d pg0 offset <22-33>\n", rc, port);
+            return -1;
+        }
+
+        // page 00h (lower), bytes 34-57, Channel Monitor.
+        if ((rc = bf_qsfp_module_read (port,
+                                0,
+                                0,
+                                34,
+                                24,
+                                &idprom[34])) < 0) {
+            LOG_WARNING ("Error<%d>: "
+                      "Reading QSFP %2d pg0 offset <34-57>\n", rc, port);
+            return -1;
+        }
+
+        // page 00h (lower), bytes 107-116
+        //if ((rc = bf_qsfp_module_read (port,
+        //                         0,   /* bank */
+        //                         0,   /* page */
+        //                         107, /* offset */
+        //                         10,  /* length */
+        //                         &idprom[107])) < 0) {
+        //    LOG_WARNING ("Error<%d>: "
+        //                "Reading QSFP %2d pg0 offset <107-116>\n", rc, port);
+        //    return -1;
+        //}
+#endif
+        if (debug) {
+            LOG_DEBUG (
+                "QSFP    %2d : Module Monitor (Bytes 22-33) :"
+                " %02x %02x %02x %02x %02x %02x"
+                " %02x %02x %02x %02x %02x %02x",
+                port,
+                idprom[22], idprom[23], idprom[24], idprom[25],
+                idprom[26], idprom[27], idprom[28], idprom[29],
+                idprom[30], idprom[31], idprom[32], idprom[33]);
+
+            LOG_DEBUG (
+                "QSFP    %2d : Module Channel Monitor (Bytes 34-57) :"
+                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x"
+                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+                port,
+                idprom[34], idprom[35], idprom[36], idprom[37],
+                idprom[38], idprom[39], idprom[40], idprom[41],
+                idprom[42], idprom[43], idprom[44], idprom[45],
+                idprom[46], idprom[47], idprom[48], idprom[49],
+                idprom[50], idprom[51], idprom[52], idprom[53],
+                idprom[54], idprom[55], idprom[56], idprom[57]);
+
+            LOG_DEBUG (
+                "QSFP    %2d : Module Control Functions (Bytes 86-99) :"
+                " %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+                port,
+                idprom[86], idprom[87], idprom[88], idprom[89],
+                idprom[90], idprom[91], idprom[92], idprom[93],
+                idprom[94], idprom[95], idprom[96], idprom[97],
+                idprom[98], idprom[99]);
+        }
+    }
+
     return 0;
 }
 
@@ -5174,8 +5402,18 @@ int bf_qsfp_get_cached_info (int port, int page,
         cptr = &bf_qsfp_info_arr[port].page0[0];
     } else if (page == QSFP_PAGE1) {
         cptr = &bf_qsfp_info_arr[port].page1[0];
+    } else if (page == QSFP_PAGE2) {
+        cptr = &bf_qsfp_info_arr[port].page2[0];
     } else if (page == QSFP_PAGE3) {
         cptr = &bf_qsfp_info_arr[port].page3[0];
+    } else if (page == QSFP_PAGE17) {
+        cptr = &bf_qsfp_info_arr[port].page17[0];
+    } else if (page == QSFP_PAGE18) {
+        cptr = &bf_qsfp_info_arr[port].page18[0];
+    } else if (page == QSFP_PAGE19) {
+        cptr = &bf_qsfp_info_arr[port].page19[0];
+    } else if (page == QSFP_PAGE47) {
+        cptr = &bf_qsfp_info_arr[port].page47[0];
     } else {
         return -1;
     }
@@ -5213,8 +5451,18 @@ int bf_qsfp_get_info (int port, int page,
         cptr = &bf_qsfp_info_arr[port].page0[0];
     } else if (page == QSFP_PAGE1) {
        cptr = &bf_qsfp_info_arr[port].page1[0];
+    } else if (page == QSFP_PAGE2) {
+       cptr = &bf_qsfp_info_arr[port].page2[0];
     } else if (page == QSFP_PAGE3) {
        cptr = &bf_qsfp_info_arr[port].page3[0];
+    } else if (page == QSFP_PAGE17) {
+       cptr = &bf_qsfp_info_arr[port].page17[0];
+    } else if (page == QSFP_PAGE18) {
+       cptr = &bf_qsfp_info_arr[port].page18[0];
+    } else if (page == QSFP_PAGE19) {
+       cptr = &bf_qsfp_info_arr[port].page19[0];
+    } else if (page == QSFP_PAGE47) {
+       cptr = &bf_qsfp_info_arr[port].page47[0];
     } else {
         return -1;
     }
@@ -5228,7 +5476,7 @@ int bf_qsfp_get_info (int port, int page,
                                  page == QSFP_PAGE0_LOWER ? 0 : 128,  /* offset */
                                  MAX_QSFP_PAGE_SIZE,                  /* length */
                                  eeprom_info) < 0) {
-            LOG_ERROR ("Error reading Qsfp %d memory bank %d page %d offset %d\n",
+            LOG_ERROR ("Error reading QSFP %d memory bank %d page %d offset %d\n",
                        port,
                        0,
                        page,
@@ -6342,7 +6590,7 @@ int bf_cmis_type_get (int port,
         *qsfp_type = BF_PLTFM_QSFPDD_CU_2_5_M;
         return 0;
     } else {  // For all other lengths default to max supported.
-        LOG_DEBUG ("QSFPDD length %f unsupported for Qsfp %d. Defaulting to 2.5m`n",
+        LOG_DEBUG ("QSFPDD length %f unsupported for QSFP %d. Defaulting to 2.5m`n",
                    cable_len,
                    port);
         *qsfp_type = BF_PLTFM_QSFPDD_CU_2_5_M;

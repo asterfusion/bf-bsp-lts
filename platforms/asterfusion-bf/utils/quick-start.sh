@@ -13,12 +13,12 @@
 
 # You could get the version of current ONL via 'cat /etc/onl/rootfs/manifest.json'.
 # The following VERSION in quick-start.sh should never be changed by user.
-VERSION="23.0313"
+VERSION="24.0117"
 
 # Default Variables
 default_iface="ma1"
-default_iface_ip="192.168.4.50"
-default_gateway="192.168.4.1"
+default_iface_ip="10.240.4.52"
+default_gateway="10.240.4.1"
 install_dir="/usr/local/sde"
 
 # y/Y, n/N
@@ -65,6 +65,14 @@ further_check()
 
     # More Check here.
 }
+
+echo "Installing bfnplatform ..."
+dpkg -i /root/bfnplatform/*.deb
+
+# Link onl-kernel
+ln -s \
+ /usr/share/onl/packages/amd64/onl-kernel-4.14-lts-x86-64-all/mbuilds/ \
+ /lib/modules/4.14.151-OpenNetworkLinux/build > /dev/null 2>&1
 
 echo "Configure SDE Environment Variables ..."
 pkg=`dpkg -l | grep sde- | awk '{print $2}'`

@@ -675,6 +675,7 @@ static int bf_fsm_qsfp_wr2(
   return rc;
 }
 
+#if 0
 /****************************************************
  *
  ****************************************************/
@@ -711,6 +712,18 @@ static int bf_fsm_qsfp_wr (unsigned int module,
                                     len, buf);
     return rc;
 }
+
+/****************************************************
+ *
+ ****************************************************/
+static void qsfp_set_pg (int conn_id, uint8_t pg)
+{
+    if (qsfp_state[conn_id].flat_mem == false) {
+        bf_fsm_qsfp_wr2 (conn_id, 0, 127, 1, &pg);
+        bf_sys_usleep (50000);
+    }
+}
+#endif
 
 /****************************************************
  * called by qsfp_fsm to set next time to process QSFP
@@ -844,17 +857,6 @@ bool qsfp_fsm_query_all_lpmode() {
 bool qsfp_needs_hi_pwr_init (int conn_id)
 {
     return (qsfp_state[conn_id].needs_hi_pwr_init);
-}
-
-/****************************************************
- *
- ****************************************************/
-static void qsfp_set_pg (int conn_id, uint8_t pg)
-{
-    if (qsfp_state[conn_id].flat_mem == false) {
-        bf_fsm_qsfp_wr2 (conn_id, 0, 127, 1, &pg);
-        bf_sys_usleep (50000);
-    }
 }
 
 /****************************************************
@@ -1390,26 +1392,22 @@ static int qsfp_fsm_st_tx_disable (
     bf_dev_id_t dev_id, int conn_id)
 {
     bf_status_t rc;
-    uint8_t byte_86;
-    // Luxtera modules require TX_DISABLE de-asserted during init seq
-    if (qsfp_needs_hi_pwr_init (conn_id)) {
-        byte_86 = 0x0;
-    } else {
-        byte_86 = 0xF;
-    }
-    //byte_86 = 0x0;/* By default, de-assert TX_DISABLE during init seq. */
-    LOG_DEBUG ("%s:%d  -> QSFP    %2d : TX_DISABLE = %2x\n",
-               __func__, __LINE__, conn_id, byte_86);
+    bool disable = true;
+    int chmask = (1 << qsfp_state[conn_id].media_ch_cnt) - 1;
 
-    /* 0x56, Tx Disable Control */
-    rc = bf_fsm_qsfp_wr2 (conn_id, 0, 86, 1, &byte_86);
+    // Luxtera modules require TX_DISABLE de-asserted during init seq
+    if (qsfp_needs_hi_pwr_init(conn_id)) {
+        disable = false;
+    }
+
+    rc = bf_qsfp_tx_disable(conn_id, chmask, disable);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> Setting TX_DISABLE=0x%x0",
+        LOG_WARNING ("QSFP    %2d : Error <%d> Setting TX_DISABLE=%s",
                      conn_id,
                      rc,
-                     byte_86);
+                     disable ? "true" : "false");
     } else {
-        if (byte_86) {
+        if (disable) {
             qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
         } else {
             qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
@@ -2110,14 +2108,17 @@ static int qsfp_module_fsm_update (
     uint8_t cur_val, new_val;
     bf_status_t rc;
 
+#if 0
+    /* bf_fsm_qsfp_rd2/bf_fsm_qsfp_wr2 will change pg internally. */
     if (ofs > 128) {  // if not lower page 0, set page
         qsfp_set_pg (conn_id, pg);
     }
+#endif
 
     if (mask !=
         0xFF) {  // only need to read if not changing all bits
         // read current value at "ofs"
-        rc = bf_fsm_qsfp_rd (conn_id, ofs, 1, &cur_val);
+        rc = bf_fsm_qsfp_rd2 (conn_id, pg, ofs, 1, &cur_val);
         if (rc) {
             LOG_WARNING ("QSFP    %2d : Error <%d> reading pg=%d : ofs=%d to coalesce",
                          conn_id,
@@ -2151,7 +2152,7 @@ static int qsfp_module_fsm_update (
 
     new_val = (cur_val & ~mask) | data;
     if (new_val != cur_val) {
-        rc = bf_fsm_qsfp_wr (conn_id, ofs, 1, &new_val);
+        rc = bf_fsm_qsfp_wr2 (conn_id, pg, ofs, 1, &new_val);
         if (rc) {
             LOG_WARNING ("QSFP    %2d : Error <%d> Setting pg=%d : ofs=%d : new=%02x",
                          conn_id,
@@ -2455,10 +2456,14 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             break;
 
         case QSFP_FSM_ST_UPDATE:
-            qsfp_module_fsm_update (dev_id, conn_id);
-            next_st = QSFP_FSM_ST_WAIT_UPDATE;
-            delay_ms =
-                qsfp_state[conn_id].wr_coalesce.delay_ms;
+            //if (qsfp_module_fsm_update(dev_id, conn_id)) {
+            //  next_st = QSFP_FSM_ST_UPDATE;
+            //} else {
+                /* Leave deferred state away. */
+                qsfp_module_fsm_update(dev_id, conn_id);
+                next_st = QSFP_FSM_ST_WAIT_UPDATE;
+                delay_ms = qsfp_state[conn_id].wr_coalesce.delay_ms;
+            //}
             break;
 
         case QSFP_FSM_ST_WAIT_UPDATE:
@@ -2495,33 +2500,60 @@ static int qsfp_fsm_coalesce_wr2(bf_dev_id_t dev_id,
                                  int conn_id,
                                  int delay_ms,
                                  Sff_field field,
+                                 int ch,
                                  int mask,
                                  uint8_t data) {
+    int host_head_ch = qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
+    int host_chmask_thisport =
+        ((1 << qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes) - 1)
+        << host_head_ch;
+
     if (!qsfp_state[conn_id].wr_coalesce.in_progress) {
         qsfp_state[conn_id].wr_coalesce.in_progress = true;
         qsfp_state[conn_id].wr_coalesce.delay_ms = delay_ms;
         qsfp_state[conn_id].wr_coalesce.field = field;
+        qsfp_state[conn_id].wr_coalesce.host_wr_chmask = (1 << ch);
+        qsfp_state[conn_id].wr_coalesce.host_chmask = host_chmask_thisport;
         qsfp_state[conn_id].wr_coalesce.mask = mask;
         qsfp_state[conn_id].wr_coalesce.data = data;
 
+        LOG_DEBUG(
+            "QSFP wr_coalesce : Port %2d:%d new wr_op request : field:%d mask:%#x "
+            "data:%#x",
+            conn_id,
+            ch,
+            field,
+            mask,
+            data);
         LOG_DEBUG("QSFPMSM %2d : %s --> %s (%dms)",
                   conn_id,
                   qsfp_fsm_st_to_str[qsfp_state[conn_id].fsm_st],
                   qsfp_fsm_st_to_str[QSFP_FSM_ST_UPDATE],
                   0);
         qsfp_state[conn_id].fsm_st = QSFP_FSM_ST_UPDATE;
+        qsfp_state[conn_id].per_ch_fsm[ch].wr_inprog = true;
         qsfp_fsm_next_run_time_set(&qsfp_state[conn_id].next_fsm_run_time, 0);
     } else {
+        host_chmask_thisport = qsfp_state[conn_id].wr_coalesce.host_chmask;
         // check if this write can be coalesced with the current one
-        if (qsfp_state[conn_id].wr_coalesce.field == field) {
+        if ((qsfp_state[conn_id].wr_coalesce.field == field) &&
+            (host_chmask_thisport & (1 << ch))) {
             // merge this write with in-progress one
-            // LOG_ERROR("QSFP    %2d : Coalesce field=%d : mask=%02x : data=%02x
-            // : with : mask=%02x : data=%02x",
-            //          conn_id, field, mask, data,
-            //          qsfp_state[conn_id].wr_coalesce.mask,
-            //          qsfp_state[conn_id].wr_coalesce.data);
+            LOG_DEBUG(
+                "QSFP    %2d/%d : Coalesce field=%d : merge mask=%02x : data=%02x : "
+                "with : mask=%02x : data=%02x",
+                conn_id,
+                ch,
+                field,
+                mask,
+                data,
+                qsfp_state[conn_id].wr_coalesce.mask,
+                qsfp_state[conn_id].wr_coalesce.data);
+
+            qsfp_state[conn_id].wr_coalesce.host_wr_chmask |= (1 << ch);
             qsfp_state[conn_id].wr_coalesce.mask |= mask;
             qsfp_state[conn_id].wr_coalesce.data |= data;
+            qsfp_state[conn_id].per_ch_fsm[ch].wr_inprog = true;
         } else {
             return -1;  // try again later
         }
@@ -2673,13 +2705,25 @@ static int qsfp_fsm_ch_sff8636_enable_cdr(bf_dev_id_t dev_id,
         int conn_id,
         int ch) {
     int rc;
-    // combine all CDR updates into one I2C transaction
-    rc = qsfp_fsm_coalesce_wr2(dev_id,
-                               conn_id,
-                               300 /*300ms*/,
-                               CDR_CONTROL,
-                               (0x11 << ch),
-                               (0x11 << ch));
+
+    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+        rc = qsfp_fsm_coalesce_wr (dev_id,
+                                   conn_id,
+                                   300 /*300ms*/,
+                                   0 /*pg=0*/,
+                                   98 /*98 (0x62)*/,
+                                   (0x11 << ch),
+                                   (0x11 << ch));
+    } else {
+        // combine all CDR updates into one I2C transaction
+        rc = qsfp_fsm_coalesce_wr2(dev_id,
+                                   conn_id,
+                                   300 /*300ms*/,
+                                   CDR_CONTROL,
+                                   ch,
+                                   (0x11 << ch),
+                                   (0x11 << ch));
+    }
     return rc;  // non-0 means "try later"
 }
 
@@ -2690,13 +2734,25 @@ static int qsfp_fsm_ch_sff8636_disable_cdr(bf_dev_id_t dev_id,
         int conn_id,
         int ch) {
     int rc;
-    // combine all CDR updates into one I2C transaction
-    rc = qsfp_fsm_coalesce_wr2(dev_id,
-                               conn_id,
-                               300 /*300ms*/,
-                               CDR_CONTROL,
-                               (0x11 << ch),
-                               (0x00 << ch));
+
+    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+        rc = qsfp_fsm_coalesce_wr (dev_id,
+                                   conn_id,
+                                   300 /*300ms*/,
+                                   0 /*pg=0*/,
+                                   98 /*98 (0x62)*/,
+                                   (0x11 << ch),
+                                   (0x00 << ch));
+    } else {
+        // combine all CDR updates into one I2C transaction
+        rc = qsfp_fsm_coalesce_wr2(dev_id,
+                                   conn_id,
+                                   300 /*300ms*/,
+                                   CDR_CONTROL,
+                                   ch,
+                                   (0x11 << ch),
+                                   (0x00 << ch));
+    }
     return rc;  // non-0 means "try later"
 }
 
@@ -2708,15 +2764,29 @@ static int qsfp_fsm_ch_sff8636_disable_rx_cdr (
     bf_dev_id_t dev_id, int conn_id, int ch)
 {
     int rc;
-    rc = qsfp_fsm_coalesce_wr2(dev_id,
-                               conn_id,
-                               300 /*300ms*/,
-                               CDR_CONTROL,
-                               (0x01 << ch),
-                               (0x00 << ch));
+
+    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+        rc = qsfp_fsm_coalesce_wr (dev_id,
+                                   conn_id,
+                                   300 /*300ms*/,
+                                   0 /*pg=0*/,
+                                   98 /*98 (0x62)*/,
+                                   (0x01 << ch),
+                                   (0x00 << ch));
+    } else {
+        rc = qsfp_fsm_coalesce_wr2 (dev_id,
+                                   conn_id,
+                                   300 /*300ms*/,
+                                   CDR_CONTROL,
+                                   ch,
+                                   (0x01 << ch),
+                                   (0x00 << ch));
+    }
     return rc;  // non-0 means "try later"
 }
 
+/* Will be removed later. */
+#if 0
 /*****************************************************************
  * enable both TX and RX CDRs - only use for sff-8636 modules
  *****************************************************************/
@@ -2767,6 +2837,7 @@ static int qsfp_fsm_ch_disable_rx_cdr (
                                (0x00 << ch));
     return rc;  // non-0 means "try later"
 }
+#endif
 
 /*****************************************************************
  * select the Application that matches the configured device speed
@@ -2913,12 +2984,14 @@ static int qsfp_fsm_ch_cmis_datapath_init(bf_dev_id_t dev_id,
         newvalue = 0;
     }
 
-#if 0
+    /* Reopen this API as issue has been resolved. */
+#if 1
     // combine all DataPathDeinit updates into one I2C transaction
     rc = qsfp_fsm_coalesce_wr2(dev_id,
                                conn_id,
                                0, /* delay handled in ch fsm */
                                DATAPATH_DEINIT,
+                               ch,
                                (0x1 << ch),
                                (newvalue << ch));
 #else
@@ -2953,6 +3026,7 @@ static int qsfp_fsm_ch_cmis_datapath_deinit(bf_dev_id_t dev_id,
                                conn_id,
                                0, /* delay handled in ch fsm */
                                DATAPATH_DEINIT,
+                               ch,
                                (0x1 << ch),
                                (newvalue << ch));
     return rc;  // non-0 means "try later"
@@ -3041,6 +3115,22 @@ static bool qsfp_fsm_ch_cmis_is_dp_config_error(bf_dev_id_t dev_id,
         return true;
     }
     return false;
+}
+
+/* By Hang Tsi, 2024/02/28 */
+const char* qsfp_fsm_ch_cmis_get_dp_config_error(bf_dev_id_t dev_id,
+        int conn_id,
+        int ch) {
+    DataPath_Config_Status datapath_config_status;
+
+    if (bf_cmis_get_datapath_config_status(conn_id, ch, &datapath_config_status) <
+            0) {
+        LOG_ERROR(
+            "QSFPCSM %2d/%d : unable to get datapath config status", conn_id, ch);
+        return "Unknown";
+    }
+
+    return qsfp_dp_config_str[datapath_config_status % 16];
 }
 
 /*****************************************************************
@@ -3148,13 +3238,25 @@ static int qsfp_fsm_ch_enable_optical_tx (
     uint32_t delay_ms)
 {
     int rc;
-    rc = qsfp_fsm_coalesce_wr (dev_id,
-                               conn_id,
-                               delay_ms,
-                               0 /*pg=0*/,
-                               86 /*offset*/,
-                               (0x1 << ch),
-                               (0x0 << ch));
+
+    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+        rc = qsfp_fsm_coalesce_wr (dev_id,
+                                   conn_id,
+                                   delay_ms,
+                                   0 /*pg=0*/,
+                                   86 /*offset*/,
+                                   (0x1 << ch),
+                                   (0x0 << ch));
+    } else {
+        int media_ch = qsfp_state[conn_id].dev_cfg[ch].media_ch;
+        rc = qsfp_fsm_coalesce_wr2(dev_id,
+                                  conn_id,
+                                  delay_ms,
+                                  CHANNEL_TX_DISABLE,
+                                  ch,
+                                  (0x1 << media_ch),
+                                  (0x0 << media_ch));
+    }
     return rc;  // non-0 means "try later"
 }
 
@@ -3167,13 +3269,25 @@ static int qsfp_fsm_ch_disable_optical_tx (
     int ch)
 {
     int rc;
-    rc = qsfp_fsm_coalesce_wr (dev_id,
-                               conn_id,
-                               100 /*100ms*/,
-                               0 /*pg=0*/,
-                               86 /*offset*/,
-                               (0x1 << ch),
-                               (0x1 << ch));
+
+    if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+        rc = qsfp_fsm_coalesce_wr (dev_id,
+                                   conn_id,
+                                   100 /*100ms*/,
+                                   0 /*pg=0*/,
+                                   86 /*offset*/,
+                                   (0x1 << ch),
+                                   (0x1 << ch));
+    } else {
+        int media_ch = qsfp_state[conn_id].dev_cfg[ch].media_ch;
+        rc = qsfp_fsm_coalesce_wr2(dev_id,
+                                  conn_id,
+                                  100 /*100ms*/,
+                                  CHANNEL_TX_DISABLE,
+                                  ch,
+                                  (0x1 << media_ch),
+                                  (0x1 << media_ch));
+    }
     return rc;  // non-0 means "try later"
 }
 
@@ -3385,6 +3499,7 @@ static inline int qsfp_fsm_is_cdr_required (bf_dev_id_t
     return 0;
 }
 
+#if 1
 /*****************************************************************
  * TF2 Implementation
  *****************************************************************/
@@ -3931,6 +4046,543 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                   delay_ms);
     }
 }
+#else
+/*****************************************************************
+ *
+ *****************************************************************/
+static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
+    qsfp_fsm_ch_en_state_t st = qsfp_state[conn_id].per_ch_fsm[ch].fsm_st;
+    qsfp_fsm_ch_en_state_t next_st = st;  // default to no transition
+    MemMap_Format memmap_format = MMFORMAT_UNKNOWN;
+    int wr_coalesce_err, err = -1, delay_ms = 0;
+    int substate = qsfp_state[conn_id].per_ch_fsm[ch].substate;
+    int next_substate = substate;
+    bool ok, discard_latched;
+    uint8_t los_fault_val, lol_fault_val;
+    uint8_t fault_val;
+    int host_head_ch;
+    int host_chmask_thisport;
+    bool is_optical = false;
+    int retry = 0;
+
+    host_head_ch = qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
+    /*
+        LOG_DEBUG("QSFPCSM %2d/%d : CSM RUN -- %s.%d",
+              conn_id,
+              ch,
+              qsfp_fsm_ch_en_st_to_str[st],
+              substate);
+    */
+    // this mask has a 1 in each bit position corresponding to a lane in the
+    // current port
+    host_chmask_thisport =
+        ((1 << qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes) - 1)
+            << host_head_ch;
+
+    switch (st) {
+        case QSFP_CH_FSM_ST_DISABLED:
+          // waiting to start enabling
+          break;
+        case QSFP_CH_FSM_ST_ENABLING:
+          // initalize/re-initialize variables used in ch_fsm
+          qsfp_state[conn_id].per_ch_fsm[ch].immediate_enable = false;
+          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_ena_cdr = false;
+          qsfp_state[conn_id].sync_ena_cdr &= (0xFFFF ^ (1 << ch));  // unset
+          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_ena_opt_tx = false;
+          qsfp_state[conn_id].sync_tx_locked &= (0xFFFF ^ (1 << ch));  // unset
+          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_tx_locked = false;
+          qsfp_state[conn_id].sync_ena_opt_tx &= (0xFFFF ^ (1 << ch));  // unset
+          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_notify_enb = false;
+          qsfp_state[conn_id].sync_notify_enb &= (0xFFFF ^ (1 << ch));  // unset
+          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel = false;
+          qsfp_state[conn_id].sync_appsel &= (0xFFFF ^ (1 << ch));  // unset
+
+          if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+            // notify driver
+            qsfp_fsm_ch_notify_not_ready(dev_id, conn_id, ch);
+
+            // assume straight-through connections
+            qsfp_state[conn_id].dev_cfg[ch].media_ch = ch;
+            qsfp_state[conn_id].dev_cfg[ch].media_head_ch =
+                qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
+            qsfp_state[conn_id].dev_cfg[ch].media_intf_nlanes =
+                qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes;
+
+            delay_ms = 300;  // ms
+            next_st = QSFP_CH_FSM_ST_ENA_CDR;
+            next_substate = 0;
+            break;
+          }
+
+          // if the media is copper
+          qsfp_fsm_identify_type(conn_id, &is_optical);
+          if (!is_optical) {
+            next_st = QSFP_CH_FSM_ST_ENABLED;
+            delay_ms = 0;
+            break;
+          }
+          delay_ms = 0;  // no need to wait after this
+          next_st = QSFP_CH_FSM_ST_APPSEL;
+          next_substate = 0;
+          break;
+        case QSFP_CH_FSM_ST_APPSEL:
+          // update the selected Application for CMIS modules
+          if ((bf_qsfp_is_cmis(conn_id)) && (!qsfp_needs_hi_pwr_init(conn_id))) {
+            // CMIS, software init
+            qsfp_state[conn_id].sync_appsel |= 1 << ch;
+            // this check makes sure all channel state machines go through this
+            // state at the same time, starting wich the head channel
+            if (((qsfp_state[conn_id].sync_appsel & host_chmask_thisport) !=
+                 host_chmask_thisport) ||
+                ((!qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel) &&
+                 (ch != host_head_ch))) {
+              break;
+            }
+            qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel = true;
+            memmap_format = bf_qsfp_get_memmap_format(conn_id);
+            if ((memmap_format >= MMFORMAT_CMIS5P0) && (ch == host_head_ch) &&
+                qsfp_fsm_ch_cmis_is_dp_config_inprog(dev_id, conn_id, ch)) {
+              LOG_DEBUG(
+                  "QSFPCSM %2d/%d : Datapath config is in progress before "
+                  "apply_dpinit. Retrying..",
+                  conn_id,
+                  ch);
+              qsfp_log_port_retry(dev_id, conn_id, ch);
+              next_st = QSFP_CH_FSM_ST_DISABLING;
+              break;
+            }
+            err = qsfp_fsm_ch_cmis_select_application(dev_id, conn_id, ch);
+            if (err) {
+              break;
+            } else {
+              delay_ms = 0;
+              next_st = QSFP_CH_FSM_ST_APPLY_DPINIT;
+              next_substate = 0;
+            }
+
+          } else {
+            // SFF-8636 - doesn't have Applications, nothing to do
+            // CMIS, hardware init - nothing to do
+
+            // assume straight-through connections
+            qsfp_state[conn_id].dev_cfg[ch].media_ch = ch;
+            qsfp_state[conn_id].dev_cfg[ch].media_head_ch =
+                qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
+            qsfp_state[conn_id].dev_cfg[ch].media_intf_nlanes =
+                qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes;
+
+            delay_ms = 0;  // no need to wait after this
+            next_st = QSFP_CH_FSM_ST_ENA_CDR;
+            next_substate = 0;
+          }
+          break;
+        case QSFP_CH_FSM_ST_APPLY_DPINIT:
+          err = qsfp_fsm_ch_cmis_apply_dpinit(dev_id, conn_id, ch, &retry);
+          if (err == 0) {  // successfully added to queue
+            if (retry) {
+              delay_ms = 1000;
+              next_st = QSFP_CH_FSM_ST_APPLY_DPINIT;
+              next_substate = 0;
+            } else {
+              delay_ms = 100;  // wait in the next substate
+              next_st = QSFP_CH_FSM_ST_ENA_CDR;
+              next_substate = 0;
+            }
+          } else {
+            delay_ms = 0;
+            next_st = QSFP_CH_FSM_ST_APPSEL;
+            next_substate = 0;
+          }
+          break;
+        case QSFP_CH_FSM_ST_ENA_CDR:
+          // this state initializes the data path electronics in the module
+          // SFF-8636 - enable the TX and RX CDRs, then wait for LOL to clear
+          // CMIS (software init) - transition data path state to DataPathInit,
+          //   where the module will initialize the data path and then transition
+          //   the data path state to DataPathInitialized
+
+          memmap_format = bf_qsfp_get_memmap_format(conn_id);
+          if (bf_qsfp_is_cmis(conn_id) && (memmap_format >= MMFORMAT_CMIS5P0)) {
+            if (qsfp_fsm_ch_cmis_is_dp_config_inprog(dev_id, conn_id, ch)) {
+              delay_ms = 100;
+              break;
+            } else if (qsfp_fsm_ch_cmis_is_dp_config_error(dev_id, conn_id, ch)) {
+              LOG_ERROR(
+                  "QSFPCSM %2d/%d : Datapath config rejected! Verify configuration "
+                  "mode. Disable and Enable port to retry.",
+                  conn_id,
+                  ch);
+              qsfp_update_fsm_st_rejected(dev_id, conn_id, ch);
+              next_st = QSFP_CH_FSM_ST_REJECTED;
+              break;
+            }
+          }
+          qsfp_state[conn_id].sync_ena_cdr |= 1 << ch;
+          // this check makes sure all channel state machines go through this state
+          // at the same time, starting wich the head channel
+          if (((qsfp_state[conn_id].sync_ena_cdr & host_chmask_thisport) !=
+               host_chmask_thisport) ||
+              ((!qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_cdr) &&
+               (ch != host_head_ch))) {
+            break;
+          }
+          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_cdr = true;
+          switch (next_substate) {
+            case 0:  // step 0 - initalize data path electronics
+              if (!bf_qsfp_is_cmis(conn_id)) {
+                // SFF-8636 - enable the CDR
+                wr_coalesce_err =
+                    qsfp_fsm_ch_sff8636_enable_cdr(dev_id, conn_id, ch);
+                if (wr_coalesce_err == 0) {  // successfully added to queue
+                  delay_ms = 300;            // wait 300 ms before checking LOL flag
+                  next_substate++;
+                }  // else {
+                // we'll try to add to the queue next time around
+                //}
+                break;
+              } else if (!qsfp_needs_hi_pwr_init(conn_id)) {
+                // CMIS, software init - clear applicable DataPathDeinit bits.
+                //   This advances the modure DataPath state machine to
+                //   DataPathInit, where it will start initializing the data path
+                //   electronics
+                wr_coalesce_err =
+                    qsfp_fsm_ch_cmis_datapath_init(dev_id, conn_id, ch);
+                if (wr_coalesce_err == 0) {  // successfully added to queue
+                  delay_ms = 0;              // wait in the next substate
+                  next_substate++;
+                }
+                break;
+              }
+              // CMIS hardware init - nothing to do
+              next_substate++;  // fall through
+            case 1:             // Step 1 -  wait for initialization to complete
+              memmap_format = bf_qsfp_get_memmap_format(conn_id);
+              if (memmap_format == MMFORMAT_SFF8636) {
+                if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+                  // for some reason, need to read twice to clear latched faults
+                  // Tofino 1 flag handling method only
+                  qsfp_fsm_ch_check_tx_cdr_lol(dev_id,
+                                               conn_id,
+                                               ch,
+                                               &discard_latched,
+                                               &los_fault_val,
+                                               &lol_fault_val);
+                  qsfp_fsm_ch_check_tx_cdr_lol(dev_id,
+                                               conn_id,
+                                               ch,
+                                               &discard_latched,
+                                               &los_fault_val,
+                                               &lol_fault_val);
+                  // third time's the charm - see if the qsfp still sets lol or los
+                  qsfp_fsm_ch_check_tx_cdr_lol(
+                      dev_id, conn_id, ch, &ok, &los_fault_val, &lol_fault_val);
+                  if (!ok) {
+                    LOG_DEBUG(
+                        "QSFP    %2d : ch[%d] : TX LOS <%02x>, TX CDR LOL <%02x>. "
+                        "retry..",
+                        conn_id,
+                        ch,
+                        los_fault_val,
+                        lol_fault_val);
+                  } else {
+                    delay_ms =
+                        0;  // LOL and LOS are both unset, proceed immediately
+                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                    next_substate = 0;
+                  }
+                } else {  // tof2
+                  // get current los and lol flags for this lane
+                  qsfp_fsm_check_tx_lock(conn_id, ch, &ok);
+                  if (ok) {  // current lane has signal and cdr is locked
+                    // add lane to mask for port
+                    qsfp_state[conn_id].sync_tx_locked |= 1 << ch;
+
+                    // see if we are good across all lanes & we are on the head lane
+                    if (((qsfp_state[conn_id].sync_tx_locked &
+                          host_chmask_thisport) != host_chmask_thisport) ||
+                        ((!qsfp_state[conn_id]
+                               .per_ch_fsm[host_head_ch]
+                               .head_1st_tx_locked) &&
+                         (ch != host_head_ch))) {
+                      // not all lanes ready yet, keep waiting
+                      break;
+                    }
+
+                    // entire logical port has sig det and cdr lock, advance states
+                    qsfp_state[conn_id]
+                        .per_ch_fsm[host_head_ch]
+                        .head_1st_tx_locked = true;
+                    delay_ms = 0;
+                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                    next_substate = 0;
+                  }
+                }
+                break;
+              } else if (!qsfp_needs_hi_pwr_init(conn_id)) {
+                // CMIS, software init - wait for initialization to complete on all
+                //   data path channels. The module is supposed to only report the
+                //   new state when all channels in the data path have reached it
+
+                if (memmap_format == MMFORMAT_CMIS3P0) {
+                  // CMIS 3.0 - exit state from DataPathInit is DataPathActivated
+                  if (qsfp_fsm_ch_cmis_is_state_dpactivated(dev_id, conn_id, ch)) {
+                    delay_ms = 0;  // we already waited, so we're ready to proceed
+                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                    next_substate = 0;
+                  } else {
+                    LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
+                              conn_id,
+                              ch,
+                              "have reached DataPathActivated. ",
+                              "Continuing to wait...");
+                  }
+                } else {
+                  // CMIS 4.0+ - exit state from DataPathInit is DataPathInitialized
+                  if (qsfp_fsm_ch_cmis_is_state_dpinitialized(
+                          dev_id, conn_id, ch)) {
+                    delay_ms = 0;  // we already waited, so we're ready to proceed
+                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                    next_substate = 0;
+                  } else if (qsfp_fsm_ch_cmis_is_state_dpactivated(
+                                 dev_id, conn_id, ch)) {
+                    delay_ms = 0;  // we already waited, so we're ready to proceed
+                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                    next_substate = 0;
+                    LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
+                              conn_id,
+                              ch,
+                              "have reached DataPathInitialized. ",
+                              "Module may not be cmis 4.0 compliant. Continue ...");
+                  } else {
+                    LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
+                              conn_id,
+                              ch,
+                              "have reached DataPathInitialized. ",
+                              "Continuing to wait...");
+                  }
+                }
+                break;
+              }
+              // CMIS hardware init - nothing to do, advance major state
+              delay_ms = 0;
+              next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+              next_substate = 0;
+              break;
+          }
+          break;  // QSFP_CH_FSM_ST_ENA_CDR
+        case QSFP_CH_FSM_ST_ENA_OPTICAL_TX:
+          // this state enables the optical transmitters for all module types
+
+          qsfp_state[conn_id].sync_ena_opt_tx |= 1 << ch;
+
+          // this check makes sure all channel state machines go through this state
+          // at the same time, starting wich the head channel
+          if (((qsfp_state[conn_id].sync_ena_opt_tx & host_chmask_thisport) !=
+               host_chmask_thisport) ||
+              ((!qsfp_state[conn_id]
+                     .per_ch_fsm[host_head_ch]
+                     .head_1st_ena_opt_tx) &&
+               (ch != host_head_ch))) {
+            break;
+          }
+          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_opt_tx = true;
+
+          switch (next_substate) {
+            case 0:  // step 0 - enable the transmitters
+              // applies to all memory map formats
+              wr_coalesce_err =
+                  qsfp_fsm_ch_enable_optical_tx(dev_id, conn_id, ch, 0);
+              if (wr_coalesce_err == 0) {
+                delay_ms = 0;  // wait in the next substate
+                next_substate++;
+              }
+              break;
+            case 1:  // step 1 - wait for the transmitters to be enabled
+              memmap_format = bf_qsfp_get_memmap_format(conn_id);
+              if ((memmap_format == MMFORMAT_SFF8636) ||
+                  (memmap_format == MMFORMAT_CMIS3P0)) {
+                // CMIS state machine did not comprehend optics readiness until
+                // CMIS4.0. Calculate the delay needed for the optics to stabilize
+                if (qsfp_fsm_ch_first_enable(dev_id, conn_id, ch)) {
+                  delay_ms = 400 + 3100;  // 3.5 sec for Luxtera MZI init
+                  LOG_DEBUG(
+                      "QSFPCSM %2d/%d : First enable after reset. Extra 3.1 sec "
+                      "wait",
+                      conn_id,
+                      ch);
+                } else {
+                  delay_ms = 400;  // ms
+                }
+                next_st = QSFP_CH_FSM_ST_NOTIFY_ENABLED;
+                next_substate = 0;
+                break;
+              } else {  // CMIS 4.0+
+                // wait for tx enable to complete on all data path channels. The
+                // module is supposed to only report the new state when all channels
+                // in the data path have reached it
+                if (qsfp_fsm_ch_cmis_is_state_dpactivated(dev_id, conn_id, ch)) {
+                  delay_ms = 0;  // we already waited, so we're ready to proceed
+                  next_st = QSFP_CH_FSM_ST_NOTIFY_ENABLED;
+                  next_substate = 0;
+                }
+              }
+              break;
+          }
+          break;  // QSFP_CH_FSM_ST_ENA_OPTICAL_TX
+        case QSFP_CH_FSM_ST_NOTIFY_ENABLED:
+          // this state does a check for faults and, if none found, notifies
+          // the driver that the module is ready to bring the link up
+
+          qsfp_state[conn_id].sync_notify_enb |= 1 << ch;
+
+          // this check makes sure all channel state machines go through this state
+          // at the same time, starting wich the head channel
+          if (((qsfp_state[conn_id].sync_notify_enb & host_chmask_thisport) !=
+               host_chmask_thisport) ||
+              ((!qsfp_state[conn_id]
+                     .per_ch_fsm[host_head_ch]
+                     .head_1st_ena_opt_tx) &&
+               (ch != host_head_ch))) {
+            break;
+          }
+          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_opt_tx = true;
+
+          qsfp_fsm_ch_first_enable_clear(dev_id, conn_id, ch);
+          if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+            qsfp_fsm_ch_check_tx_optical_fault(dev_id,
+                                               conn_id,
+                                               ch,
+                                               true /*clear only*/,
+                                               &discard_latched,
+                                               &fault_val);
+            // for some reason, need to read twice to clear latched faults
+            qsfp_fsm_ch_check_tx_optical_fault(dev_id,
+                                               conn_id,
+                                               ch,
+                                               true /*clear only*/,
+                                               &discard_latched,
+                                               &fault_val);
+            qsfp_fsm_ch_check_tx_optical_fault(
+                dev_id, conn_id, ch, false /* log faults*/, &ok, &fault_val);
+            if (!ok) {
+              LOG_DEBUG("QSFP    %2d : ch[%d] : Optical TX FAULT <%02x>. retry..",
+                        conn_id,
+                        ch,
+                        fault_val);
+            }
+          } else {  // tof 2
+            qsfp_fsm_check_tx_faults(conn_id, ch, &ok);
+            if (!ok) {
+              LOG_DEBUG("QSFP    %2d : ch[%d] : FAULT in TX, retry..", conn_id, ch);
+            }
+          }
+
+          if (!ok) {
+            // we had a fault in the tx, take all lanes in the logical port back
+            // through the ch_fsm, starting in ENABLING
+            qsfp_log_port_retry(dev_id, conn_id, ch);
+            next_st = QSFP_CH_FSM_ST_DISABLING;
+          } else {  // ok
+            if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+              // notify driver
+              qsfp_fsm_ch_notify_ready(dev_id, conn_id, ch);
+            }
+            // else the driver stuff is handled in the pm_intf_fsm when it sees
+            // all lanes are ENABLED
+
+            delay_ms = 0;  // ms
+            next_st = QSFP_CH_FSM_ST_ENABLED;
+          }
+          break;
+        case QSFP_CH_FSM_ST_ENABLED:
+          // waiting to start disabling
+          next_substate = 0;
+          break;
+        case QSFP_CH_FSM_ST_DISABLING:
+          // this state notifies the driver that the module is no longer ready,
+          // disables the optical transmitters, and then deinitializes the
+          // data path, if applicable
+          switch (substate) {
+            case 0:  // step 0 - notify driver
+              if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+                qsfp_fsm_ch_notify_not_ready(dev_id, conn_id, ch);
+              }
+              delay_ms = 0;  // no need to wait here
+              next_substate++;
+              break;
+            case 1:  // step 1 - disable optical TX
+              wr_coalesce_err = qsfp_fsm_ch_disable_optical_tx(dev_id, conn_id, ch);
+              if (wr_coalesce_err == 0) {
+                delay_ms = 0;  // wait in the next substate
+                next_substate++;
+              }
+              break;
+            case 2:  // step 2 - wait for transmitters to be disabled
+              memmap_format = bf_qsfp_get_memmap_format(conn_id);
+              if (memmap_format >= MMFORMAT_CMIS4P0) {
+                if (qsfp_fsm_ch_cmis_is_state_dpinitialized(dev_id, conn_id, ch) ||
+                    qsfp_fsm_ch_cmis_is_state_dpdeactivated(dev_id, conn_id, ch)) {
+                  delay_ms = 0;  // we already waited, so we're ready to proceed
+                  next_substate++;
+                }
+              } else {
+                delay_ms = 100;  // wait 100ms for transmitters to be enabled
+                next_substate++;
+              }
+              break;
+            case 3:  // step 3 - deinitialize the data path
+              if (bf_qsfp_is_cmis(conn_id)) {
+                wr_coalesce_err =
+                    qsfp_fsm_ch_cmis_datapath_deinit(dev_id, conn_id, ch);
+                if (wr_coalesce_err == 0) {  // successfully added to queue
+                  delay_ms = 0;              // wait in the next substate
+                  next_substate++;
+                }
+                break;
+              }
+              next_substate++;  // SFF-8636 - nothing to do
+            // fall through
+            case 4:  // step 4 - wait for data path to be deinitialized
+              if (bf_qsfp_is_cmis(conn_id)) {
+                // no pkb support, should be used for real CMIS modules
+                if (!qsfp_fsm_ch_cmis_is_state_dpdeactivated(dev_id, conn_id, ch)) {
+                  break;  // keep waiting
+                }
+              }
+              if (qsfp_state[conn_id].per_ch_fsm[ch].immediate_enable) {
+                next_st = QSFP_CH_FSM_ST_ENABLING;
+              } else {
+                next_st = QSFP_CH_FSM_ST_DISABLED;
+              }
+              delay_ms = 0;  // we already waited, so we're ready to proceed
+              next_substate = 0;
+              break;
+          }
+          break;  // QSFP_CH_FSM_ST_DISABLING
+        case QSFP_CH_FSM_ST_REJECTED:
+          // waiting till port is re-enabled
+          break;
+        default:
+          assert(0);
+          break;
+    }
+    qsfp_fsm_next_run_time_set(
+        &qsfp_state[conn_id].per_ch_fsm[ch].next_fsm_run_time, delay_ms);
+
+    if ((st != next_st) || (substate != next_substate)) {
+        qsfp_state[conn_id].per_ch_fsm[ch].fsm_st = next_st;
+        qsfp_state[conn_id].per_ch_fsm[ch].substate = next_substate;
+        LOG_DEBUG("QSFPCSM %2d/%d : %s.%d --> %s.%d (%dms)",
+                  conn_id,
+                  ch,
+                  qsfp_fsm_ch_en_st_to_str[st],
+                  substate,
+                  qsfp_fsm_ch_en_st_to_str[next_st],
+                  next_substate,
+                  delay_ms);
+    }
+}
+#endif
 
 /*****************************************************************
  * TF1 Implementation.
@@ -3960,11 +4612,11 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
         case QSFP_CH_FSM_ST_ENA_CDR:
             qsfp_fsm_is_cdr_required (dev_id, conn_id, ch, &rx_cdr_required, &tx_cdr_required);
             if (rx_cdr_required && tx_cdr_required) {
-                wr_coalesce_err = qsfp_fsm_ch_enable_cdr (dev_id, conn_id, ch);
+                wr_coalesce_err = qsfp_fsm_ch_sff8636_enable_cdr (dev_id, conn_id, ch);
             } else if (!rx_cdr_required && !tx_cdr_required) {
-                wr_coalesce_err = qsfp_fsm_ch_disable_cdr (dev_id, conn_id, ch);
+                wr_coalesce_err = qsfp_fsm_ch_sff8636_disable_cdr (dev_id, conn_id, ch);
             } else if (!rx_cdr_required) {
-                wr_coalesce_err = qsfp_fsm_ch_disable_rx_cdr (dev_id, conn_id, ch);
+                wr_coalesce_err = qsfp_fsm_ch_sff8636_disable_rx_cdr (dev_id, conn_id, ch);
             } else {
                 wr_coalesce_err = 0;
             }
@@ -4320,7 +4972,7 @@ void qsfp_oper_info_get (int conn_id,
     }
     *present = true;
 
-    rc = bf_fsm_qsfp_rd2 (conn_id, 0, 0, MAX_QSFP_PAGE_SIZE, pg0_lower);
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_LOWER, 0, MAX_QSFP_PAGE_SIZE, pg0_lower);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading page 0 (lower)",
                      conn_id, rc);
@@ -4328,10 +4980,42 @@ void qsfp_oper_info_get (int conn_id,
         return;
     }
 
-    rc = bf_fsm_qsfp_rd2 (conn_id, 0, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE,
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_UPPER, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE,
                          pg0_upper);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading page 0 (upper)",
+                     conn_id, rc);
+        *present = false;
+        return;
+    }
+}
+
+/*****************************************************************
+ *
+ *****************************************************************/
+void qsfp_oper_info_get_pg1 (int conn_id,
+                             bool *present, uint8_t *pg1)
+{
+    bf_status_t rc;
+
+    if (!present || !pg1) {
+        return;
+    }
+    if (qsfp_state[conn_id].qsfp_type !=
+        QSFP_TYP_OPTICAL) {
+        *present = false;
+        return;
+    }
+    if (qsfp_state[conn_id].flat_mem) {
+        *present = false;
+        return;
+    }
+
+    *present = true;
+
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE1, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg1);
+    if (rc) {
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 1",
                      conn_id, rc);
         *present = false;
         return;
@@ -4361,9 +5045,73 @@ void qsfp_oper_info_get_pg3 (int conn_id,
 
     *present = true;
 
-    rc = bf_fsm_qsfp_rd2 (conn_id, 3, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg3);
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE3, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg3);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading page 3",
+                     conn_id, rc);
+        *present = false;
+        return;
+    }
+}
+
+/*****************************************************************
+ * CMIS ONLY
+ *****************************************************************/
+void qsfp_oper_info_get_pg16 (int conn_id,
+                             bool *present, uint8_t *pg16)
+{
+    bf_status_t rc;
+
+    if (!present || !pg16) {
+        return;
+    }
+    if (qsfp_state[conn_id].qsfp_type !=
+        QSFP_TYP_OPTICAL) {
+        *present = false;
+        return;
+    }
+    if (qsfp_state[conn_id].flat_mem) {
+        *present = false;
+        return;
+    }
+
+    *present = true;
+
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE16, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg16);
+    if (rc) {
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 16",
+                     conn_id, rc);
+        *present = false;
+        return;
+    }
+}
+
+/*****************************************************************
+ * CMIS ONLY
+ *****************************************************************/
+void qsfp_oper_info_get_pg17 (int conn_id,
+                             bool *present, uint8_t *pg17)
+{
+    bf_status_t rc;
+
+    if (!present || !pg17) {
+        return;
+    }
+    if (qsfp_state[conn_id].qsfp_type !=
+        QSFP_TYP_OPTICAL) {
+        *present = false;
+        return;
+    }
+    if (qsfp_state[conn_id].flat_mem) {
+        *present = false;
+        return;
+    }
+
+    *present = true;
+
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE17, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg17);
+    if (rc) {
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 17",
                      conn_id, rc);
         *present = false;
         return;

@@ -26,6 +26,10 @@ extern int bf_pltfm_get_qsfp_ctx (struct
                                   qsfp_ctx_t
                                   **qsfp_ctx);
 
+extern int bf_qsfp_get_application0 (int port,
+                             int ApSel,
+                             qsfp_application_info_t *app_info);
+
 static void
 sff_info_show (sff_info_t *info,
                ucli_context_t *uc)
@@ -277,6 +281,324 @@ void dump_qsfp_oper_array (uint8_t *arr)
     aim_printf (&dump_uc->pvs, "\n");
 }
 
+const char* qsfp_fsm_ch_cmis_get_dp_config_error(bf_dev_id_t dev_id,
+        int conn_id,
+        int ch);
+static ucli_status_t qsfp_dump_pg0_info_cmis (
+    ucli_context_t *uc, bool detail)
+{
+    int port, first_port, last_port;
+    uint8_t pg0_lower[128] = {0}, pg0_upper[128] = {0};
+    bool present[66] = {0}, pg1_present[66] = {0}, pg16_present[66] = {0}, pg17_present[66] = {0};
+    uint8_t pg1[128] = {0}, pg16[128] = {0}, pg17[128] = {0};
+    uint8_t intl[66] = {0};
+    uint8_t module_state[66] = {0};
+    uint8_t tx_dis[66] = {0}, rx_dis[66] = {0};
+    uint8_t output_state_rx[66] = {0}, output_state_tx[66] = {0};
+    uint8_t dp_deinit[66] = {0};
+    uint8_t tx_los[66] = {0};
+    uint8_t tx_lol[66] = {0};
+    uint8_t tx_flt[66] = {0};
+    uint8_t tx_eq_flt[66] = {0};
+    uint8_t rx_los[66] = {0};
+    uint8_t rx_lol[66] = {0};
+
+    MemMap_Format memmap_format;
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+    } else {
+        first_port = 1;
+        last_port = bf_qsfp_get_max_qsfp_ports();
+    }
+
+    dump_uc = uc;  // hack
+
+    for (port = first_port; port <= last_port;
+         port++) {
+        int byte;
+        if (port < 1 || port > last_port) {
+            aim_printf (&uc->pvs, "port must be 1-%d\n",
+                        last_port);
+            return 0;
+        }
+
+        qsfp_oper_info_get (port, &present[port],
+                            pg0_lower, pg0_upper);
+
+        if (!present[port]) {
+            continue;
+        }
+
+        // get CMIS major and minor revison.
+        memmap_format = bf_qsfp_get_memmap_format(port);
+
+        if (detail) {
+            aim_printf (&uc->pvs, "\nQSFP %d:\n", port);
+        }
+
+        /* pg1 & pg16 & pg17 start with offset 128. */
+        qsfp_oper_info_get_pg1 (port, &pg1_present[port], pg1);
+        qsfp_oper_info_get_pg16 (port, &pg16_present[port], pg16);
+        qsfp_oper_info_get_pg17 (port, &pg17_present[port], pg17);
+
+        // dump ports QSFP-DD oper state
+        // pg0 lower 3
+        if (1 || pg0_lower[3] & 0xF) {
+            intl[port] = (pg0_lower[3] >> 0) & 1;
+            module_state[port] = (pg0_lower[3] >> 1) & 7;
+
+            if (detail) {
+                const char *module_state_str[] = {
+                    "Reserved",
+                    "ModuleLowPwr",
+                    "ModulePwrUp",
+                    "ModuleReady",
+                    "ModulePwrDn",
+                    "ModuleFault",
+                    "Reserved",
+                    "Reserved",
+                };
+                aim_printf (&uc->pvs,
+                            "Byte 3: [0:0]: %d : IntL\n",
+                            intl[port]);
+                aim_printf (&uc->pvs,
+                            "Byte 3: [3:1]: %d : %s\n",
+                            module_state[port],
+                            module_state_str[module_state[port] % 8]);
+            }
+        }
+
+        // pg16 128, Data Path initialization control
+        if (1 || pg16[128 - 128] & 0xFF) {
+            dp_deinit[port] = (pg16[128 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg16 Byte 128: [7:0]: %02x : DP8-1 Deinit Ctrl\n",
+                            dp_deinit[port]);
+            }
+        }
+        // pg16 130, Tx Output Disable Function
+        if (1 || pg16[130 - 128] & 0xFF) {
+            tx_dis[port] = (pg16[130 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg16 Byte 130: [7:0]: %02x : L-Tx8-1 Disable\n",
+                            tx_dis[port]);
+            }
+        }
+        // pg16 138, Rx Output Disable Function
+        if (1 || pg16[138 - 128] & 0xFF) {
+            rx_dis[port] = (pg16[138 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg16 Byte 138: [7:0]: %02x : L-Rx8-1 Disable\n",
+                            rx_dis[port]);
+            }
+        }
+
+        // pg17 128-131, Data Path States.
+        if (1) {
+            if (detail) {
+                const char *dp_stat_str[16 + 1] = {
+                    "Reserved",
+                    "DPDeactivated(or unused LN)",
+                    "DPInit",
+                    "DPDeinit",
+                    "DPActivated",
+                    "DPTxTurnOn",
+                    "DPTxTurnOff",
+                    "DPInitialized",
+                    "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
+                };
+
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 128: [7:0]: %01x %01x : DP STAT LN2-1 : %s : %s\n",
+                            (pg17[128 - 128] >> 4) & 0xF, (pg17[128 - 128] >> 0) & 0xF,
+                            dp_stat_str[((pg17[128 - 128] >> 4) & 0xF) % 16],
+                            dp_stat_str[((pg17[128 - 128] >> 0) & 0xF) % 16]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 129: [7:0]: %01x %01x : DP STAT LN4-3 : %s : %s\n",
+                            (pg17[129 - 128] >> 4) & 0xF, (pg17[129 - 128] >> 0) & 0xF,
+                            dp_stat_str[((pg17[129 - 128] >> 4) & 0xF) % 16],
+                            dp_stat_str[((pg17[129 - 128] >> 0) & 0xF) % 16]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 128: [7:0]: %01x %01x : DP STAT LN6-5 : %s : %s\n",
+                            (pg17[130 - 128] >> 4) & 0xF, (pg17[130 - 128] >> 0) & 0xF,
+                            dp_stat_str[((pg17[130 - 128] >> 4) & 0xF) % 16],
+                            dp_stat_str[((pg17[130 - 128] >> 0) & 0xF) % 16]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 131: [7:0]: %01x %01x : DP STAT LN8-7 : %s : %s\n",
+                            (pg17[131 - 128] >> 4) & 0xF, (pg17[131 - 128] >> 0) & 0xF,
+                            dp_stat_str[((pg17[131 - 128] >> 4) & 0xF) % 16],
+                            dp_stat_str[((pg17[131 - 128] >> 0) & 0xF) % 16]);
+
+            }
+        }
+        // pg17 132-133, Lane Output Status for CMIS 5.0 or later.
+        if (1 && (memmap_format >= MMFORMAT_CMIS5P0)) {
+            output_state_rx[port] = (pg17[132 - 128] >> 0) & 0xFF;
+            output_state_tx[port] = (pg17[133 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 132: [7:0]: %02x : Rx8-1 Output STAT\n",
+                            output_state_rx[port]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 133: [7:0]: %02x : Tx8-1 Output STAT\n",
+                            output_state_tx[port]);
+            }
+        }
+        //pg17 134-153, Lane-specific Flags
+        if (1) {
+            tx_flt[port] = (pg17[135 - 128] >> 0) & 0xFF;
+            tx_los[port] = (pg17[136 - 128] >> 0) & 0xFF;
+            tx_lol[port] = (pg17[137 - 128] >> 0) & 0xFF;
+            tx_eq_flt[port] = (pg17[138 - 128] >> 0) & 0xFF;
+            rx_los[port] = (pg17[147 - 128] >> 0) & 0xFF;;
+            rx_lol[port] = (pg17[148 - 128] >> 0) & 0xFF;
+
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 135: [7:0]: %02x : L-Tx8-1 Fault\n",
+                            tx_flt[port]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 136: [7:0]: %02x : L-Tx8-1 LOS\n",
+                            tx_los[port]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 137: [7:0]: %02x : L-Tx8-1 LOL\n",
+                            tx_lol[port]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 138: [7:0]: %02x : L-Tx4-1 Adapt EQ Fault\n",
+                            tx_eq_flt[port]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 147: [7:0]: %02x : L-Rx8-1 LOS\n",
+                            rx_los[port]);
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 148: [7:0]: %02x : L-Rx8-1 LOL\n",
+                            rx_lol[port]);
+            }
+        }
+
+        // pg17 202, DP Config State
+        if (1 || pg17[202 - 128] & 0xFF) {
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 202: [7:0]: %01x %01x : DP Conf Stat LN2-1 : %s : %s\n",
+                            (pg17[202 - 128] >> 4) & 0xF, (pg17[202 - 128] >> 0) & 0xF,
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 1),
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 0));
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 203: [7:0]: %01x %01x : DP Conf Stat LN4-3 : %s : %s\n",
+                            (pg17[203 - 128] >> 4) & 0xF, (pg17[203 - 128] >> 0) & 0xF,
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 3),
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 2));
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 204: [7:0]: %01x %01x : DP Conf Stat LN6-5 : %s : %s\n",
+                            (pg17[204 - 128] >> 4) & 0xF, (pg17[204 - 128] >> 0) & 0xF,
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 5),
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 4));
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 205: [7:0]: %01x %01x : DP Conf Stat LN8-7 : %s : %s\n",
+                            (pg17[205 - 128] >> 4) & 0xF, (pg17[205 - 128] >> 0) & 0xF,
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 7),
+                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 6));
+            }
+        }
+
+        if (detail) {
+            aim_printf (&uc->pvs, "\nPage  0:\n");
+            for (byte = 0; byte < 128; byte++) {
+                if ((byte % 16) == 0) {
+                    aim_printf (&uc->pvs, "\n%3d : ", byte);
+                }
+                aim_printf (&uc->pvs, "%02x ", pg0_lower[byte]);
+            }
+            for (byte = 0; byte < 128; byte++) {
+                if ((byte % 16) == 0) {
+                    aim_printf (&uc->pvs, "\n%3d : ", 128 + byte);
+                }
+                aim_printf (&uc->pvs, "%02x ", pg0_upper[byte]);
+            }
+            aim_printf (&uc->pvs, "\n");
+            aim_printf (&uc->pvs, "\nPage  1:\n");
+            for (byte = 0; byte < 128; byte++) {
+                if ((byte % 16) == 0) {
+                    aim_printf (&uc->pvs, "\n%3d : ", 128 + byte);
+                }
+                aim_printf (&uc->pvs, "%02x ", pg1[byte]);
+            }
+            aim_printf (&uc->pvs, "\n");
+            aim_printf (&uc->pvs, "\nPage 16:\n");
+            for (byte = 0; byte < 128; byte++) {
+                if ((byte % 16) == 0) {
+                    aim_printf (&uc->pvs, "\n%3d : ", 128 + byte);
+                }
+                aim_printf (&uc->pvs, "%02x ", pg16[byte]);
+            }
+            aim_printf (&uc->pvs, "\n");
+            aim_printf (&uc->pvs, "\nPage 17:\n");
+            for (byte = 0; byte < 128; byte++) {
+                if ((byte % 16) == 0) {
+                    aim_printf (&uc->pvs, "\n%3d : ", 128 + byte);
+                }
+                aim_printf (&uc->pvs, "%02x ", pg17[byte]);
+            }
+            aim_printf (&uc->pvs, "\n");
+        }
+    }
+    aim_printf (&uc->pvs,
+                "                                  :                            1 "
+                " 1  1  1  1  1  1  1  1  1  2  2  2  2  2  2  2  2  2  2  3  3  "
+                "3  3  3  3  3  3  3  3  4  4  4  4  4  4  4  4  4  4  5  5  5  5 "
+                " 5  5  5  5  5  5  6  6  6  6  6  6\n");
+    aim_printf (&uc->pvs,
+                "Byte Bit(s) Field                 : 1  2  3  4  5  6  7  8  9  0 "
+                " 1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  "
+                "2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3 "
+                " 4  5  6  7  8  9  0  1  2  3  4  5\n");
+    aim_printf (&uc->pvs,
+                "                                  "
+                ":---+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+"
+                "--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--"
+                "+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-"
+                "-+\n");
+    aim_printf (&uc->pvs, "  3: [0:0]: IntL                  : ");
+    dump_qsfp_oper_array(intl);
+    aim_printf (&uc->pvs, "  3: [3:1]: Module STAT           : ");
+    dump_qsfp_oper_array(module_state);
+
+    //pg17
+    aim_printf (&uc->pvs, "132: [7:0]: Rx8-1 Output STAT     : ");
+    dump_qsfp_oper_array (output_state_rx);
+    aim_printf (&uc->pvs, "133: [7:0]: Tx8-1 Output STAT     : ");
+    dump_qsfp_oper_array (output_state_tx);
+    aim_printf (&uc->pvs, "135: [7:0]: L-Tx8-1 Fault         : ");
+    dump_qsfp_oper_array (tx_flt);
+    aim_printf (&uc->pvs, "136: [7:0]: L-Tx8-1 LOS           : ");
+    dump_qsfp_oper_array (tx_los);
+    aim_printf (&uc->pvs, "137: [7:0]: L-Tx8-1 LOL           : ");
+    dump_qsfp_oper_array (tx_lol);
+    aim_printf (&uc->pvs, "138: [7:0]: L-Tx8-1 Adapt EQ Fault: ");
+    dump_qsfp_oper_array (tx_eq_flt);
+    aim_printf (&uc->pvs, "147: [7:0]: L-Rx8-1 LOS           : ");
+    dump_qsfp_oper_array (rx_los);
+    aim_printf (&uc->pvs, "148: [7:0]: L-Rx8-1 LOL           : ");
+    dump_qsfp_oper_array (rx_lol);
+
+    //pg16
+    aim_printf (&uc->pvs, "128: [7:0]: DP8-1 Deinit Ctrl     : ");
+    dump_qsfp_oper_array (dp_deinit);
+    aim_printf (&uc->pvs, "130: [7:0]: Tx8-1 Disable         : ");
+    dump_qsfp_oper_array (tx_dis);
+    aim_printf (&uc->pvs, "138: [7:0]: Rx8-1 Disable         : ");
+    dump_qsfp_oper_array (rx_dis);
+
+    /* More Control/Status here. */
+
+    return 0;
+}
+
 static ucli_status_t qsfp_dump_pg0_info (
     ucli_context_t *uc, bool detail)
 {
@@ -321,7 +643,11 @@ static ucli_status_t qsfp_dump_pg0_info (
                         last_port);
             return 0;
         }
-
+        /* by Hang Tsi, 2024/02/27. */
+        if (bf_qsfp_is_cmis (port)) {
+            qsfp_dump_pg0_info_cmis (uc, detail);
+            return 0;
+        }
         qsfp_oper_info_get (port, &present[port],
                             pg0_lower, pg0_upper);
 
@@ -995,7 +1321,6 @@ bf_pltfm_ucli_ucli__qsfp_get_ddm (ucli_context_t
 
     return 0;
 }
-
 
 static void qsfp_type_to_display_get (
     bf_pltfm_qsfp_type_t qsfp_type,
@@ -2343,7 +2668,7 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
     } else {
         for (int cur_app = 0; cur_app < app_count;
              cur_app++) {
-            bf_qsfp_get_application (port, cur_app + 1,
+            bf_qsfp_get_application0 (port, cur_app + 1,
                                      &app_info[cur_app]);
             if ((app_info[cur_app].host_if_id == 0) &&
                 (app_info[cur_app].host_lane_cnt == 0)) {

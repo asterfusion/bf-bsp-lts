@@ -273,7 +273,7 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         }
         // if == -100.0, means no DPU-2 installed
         if (t.tmp6 != -100.0) {
-            aim_printf (&uc->pvs, "tmp6   %.1f C   \"%s\"\n",
+            aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
                         t.tmp6,"DPU-2 Junction");
             aim_printf (&uc->pvs, "tmp7    %.1f C   \"%s\"\n",
                         t.tmp7, "DPU-2 Ambient");
@@ -282,9 +282,15 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
                     t.tmp8, "BF Junction <- from BMC");
         aim_printf (&uc->pvs, "tmp9    %.1f C   \"%s\"\n",
                     t.tmp9, "BF Ambient <- from BMC");
-        aim_printf (&uc->pvs, "tmp10    %.1f C   \"%s\"\n",
+        aim_printf (&uc->pvs, "tmp10   %.1f C   \"%s\"\n",
                     t.tmp10, "Fan 2");
-
+        /* temp 11 and temp 12 come from switch the value same with command "tofino_tmp_show". */
+        bf_pltfm_switch_temperature_info_t stemp = {0, 0};
+        bf_pltfm_chss_mgmt_switch_temperature_get (0, 0, &stemp);
+        aim_printf (&uc->pvs, "tmp11   %.1f C   \"%s\"\n",
+                    stemp.main_sensor / 1000.0, "Tofino Main Temp Sensor <- from tofino");
+        aim_printf (&uc->pvs, "tmp12   %.1f C   \"%s\"\n",
+                    stemp.remote_sensor / 1000.0, "Tofino Remote Temp Sensor <- from tofino");
         /* Added more sensors. */
     } else if (platform_type_equal (AFN_X312PT)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",

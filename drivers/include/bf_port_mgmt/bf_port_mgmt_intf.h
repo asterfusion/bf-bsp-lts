@@ -481,9 +481,14 @@ void qsfp_oper_info_get (int conn_id,
                          bool *present,
                          uint8_t *pg0_lower,
                          uint8_t *pg0_upper);
-
+void qsfp_oper_info_get_pg1 (int conn_id,
+                             bool *present, uint8_t *pg3);
 void qsfp_oper_info_get_pg3 (int conn_id,
                              bool *present, uint8_t *pg3);
+void qsfp_oper_info_get_pg16 (int conn_id,
+                             bool *present, uint8_t *pg16);
+void qsfp_oper_info_get_pg17 (int conn_id,
+                             bool *present, uint8_t *pg17);
 
 void bf_pltfm_pm_qsfp_simulate_all_removed (void);
 

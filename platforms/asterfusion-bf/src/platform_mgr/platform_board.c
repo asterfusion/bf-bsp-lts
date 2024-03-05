@@ -608,18 +608,21 @@ bf_pltfm_status_t platform_bd_init(void) {
     char fname[512] = {0};
     char *pathvar;
 
-    pathvar = getenv("SDE_INSTALL");
-    if (!pathvar) {
-        /* On SONiC, the syncd container has no env var called SDE_INSTALL.
-           Instead, it is fixed to use the /opt/bfn/install as SDE_INSTALL. */
-       pathvar = "/opt/bfn/install";
-    }
     if (platform_type_equal(AFN_X732QT)) {
         if (platform_subtype_equal(V1P0)) {
-            snprintf(fname,
-                     sizeof(fname),
-                     "%s/share/platforms/board-maps/asterfusion/pltfm_bd_map_x732q_v1.0.json",
-                     pathvar);
+            pathvar = getenv("SDE_INSTALL");
+            if (!pathvar) {
+                /* On SONiC, the syncd container has no env var called SDE_INSTALL.
+                   Instead, it is fixed to use the /opt/bfn/install as SDE_INSTALL. */
+                snprintf(fname,
+                         sizeof(fname),
+                         "/opt/bfn/install/share2/platforms/board-maps/asterfusion/pltfm_bd_map_x732q_v1.0.json");
+            } else {
+                snprintf(fname,
+                         sizeof(fname),
+                         "%s/share/platforms/board-maps/asterfusion/pltfm_bd_map_x732q_v1.0.json",
+                         pathvar);
+            }
         }
         LOG_DEBUG("Loading %s ...\n", fname);
         if (pltfm_create_bd_map(fname) != 0) {

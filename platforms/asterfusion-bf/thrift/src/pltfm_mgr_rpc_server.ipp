@@ -324,18 +324,12 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
       throw iop;
     }
 
-    for (i = 0; i < 128; i++) {
+    // Page A0h
+    for (i = 0; i < 256; i++) {
       sprintf(&(str[i * 2]), "%02x", buf[i]);
     }
-    for (i = 128; i < 256; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i]);
-    }
-
-    /* Must cached more pages by bsp. */
-    for (i = 256; i < 384; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i]);
-    }
-    for (i = 384; i < 512; i++) {
+    // Page A2h
+    for (i = 256; i < 512; i++) {
       sprintf(&(str[i * 2]), "%02x", buf[i]);
     }
 
@@ -349,9 +343,9 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
   void pltfm_mgr_qsfp_info_get(std::string &_return,
                                const pltfm_mgr_port_num_t port_num) {
     bf_pltfm_status_t sts = BF_SUCCESS;
-    uint8_t buf[384] = {0};
+    uint8_t buf[6272] = {0};
     uint32_t i;
-    char str[1024] = {0};
+    char str[12544] = {0};
 
     if (!bf_qsfp_is_present (port_num)) {
         InvalidPltfmMgrOperation iop;
@@ -371,25 +365,55 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
       iop.code = sts;
       throw iop;
     }
-    sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE3, (buf + 256));
+    sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE1, (buf + 256));
     if (sts != BF_SUCCESS) {
       InvalidPltfmMgrOperation iop;
       iop.code = sts;
       throw iop;
     }
+    if (bf_qsfp_is_cmis(port_num)) {
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE2, (buf + 384));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      // Banked Pages
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE17, (buf + 2304));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE18, (buf + 2432));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE19, (buf + 2560));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE47, (buf + 6144));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+    } else {
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE3, (buf + 512));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+    }
 
-    for (i = 0; i < 128; i++) {
+    for (i = 0; i < 6272; i++) {
       sprintf(&(str[i * 2]), "%02x", buf[i]);
-    }
-    for (i = 128; i < 256; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i]);
-    }
-    /* Must cached more pages by bsp. */
-    for (i = 256; i < 384; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i]);
-    }
-    for (i = 384; i < 512; i++) {
-      sprintf(&(str[i * 2]), "%02x", buf[i - 128]);
     }
 
     _return.assign((const char *)(str), sizeof(str));

@@ -74,6 +74,7 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src);
 
 #define HAVE_ONLP
 #if defined(HAVE_ONLP)
+extern int bf_qsfp_update_cache2 (int port);
 #define MAX_LEN 256
 #define ONLP_LOG_SFP_PRES_PATH           LOG_DIR_PREFIX"/sfp_%s"
 #define ONLP_LOG_QSFP_PRES_PATH          LOG_DIR_PREFIX"/qsfp_%s"
@@ -452,6 +453,9 @@ static void bf_pltfm_onlp_mntr_transceiver()
             }
             bf_qsfp_get_module_sensor_info (i, &trans);
             bf_qsfp_get_chan_sensor_data (i, &chnl[0]);
+            /* More cache should be updated for both CMIS or SFF-8636. */
+            bf_qsfp_update_cache2 (i);
+
             if (flags & AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG) {
                 bf_qsfp_print_ddm(i, &trans, &chnl[0]);
                 //double mod_temp = bf_qsfp_get_temp_sensor (i);
@@ -611,7 +615,7 @@ static void bf_pltfm_onlp_mntr_tmp ()
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp4);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp5);
             bf_pltfm_chss_mgmt_onlp_temp (id ++, (float)t.tmp6);
-        } 
+        }
     }
 }
 
