@@ -1312,6 +1312,14 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
         temp_fan_data.F[j+1].direction   = (p_src[k] & 0x02) ? 1 : 2;
         temp_fan_data.F[j+1].front_speed = p_src[k + 3] + (p_src[k + 4] << 8);
 
+        if (temp_fan_data.F[j+0].present != bmc_fan_data.F[j+0].present) {
+            if (temp_fan_data.F[j+0].present) {
+                LOG_WARNING ("Fan tray %d present \n", temp_fan_data.F[j+0].group);
+            } else {
+                LOG_WARNING ("Fan tray %d not present \n", temp_fan_data.F[j+0].group);
+            }
+        }
+
         if ((temp_fan_data.F[j+0].present == true) &&
             (bmc_fan_data.F[j+0].present == false)) {
             need_read_sn[j+0] = true;
@@ -1323,7 +1331,14 @@ __bf_pltfm_chss_mgmt_bmc_data_fan_decode__ (uint8_t* p_src)
                 uint8_t rd_buf[128];
                 int ret = BF_PLTFM_COMM_FAILED;
 
-                wr_buf[0] = i + 1;
+                /* Fan group X contains fan (2X-1) and (2X) on X564P-T */
+                /* Fan group X contains fan (X) and (X+fan_group_count) on X308P-T, X532P-T and X732P-T */
+                if (platform_type_equal (AFN_X564PT)) {
+                    wr_buf[0] = i * bf_pltfm_mgr_ctx()->fan_group_count + 1;
+                } else {
+                    wr_buf[0] = i + 1;
+                }
+
                 wr_buf[1] = BMC_SUB2_SN;
                 ret = bf_pltfm_bmc_uart_write_read (
                         BMC_CMD_FAN_GET, wr_buf, 2, rd_buf, (128 - 1),

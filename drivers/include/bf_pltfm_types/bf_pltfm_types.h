@@ -8,16 +8,17 @@
 #ifndef _BF_PLTFM_TYPES_H
 #define _BF_PLTFM_TYPES_H
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
 #define __USE_GNU /* See feature_test_macros(7) */
 #include <pthread.h>
-
+#include <sys/time.h>
+#include <sys/stat.h>
 #ifndef EQ
 #define EQ(a, b) (!(((a) > (b)) - ((a) < (b))))
 #endif
@@ -27,11 +28,14 @@
 #ifndef LT
 #define LT(a, b) ((a) < (b))
 #endif
+#ifndef ARRAY_LENGTH
+#define ARRAY_LENGTH(a) (int)(sizeof(a)/sizeof((a)[0]))
+#endif
 
-/* Mainline SDE version used by bsp, set 9.5.0 as default.
+/* Mainline SDE version used by bsp, set 9.13.0 as default.
  * Valid value in [891,900,910,930,950,970,990,9110,9120,9130 ...].
  * A sub version start from a given mainline is valid too, such as 931,952,971, etc. */
-#define SDE_VERSION 950
+#define SDE_VERSION 9130
 #define SDE_VERSION_EQ(key) \
         EQ(SDE_VERSION, (key))
 
@@ -143,6 +147,43 @@ extern "C" {
   bf_sys_log_and_trace(BF_MOD_PLTFM, BF_LOG_WARN, __VA_ARGS__)
 #define LOG_DEBUG(...) \
   bf_sys_log_and_trace(BF_MOD_PLTFM, BF_LOG_DBG, __VA_ARGS__)
+/* Considering mounting LOG_DIR_PREFIX to ramfs or tmpfs.
+ * by tsihang, 2022-06-02. */
+#define LOG_DIR_PREFIX  "/var/asterfusion"
+#define BF_DRIVERS_LOG_EXT LOG_DIR_PREFIX"/bf_drivers_ext.log"
+#define AF_LOG_MSG_SIZE 512
+#define AF_LOG_EXT(...)                                                         \
+    do {                                                                        \
+        if (bf_pltfm_mgr_ctx()->extended_log_hdl == NULL) {                     \
+            bf_pltfm_mgr_ctx()->extended_log_hdl = fopen (BF_DRIVERS_LOG_EXT, "a+");\
+        }                                                                       \
+        if (bf_pltfm_mgr_ctx()->extended_log_hdl) {                             \
+            fflush (bf_pltfm_mgr_ctx()->extended_log_hdl);                      \
+            char        ____info[AF_LOG_MSG_SIZE] = {0};                        \
+            char        ____tbuf[256] = {0};                                    \
+            char        ____ubuf[256] = {0};                                    \
+            int         ____size = 0;                                           \
+            struct tm * ____loctime;                                            \
+            struct timeval __tm__;                                              \
+            gettimeofday(&__tm__, NULL);                                        \
+            ____loctime = localtime(&__tm__.tv_sec);                            \
+            strftime(____tbuf, sizeof(____tbuf), "%a %b %d", ____loctime);      \
+            strftime(____ubuf, sizeof(____ubuf), "%T\n", ____loctime);          \
+            ____ubuf[strlen(____ubuf) - 1] = 0;                                 \
+            ____size += snprintf(____info + ____size, AF_LOG_MSG_SIZE,          \
+                        "%s %s.%06d ", ____tbuf, ____ubuf, (int)__tm__.tv_usec);\
+            ____size += snprintf(____info + ____size, AF_LOG_MSG_SIZE,          \
+                                        " [AF_LOG_EXT] : ");                    \
+            ____size += snprintf(____info + ____size, AF_LOG_MSG_SIZE,          \
+                            ##__VA_ARGS__);                                     \
+            if (____size == AF_LOG_MSG_SIZE) {                                  \
+                ____info[AF_LOG_MSG_SIZE - 1] = '\0';                           \
+            }                                                                   \
+            fprintf (bf_pltfm_mgr_ctx()->extended_log_hdl, "%s\n", ____info);   \
+            fflush (bf_pltfm_mgr_ctx()->extended_log_hdl);                      \
+        }                                                                       \
+    } while (0);/*\
+    //LOG_WARNING(__VA_ARGS__);*/
 
 #define MAX_CHAN_PER_CONNECTOR 8
 
@@ -159,40 +200,20 @@ extern "C" {
 
 typedef enum  {
     INVALID_TYPE = 0xFF,
-    /*****************************************************/
-    /************* Will be removed later. ****************/
-    /*****************************************************/
-    X564P = 1,
-    X532P,
-    X308P,
-    X312P,
-    HC,
-    X732Q,
-
     /*****************************************************
      * Product Name powered by Asterfusion Networks.
      *****************************************************/
-    AFN_X732QT = X732Q,
-    AFN_X564PT = X564P,
-    AFN_X532PT = X532P,
-    AFN_X308PT = X308P,
-    AFN_X312PT = X312P,
-    AFN_HC36Y24C = HC,
+    AFN_X732QT = 1,
+    AFN_X564PT = 2,
+    AFN_X532PT = 3,
+    AFN_X308PT = 4,
+    AFN_X312PT = 7,
+    AFN_HC36Y24C = 8,
 } bf_pltfm_type;
 
 #define mkver(a,b) (((a) & 0x0F) << 4 | ((b) & 0x0F))
 typedef enum {
     INVALID_SUBTYPE = 0xFF,
-
-    /*****************************************************/
-    /************* Will be removed later. ****************/
-    /*****************************************************/
-    v1dot0 = mkver (1, 0), v1dot1 = 0x11, v1dot2 = 0x12, v1dot3 = 0x13, v1dot4 = 0x14,
-    v2dot0 = 0x20, v2dot1 = 0x21, v2dot2 = 0x22, v2dot3 = 0x23, v2dot4 = 0x24,
-    v3dot0 = 0x30, v3dot1 = 0x31, v3dot2 = 0x32, v3dot3 = 0x33, v3dot4 = 0x34,
-    v4dot0 = 0x40,
-    v5dot0 = 0x50,
-
     /*****************************************************
      * Subversion for BD.
      *****************************************************/
@@ -222,34 +243,6 @@ typedef enum {
  * Identifies the type of the board
  */
 typedef enum bf_pltfm_board_id_e {
-    /*****************************************************/
-    /************* Will be removed later. ****************/
-    /*****************************************************/
-    BF_PLTFM_BD_ID_X564PT_V1DOT0 = 0x5640,
-    BF_PLTFM_BD_ID_X564PT_V1DOT1 = 0x5641,
-    BF_PLTFM_BD_ID_X564PT_V1DOT2 = 0x5642,
-    BF_PLTFM_BD_ID_X564PT_V2DOT0 = 0x5643,
-    BF_PLTFM_BD_ID_X532PT_V1DOT0 = 0x5320,
-    BF_PLTFM_BD_ID_X532PT_V1DOT1 = 0x5321,
-    BF_PLTFM_BD_ID_X532PT_V2DOT0 = 0x5322,
-    BF_PLTFM_BD_ID_X532PT_V3DOT0 = 0x5323,
-    BF_PLTFM_BD_ID_X308PT_V1DOT0 = 0x3080,
-    BF_PLTFM_BD_ID_X308PT_V1DOT1 = 0x3081,
-    BF_PLTFM_BD_ID_X308PT_V2DOT0 = BF_PLTFM_BD_ID_X308PT_V1DOT1, /* Announced as HW V2 to customer. */
-    BF_PLTFM_BD_ID_X308PT_V3DOT0 = 0x3083,  /* Announced as HW v3.0 with PTP hwcomp. */
-    BF_PLTFM_BD_ID_X312PT_V1DOT0 = 0x3120,
-    BF_PLTFM_BD_ID_X312PT_V1DOT1 = BF_PLTFM_BD_ID_X312PT_V1DOT0,
-    BF_PLTFM_BD_ID_X312PT_V1DOT2 = 0x3122,
-    BF_PLTFM_BD_ID_X312PT_V1DOT3 = 0x3123,
-    BF_PLTFM_BD_ID_X312PT_V2DOT0 = BF_PLTFM_BD_ID_X312PT_V1DOT2,
-    BF_PLTFM_BD_ID_X312PT_V3DOT0 = BF_PLTFM_BD_ID_X312PT_V1DOT3,
-    BF_PLTFM_BD_ID_X312PT_V4DOT0 = 0x3124,
-    BF_PLTFM_BD_ID_X312PT_V5DOT0 = 0x3125,
-    BF_PLTFM_BD_ID_HC36Y24C_V1DOT0 = 0x2400,
-    BF_PLTFM_BD_ID_HC36Y24C_V1DOT1 = 0x2401,
-    BF_PLTFM_BD_ID_X732QT_V1DOT0 = 0x7320,  /* Since Dec 2023. */
-
-
     /*****************************************************
      * Board ID enum powered by Asterfusion Networks.
      *****************************************************/
@@ -405,6 +398,12 @@ typedef struct pltfm_mgr_info_s {
 #define AF_PLAT_MNTR_DPU1_INSTALLED         (1 << 20)
 #define AF_PLAT_MNTR_DPU2_INSTALLED         (1 << 21)
 #define AF_PLAT_MNTR_PTPX_INSTALLED         (1 << 22)
+#define AF_PLAT_CTRL_HA_MODE                (1 << 23)// current for x312p-t only
+
+#define AF_PLAT_CTRL_CP2112_RELAX   (1 << 28)   /* current for x732q-t only. */
+#define AF_PLAT_CTRL_I2C_RELAX      (1 << 29)   /* current for x312p-t only.
+                                                 * Temperaly relax i2c for platforms with only one i2c
+                                                 * but working for both modules/BMC IO. */
 #define AF_PLAT_CTRL_BMC_UART       (1 << 30)   /* Access BMC through UART, otherwise through i2c. */
 #define AF_PLAT_CTRL_CPLD_CP2112    (1 << 31)   /* Access CPLD through CP2112, otherwise through i2c. */
     uint32_t flags;
@@ -423,6 +422,9 @@ typedef struct pltfm_mgr_info_s {
     uint32_t cpld_count;
     /* Maximum available DPUs, by tsihang, 2023/11/09. */
     uint32_t dpu_count;
+
+    /* For platforms and module/lane flags with any critical situations. */
+    FILE *extended_log_hdl;
 } pltfm_mgr_info_t;
 
 extern pltfm_mgr_info_t *bf_pltfm_mgr_ctx();

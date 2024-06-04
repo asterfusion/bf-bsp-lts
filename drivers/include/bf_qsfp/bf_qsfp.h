@@ -28,26 +28,39 @@ extern "C" {
 
 /* After an optical transceiver plugged-in, by default the laser is off
  * till user performs port-enb on it. While this macro allows to turn on
- * laser without performing port-enb. This feature is widely used for cases
- * that user wants a faster linkup to remote.
+ * laser without performing port-enb. This feature allow faster link to
+ * remote for some kind of cases. Also, this feature can be implemented
+ * to a transceiver as well by clearing flags BF_TRANS_CTRLMASK_LASER_OFF
+ * in /etc/transceiver-cases.conf if you know its Vendor and PN.
+ * .
  * by tsihang, 2023/09/01. */
 //#define DEFAULT_LASER_ON
 
-/* Control word, added by tsihang for /etc/transceiver-cases.conf, 2023/05/05. */
-#define BF_TRANS_CTRLMASK_RX_CDR_OFF        (1 << 0)
-#define BF_TRANS_CTRLMASK_TX_CDR_OFF        (1 << 1)
-#define BF_TRANS_CTRLMASK_CDR_OFF           (BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
-#define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 2) /* Laser keeps off till user enable it. */
-#define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)
+/* Control word added by tsihang for /etc/transceiver-cases.conf, 2023/05/05. */
+#define BF_TRANS_CTRLMASK_RX_CDR_OFF            (1 << 0)
+#define BF_TRANS_CTRLMASK_TX_CDR_OFF            (1 << 1)
+#define BF_TRANS_CTRLMASK_CDR_OFF               (BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF) /* PFXONLV1-1418 with QSFP P/N TSQ885S101E1 from Teraspek. */
+#define BF_TRANS_CTRLMASK_LASER_OFF             (1 << 2) /* Keep laser off until user enable it. */
+#define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT     (1 << 7)
+#define BF_TRANS_CTRLMASK_IGNORE_RX_LOS         (1 << 16) // start here for tof2 QSFP-DD
+#define BF_TRANS_CTRLMASK_IGNORE_RX_LOL         (1 << 17)
+#define BF_TRANS_CTRLMASK_FSM_LOG_ENA           (1 << 18) // More detailed log for a given port, disabled by default and
+// enabled via command "bf-sde> [qsfp|sfp] ctrlmask-set 0x4****". This feature helps to reduce log in bf_drivers.log.
+// Any new logic implementation should consider of this.
+#define BF_TRANS_CTRLMASK_FORCELY_APPLY_DPINIT  (1 << 24) // The bit starts from here should never been seen in /etc/transceiver-cases.conf.
+#define BF_TRANS_CTRLMASK_IGNORE_DPAPPLY_STATE  (1 << 25)
+#define BF_TRANS_CTRLMASK_REQUIRE_HIGH_PWR_INIT (1 << 26)
 
-/* State added by tsihang, 2023/08/31.
+/* Cached state for [q]sfp_info[port].trans_state.
  * To be clarified, the belowing runtime state will not be updated
- * if forcely configured via writing through its register by i2c. */
-#define BF_TRANS_STATE_CDR_ON                (1 << 0)
-#define BF_TRANS_STATE_LASER_ON              (1 << 1)
-#define BF_TRANS_STATE_DETECTED              (1 << 2)
-#define BF_TRANS_STATE_SOFT_REMOVED          (1 << 3)
-#define BF_TRANS_STATE_RESET                 (1 << 4)
+ * if forcely configured via writing through its register by i2c.
+ * added by tsihang, 2023/08/31 */
+#define BF_TRANS_STATE_RX_CDR_ON             (1 << 0)
+#define BF_TRANS_STATE_TX_CDR_ON             (1 << 1)
+#define BF_TRANS_STATE_LASER_ON              (1 << 2)
+#define BF_TRANS_STATE_DETECTED              (1 << 3)
+#define BF_TRANS_STATE_SOFT_REMOVED          (1 << 4)
+#define BF_TRANS_STATE_RESET                 (1 << 5)
 
 #define QSFP_RXLOS_DEBOUNCE_DFLT \
   0  // Can modify depending on if debouncing is required. This value can be set
@@ -404,6 +417,7 @@ int bf_qsfp_cdr_disable (int port,
                         int channel_mask, bool disable);
 /* deactivate all data paths */
 int bf_qsfp_dp_deactivate_all (int port);
+int bf_qsfp_dp_activate_all (int port);
 /* reset or unreset a QSFP module */
 int bf_qsfp_reset (int port, bool reset);
 /* return the requested media type string */
@@ -449,7 +463,7 @@ bool bf_qsfp_is_lol_required (int port);
 const char *bf_qsfp_get_conn_type_string (
     int port);
 bool qsfp_needs_hi_pwr_init (int conn_id);
-
+int bf_qsfp_is_fsm_logging (int port);
 bool bf_qsfp_is_cmis (int port);
 bool bf_qsfp_is_sff8636 (int port);
 MemMap_Format bf_qsfp_get_memmap_format (
@@ -474,10 +488,15 @@ int bf_qsfp_get_application (int port,
 int bf_cmis_get_datapath_state (int port,
                                 int ch,
                                 DataPath_State *datapath_state);
+const char* bf_cmis_get_datapath_state_str(int port,
+        int ch,
+        DataPath_State state);
 int bf_cmis_get_datapath_config_status (
     int port, int ch,
     DataPath_Config_Status *datapath_config_status);
-
+const char* bf_cmis_get_datapath_config_state_str(int port,
+        int ch,
+        DataPath_Config_Status state);
 // Generic applies to all platforms
 void bf_qsfp_soft_removal_set (int port,
                                bool removed);
@@ -505,16 +524,22 @@ int bf_cmis_get_Application_media_info (int port,
                                         int *media_firstLane,
                                         int *media_nLanes);
 int bf_cmis_get_module_state (int port,
-                              Module_State *module_state);
+                              Module_State *module_state,
+                              bool *intl_deasserted);
+const char* bf_cmis_get_module_state_str(int port,
+        Module_State state);
+int bf_cmis_get_module_fault_cause (int port,
+                              Module_Fault_Cause *module_fault);
+const char *bf_cmis_get_module_fault_cause_str (int port,
+        Module_Fault_Cause state);
+
 void qsfp_fsm_force_all_lpmode();
 bool qsfp_fsm_query_all_lpmode();
 int bf_qsfp_vec_init (bf_qsfp_vec_t *vec);
 void bf_qsfp_get_sff_eth_extended_code_description (
     int port,
     char *ext_code_desc);
-/* return QSFP info */
-int bf_qsfp_get_info (int port, int page,
-                      uint8_t *buf);
+
 /* read from cache if possible, if not - directly */
 bf_pltfm_status_t bf_qsfp_module_cached_read (
     unsigned int port,
@@ -563,7 +588,10 @@ int bf_qsfp_ctrlmask_set (int port,
 int bf_qsfp_ctrlmask_get (int port,
                 uint32_t *ctrlmask);
 bool bf_qsfp_is_force_overwrite (int port);
-
+int bf_qsfp_trans_state_set (int port,
+                  uint32_t transate);
+int bf_qsfp_trans_state_get (int port,
+                  uint32_t *transate);
 void bf_pltfm_qsfp_load_conf ();
 int bf_qsfp_tc_entry_add (char *vendor, char *pn, char *option,
     uint32_t ctrlmask);

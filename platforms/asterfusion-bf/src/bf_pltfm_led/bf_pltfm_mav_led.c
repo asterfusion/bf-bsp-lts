@@ -5,13 +5,6 @@
  * $Id: $
  *
  ******************************************************************************/
-#include <stdio.h>
-#define __USE_GNU /* See feature_test_macros(7) */
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <string.h>
 #include <dvm/bf_drv_intf.h>
 #include <lld/lld_gpio_if.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
@@ -367,7 +360,7 @@ static int bf_pltfm_port_led_by_tofino_sync_set (
         (port_info->conn_id <= 0 ||
          port_info->conn_id > (uint32_t)
          platform_num_ports_get() ||
-         port_info->chnl_id > max_chnl_id)) {
+         port_info->chnl_id >= max_chnl_id)) {
         return -1;
     }
 
@@ -443,7 +436,7 @@ static int bf_pltfm_port_led_by_tofino_async_set (
         (port_info->conn_id <= 0 ||
          port_info->conn_id > (uint32_t)
          platform_num_ports_get() ||
-         port_info->chnl_id > max_chnl_id)) {
+         port_info->chnl_id >= max_chnl_id)) {
         return -1;
     }
 
@@ -490,6 +483,11 @@ void *led_async_func (void *arg)
         while ((lqe = oryx_lq_dequeue (async_led_q)) != NULL) {
             if (platform_type_equal (AFN_X312PT)) {
                 g_rt_async_led_q_length = oryx_lq_length (async_led_q);
+                if (g_rt_async_led_q_length) {
+                    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_I2C_RELAX;
+                } else {
+                    bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_I2C_RELAX;
+                }
             }
             port_info.conn_id = lqe->module;
             port_info.chnl_id = lqe->chnl_id;
@@ -700,6 +698,10 @@ void *led_traffic_func (void *arg)
     bf_led_blink_t blink = LED_NO_BLINK;
     static uint64_t alive = 0;
     uint8_t led_col = 0;
+    int max_nchnls = 4;
+
+    if (platform_type_equal (AFN_X732QT))
+        max_nchnls = 8;
 
     FOREVER {
         sleep (5);
@@ -719,7 +721,7 @@ void *led_traffic_func (void *arg)
             if (p->chnl_id == UINT8_MAX) {
                 /* this means this port is QSFP and only has one led light */
                 // has traffic ?
-                for (lane = 0; lane < QSFP_NUM_CHN; lane ++) {
+                for (lane = 0; lane < max_nchnls; lane ++) {
                     port_info.chnl_id = lane;
                     bf_pltfm_port_has_traffic (&port_info,
                                                &has_traffic);
@@ -784,15 +786,15 @@ static inline bool bf_pltfm_has_loc_led ()
 {
     bool has_loc_led = true;
 
-    if (platform_type_equal (X312P) || platform_type_equal (X308P)) {
+    if (platform_type_equal (AFN_X312PT) || platform_type_equal (AFN_X308PT)) {
         has_loc_led = false;
-    } else if (platform_type_equal (X532P) &&
-              (platform_subtype_equal (v1dot0) ||
-               platform_subtype_equal (v1dot1))) {
+    } else if (platform_type_equal (AFN_X532PT) &&
+              (platform_subtype_equal (V1P0) ||
+               platform_subtype_equal (V1P1))) {
         has_loc_led = false;
-    } else if (platform_type_equal (X564P) &&
-              (platform_subtype_equal (v1dot1) ||
-               platform_subtype_equal (v1dot2))) {
+    } else if (platform_type_equal (AFN_X564PT) &&
+              (platform_subtype_equal (V1P1) ||
+               platform_subtype_equal (V1P2))) {
         has_loc_led = false;
     }
     return has_loc_led;

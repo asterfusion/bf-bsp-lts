@@ -14,8 +14,8 @@
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_sfp.h>
 
-static bool sfp_debug_on = true;
 static int bf_plt_max_sfp;
+extern int bf_sfp_is_fsm_logging (int port);
 
 typedef struct bf_sfp_info_t {
     bool present;
@@ -45,12 +45,11 @@ typedef struct bf_sfp_info_t {
     uint rxlos_debounce_cnt;
     double module_temper_cache;
 
-    //bf_qsfp_special_info_t special_case_port;
     bf_sys_mutex_t sfp_mtx;
 
-    /* BF_TRANS_CTRLMASK_XXXX. It can only be set by bf_sfp_ctrlmask_set. */
+    /* BF_TRANS_CTRLMASK_XXXX. It can only be set by bf_[q]sfp_ctrlmask_set/get. */
     uint32_t ctrlmask;
-    /* Will added more trans state later. */
+    /* BF_TRANS_STATE_XXXX. It can only be set/get by bf_[q]sfp_transtate_set/get. */
     uint32_t trans_state;
 } bf_sfp_info_t;
 
@@ -211,10 +210,10 @@ bool bf_sfp_is_sff8472 (int port)
 }
 
 static void
-bf_sfp_sff_info_show (sff_info_t *info)
+bf_sfp_sff_info_show (int port, sff_info_t *info)
 {
-    LOG_DEBUG ("Vendor: %s Model: %s SN: %s Type: %s Module: %s Media: %s Length: %d",
-               info->vendor, info->model, info->serial,
+    LOG_DEBUG (" SFP    %2d : Vendor: %s Model: %s SN: %s Type: %s Module: %s Media: %s Length: %d",
+               port, info->vendor, info->model, info->serial,
                info->sfp_type_name,
                info->module_type_name, info->media_type_name,
                info->length);
@@ -546,14 +545,6 @@ int bf_sfp_update_cache (int port)
         bf_sfp_info_arr[port].passive_cu = false;
     }
 
-    if (sfp_debug_on) {
-        LOG_DEBUG (
-            " SFP    %2d : Spec %s : %s : %s", port,
-            bf_sfp_is_sff8472 (port)    ? "SFF-8472" : "Unknown",
-            bf_sfp_is_passive_cu (port) ? "Passive copper" : "Active/Optical",
-            bf_sfp_is_flat_mem (port)   ? "Flat" : "Paged");
-    }
-
     sff_dom_info_t sdi;
     sff_eeprom_t *se;
     sff_info_t *sff;
@@ -578,12 +569,14 @@ int bf_sfp_update_cache (int port)
     sff_dom_info_get (&sdi, sff,
                       bf_sfp_info_arr[port].idprom,
                       bf_sfp_info_arr[port].a2h);
+    LOG_DEBUG (
+        " SFP    %2d : Spec %s : %s : %s : %s", port,
+        bf_sfp_is_sff8472 (port)    ? "SFF-8472" : "Unknown",
+        bf_sfp_is_passive_cu (port) ? "Passive copper" : "Active/Optical",
+        bf_sfp_is_flat_mem (port)   ? "Flat" : "Paged",
+        "Update cache complete");
+    bf_sfp_sff_info_show (port, sff);
 
-    if (sfp_debug_on) {
-        bf_sfp_sff_info_show (sff);
-        LOG_DEBUG (" SFP    %2d : Update cache complete",
-                   port);
-    }
     return 0;
 
 }
@@ -1099,11 +1092,10 @@ int bf_sfp_init()
         bf_sfp_info_arr[i].passive_cu = true;
         bf_sfp_info_arr[i].fsm_detected = false;
         //bf_sfp_info_arr[i].num_ch = 0;
-        bf_sfp_info_arr[i].memmap_format =
-            MMFORMAT_UNKNOWN;
-        bf_sfp_info_arr[i].rxlos_debounce_cnt =
-            SFP_RXLOS_DEBOUNCE_DFLT;
+        bf_sfp_info_arr[i].memmap_format = MMFORMAT_UNKNOWN;
+        bf_sfp_info_arr[i].rxlos_debounce_cnt = SFP_RXLOS_DEBOUNCE_DFLT;
         bf_sfp_info_arr[i].trans_state = 0;
+        //bf_sfp_info_arr[i].ctrlmask = BF_TRANS_CTRLMASK_FSM_LOG_ENA; // dbg,
         //bf_sfp_info_arr[i].suppress_repeated_rd_fail_msgs = false;
     }
 
@@ -1364,6 +1356,15 @@ int bf_sfp_ctrlmask_get (int port,
     *ctrlmask = bf_sfp_info_arr[port].ctrlmask;
 
     return 0;
+}
+
+int bf_sfp_is_fsm_logging (int port)
+{
+    if (port > bf_plt_max_sfp) {
+        return 0;
+    }
+
+    return (bf_sfp_info_arr[port].ctrlmask & BF_TRANS_CTRLMASK_FSM_LOG_ENA);
 }
 
 int bf_sfp_rxlos_debounce_get (int port)

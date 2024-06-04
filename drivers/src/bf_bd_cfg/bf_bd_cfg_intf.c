@@ -88,6 +88,9 @@ bf_pltfm_status_t bf_bd_cfg_port_mac_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t bf_bd_cfg_port_info_get (
     uint32_t mac_id, uint32_t mac_chnl_id,
     bf_pltfm_port_info_t *port_info)
@@ -112,6 +115,10 @@ bf_pltfm_status_t bf_bd_cfg_port_info_get (
     return BF_PLTFM_OBJECT_NOT_FOUND;
 }
 
+/*****************************************************************
+ * Get TX PHY LANE for given port.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t bf_bd_cfg_port_tx_phy_lane_get (
     bf_pltfm_port_info_t *port_info,
     uint32_t *tx_phy_lane_id)
@@ -133,6 +140,10 @@ bf_pltfm_status_t bf_bd_cfg_port_tx_phy_lane_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get RX PHY LANE for given port.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t bf_bd_cfg_port_rx_phy_lane_get (
     bf_pltfm_port_info_t *port_info,
     uint32_t *rx_phy_lane_id)
@@ -153,7 +164,10 @@ bf_pltfm_status_t bf_bd_cfg_port_rx_phy_lane_get (
 
     return BF_PLTFM_SUCCESS;
 }
-
+/*****************************************************************
+ * Get TX PN SWAP indicator.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t bf_bd_cfg_port_tx_pn_swap_get (
     bf_pltfm_port_info_t *port_info,
     bool *tx_phy_pn_swap)
@@ -176,6 +190,10 @@ bf_pltfm_status_t bf_bd_cfg_port_tx_pn_swap_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get RX PN SWAP indicator.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t bf_bd_cfg_port_rx_pn_swap_get (
     bf_pltfm_port_info_t *port_info,
     bool *rx_phy_pn_swap)
@@ -198,6 +216,10 @@ bf_pltfm_status_t bf_bd_cfg_port_rx_pn_swap_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get TX ATTN with given qsfp type.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_cfg_port_tx_lane_attn_get (
     bf_pltfm_port_info_t *port_info,
@@ -226,6 +248,10 @@ bf_bd_cfg_port_tx_lane_attn_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get TX PRE EMP with given qsfp type.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_cfg_port_tx_lane_pre_emp_get (
     bf_pltfm_port_info_t *port_info,
@@ -254,6 +280,10 @@ bf_bd_cfg_port_tx_lane_pre_emp_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get TX POST EMP with given qsfp type.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_cfg_port_tx_lane_post_emp_get (
     bf_pltfm_port_info_t *port_info,
@@ -282,6 +312,10 @@ bf_bd_cfg_port_tx_lane_post_emp_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get mac lane info for a port with given qsfp type.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_cfg_port_mac_lane_info_get (
     bf_pltfm_port_info_t *port_info,
@@ -307,19 +341,19 @@ bf_bd_cfg_port_mac_lane_info_get (
 
     lane_info->tx_phy_lane_id = bd_map->tx_lane;
     lane_info->rx_phy_lane_id = bd_map->rx_lane;
-    lane_info->tx_phy_pn_swap = (bd_map->tx_pn_swap ?
-                                 true : false);
-    lane_info->rx_phy_pn_swap = (bd_map->rx_pn_swap ?
-                                 true : false);
-    lane_info->tx_attn =
-        bd_map->tx_eq_attn[qsfp_type];
-    lane_info->tx_pre = bd_map->tx_eq_pre[qsfp_type];
-    lane_info->tx_post =
-        bd_map->tx_eq_post[qsfp_type];
+    lane_info->tx_phy_pn_swap = (bd_map->tx_pn_swap ? true : false);
+    lane_info->rx_phy_pn_swap = (bd_map->rx_pn_swap ? true : false);
+    lane_info->tx_attn = bd_map->tx_eq_attn[qsfp_type];
+    lane_info->tx_pre  = bd_map->tx_eq_pre[qsfp_type];
+    lane_info->tx_post = bd_map->tx_eq_post[qsfp_type];
 
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Update mac lane info for a port with given qsfp type.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_pltfm_bd_cfg_port_mac_lane_info_set (
     bf_pltfm_port_info_t *port_info,
@@ -345,19 +379,19 @@ bf_pltfm_bd_cfg_port_mac_lane_info_set (
 
     bd_map->tx_lane = lane_info->tx_phy_lane_id;
     bd_map->rx_lane = lane_info->rx_phy_lane_id;
-    bd_map->tx_pn_swap = lane_info->tx_phy_pn_swap ?
-                         1 : 0;
-    bd_map->rx_pn_swap = lane_info->rx_phy_pn_swap ?
-                         1 : 0;
-    bd_map->tx_eq_attn[qsfp_type] =
-        lane_info->tx_attn;
+    bd_map->tx_pn_swap = lane_info->tx_phy_pn_swap ? 1 : 0;
+    bd_map->rx_pn_swap = lane_info->rx_phy_pn_swap ? 1 : 0;
+    bd_map->tx_eq_attn[qsfp_type] = lane_info->tx_attn;
     bd_map->tx_eq_pre[qsfp_type] = lane_info->tx_pre;
-    bd_map->tx_eq_post[qsfp_type] =
-        lane_info->tx_post;
+    bd_map->tx_eq_post[qsfp_type] = lane_info->tx_post;
 
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Update mac lane info for a port with all qsfp types.
+ * For tof1 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_cfg_port_mac_lane_info_update (
     bf_pltfm_port_info_t *port_info,
@@ -381,10 +415,8 @@ bf_bd_cfg_port_mac_lane_info_update (
          qsfp_id++) {
         bd_map->tx_lane = lane_info->tx_phy_lane_id;
         bd_map->rx_lane = lane_info->rx_phy_lane_id;
-        bd_map->tx_pn_swap = lane_info->tx_phy_pn_swap ?
-                             1 : 0;
-        bd_map->rx_pn_swap = lane_info->rx_phy_pn_swap ?
-                             1 : 0;
+        bd_map->tx_pn_swap = lane_info->tx_phy_pn_swap ? 1 : 0;
+        bd_map->rx_pn_swap = lane_info->rx_phy_pn_swap ? 1 : 0;
         bd_map->tx_eq_attn[qsfp_id] = lane_info->tx_attn;
         bd_map->tx_eq_pre[qsfp_id] = lane_info->tx_pre;
         bd_map->tx_eq_post[qsfp_id] = lane_info->tx_post;
@@ -609,6 +641,20 @@ int bf_bd_cfg_bd_num_port_get()
     return num_board_ports;
 }
 
+int bf_bd_cfg_bd_port_num_nlanes_get(
+    uint32_t conn_id)
+{
+    int nlanes = 4;
+
+    if (platform_type_equal(AFN_X732QT)) {
+        if (conn_id != 33)
+            nlanes = 8;
+    } else {
+        // do nothing
+    }
+    return nlanes;
+}
+
 void pltfm_port_info_to_str (bf_pltfm_port_info_t
                              *port_info,
                              char *str_hdl,
@@ -691,7 +737,7 @@ bf_pltfm_status_t pltfm_port_qsfp_type_get (
     }
     return qsfp_type_get (port_info, qsfp_type);
 }
-
+// tof1 only
 bf_pltfm_status_t bf_bd_cfg_serdes_info_set (
     bf_pltfm_port_info_t *port_info,
     bf_pltfm_mac_lane_info_t *serdes_info)
@@ -736,7 +782,7 @@ bf_pltfm_status_t bf_bd_cfg_serdes_info_set (
 
     /* Set the new values */
     mac_lane_info.tx_attn = serdes_info->tx_attn;
-    mac_lane_info.tx_pre = serdes_info->tx_pre;
+    mac_lane_info.tx_pre  = serdes_info->tx_pre;
     mac_lane_info.tx_post = serdes_info->tx_post;
 
     sts = bf_pltfm_bd_cfg_port_mac_lane_info_set (
@@ -787,6 +833,10 @@ int bf_bd_is_this_channel_valid (uint32_t conn_id,
     return 1;
 }
 
+/*****************************************************************
+ * Get TX PARAMS with given qsfp-dd type.
+ * For tof2 only
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_port_serdes_tx_params_get (
     bf_pltfm_port_info_t *port_info,
@@ -837,6 +887,10 @@ bf_bd_port_serdes_tx_params_get (
     return BF_PLTFM_SUCCESS;
 }
 
+/*****************************************************************
+ * Get RX/TX SWAP indicator for given port.
+ * For both tof1 and tof2
+ *****************************************************************/
 bf_pltfm_status_t bf_bd_port_serdes_polarity_get (
     bf_pltfm_port_info_t *port_info, int *rx_inv,
     int *tx_inv)
@@ -877,6 +931,11 @@ uint32_t bf_bd_get_dev_id (uint32_t conn_id,
 
     return bd_map->device_id;
 }
+
+/*****************************************************************
+ * Get nlanes per channel for given port.
+ * For both tof1 and tof2
+ *****************************************************************/
 bf_pltfm_status_t
 bf_bd_cfg_port_nlanes_per_ch_get (
     bf_pltfm_port_info_t *port_info,

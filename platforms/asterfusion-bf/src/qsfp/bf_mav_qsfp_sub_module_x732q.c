@@ -26,7 +26,8 @@
 
 #define INVALIDBIT(b) (-1)
 
-/* access is 0 based index. */
+/* access is 0 based index.
+ * Please also take attention in bf_pltfm_onlp_mntr_transceiver if you want to change the desc for every qsfp_ctx_t entry. */
 static struct qsfp_ctx_t qsfp_ctx_x732q[] = {
     {"QC1",   1, (0x70 << 1), 0, INVALID, {BF_MAV_SYSCPLD1, 0x04, BIT (0)}, {BF_MAV_SYSCPLD1, 0x0D, BIT (0)}, {BF_MAV_SYSCPLD1, 0x08, BIT (0)}},
     {"QC2",   2, (0x70 << 1), 1, INVALID, {BF_MAV_SYSCPLD1, 0x04, BIT (1)}, {BF_MAV_SYSCPLD1, 0x0D, BIT (1)}, {BF_MAV_SYSCPLD1, 0x08, BIT (1)}},

@@ -17,8 +17,70 @@
 #include <bf_pltfm_sfp.h>
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 
+#define BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, prefix) \
+    if ((first_port) > (last_port)) {   \
+        (port)      = (last_port);      \
+        (last_port) = (first_port);     \
+        (first_port)= (port);           \
+    }                                   \
+    if ((first_port) < 1 || (last_port) > (max_port)) { \
+        aim_printf (&uc->pvs, "%s must be 1-%d\n",      \
+                    (prefix), (max_port));              \
+        return 0;                                       \
+    }
+
+#define BF_UCLI_CH_VALID(ch, first_ch, last_ch, max_ch, prefix) \
+    if ((first_ch) > (last_ch)) {   \
+        (ch)      = (last_ch);      \
+        (last_ch) = (first_ch);     \
+        (first_ch)= (ch);           \
+    }                                   \
+    if ((first_ch) < 0 || (last_ch) > (max_ch)) {       \
+        aim_printf (&uc->pvs, "%s must be 0-%d\n",      \
+                    (prefix), ((max_ch) - 1));          \
+        return 0;                                       \
+    }
+
 extern int bf_pltfm_get_sfp_ctx (struct sfp_ctx_t
                                  **sfp_ctx);
+
+
+/* See bf_qsfp.h */
+static char *bf_sfp_ctrlmask_str[] = {
+    "BF_TRANS_CTRLMASK_RX_CDR_OFF       ",//(1 << 0)
+    "BF_TRANS_CTRLMASK_TX_CDR_OFF       ",//(1 << 1)
+    "BF_TRANS_CTRLMASK_LASER_OFF        ",//(1 << 2)
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT",//(1 << 7)
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "BF_TRANS_CTRLMASK_IGNORE_RX_LOS    ",//(1 << 16)
+    "BF_TRANS_CTRLMASK_IGNORE_RX_LOL    ",//(1 << 17)
+    "BF_TRANS_CTRLMASK_FSM_LOG_ENA      ",//(1 << 18)
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ", //(1 << 32, never reach here)
+};
 
 #if 0
 static void check_check_code (ucli_context_t *uc,
@@ -322,9 +384,12 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_get_pres (
  ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "get-pres", 0,
+        "get module present state");
+
     uint32_t lower_ports, upper_ports;
 
-    UCLI_COMMAND_INFO (uc, "get-pres", 0, "get-pres");
     if (bf_sfp_get_transceiver_pres (&lower_ports,
                                    &upper_ports)) {
         aim_printf (&uc->pvs,
@@ -342,18 +407,20 @@ bf_pltfm_ucli_ucli__sfp_get_pres (
  bf_pltfm_ucli_ucli__sfp_tx_disable_set (
      ucli_context_t *uc)
 {
-    int port, val;
-    int max_port = bf_sfp_get_max_sfp_ports();
+    UCLI_COMMAND_INFO (uc,
+        "tx-disable-set", 2,
+        "<port OR -1 for all ports> "
+        "<0: laser on, 1: laser off>");
 
-    UCLI_COMMAND_INFO (
-        uc, "tx-disable-set", 2,
-        "tx-disable-set <port> <0: laser on, 1: laser off>");
+    int val;
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
     port = atoi (uc->pargs->args[0]);
-    if (port < 1 || port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                 max_port);
-        return 0;
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     val = atoi (uc->pargs->args[1]);
     if ((val < 0) || (val > 1)) {
@@ -362,11 +429,18 @@ bf_pltfm_ucli_ucli__sfp_get_pres (
         return 0;
     }
 
-    if (val) {
-        bf_sfp_tx_disable (port, true);
-    } else {
-        bf_sfp_tx_disable (port, false);
+    for (port = first_port; port <= last_port;
+         port ++) {
+        if (!bf_sfp_is_present (port))
+            continue;
+
+        if (val) {
+            bf_sfp_tx_disable (port, true);
+        } else {
+            bf_sfp_tx_disable (port, false);
+        }
     }
+
     return 0;
 }
 
@@ -374,27 +448,27 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_reset (ucli_context_t
                                  *uc)
 {
-    UCLI_COMMAND_INFO (
-        uc, "sfp-reset", 2,
-        "sfp-reset <port> <1=reset, 0=unreset>");
-    int port;
-    int port_begin, max_port;
+    UCLI_COMMAND_INFO (uc,
+        "sfp-reset", 2,
+        "<port OR -1 for all ports> "
+        "<1: reset, 0: unreset>");
+
     int reset_val;
     bool reset;
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     port = atoi (uc->pargs->args[0]);
     if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = bf_sfp_get_max_sfp_ports();
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
     reset_val = atoi (uc->pargs->args[1]);
     reset = (reset_val == 0) ? false : true;
 
-    for (port = port_begin; port <= max_port;
-        port++) {
+    for (port = first_port; port <= last_port;
+         port ++) {
         aim_printf (
             &uc->pvs,
             "Not supported.\n");
@@ -407,6 +481,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_read_reg (ucli_context_t
                                   *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "read-reg", 4,
+        "<port> <addr, 0xa0/0xa2> <page,0/1/2> <offset>");
+
     int err;
     int offset;
     uint8_t addr;
@@ -414,9 +492,6 @@ bf_pltfm_ucli_ucli__sfp_read_reg (ucli_context_t
     uint8_t val;
     int port;
     int max_port = bf_sfp_get_max_sfp_ports();
-
-    UCLI_COMMAND_INFO (uc, "read-reg", 4,
-                       "read-reg <port> <addr, 0xa0/0xa2> <page,0/1/2> <offset>");
 
     port = strtol (uc->pargs->args[0], NULL, 0);
     addr = strtol (uc->pargs->args[1], NULL, 0);
@@ -466,6 +541,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_write_reg (
     ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "write-reg", 5,
+        "<port> <addr, 0xa0/0xa2> <page,0/1/2> <offset> <val>");
+
     int err;
     int offset;
     uint8_t addr;
@@ -473,9 +552,6 @@ bf_pltfm_ucli_ucli__sfp_write_reg (
     uint8_t val;
     int port;
     int max_port = bf_sfp_get_max_sfp_ports();
-
-    UCLI_COMMAND_INFO (uc, "write-reg", 5,
-                       "write-reg <port> <addr, 0xa0/0xa2> <page,0/1/2> <offset> <val>");
 
     port = strtol (uc->pargs->args[0], NULL, 0);
     addr = strtol (uc->pargs->args[1], NULL, 0);
@@ -532,8 +608,10 @@ bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
     int rc;
     uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
-    UCLI_COMMAND_INFO (uc, "dump-info", 1,
-                       "dump-info <port>");
+    UCLI_COMMAND_INFO (uc,
+        "dump-info", 1,
+        "<port>");
+
     port = strtol (uc->pargs->args[0], NULL, 0);
     if (port < 1 || port > bf_sfp_get_max_sfp_ports()) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -569,24 +647,25 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_show (ucli_context_t
                               *uc)
 {
-   uint32_t flags = bf_pltfm_mgr_ctx()->flags;
-   bool temper_monitor_en =
+    UCLI_COMMAND_INFO (uc,
+        "show", 0,
+        "show sfp or sfp28 summary information");
+
+    uint32_t flags = bf_pltfm_mgr_ctx()->flags;
+    bool temper_monitor_en =
        (0 != (flags & AF_PLAT_MNTR_SFP_REALTIME_DDM));
 
-   UCLI_COMMAND_INFO (uc, "show", 0,
-                      "show sfp or sfp28 summary information");
-
-   aim_printf (&uc->pvs,
+    aim_printf (&uc->pvs,
                "Max ports supported  ==> %2d\n", bf_sfp_get_max_sfp_ports());
-   aim_printf (&uc->pvs,
+    aim_printf (&uc->pvs,
                "Temperature monitor enabled ==> %s",
                temper_monitor_en ? "YES" : "NO");
-   if (temper_monitor_en) {
+    if (temper_monitor_en) {
        aim_printf (&uc->pvs,
                    " (interval %d seconds)\n",
                    bf_port_sfp_mgmnt_temper_monitor_period_get());
-   }
-   return 0;
+    }
+    return 0;
 }
 
 static ucli_status_t
@@ -594,12 +673,14 @@ bf_pltfm_ucli_ucli__sfp_show_module (
     ucli_context_t
     *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "module-show", 1,
+        "<port>");
+
     int port;
     int rc;
     uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
-    UCLI_COMMAND_INFO (uc, "module-show", 1,
-                       "module-show <port>");
     port = strtol (uc->pargs->args[0], NULL, 0);
     if (port < 1 || port > bf_sfp_get_max_sfp_ports()) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -765,32 +846,29 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_get_ddm (ucli_context_t
                                 *uc)
 {
-    int port_start, port_end;
-    int rc;
+    UCLI_COMMAND_INFO (uc,
+        "get-ddm", -1,
+        "[sport] [dport]");
+
     uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
     uint8_t *a2h = &idprom[MAX_SFP_PAGE_SIZE];
+    int rc;
     int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    UCLI_COMMAND_INFO (uc, "get-ddm", 2,
-                     "get-ddm <port_start> <max_port>");
-    port_start = atoi (uc->pargs->args[0]);
-    port_end = atoi (uc->pargs->args[1]);
-
-    if (port_start < 1 || port_start > max_port) {
-        aim_printf (&uc->pvs, "port_start must be 1-%d\n",
-                  max_port);
-        return 0;
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
-
-    if (port_end < 1 || port_end > max_port) {
-        aim_printf (&uc->pvs, "max_port must be 1-%d\n",
-                  max_port);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     aim_printf (
         &uc->pvs, " SFP DDM Info for ports %d to %d\n",
-        port_start, port_end);
+        first_port, last_port);
     aim_printf (&uc->pvs,
               "%10s %10s %15s %10s %16s %16s\n",
               "-------",
@@ -816,7 +894,7 @@ bf_pltfm_ucli_ucli__sfp_get_ddm (ucli_context_t
               "--------------",
               "--------------");
 
-    for (int port = port_start; port <= port_end; port++) {
+    for (port = first_port; port <= last_port; port++) {
         if (!bf_sfp_is_present (port) ||
             (!bf_sfp_is_optical (port))) {
             continue;
@@ -880,14 +958,15 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_db (ucli_context_t
                             *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "db", 0,
+        "display SFP database.");
+
     sff_info_t *sff;
     sff_eeprom_t *se;
     sff_db_entry_t *entry;
     int num = 0;
     int i;
-
-    UCLI_COMMAND_INFO (uc, "db", 0,
-                       "Display SFP database.");
 
     sff_db_get (&entry, &num);
     for (i = 0; i < num; i ++) {
@@ -905,12 +984,13 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_map (ucli_context_t
                              *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "map", 0,
+        "display SFP map.");
+
     int port, err;
     uint32_t conn_id, chnl_id = 0;
     char alias[16] = {0}, connc[16] = {0};
-
-    UCLI_COMMAND_INFO (uc, "map", 0,
-                       "Display SFP map.");
 
     /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
     aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
@@ -960,43 +1040,39 @@ extern char *bf_pm_intf_sfp_fsm_st_get (int port);
 static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_fsm (ucli_context_t *uc)
 {
-    int port, first_port, last_port, max_port;
+    UCLI_COMMAND_INFO (uc,
+        "fsm", -1,
+        "[sport] [dport]");
 
-    UCLI_COMMAND_INFO (uc, "fsm", -1,
-                        "fsm <port>");
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     if (uc->pargs->count > 0) {
         port = atoi (uc->pargs->args[0]);
         first_port = last_port = port;
-    } else {
-        first_port = 1;
-        last_port = bf_sfp_get_max_sfp_ports();
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
-
-    max_port = bf_sfp_get_max_sfp_ports();
-
-    if (first_port < 1 || last_port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                 max_port);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     aim_printf (&uc->pvs, "%s | ", "Port");
-    aim_printf (&uc->pvs, "%-28s | ", "Module FSM");
-    aim_printf (&uc->pvs, "%-29s | ", "CH ");
-    aim_printf (&uc->pvs, "%-29s | \n", "PM_INTF FSM");
+    aim_printf (&uc->pvs, "%-19s | ", "Module FSM");
+    aim_printf (&uc->pvs, "%-19s | ", "CH ");
+    aim_printf (&uc->pvs, "%-19s | \n", "PM_INTF FSM");
 
     for (port = first_port; port <= last_port;
       port++) {
         aim_printf (&uc->pvs, "%-4d | %s | ", port,
                     sfp_module_fsm_st_get (port));
-        aim_printf (&uc->pvs, "%-28s | ",
+        aim_printf (&uc->pvs, "%-19s | ",
                     sfp_channel_fsm_st_get (port));
         if (platform_type_equal(AFN_X732QT)) {
-            aim_printf (&uc->pvs, "%-29s | ",
+            aim_printf (&uc->pvs, "%-19s | ",
                         bf_pm_intf_sfp_fsm_st_get (port));
         } else {
-            aim_printf (&uc->pvs, "%-29s | ",
+            aim_printf (&uc->pvs, "%-19s | ",
                         "----------");
         }
 
@@ -1009,75 +1085,57 @@ bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_set (
         ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "ctrlmask-set",
-                       2,
-                       "ctrlmask-set <port OR -1 for all ports> "
-                       "<ctrlmask, hex value>");
-    int port;
-    int port_begin, max_port, max_ports = bf_sfp_get_max_sfp_ports();
-    uint32_t ctrlmask = 0;
+        "ctrlmask-set", -1,
+        "[port OR -1 for all ports] "
+        "[ctrlmask, hex value]. Dump all ctrlmask if no input arguments.");
 
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = max_ports;
+    uint32_t ctrlmask = 0, ctrlmasks[BF_PLAT_MAX_SFP + 1] = {0};
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        if (port > 0) {
+            first_port = last_port = port;
+        } else {
+            // 1 - max_port;
+        }
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            ctrlmask = strtol (uc->pargs->args[1], NULL, 16);;
+        }
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
-
-    ctrlmask = atoi (uc->pargs->args[1]);
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
-        bf_sfp_ctrlmask_set (port, ctrlmask);
-    }
-    return 0;
-}
-static ucli_status_t
-bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_get (
-        ucli_context_t *uc)
-{
-    UCLI_COMMAND_INFO (uc,
-                       "ctrlmask-get",
-                       1,
-                       "ctrlmask-get <port OR -1 for all ports> ");
-    int port;
-    int port_begin, max_port, max_ports = bf_sfp_get_max_sfp_ports();
-    uint32_t ctrlmask = 0;
-
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = max_ports;
+        bf_sfp_ctrlmask_get (port, &ctrlmasks[port]);
     }
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
+    if (uc->pargs->count <= 1) goto dump;
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
-        bf_sfp_ctrlmask_get (port, &ctrlmask);
-        aim_printf (&uc->pvs,
-                    "Port : %2d, ctrlmask %u.\n", port, ctrlmask);
+        ctrlmasks[port] = ctrlmask;
+        bf_sfp_ctrlmask_set (port, ctrlmasks[port]);
     }
+
+dump:
+    for (port = first_port; port <= last_port;
+         port++) {
+        bf_sfp_ctrlmask_get (port, &ctrlmasks[port]);
+        aim_printf (&uc->pvs, "\n\nPort : %2d, 0x%-8X\n\n",
+            port, ctrlmasks[port]);
+        for (int bit = 0; bit < 32; bit ++) {
+            if (bf_sfp_ctrlmask_str[bit][0] != ' ') {
+                aim_printf (&uc->pvs, "%35s (bit=%2d) -> %s\n",
+                    bf_sfp_ctrlmask_str[bit],
+                    bit,
+                    ((ctrlmasks[port] >> bit) & 1) ? "enabled" : "disabled");
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -1085,32 +1143,20 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_soft_remove (
     ucli_context_t *uc)
 {
-    int port, port_begin, max_port;
-    int max_ports = bf_sfp_get_max_sfp_ports();
-    bool remove_flag = 0;
-    int conn_id = 0;
-
     UCLI_COMMAND_INFO (uc,
-                       "soft-remove",
-                       2,
-                       "soft-remove <port OR -1 for all ports> <set/clear>");
+        "soft-remove", 2,
+        "<port OR -1 for all ports> "
+        "<set/clear>");
 
-    conn_id = atoi (uc->pargs->args[0]);
-    if (conn_id == -1) {
-        port_begin = 1;
-        max_port = max_ports;
-    } else {
-        port_begin = max_port = conn_id;
-    }
+    bool remove_flag = 0;
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     if (strcmp (uc->pargs->args[1], "set") == 0) {
         remove_flag = true;
@@ -1121,11 +1167,11 @@ bf_pltfm_ucli_ucli__sfp_soft_remove (
         aim_printf (&uc->pvs,
                     "Usage: front-panel port-num <1 to %d or -1 for all ports> <set "
                     "or clear>\n",
-                    max_ports);
+                    max_port);
         return 0;
     }
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         if (bf_port_sfp_mgmnt_temper_high_alarm_flag_get (
                 port) &&
@@ -1141,33 +1187,20 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_soft_remove_show (
     ucli_context_t *uc)
 {
-    int port, port_begin, max_port;
-    int max_ports = bf_sfp_get_max_sfp_ports();
-    int conn_id = 0;
-
     UCLI_COMMAND_INFO (uc,
-                       "soft-remove-show",
-                       1,
-                       " soft-remove-show <port OR -1 for all ports>");
+        "soft-remove-show", 1,
+        "<port OR -1 for all ports>");
 
-    conn_id = atoi (uc->pargs->args[0]);
-    if (conn_id == -1) {
-        port_begin = 1;
-        max_port = max_ports;
-    } else {
-        port_begin = max_port = conn_id;
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
-
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         aim_printf (&uc->pvs,
                     "port %d soft-removed %s\n",
@@ -1179,15 +1212,12 @@ bf_pltfm_ucli_ucli__sfp_soft_remove_show (
 
 static ucli_status_t bf_pltfm_ucli_ucli__sfp_rxlos_debounce_set(
     ucli_context_t *uc) {
-    UCLI_COMMAND_INFO(uc, "rxlos-debounce-set", 2, "<port> <count>");
-    char usage[] = "rxlos-debounce-set <port> <count>";
-    int port, count, max_port;
 
-    if (uc->pargs->count != 2) {
-        aim_printf(&uc->pvs, "Incorrect syntax\n");
-        aim_printf(&uc->pvs, "Usage : %s\n", usage);
-        return 0;
-    }
+    UCLI_COMMAND_INFO(uc,
+        "sfp-rxlos-debounce-set", 2,
+        "<port> <count>");
+
+    int port, count, max_port;
 
     max_port = bf_sfp_get_max_sfp_ports();
     port = atoi(uc->pargs->args[0]);
@@ -1210,12 +1240,9 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_period_set (
     ucli_context_t *uc)
 {
-    static char usage[] =
-        "sfp-temper-period-set <period in sec. min:1>";
     UCLI_COMMAND_INFO (uc,
-                       "sfp-temper-period-set",
-                       1,
-                       "<poll period in sec. min:1> Default 5-sec");
+        "sfp-temper-period-set", 1,
+        "<poll period in sec. min:1> Default 5-sec");
 
     int64_t period_secs;
 
@@ -1231,9 +1258,6 @@ bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_period_set (
         }
     }
 
-    aim_printf (&uc->pvs,
-                "Error Usage : %s. Input valid period\n", usage);
-
     return 0;
 }
 
@@ -1241,10 +1265,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_log_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "sfp-realtime-ddm-log", 1,
-                       "<1=Enable, 0=Disable>");
-    static char usage[] =
-        "sfp-realtime-ddm-log 1=enable or 0=disable";
+    UCLI_COMMAND_INFO (uc,
+        "sfp-realtime-ddm-log", 1,
+        "<1=Enable, 0=Disable>");
+
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
@@ -1254,9 +1278,6 @@ bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monit_log_enable (
         } else {
             bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG;
         }
-    } else {
-        aim_printf (&uc->pvs,
-                    "Error  : %s. Input valid 1 or 0\n", usage);
     }
 
     return 0;
@@ -1266,10 +1287,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "sfp-realtime-ddm-monit-enable",
-                       1, "<1=Enable, 0=Disable>");
-    static char usage[] =
-        "sfp-temper-monit-enable 1=enable or 0=disable";
+    UCLI_COMMAND_INFO (uc,
+        "sfp-realtime-ddm-monit-enable", 1,
+        "<1=Enable, 0=Disable>");
+
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
@@ -1279,9 +1300,6 @@ bf_pltfm_ucli_ucli__sfp_mgmnt_temper_monitor_enable (
         } else {
             bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_SFP_REALTIME_DDM;
         }
-    } else {
-        aim_printf (&uc->pvs,
-                    "Error  : %s. Input valid 1 or 0\n", usage);
     }
 
     return 0;
@@ -1354,7 +1372,6 @@ bf_pltfm_sfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__sfp_map,
     bf_pltfm_ucli_ucli__sfp_fsm,
     bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_set,
-    bf_pltfm_ucli_ucli__sfp_special_case_ctrlmask_get,
     bf_pltfm_ucli_ucli__sfp_soft_remove,
     bf_pltfm_ucli_ucli__sfp_soft_remove_show,
     bf_pltfm_ucli_ucli__sfp_get_pres,

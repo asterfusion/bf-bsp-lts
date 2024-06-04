@@ -20,6 +20,67 @@
 #include <bf_pltfm_qsfp.h>
 #include <bf_port_mgmt/bf_port_mgmt_intf.h>
 
+#define BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, prefix) \
+    if ((first_port) > (last_port)) {   \
+        (port)      = (last_port);      \
+        (last_port) = (first_port);     \
+        (first_port)= (port);           \
+    }                                   \
+    if ((first_port) < 1 || (last_port) > (max_port)) { \
+        aim_printf (&uc->pvs, "%s must be 1-%d\n",      \
+                    (prefix), (max_port));              \
+        return 0;                                       \
+    }
+
+#define BF_UCLI_CH_VALID(ch, first_ch, last_ch, max_ch, prefix) \
+    if ((first_ch) > (last_ch)) {   \
+        (ch)      = (last_ch);      \
+        (last_ch) = (first_ch);     \
+        (first_ch)= (ch);           \
+    }                                   \
+    if ((first_ch) < 0 || (last_ch) > (max_ch)) {       \
+        aim_printf (&uc->pvs, "%s must be 0-%d\n",      \
+                    (prefix), ((max_ch) - 1));          \
+        return 0;                                       \
+    }
+
+/* See bf_qsfp.h */
+static char *bf_qsfp_ctrlmask_str[] = {
+    "BF_TRANS_CTRLMASK_RX_CDR_OFF       ",//(1 << 0)
+    "BF_TRANS_CTRLMASK_TX_CDR_OFF       ",//(1 << 1)
+    "BF_TRANS_CTRLMASK_LASER_OFF        ",//(1 << 2)
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT",//(1 << 7)
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "BF_TRANS_CTRLMASK_IGNORE_RX_LOS    ",//(1 << 16)
+    "BF_TRANS_CTRLMASK_IGNORE_RX_LOL    ",//(1 << 17)
+    "BF_TRANS_CTRLMASK_FSM_LOG_ENA      ",//(1 << 18)
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ",
+    "                                   ", //(1 << 32, never reach here)
+};
+
 extern int sff_db_get (sff_db_entry_t **entries,
                        int *count);
 extern int bf_pltfm_get_qsfp_ctx (struct
@@ -47,9 +108,12 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_get_pres (
     ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "get-pres", 0,
+        "get module present state");
+
     uint32_t lower_ports, upper_ports, cpu_ports;
 
-    UCLI_COMMAND_INFO (uc, "get-pres", 0, "get-pres");
     if (bf_qsfp_get_transceiver_pres (&lower_ports,
                                       &upper_ports, &cpu_ports)) {
         aim_printf (&uc->pvs,
@@ -65,21 +129,35 @@ bf_pltfm_ucli_ucli__qsfp_get_pres (
 }
 static ucli_status_t bf_pltfm_ucli_ucli__qsfp_sw_get_lpmode(
     ucli_context_t *uc) {
-    int port;
-    int max_port = bf_qsfp_get_max_qsfp_ports();
-    int lpmode = -1;
 
-    UCLI_COMMAND_INFO(uc, "sw-get-lpmode", 1, "sw-get-lpmode <port> ");
-    port = atoi(uc->pargs->args[0]);
-    if (port < 1 || port > max_port) {
-        aim_printf(&uc->pvs, "port must be 1-%d\n", max_port);
-        return 0;
+    UCLI_COMMAND_INFO (uc,
+        "sw-get-lpmode", -1,
+        "[sport] [dport] ");
+
+    int lpmode = -1;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
-    lpmode = bf_qsfp_get_pwr_ctrl(port);
-    if (lpmode == -1) {
-        aim_printf(&uc->pvs, "error getting the lpmode\n");
-    } else {
-        aim_printf(&uc->pvs, "qsfp port %d lpmode %d\n", port, lpmode);
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
+    for (port = first_port; port <= last_port;
+         port ++) {
+        if (bf_qsfp_is_present (port)) {
+            lpmode = bf_qsfp_get_pwr_ctrl(port);
+            if (lpmode == -1) {
+                aim_printf(&uc->pvs, "error getting the lpmode\n");
+            } else {
+                aim_printf(&uc->pvs, "qsfp port %2d lpmode %d\n", port, lpmode);
+            }
+        }
     }
     return 0;
 }
@@ -88,9 +166,12 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_get_int (ucli_context_t
                                   *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "get-int", 0,
+        "get module interrupt");
+
     uint32_t lower_ports, upper_ports, cpu_ports;
 
-    UCLI_COMMAND_INFO (uc, "get-int", 0, "get-int");
     bf_qsfp_get_transceiver_int (&lower_ports,
                                  &upper_ports, &cpu_ports);
     aim_printf (&uc->pvs,
@@ -105,10 +186,12 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_get_lpmode (
     ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "get-lpmode", 0,
+        "get module lpmode");
+
     uint32_t lower_ports, upper_ports, cpu_ports;
 
-    UCLI_COMMAND_INFO (uc, "get-lpmode", 0,
-                       "get-lpmode");
     if (bf_qsfp_get_transceiver_lpmode (&lower_ports,
                                         &upper_ports, &cpu_ports)) {
         aim_printf (&uc->pvs,
@@ -127,12 +210,13 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_set_lpmode (
     ucli_context_t *uc)
 {
-    int port, lpmode;
-    int max_port = bf_qsfp_get_max_qsfp_ports();
+    UCLI_COMMAND_INFO (uc,
+        "set-lpmode", 2,
+        "<port> <1: lpmode 0 : no lpmode>");
 
-    UCLI_COMMAND_INFO (
-        uc, "set-lpmode", 2,
-        "set-lpmode <port> <1: lpmode 0 : no lpmode>");
+    int lpmode;
+    int port, max_port = bf_qsfp_get_max_qsfp_ports();
+
     port = atoi (uc->pargs->args[0]);
     if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -140,6 +224,13 @@ bf_pltfm_ucli_ucli__qsfp_set_lpmode (
         return 0;
     }
     lpmode = atoi (uc->pargs->args[1]);
+    /* Not supported */
+    aim_printf (&uc->pvs,
+                        "It's not supported to set qsfp lpmode via hardware pin\n");
+    aim_printf (&uc->pvs,
+                        "Please try command qsfp-lpmode-sw.\n");
+    return 0;
+
     if (bf_qsfp_set_transceiver_lpmode (port,
                                         (lpmode ? true : false))) {
         aim_printf (&uc->pvs,
@@ -155,9 +246,12 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_init (ucli_context_t
                                *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-init", 0,
-                       "qsfp-init");
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-init", 0,
+        "reinit qsfps");
+
     bf_pltfm_qsfp_init (NULL);
+
     return 0;
 }
 
@@ -190,25 +284,35 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_tx_disable_set (
     ucli_context_t *uc)
 {
-    int port, ch, val, max_media_ch;
-    int max_port = bf_qsfp_get_max_qsfp_ports();
+    UCLI_COMMAND_INFO (uc,
+        "tx-disable-set", 3,
+        "<port OR -1 for all ports> "
+        "<ch OR -1 for all channels within given port> "
+        "<0: laser on, 1: laser off>");
 
-    UCLI_COMMAND_INFO (
-        uc, "tx-disable-set", 3,
-        "tx-disable-set <port> <ch> <0: laser on, 1: laser off>");
+    int val;
+    int max_ch = 4;//Be 4 for tof1 and 8 for tof2.
+    int ch, first_ch = 0, last_ch = max_ch, allch = 1;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
     port = atoi (uc->pargs->args[0]);
-    if (port < 1 || port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
-        return 0;
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
+    if (platform_type_equal(AFN_X732QT)) {
+        last_ch = max_ch = 8;
+    }
+
     ch = atoi (uc->pargs->args[1]);
-    max_media_ch = bf_qsfp_get_media_ch_cnt (port);
-    if ((ch < 0) || (ch > max_media_ch)) {
-        aim_printf (&uc->pvs, "ch must be 0-%d\n",
-                    max_media_ch);
-        return 0;
+    if (ch >= 0) {
+        allch = 0;
+        first_ch = last_ch = ch;
     }
+    BF_UCLI_CH_VALID(ch, first_ch, last_ch, max_ch, "ch");
+
     val = atoi (uc->pargs->args[2]);
     if ((val < 0) || (val > 1)) {
         aim_printf (&uc->pvs,
@@ -216,11 +320,46 @@ bf_pltfm_ucli_ucli__qsfp_tx_disable_set (
         return 0;
     }
 
-    if (val) {
-        bf_qsfp_tx_disable_single_lane (port, ch, true);
-    } else {
-        bf_qsfp_tx_disable_single_lane (port, ch, false);
+    for (port = first_port; port <= last_port;
+         port ++) {
+        if (!bf_qsfp_is_present (port))
+            continue;
+
+        max_ch = bf_qsfp_get_media_ch_cnt (port);
+        /*
+         * max_ch is real avaliable chnum in module. Valid value could be one of the list:
+         * 1 - DR1,
+         * 4 - SR4/DR4,
+         * 8 - SR8
+         *
+         * Forcely overwrite last_ch to real chnum if all channels required.
+         *
+         * by Hang Tsi, 2024/04/09.
+         */
+        if (allch) {
+            last_ch = max_ch;
+        } else {
+            if (first_ch > max_ch) {
+                aim_printf (&uc->pvs, "port %d ch must be 0-%d. Skipping ...\n",
+                        port, (max_ch - 1));
+                continue;
+            }
+        }
+        if (last_ch > max_ch) {
+             last_ch = max_ch;
+        }
+        for (ch = first_ch; ch <= last_ch; ch ++) {
+            if (val) {
+                bf_qsfp_tx_disable_single_lane (port, ch, true);
+            } else {
+                bf_qsfp_tx_disable_single_lane (port, ch, false);
+            }
+
+            //aim_printf (&uc->pvs, "port %2d ch %d\n",
+            //        port, ch);
+        }
     }
+
     return 0;
 }
 
@@ -231,25 +370,35 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_cdr_disable_set (
     ucli_context_t *uc)
 {
-    int port, ch, val, max_media_ch;
-    int max_port = bf_qsfp_get_max_qsfp_ports();
+    UCLI_COMMAND_INFO (uc,
+        "cdr-disable-set", 3,
+        "<port OR -1 for all ports> "
+        "<ch OR -1 for all channels within given port> "
+        "<0: cdr on, 1: cdr off>");
 
-    UCLI_COMMAND_INFO (
-        uc, "cdr-disable-set", 3,
-        "cdr-disable-set <port> <ch> <0: cdr on, 1: cdr off>");
+    int val;
+    int max_ch = 4;//Be 4 for tof1 and 8 for tof2.
+    int ch, first_ch = 0, last_ch = max_ch, allch = 1;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
     port = atoi (uc->pargs->args[0]);
-    if (port < 1 || port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
-        return 0;
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
+    if (platform_type_equal(AFN_X732QT)) {
+        last_ch = max_ch = 8;
+    }
+
     ch = atoi (uc->pargs->args[1]);
-    max_media_ch = bf_qsfp_get_media_ch_cnt (port);
-    if ((ch < 0) || (ch > max_media_ch)) {
-        aim_printf (&uc->pvs, "ch must be 0-%d\n",
-                    max_media_ch);
-        return 0;
+    if (ch >= 0) {
+        allch = 0;
+        first_ch = last_ch = ch;
     }
+    BF_UCLI_CH_VALID(ch, first_ch, last_ch, max_ch, "ch");
+
     val = atoi (uc->pargs->args[2]);
     if ((val < 0) || (val > 1)) {
         aim_printf (&uc->pvs,
@@ -257,11 +406,46 @@ bf_pltfm_ucli_ucli__qsfp_cdr_disable_set (
         return 0;
     }
 
-    if (val) {
-        bf_qsfp_cdr_disable_single_lane (port, ch, true);
-    } else {
-        bf_qsfp_cdr_disable_single_lane (port, ch, false);
+    for (port = first_port; port <= last_port;
+         port ++) {
+        if (!bf_qsfp_is_present (port))
+            continue;
+
+        max_ch = bf_qsfp_get_media_ch_cnt (port);
+        /*
+         * max_ch is real avaliable chnum in module. Valid value could be one of the list:
+         * 1 - DR1,
+         * 4 - SR4/DR4,
+         * 8 - SR8
+         *
+         * Forcely overwrite last_ch to real chnum if all channels required.
+         *
+         * by Hang Tsi, 2024/04/09.
+         */
+        if (allch) {
+            last_ch = max_ch;
+        } else {
+            if (first_ch > max_ch) {
+                aim_printf (&uc->pvs, "port %d ch must be 0-%d. Skipping ...\n",
+                        port, (max_ch - 1));
+                continue;
+            }
+        }
+        if (last_ch > max_ch) {
+             last_ch = max_ch;
+        }
+        for (ch = first_ch; ch <= last_ch; ch ++) {
+            if (val) {
+                bf_qsfp_cdr_disable_single_lane (port, ch, true);
+            } else {
+                bf_qsfp_cdr_disable_single_lane (port, ch, false);
+            }
+
+            //aim_printf (&uc->pvs, "port %2d ch %d\n",
+            //        port, ch);
+        }
     }
+
     return 0;
 }
 
@@ -281,20 +465,21 @@ void dump_qsfp_oper_array (uint8_t *arr)
     aim_printf (&dump_uc->pvs, "\n");
 }
 
-const char* qsfp_fsm_ch_cmis_get_dp_config_error(bf_dev_id_t dev_id,
-        int conn_id,
-        int ch);
 static ucli_status_t qsfp_dump_pg0_info_cmis (
     ucli_context_t *uc, bool detail)
 {
-    int port, first_port, last_port;
     uint8_t pg0_lower[128] = {0}, pg0_upper[128] = {0};
     bool present[66] = {0}, pg1_present[66] = {0}, pg16_present[66] = {0}, pg17_present[66] = {0};
     uint8_t pg1[128] = {0}, pg16[128] = {0}, pg17[128] = {0};
     uint8_t intl[66] = {0};
+    uint8_t pwrctrl[66] = {0};
     uint8_t module_state[66] = {0};
+    uint8_t dp_state_ln21[66] = {0}, dp_state_ln43[66] = {0}, dp_state_ln65[66] = {0}, dp_state_ln87[66] = {0};
+    uint8_t dp_conf_state_ln21[66] = {0}, dp_conf_state_ln43[66] = {0}, dp_conf_state_ln65[66] = {0}, dp_conf_state_ln87[66] = {0};
     uint8_t tx_dis[66] = {0}, rx_dis[66] = {0};
-    uint8_t output_state_rx[66] = {0}, output_state_tx[66] = {0};
+    uint8_t tx_cdr_en[66] = {0};
+    uint8_t rx_cdr_en[66] = {0};
+    uint8_t output_state_rx[66] = {0}, output_state_tx[66] = {0}, dp_stat_chg[66] = {0};
     uint8_t dp_deinit[66] = {0};
     uint8_t tx_los[66] = {0};
     uint8_t tx_lol[66] = {0};
@@ -302,28 +487,34 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
     uint8_t tx_eq_flt[66] = {0};
     uint8_t rx_los[66] = {0};
     uint8_t rx_lol[66] = {0};
+    uint8_t apply_dpinit[66] = {0};
+    bool dump_summary = false;
+    MemMap_Format memmap_format = MMFORMAT_UNKNOWN;
 
-    MemMap_Format memmap_format;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     if (uc->pargs->count > 0) {
         port = atoi (uc->pargs->args[0]);
         first_port = last_port = port;
-    } else {
-        first_port = 1;
-        last_port = bf_qsfp_get_max_qsfp_ports();
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     dump_uc = uc;  // hack
 
     for (port = first_port; port <= last_port;
          port++) {
         int byte;
-        if (port < 1 || port > last_port) {
-            aim_printf (&uc->pvs, "port must be 1-%d\n",
-                        last_port);
-            return 0;
+        /* by Hang Tsi, 2024/02/27. */
+        if (!bf_qsfp_is_cmis (port)) {
+            continue;
         }
-
+        /* Dump summary if at least one port is CMIS. */
+        dump_summary = true;
         qsfp_oper_info_get (port, &present[port],
                             pg0_lower, pg0_upper);
 
@@ -335,7 +526,7 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
         memmap_format = bf_qsfp_get_memmap_format(port);
 
         if (detail) {
-            aim_printf (&uc->pvs, "\nQSFP %d:\n", port);
+            aim_printf (&uc->pvs, "\nQSFP-DD %d:\n", port);
         }
 
         /* pg1 & pg16 & pg17 start with offset 128. */
@@ -350,23 +541,28 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
             module_state[port] = (pg0_lower[3] >> 1) & 7;
 
             if (detail) {
-                const char *module_state_str[] = {
-                    "Reserved",
-                    "ModuleLowPwr",
-                    "ModulePwrUp",
-                    "ModuleReady",
-                    "ModulePwrDn",
-                    "ModuleFault",
-                    "Reserved",
-                    "Reserved",
-                };
                 aim_printf (&uc->pvs,
-                            "Byte 3: [0:0]: %d : IntL\n",
+                            "Byte  3: [0:0]: %d : IntL\n",
                             intl[port]);
+                if (bf_qsfp_is_flat_mem(port)) {
+                    /* Flat memory modules always report ModuleReady. Forcely overwrite it. */
+                    module_state[port] = 3;
+                }
                 aim_printf (&uc->pvs,
-                            "Byte 3: [3:1]: %d : %s\n",
+                            "Byte  3: [3:1]: %d : %s\n",
                             module_state[port],
-                            module_state_str[module_state[port] % 8]);
+                            bf_cmis_get_module_state_str(port, module_state[port]));
+            }
+        }
+
+        // pg0 lower 26
+        if (1 || pg0_lower[26] & 0xFF) {
+            pwrctrl[port] = pg0_lower[26];
+
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Byte 26: [7:0]: %d : PwrCtrl\n",
+                            pwrctrl[port]);
             }
         }
 
@@ -375,7 +571,7 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
             dp_deinit[port] = (pg16[128 - 128] >> 0) & 0xFF;
             if (detail) {
                 aim_printf (&uc->pvs,
-                            "Pg16 Byte 128: [7:0]: %02x : DP8-1 Deinit Ctrl\n",
+                            "Pg16 Byte 128: [7:0]: %02x : DP8-1 Deinit CTRL\n",
                             dp_deinit[port]);
             }
         }
@@ -384,7 +580,7 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
             tx_dis[port] = (pg16[130 - 128] >> 0) & 0xFF;
             if (detail) {
                 aim_printf (&uc->pvs,
-                            "Pg16 Byte 130: [7:0]: %02x : L-Tx8-1 Disable\n",
+                            "Pg16 Byte 130: [7:0]: %02x : Tx8-1 Disable\n",
                             tx_dis[port]);
             }
         }
@@ -393,50 +589,71 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
             rx_dis[port] = (pg16[138 - 128] >> 0) & 0xFF;
             if (detail) {
                 aim_printf (&uc->pvs,
-                            "Pg16 Byte 138: [7:0]: %02x : L-Rx8-1 Disable\n",
+                            "Pg16 Byte 138: [7:0]: %02x : Rx8-1 Disable\n",
                             rx_dis[port]);
+            }
+        }
+        // pg16 143, Apply DPInit
+        if (1 || pg16[143 - 128] & 0xFF) {
+            apply_dpinit[port] = (pg16[143 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg16 Byte 143: [7:0]: %02x : DP8-1 Apply CTRL\n",
+                            apply_dpinit[port]);
+            }
+        }
+        // pg16 160/161, Rx/Tx CDR CTRL
+        if (1) {
+            tx_cdr_en[port] = (pg16[160 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg16 Byte 160: [7:0]: %02x : Tx8-1 CDR CTRL\n",
+                            tx_cdr_en[port]);
+            }
+            rx_cdr_en[port] = (pg16[161 - 128] >> 0) & 0xFF;
+            if (detail) {
+                aim_printf (&uc->pvs,
+                            "Pg16 Byte 161: [7:0]: %02x : Rx8-1 CDR CTRL\n",
+                            rx_cdr_en[port]);
             }
         }
 
         // pg17 128-131, Data Path States.
         if (1) {
             if (detail) {
-                const char *dp_stat_str[16 + 1] = {
-                    "Reserved",
-                    "DPDeactivated(or unused LN)",
-                    "DPInit",
-                    "DPDeinit",
-                    "DPActivated",
-                    "DPTxTurnOn",
-                    "DPTxTurnOff",
-                    "DPInitialized",
-                    "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
-                };
+                /* two lanes per byte. */
+                dp_state_ln21[port] = pg17[128 - 128];
+                dp_state_ln43[port] = pg17[129 - 128];
+                dp_state_ln65[port] = pg17[130 - 128];
+                dp_state_ln87[port] = pg17[131 - 128];
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 128: [7:0]: %01x %01x : DP2-1 STAT : %s : %s\n",
+                            (dp_state_ln21[port] >> 4) & 0xF, (dp_state_ln21[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_state_str (port, 1, (dp_state_ln21[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_state_str (port, 0, (dp_state_ln21[port] >> 0) & 0xF));
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 129: [7:0]: %01x %01x : DP4-3 STAT : %s : %s\n",
+                            (dp_state_ln43[port] >> 4) & 0xF, (dp_state_ln43[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_state_str (port, 3, (dp_state_ln21[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_state_str (port, 2, (dp_state_ln21[port] >> 0) & 0xF));
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 130: [7:0]: %01x %01x : DP6-5 STAT : %s : %s\n",
+                            (dp_state_ln65[port] >> 4) & 0xF, (dp_state_ln65[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_state_str (port, 5, (dp_state_ln21[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_state_str (port, 4, (dp_state_ln21[port] >> 0) & 0xF));
+                aim_printf (&uc->pvs,
+                            "Pg17 Byte 131: [7:0]: %01x %01x : DP8-7 STAT : %s : %s\n",
+                            (dp_state_ln87[port] >> 4) & 0xF, (dp_state_ln87[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_state_str (port, 7, (dp_state_ln21[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_state_str (port, 6, (dp_state_ln21[port] >> 0) & 0xF));
 
+                dp_stat_chg[port] = pg17[134 - 128];
                 aim_printf (&uc->pvs,
-                            "Pg17 Byte 128: [7:0]: %01x %01x : DP STAT LN2-1 : %s : %s\n",
-                            (pg17[128 - 128] >> 4) & 0xF, (pg17[128 - 128] >> 0) & 0xF,
-                            dp_stat_str[((pg17[128 - 128] >> 4) & 0xF) % 16],
-                            dp_stat_str[((pg17[128 - 128] >> 0) & 0xF) % 16]);
-                aim_printf (&uc->pvs,
-                            "Pg17 Byte 129: [7:0]: %01x %01x : DP STAT LN4-3 : %s : %s\n",
-                            (pg17[129 - 128] >> 4) & 0xF, (pg17[129 - 128] >> 0) & 0xF,
-                            dp_stat_str[((pg17[129 - 128] >> 4) & 0xF) % 16],
-                            dp_stat_str[((pg17[129 - 128] >> 0) & 0xF) % 16]);
-                aim_printf (&uc->pvs,
-                            "Pg17 Byte 128: [7:0]: %01x %01x : DP STAT LN6-5 : %s : %s\n",
-                            (pg17[130 - 128] >> 4) & 0xF, (pg17[130 - 128] >> 0) & 0xF,
-                            dp_stat_str[((pg17[130 - 128] >> 4) & 0xF) % 16],
-                            dp_stat_str[((pg17[130 - 128] >> 0) & 0xF) % 16]);
-                aim_printf (&uc->pvs,
-                            "Pg17 Byte 131: [7:0]: %01x %01x : DP STAT LN8-7 : %s : %s\n",
-                            (pg17[131 - 128] >> 4) & 0xF, (pg17[131 - 128] >> 0) & 0xF,
-                            dp_stat_str[((pg17[131 - 128] >> 4) & 0xF) % 16],
-                            dp_stat_str[((pg17[131 - 128] >> 0) & 0xF) % 16]);
-
+                            "Pg17 Byte 134: [7:0]: %01x : L-DP8-1 STAT Changed\n",
+                            dp_stat_chg[port]);
             }
         }
-        // pg17 132-133, Lane Output Status for CMIS 5.0 or later.
+        // pg17 132-133, Lane Output Status available since CMIS 5.0 or later.
         if (1 && (memmap_format >= MMFORMAT_CMIS5P0)) {
             output_state_rx[port] = (pg17[132 - 128] >> 0) & 0xFF;
             output_state_tx[port] = (pg17[133 - 128] >> 0) & 0xFF;
@@ -449,7 +666,7 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
                             output_state_tx[port]);
             }
         }
-        //pg17 134-153, Lane-specific Flags
+        //pg17 135-153, Lane-specific Flags
         if (1) {
             tx_flt[port] = (pg17[135 - 128] >> 0) & 0xFF;
             tx_los[port] = (pg17[136 - 128] >> 0) & 0xFF;
@@ -482,27 +699,32 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
 
         // pg17 202, DP Config State
         if (1 || pg17[202 - 128] & 0xFF) {
+            /* two lanes per byte. */
+            dp_conf_state_ln21[port] = pg17[202 - 128];
+            dp_conf_state_ln43[port] = pg17[203 - 128];
+            dp_conf_state_ln65[port] = pg17[204 - 128];
+            dp_conf_state_ln87[port] = pg17[205 - 128];
             if (detail) {
                 aim_printf (&uc->pvs,
-                            "Pg17 Byte 202: [7:0]: %01x %01x : DP Conf Stat LN2-1 : %s : %s\n",
-                            (pg17[202 - 128] >> 4) & 0xF, (pg17[202 - 128] >> 0) & 0xF,
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 1),
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 0));
+                            "Pg17 Byte 202: [7:0]: %01x %01x : DP2-1 CONF STAT : %s : %s\n",
+                            (dp_conf_state_ln21[port] >> 4) & 0xF, (dp_conf_state_ln21[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_config_state_str (port, 1, (dp_conf_state_ln21[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_config_state_str (port, 0, (dp_conf_state_ln21[port] >> 0) & 0xF));
                 aim_printf (&uc->pvs,
-                            "Pg17 Byte 203: [7:0]: %01x %01x : DP Conf Stat LN4-3 : %s : %s\n",
-                            (pg17[203 - 128] >> 4) & 0xF, (pg17[203 - 128] >> 0) & 0xF,
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 3),
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 2));
+                            "Pg17 Byte 203: [7:0]: %01x %01x : DP4-3 CONF STAT : %s : %s\n",
+                            (dp_conf_state_ln43[port] >> 4) & 0xF, (dp_conf_state_ln43[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_config_state_str (port, 3, (dp_conf_state_ln43[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_config_state_str (port, 2, (dp_conf_state_ln43[port] >> 0) & 0xF));
                 aim_printf (&uc->pvs,
-                            "Pg17 Byte 204: [7:0]: %01x %01x : DP Conf Stat LN6-5 : %s : %s\n",
-                            (pg17[204 - 128] >> 4) & 0xF, (pg17[204 - 128] >> 0) & 0xF,
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 5),
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 4));
+                            "Pg17 Byte 204: [7:0]: %01x %01x : DP6-5 CONF STAT : %s : %s\n",
+                            (dp_conf_state_ln65[port] >> 4) & 0xF, (dp_conf_state_ln65[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_config_state_str (port, 5, (dp_conf_state_ln65[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_config_state_str (port, 4, (dp_conf_state_ln65[port] >> 0) & 0xF));
                 aim_printf (&uc->pvs,
-                            "Pg17 Byte 205: [7:0]: %01x %01x : DP Conf Stat LN8-7 : %s : %s\n",
-                            (pg17[205 - 128] >> 4) & 0xF, (pg17[205 - 128] >> 0) & 0xF,
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 7),
-                            qsfp_fsm_ch_cmis_get_dp_config_error (0, port, 6));
+                            "Pg17 Byte 205: [7:0]: %01x %01x : DP8-7 CONF STAT : %s : %s\n",
+                            (dp_conf_state_ln87[port] >> 4) & 0xF, (dp_conf_state_ln65[port] >> 0) & 0xF,
+                            bf_cmis_get_datapath_config_state_str (port, 7, (dp_conf_state_ln87[port] >> 4) & 0xF),
+                            bf_cmis_get_datapath_config_state_str (port, 6, (dp_conf_state_ln87[port] >> 0) & 0xF));
             }
         }
 
@@ -547,6 +769,8 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
             aim_printf (&uc->pvs, "\n");
         }
     }
+    if (!dump_summary) { return 0;}
+    aim_printf (&uc->pvs, "\n=== QSFP-DD CMIS Summary ===\n");
     aim_printf (&uc->pvs,
                 "                                  :                            1 "
                 " 1  1  1  1  1  1  1  1  1  2  2  2  2  2  2  2  2  2  2  3  3  "
@@ -567,12 +791,27 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
     dump_qsfp_oper_array(intl);
     aim_printf (&uc->pvs, "  3: [3:1]: Module STAT           : ");
     dump_qsfp_oper_array(module_state);
+    aim_printf (&uc->pvs, " 26: [7:0]: Power CTRL            : ");
+    dump_qsfp_oper_array (pwrctrl);
 
     //pg17
+    //  128-131 DP STAT, skip
+    //  132 & 133, Lane Output Status available since CMIS 5.0 or later.
+    aim_printf (&uc->pvs, "128: [7:0]: DP2-1 STAT            : ");
+    dump_qsfp_oper_array (dp_state_ln21);
+    aim_printf (&uc->pvs, "129: [7:0]: DP4-3 STAT            : ");
+    dump_qsfp_oper_array (dp_state_ln43);
+    aim_printf (&uc->pvs, "130: [7:0]: DP6-5 STAT            : ");
+    dump_qsfp_oper_array (dp_state_ln65);
+    aim_printf (&uc->pvs, "131: [7:0]: DP8-7 STAT            : ");
+    dump_qsfp_oper_array (dp_state_ln87);
+
     aim_printf (&uc->pvs, "132: [7:0]: Rx8-1 Output STAT     : ");
     dump_qsfp_oper_array (output_state_rx);
     aim_printf (&uc->pvs, "133: [7:0]: Tx8-1 Output STAT     : ");
     dump_qsfp_oper_array (output_state_tx);
+    aim_printf (&uc->pvs, "134: [7:0]: L-DP8-1 STAT Changed  : ");
+    dump_qsfp_oper_array (dp_stat_chg);
     aim_printf (&uc->pvs, "135: [7:0]: L-Tx8-1 Fault         : ");
     dump_qsfp_oper_array (tx_flt);
     aim_printf (&uc->pvs, "136: [7:0]: L-Tx8-1 LOS           : ");
@@ -587,12 +826,18 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
     dump_qsfp_oper_array (rx_lol);
 
     //pg16
-    aim_printf (&uc->pvs, "128: [7:0]: DP8-1 Deinit Ctrl     : ");
+    aim_printf (&uc->pvs, "128: [7:0]: DP8-1 Deinit CTRL     : ");
     dump_qsfp_oper_array (dp_deinit);
     aim_printf (&uc->pvs, "130: [7:0]: Tx8-1 Disable         : ");
     dump_qsfp_oper_array (tx_dis);
     aim_printf (&uc->pvs, "138: [7:0]: Rx8-1 Disable         : ");
     dump_qsfp_oper_array (rx_dis);
+    aim_printf (&uc->pvs, "143: [7:0]: DP8-1 Apply CTRL      : ");
+    dump_qsfp_oper_array (apply_dpinit);
+    aim_printf (&uc->pvs, "160: [7:0]: Tx8-1 CDR CTRL        : ");
+    dump_qsfp_oper_array (tx_cdr_en);
+    aim_printf (&uc->pvs, "161: [7:0]: Rx8-1 CDR CTRL        : ");
+    dump_qsfp_oper_array (rx_cdr_en);
 
     /* More Control/Status here. */
 
@@ -602,7 +847,6 @@ static ucli_status_t qsfp_dump_pg0_info_cmis (
 static ucli_status_t qsfp_dump_pg0_info (
     ucli_context_t *uc, bool detail)
 {
-    int port, first_port, last_port;
     uint8_t pg0_lower[128], pg0_upper[128];
     bool present[66], pg3_present;
     uint8_t pg3[128];
@@ -624,30 +868,32 @@ static ucli_status_t qsfp_dump_pg0_info (
     uint8_t in_eq_hi[66] = {0};
     uint8_t out_amp_lo[66] = {0};
     uint8_t out_amp_hi[66] = {0};
+    bool dump_summary = false;
+
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     if (uc->pargs->count > 0) {
         port = atoi (uc->pargs->args[0]);
         first_port = last_port = port;
-    } else {
-        first_port = 1;
-        last_port = bf_qsfp_get_max_qsfp_ports();
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     dump_uc = uc;  // hack
 
     for (port = first_port; port <= last_port;
          port++) {
         int byte;
-        if (port < 1 || port > last_port) {
-            aim_printf (&uc->pvs, "port must be 1-%d\n",
-                        last_port);
-            return 0;
-        }
         /* by Hang Tsi, 2024/02/27. */
-        if (bf_qsfp_is_cmis (port)) {
-            qsfp_dump_pg0_info_cmis (uc, detail);
-            return 0;
+        if (!bf_qsfp_is_sff8636 (port)) {
+            continue;
         }
+        /* Dump summary if at least one port is SFF-8636. */
+        dump_summary = true;
         qsfp_oper_info_get (port, &present[port],
                             pg0_lower, pg0_upper);
 
@@ -846,6 +1092,8 @@ static ucli_status_t qsfp_dump_pg0_info (
             aim_printf (&uc->pvs, "\n");
         }
     }
+    if (!dump_summary) { return 0;}
+    aim_printf (&uc->pvs, "\n=== QSFP SFF-8636 Summary ===\n");
     aim_printf (&uc->pvs,
                 "                                  :                            1 "
                 " 1  1  1  1  1  1  1  1  1  2  2  2  2  2  2  2  2  2  2  3  3  "
@@ -922,8 +1170,9 @@ static ucli_status_t qsfp_dump_pg0_info (
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_pg0 (ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "pg0", -1, "pg0 [port]");
+    UCLI_COMMAND_INFO (uc, "pg0", -1, "pg0 [sport] [dport]");
     qsfp_dump_pg0_info (uc, true /*detail*/);
+    qsfp_dump_pg0_info_cmis (uc, true);
     return 0;
 }
 
@@ -931,15 +1180,16 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_oper (ucli_context_t
                                *uc)
 {
-    UCLI_COMMAND_INFO (uc, "oper", -1, "oper [port]");
+    UCLI_COMMAND_INFO (uc, "oper", -1, "oper [sport] [dport]");
     qsfp_dump_pg0_info (uc, false /*summary*/);
+    qsfp_dump_pg0_info_cmis (uc, false);
     return 0;
 }
 
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_pg3 (ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "pg3", -1, "pg3 [port]");
+    UCLI_COMMAND_INFO (uc, "pg3", -1, "pg3 [sport] [dport]");
 
     return 0;
 }
@@ -948,8 +1198,9 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_dump_idprom_cache (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "dump-idprom-cache", 2,
-                       "<port> <page>");
+    UCLI_COMMAND_INFO (uc,
+        "dump-idprom-cache", 2,
+        "<port> <page>");
 
     uint8_t buf[MAX_QSFP_PAGE_SIZE];
     int rc, port, pg;
@@ -1048,12 +1299,14 @@ void printDdm_for_cmis (ucli_context_t *uc,
 {
     double temp;
     double volt;
+    double scale;
     double txBias;
     double txPower;
     double rxPower;
     uint16_t txBiasValue;
     uint16_t txValue;
     uint16_t rxValue;
+    uint8_t scaleValue;
     uint8_t buf[MAX_QSFP_PAGE_SIZE * 2] = {0};
     uint8_t vcc[2], tem[2];
 
@@ -1064,16 +1317,20 @@ void printDdm_for_cmis (ucli_context_t *uc,
 
     // TBD - use onebank to get flags
     bf_qsfp_module_read (
+        port, QSFP_BANKNA, QSFP_PAGE1, 160, 1,
+        &scaleValue);
+    bf_qsfp_module_read (
         port, QSFP_BANK0, QSFP_PAGE17, 128, 128,
         buf + MAX_QSFP_PAGE_SIZE);
 
     temp = (tem[0]) + (tem[1] / 256.0);
     volt = ((vcc[0] << 8) | vcc[1]) / 10000.0;
+    scale = pow(2.0, (scaleValue >> 3) & 3);
 
-    uint8_t max_media_ch = bf_qsfp_get_media_ch_cnt (
+    uint8_t max_ch = bf_qsfp_get_media_ch_cnt (
                                port);
 
-    for (uint8_t i = 0; i < max_media_ch; i++) {
+    for (uint8_t i = 0; i < max_ch; i++) {
         txBiasValue = (buf[170 + i * 2] << 8) | buf[171 +
                       i * 2];
         txValue = (buf[154 + i * 2] << 8) | buf[155 + i *
@@ -1081,7 +1338,7 @@ void printDdm_for_cmis (ucli_context_t *uc,
         rxValue = (buf[186 + i * 2] << 8) | buf[187 + i *
                                                 2];
 
-        txBias = (131.0 * txBiasValue) / 65535;
+        txBias = scale * (131.0 * txBiasValue) / 65535;
         txPower = 10 * log10 (0.0001 * txValue);
         rxPower = 10 * log10 (0.0001 * rxValue);
 
@@ -1243,30 +1500,27 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_get_ddm (ucli_context_t
                                   *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "get-ddm", -1,
+        "[sport] [dport]");
+
     uint8_t buf[MAX_QSFP_PAGE_SIZE * 2];
-    int port_start, port_end;
     int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    UCLI_COMMAND_INFO (uc, "get-ddm", 2,
-                       "get-ddm <port_start> <max_port>");
-    port_start = atoi (uc->pargs->args[0]);
-    port_end = atoi (uc->pargs->args[1]);
-
-    if (port_start < 1 || port_start > max_port) {
-        aim_printf (&uc->pvs, "port_start must be 1-%d\n",
-                    max_port);
-        return 0;
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
-
-    if (port_end < 1 || port_end > max_port) {
-        aim_printf (&uc->pvs, "max_port must be 1-%d\n",
-                    max_port);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     aim_printf (
         &uc->pvs, "QSFP DDM Info for ports %d to %d\n",
-        port_start, port_end);
+        first_port, last_port);
     aim_printf (&uc->pvs,
                 "%10s %10s %15s %10s %16s %16s\n",
                 "-------",
@@ -1292,7 +1546,7 @@ bf_pltfm_ucli_ucli__qsfp_get_ddm (ucli_context_t
                 "--------------",
                 "--------------");
 
-    for (int port = port_start; port <= port_end; port++) {
+    for (port = first_port; port <= last_port; port++) {
         if (!bf_qsfp_is_present (port) ||
             (!bf_qsfp_is_optical (port))) {
             continue;
@@ -1841,8 +2095,9 @@ bf_pltfm_ucli_ucli__qsfp_show (ucli_context_t
     uint32_t flags = bf_pltfm_mgr_ctx()->flags;
     bool temper_monitor_en = (0 != (flags & AF_PLAT_MNTR_QSFP_REALTIME_DDM));
 
-    UCLI_COMMAND_INFO (uc, "show", 0,
-                       "show qsfp or qsfp-dd summary information");
+    UCLI_COMMAND_INFO (uc,
+        "show", 0,
+        "show qsfp or qsfp-dd summary information");
 
     aim_printf (&uc->pvs,
                 "Max ports supported  ==> %2d\n", max_port);
@@ -1946,8 +2201,10 @@ bf_pltfm_ucli_ucli__qsfpdd_dump_info (
     uint8_t buf2[2] = {0};
     int max_port = bf_qsfp_get_max_qsfp_ports();
 
-    UCLI_COMMAND_INFO (uc, "dump-info", 1,
-                       "dump-info <port>");
+    UCLI_COMMAND_INFO (uc,
+        "dump-info", 1,
+        "<port>");
+
     port = atoi (uc->pargs->args[0]);
     if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -2122,9 +2379,9 @@ bf_pltfm_ucli_ucli__qsfpdd_dump_info (
     uint8_t rxPwrByte = 186, txPwrByte = 154,
             txBiasByte = 170;
     uint8_t i = 0;
-    uint8_t max_media_ch = bf_qsfp_get_media_ch_cnt (
+    uint8_t max_ch = bf_qsfp_get_media_ch_cnt (
                                port);
-    for (i = 0; i < max_media_ch; i++) {
+    for (i = 0; i < max_ch; i++) {
         printChannelMonitor_for_dd (uc,
                                     i + 1,
                                     buf17,
@@ -2155,8 +2412,10 @@ bf_pltfm_ucli_ucli__qsfp_dump_info (
     char module_type_str[20];
     int max_port = bf_qsfp_get_max_qsfp_ports();
 
-    UCLI_COMMAND_INFO (uc, "dump-info", 1,
-                       "dump-info <port>");
+    UCLI_COMMAND_INFO (uc,
+        "dump-info", 1,
+        "<port>");
+
     port = atoi (uc->pargs->args[0]);
     if (port < 1 || port > max_port) {
         aim_printf (&uc->pvs, "port must be 1-%d\n",
@@ -2784,10 +3043,12 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mem_show (
     ucli_context_t *uc)
 {
-    int startport, curport;
-    UCLI_COMMAND_INFO (uc, "module-show", 1,
-                       "module-show <port>");
+    UCLI_COMMAND_INFO (uc,
+        "module-show", 1,
+        "<port OR -1 for all ports>");
+
     int max_port = bf_qsfp_get_max_qsfp_ports();
+    int startport, curport;
 
     curport = atoi (uc->pargs->args[0]);
     if (curport > max_port) {
@@ -2819,39 +3080,36 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_detect_xver (
     ucli_context_t *uc)
 {
-    int port;
+    UCLI_COMMAND_INFO (uc,
+        "detect-xver", -1,
+        "[port]");
+
     bool is_present;
     int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    UCLI_COMMAND_INFO (uc, "detect-xver", 1,
-                       "detect-xver <port>");
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        //if (uc->pargs->count > 1) {
+        //    last_port = atoi (uc->pargs->args[1]);
+        //}
+    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
+    for (port = first_port; port <= last_port;
+         port ++) {
         if (bf_qsfp_detect_transceiver (port,
                                         &is_present) == 0) {
-            aim_printf (&uc->pvs,
-                        "port %d %s\n",
-                        port,
-                        (is_present ? "detected" : "removed"));
+            aim_printf (
+                &uc->pvs, "port %2d %s\n", port,
+                (is_present ? "detected" : "removed"));
         } else {
-            aim_printf (&uc->pvs, "error detecting port %d\n",
+            aim_printf (&uc->pvs, "error detecting port %2d\n",
                         port);
         }
-    } else if (port == -1) {
-        int i, cnt = max_port;
-        for (i = 0; i < cnt; i++) {
-            if (bf_qsfp_detect_transceiver (i,
-                                            &is_present) == 0) {
-                aim_printf (
-                    &uc->pvs, "port %d %s\n", i,
-                    (is_present ? "detected" : "removed"));
-            } else {
-                aim_printf (&uc->pvs, "error detecting port %d\n",
-                            i);
-            }
-        }
     }
+
     return 0;
 }
 
@@ -2859,24 +3117,26 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_type_show (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-type", 1,
-                       "qsfp-type <port>");
-    int port;
-    bf_pltfm_qsfp_type_t qsfp_type =
-        BF_PLTFM_QSFP_UNKNOWN;
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-type", -1,
+        "[sport] [dport]");
+
+    bf_pltfm_qsfp_type_t qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
     char display_qsfp_type[13];
-    int port_begin, max_port;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = bf_qsfp_get_max_qsfp_ports();
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         if (bf_qsfp_type_get (port, &qsfp_type) != 0) {
             qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
@@ -2894,20 +3154,22 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_read_reg (
     ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "read-reg", 3,
+        "<port> <page> <offset>");
+
     int port, page, offset;
     uint8_t val;
     int max_port = bf_qsfp_get_max_qsfp_ports();
     int err;
 
-    UCLI_COMMAND_INFO (uc, "read-reg", 3,
-                       "read-reg <port> <page> <offset>");
     port = atoi (uc->pargs->args[0]);
     page = atoi (uc->pargs->args[1]);
     offset = strtol (uc->pargs->args[2], NULL, 0);
 
     aim_printf (
         &uc->pvs,
-        "read-reg: read-reg <port=%d> <page=%d> <offset=0x%x>\n",
+        "read-reg <port=%d> <page=%d> <offset=0x%x>\n",
         port,
         page,
         offset);
@@ -2942,14 +3204,15 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_write_reg (
     ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "write-reg", 4,
+        "<port> <page> <offset> <val>");
+
     int port, page, offset;
     uint8_t val;
     int err;
     int max_port = bf_qsfp_get_max_qsfp_ports();
 
-    UCLI_COMMAND_INFO (
-        uc, "write-reg", 4,
-        "write-reg <port> <page> <offset> <val>");
     port = atoi (uc->pargs->args[0]);
     page = atoi (uc->pargs->args[1]);
     offset = strtol (uc->pargs->args[2], NULL, 0);
@@ -2957,7 +3220,7 @@ bf_pltfm_ucli_ucli__qsfp_write_reg (
 
     aim_printf (
         &uc->pvs,
-        "write-reg: write-reg <port=%d> <page=%d> <offset=0x%x> "
+        "write-reg <port=%d> <page=%d> <offset=0x%x> "
         "<val=0x%x>\n",
         port,
         page,
@@ -2996,24 +3259,24 @@ bf_pltfm_ucli_ucli__qsfp_reset (ucli_context_t
 {
     UCLI_COMMAND_INFO (
         uc, "qsfp-reset", 2,
-        "qsfp-reset <port> <1=reset, 0=unreset>");
-    int port;
-    int port_begin, max_port;
+        "<port OR -1 for all ports> "
+        "<1: reset, 0: unreset>");
+
     int reset_val;
     bool reset;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     port = atoi (uc->pargs->args[0]);
     if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = bf_qsfp_get_max_qsfp_ports();
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
     reset_val = atoi (uc->pargs->args[1]);
     reset = (reset_val == 0) ? false : true;
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         bf_qsfp_reset (port, reset);
     }
@@ -3050,43 +3313,43 @@ bf_pltfm_ucli_ucli__qsfp_lpmode_hw (
     }
     return 0;
 }
-
+#endif
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_lpmode_sw (
     ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "qsfp-lpmode-sw",
-                       2,
-                       "qsfp-lpmode-sw <port> <1: lpmode 0 : no lpmode>");
-    int port;
-    int port_begin, max_port;
+        "qsfp-lpmode-sw", 2,
+        "<port OR -1 for all ports> "
+        "<1: lpmode, 0: no lpmode>");
+
     int lpmode_val;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     port = atoi (uc->pargs->args[0]);
     if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = bf_qsfp_get_max_qsfp_ports();
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
     lpmode_val = atoi (uc->pargs->args[1]);
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         qsfp_lpmode_sw_set (0, port, lpmode_val);
     }
     return 0;
 }
-#endif
 
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_lpbk (ucli_context_t
                                *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-lpbk", 2,
-                       "qsfp-lpbk port [near/elec far/opt]");
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-lpbk", 2,
+        "<port> [near/elec far/opt]");
+
     int port;
     bool lpbk_near = true;
     int max_port = bf_qsfp_get_max_qsfp_ports();
@@ -3106,8 +3369,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_capture (ucli_context_t
                                   *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-capture", 1,
-                       "qsfp-capture port");
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-capture", 1,
+        "<port>");
+
     int port, ofs;
     uint8_t arr_0x3k[0x3000];
     char printable_strs[17] = {0};
@@ -3132,11 +3397,14 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_tmr_stop (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-tmr-stop", 0,
-                       "qsfp-tmr-stop");
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-tmr-stop", 0,
+        "stop qsfp scan timer");
+
     bf_pltfm_pm_qsfp_scan_poll_stop();
     bf_sys_sleep (
         1); /* wait for on going qsfp scan to be over */
+
     return 0;
 }
 
@@ -3144,8 +3412,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_tmr_start (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-tmr-start", 0,
-                       "qsfp-tmr-start");
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-tmr-start", 0,
+        "start qsfp scan timer");
+
     bf_pltfm_pm_qsfp_scan_poll_start();
     return 0;
 }
@@ -3187,82 +3457,60 @@ static int bf_qsfp_ucli_qsfp_type_get (
     return 0;
 }
 static ucli_status_t
-bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_set (
+bf_pltfm_ucli_ucli__qsfp_ctrlmask_set (
         ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "ctrlmask-set",
-                       2,
-                       "ctrlmask-set <port OR -1 for all ports> "
-                       "<ctrlmask, hex value>");
-    int port;
-    int port_begin, max_port, max_ports = bf_qsfp_get_max_qsfp_ports();
-    uint32_t ctrlmask = 0;
+        "ctrlmask-set", -1,
+        "[port OR -1 for all ports] "
+        "[ctrlmask, hex value]. Dump all ctrlmask if no input arguments.");
 
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = max_ports;
+    uint32_t ctrlmask = 0, ctrlmasks[65] = {0};
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        if (port > 0) {
+            first_port = last_port = port;
+        } else {
+            // 1 - max_port;
+        }
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            ctrlmask = strtol (uc->pargs->args[1], NULL, 16);;
+        }
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
-
-    ctrlmask = atoi (uc->pargs->args[1]);
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
-        bf_qsfp_ctrlmask_set (port, ctrlmask);
-    }
-    return 0;
-}
-static ucli_status_t
-bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_get (
-        ucli_context_t *uc)
-{
-    UCLI_COMMAND_INFO (uc,
-                       "ctrlmask-get",
-                       1,
-                       "ctrlmask-get <port OR -1 for all ports> ");
-    int port;
-    int port_begin, max_port, max_ports = bf_qsfp_get_max_qsfp_ports();
-    uint32_t ctrlmask = 0;
-
-    port = atoi (uc->pargs->args[0]);
-    if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = max_ports;
+        bf_qsfp_ctrlmask_get (port, &ctrlmasks[port]);
     }
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
+    if (uc->pargs->count <= 1) goto dump;
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
-        bf_qsfp_ctrlmask_get (port, &ctrlmask);
-        aim_printf (&uc->pvs,
-                    "Port : %2d, ctrlmask %-4x.\n", port, ctrlmask);
+        ctrlmasks[port] = ctrlmask;
+        bf_qsfp_ctrlmask_set (port, ctrlmasks[port]);
     }
 
-    /* Dump specail cases, see bf_drivers.log. */
-    bf_qsfp_tc_entry_dump (NULL, NULL, NULL);
+dump:
+    for (port = first_port; port <= last_port;
+         port++) {
+        bf_qsfp_ctrlmask_get (port, &ctrlmasks[port]);
+        aim_printf (&uc->pvs, "\n\nPort : %2d, 0x%-8X\n\n",
+            port, ctrlmasks[port]);
+        for (int bit = 0; bit < 32; bit ++) {
+            if (bf_qsfp_ctrlmask_str[bit][0] != ' ') {
+                aim_printf (&uc->pvs, "%35s (bit=%2d) -> %s\n",
+                    bf_qsfp_ctrlmask_str[bit],
+                    bit,
+                    ((ctrlmasks[port] >> bit) & 1) ? "enabled" : "disabled");
+            }
+        }
+    }
 
     return 0;
 }
@@ -3272,43 +3520,29 @@ bf_pltfm_ucli_ucli__qsfp_special_case_set (
     ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "qsfp-type-set",
-                       2,
-                       "qsfp-type-set <port> "
-                       "<copper-0.5, copper-1m, copper-2m, copper-3m, "
-                       "copper-loopback, optical>");
-    char usage[] =
-        "qsfp-type-set <port> "
-        "<copper-0.5, copper-1m, copper-2m, copper-3m, copper-loopback, optical>";
+        "qsfp-type-set", 2,
+        "<port OR -1 for all ports> "
+        "<copper-0.5, copper-1m, copper-2m, copper-3m, "
+        "copper-loopback, optical>");
 
-    int port;
-    int port_begin, max_port;
     bf_pltfm_qsfp_type_t qsfp_type;
     int ret = 0;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     port = atoi (uc->pargs->args[0]);
     if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = bf_qsfp_get_max_qsfp_ports();
+        first_port = last_port = port;
     }
-
-    if (port < 1 || port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     ret = bf_qsfp_ucli_qsfp_type_get (
               uc->pargs->args[1], &qsfp_type);
     if (ret != 0) {
-        aim_printf (&uc->pvs, "Usage : %s\n", usage);
         return 0;
     };
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         // expand if more info needs to set
         bf_qsfp_special_case_set (port, qsfp_type, true);
@@ -3320,27 +3554,20 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_special_case_clear (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-type-clear", 1,
-                       "qsfp-type-clear <port> ");
-    int port;
-    int port_begin, max_port;
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-type-clear", 1,
+        "<port OR -1 for all ports>");
+
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     port = atoi (uc->pargs->args[0]);
     if (port > 0) {
-        port_begin = port;
-        max_port = port;
-    } else {
-        port_begin = 1;
-        max_port = bf_qsfp_get_max_qsfp_ports();
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    if (port < 1 || port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
-        return 0;
-    }
-
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         bf_qsfp_special_case_set (port,
                                   BF_PLTFM_QSFP_UNKNOWN, false);
@@ -3353,32 +3580,21 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_soft_remove (
     ucli_context_t *uc)
 {
-    int port, port_begin, max_port;
-    int max_ports = bf_qsfp_get_max_qsfp_ports();
-    bool remove_flag = 0;
-    int conn_id = 0;
 
     UCLI_COMMAND_INFO (uc,
-                       "soft-remove",
-                       2,
-                       "soft-remove <port OR -1 for all ports> <set/clear>");
+        "soft-remove", 2,
+        "<port OR -1 for all ports> "
+        "<set/clear>");
 
-    conn_id = atoi (uc->pargs->args[0]);
-    if (conn_id == -1) {
-        port_begin = 1;
-        max_port = max_ports;
-    } else {
-        port_begin = max_port = conn_id;
-    }
+    bool remove_flag = 0;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     if (strcmp (uc->pargs->args[1], "set") == 0) {
         remove_flag = true;
@@ -3389,11 +3605,11 @@ bf_pltfm_ucli_ucli__qsfp_soft_remove (
         aim_printf (&uc->pvs,
                     "Usage: front-panel port-num <1 to %d or -1 for all ports> <set "
                     "or clear>\n",
-                    max_ports);
+                    max_port);
         return 0;
     }
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         if (bf_port_qsfp_mgmnt_temper_high_alarm_flag_get (
                 port) &&
@@ -3409,33 +3625,20 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_soft_remove_show (
     ucli_context_t *uc)
 {
-    int port, port_begin, max_port;
-    int max_ports = bf_qsfp_get_max_qsfp_ports();
-    int conn_id = 0;
-
     UCLI_COMMAND_INFO (uc,
-                       "soft-remove-show",
-                       1,
-                       " soft-remove-show <port OR -1 for all ports>");
+        "soft-remove-show", 1,
+        "<port OR -1 for all ports>");
 
-    conn_id = atoi (uc->pargs->args[0]);
-    if (conn_id == -1) {
-        port_begin = 1;
-        max_port = max_ports;
-    } else {
-        port_begin = max_port = conn_id;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        first_port = last_port = port;
     }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
-
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         aim_printf (&uc->pvs,
                     "port %d soft-removed %s\n",
@@ -3449,17 +3652,15 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_write_mul (
     ucli_context_t *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-write", -1,
+        "<port> <page> <num-bytes> <start-offset> <data1 data2 ...>");
+
     int port, offset, nBytes;
     uint8_t page, *val;
     int i;
     int arg_err = 0;
     int max_port = bf_qsfp_get_max_qsfp_ports();
-
-    UCLI_COMMAND_INFO (
-        uc,
-        "qsfp-write",
-        -1,
-        "qsfp-write <port> <page> <num-bytes> <start-offset> <data1 data2 ...>");
 
     if (uc->pargs->count < 5) {
         aim_printf (&uc->pvs,
@@ -3656,9 +3857,8 @@ bf_pltfm_ucli_ucli__qsfp_read_mul (
     ucli_context_t *uc)
 {
     UCLI_COMMAND_INFO (uc,
-                       "qsfp-read",
-                       -1,
-                       "qsfp-read <port> <page> <num-bytes> <start-offset>");
+        "qsfp-read", -1,
+        "<port> <page> <num-bytes> <start-offset>");
 
     return qsfp_read (uc, false);
 }
@@ -3667,11 +3867,9 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_combined_read (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (
-        uc,
-        "qsfp-combined-read",
-        -1,
-        "qsfp-combined-read <port> <page> <num-bytes> <start-offset>");
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-combined-read", -1,
+        "<port> <page> <num-bytes> <start-offset>");
 
     return qsfp_read (uc, true);
 }
@@ -3680,33 +3878,20 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__mark_qsfp_port_as_internal (
     ucli_context_t *uc)
 {
-    int port, port_begin, max_port;
-    int max_ports = bf_qsfp_get_max_qsfp_ports();
+    UCLI_COMMAND_INFO (uc,
+        "mark-port-internal", 2,
+        "<port OR -1 for all ports> <set/clear>");
+
+
     bool set = 0;
-    int conn_id = 0;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
-    UCLI_COMMAND_INFO (
-        uc,
-        "mark-port-internal",
-        2,
-        "mark-port-internal <port OR -1 for all ports> <set/clear>");
-
-    conn_id = atoi (uc->pargs->args[0]);
-    if (conn_id == -1) {
-        port_begin = 1;
-        max_port = max_ports;
-    } else {
-        port_begin = max_port = conn_id;
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        first_port = last_port = port;
     }
-
-    if ((port_begin == 0) ||
-        (port_begin > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     if (strcmp (uc->pargs->args[1], "set") == 0) {
         set = true;
@@ -3717,11 +3902,11 @@ bf_pltfm_ucli_ucli__mark_qsfp_port_as_internal (
         aim_printf (&uc->pvs,
                     "Usage: front-panel port-num <1 to %d or -1 for all ports> <set "
                     "or clear>\n",
-                    max_ports);
+                    max_port);
         return 0;
     }
 
-    for (port = port_begin; port <= max_port;
+    for (port = first_port; port <= last_port;
          port++) {
         bf_qsfp_internal_port_set (port, set);
     }
@@ -3732,14 +3917,15 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_db (ucli_context_t
                              *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "db", 0,
+        "display suported QSFP database.");
+
     sff_info_t *sff;
     sff_eeprom_t *se;
     sff_db_entry_t *entry;
     int num = 0;
     int i;
-
-    UCLI_COMMAND_INFO (uc, "db", 0,
-                       "Display suported QSFP database.");
 
     sff_db_get (&entry, &num);
     for (i = 0; i < num; i ++) {
@@ -3758,12 +3944,13 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_map (ucli_context_t
                               *uc)
 {
+    UCLI_COMMAND_INFO (uc,
+        "map", 0,
+        "display QSFP map.");
+
     int module, err;
     uint32_t conn_id, chnl_id = 0;
     char alias[16] = {0}, connc[16] = {0}, prefix = ' ';
-
-    UCLI_COMMAND_INFO (uc, "map", 0,
-                       "Display QSFP map.");
 
     /* Dump the map of Module <-> Alias <-> QSFP/CH <-> Present. */
     aim_printf (&uc->pvs, "%12s%12s%20s%12s\n",
@@ -3817,97 +4004,86 @@ extern char *bf_pm_intf_fsm_st_get (int conn_id,
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_fsm (ucli_context_t *uc)
 {
-    int port, first_port, last_port, max_port;
-    int i;
 
-    UCLI_COMMAND_INFO (uc, "fsm", -1,
-                       "fsm <port>");
+    UCLI_COMMAND_INFO (uc,
+        "fsm", -1,
+        "[sport] [dport]");
+
+    int i;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     if (uc->pargs->count > 0) {
         port = atoi (uc->pargs->args[0]);
         first_port = last_port = port;
-    } else {
-        first_port = 1;
-        last_port = bf_qsfp_get_max_qsfp_ports();
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
     }
-
-    max_port = bf_qsfp_get_max_qsfp_ports();
-
-    if (first_port < 1 || last_port > max_port) {
-        aim_printf (&uc->pvs, "port must be 1-%d\n",
-                    max_port);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     aim_printf (&uc->pvs, "%s | ", "Port");
-    aim_printf (&uc->pvs, "%-28s | ", "Module FSM");
-    aim_printf (&uc->pvs, "%-29s | ", "CH0");
-    aim_printf (&uc->pvs, "%-29s | ", "CH1");
-    aim_printf (&uc->pvs, "%-29s | ", "CH2");
-    aim_printf (&uc->pvs, "%-29s | ", "CH3");
-    aim_printf (&uc->pvs, "%-29s | ", "CH4");
-    aim_printf (&uc->pvs, "%-29s | ", "CH5");
-    aim_printf (&uc->pvs, "%-29s | ", "CH6");
-    aim_printf (&uc->pvs, "%-29s | \n", "CH7");
+    aim_printf (&uc->pvs, "%-20s | ", "Module FSM");
+    aim_printf (&uc->pvs, "%-19s | ", "CH0");
+    aim_printf (&uc->pvs, "%-19s | ", "CH1");
+    aim_printf (&uc->pvs, "%-19s | ", "CH2");
+    aim_printf (&uc->pvs, "%-19s | ", "CH3");
+    aim_printf (&uc->pvs, "%-19s | ", "CH4");
+    aim_printf (&uc->pvs, "%-19s | ", "CH5");
+    aim_printf (&uc->pvs, "%-19s | ", "CH6");
+    aim_printf (&uc->pvs, "%-19s | \n", "CH7");
 
     for (port = first_port; port <= last_port;
          port++) {
+        // FSM for both host and media side with tof1 implementation.
+        // FSM for media side only with tof2 implementation.
         aim_printf (&uc->pvs, "%-4d | %s | ", port,
                     qsfp_module_fsm_st_get (port));
         for (i = 0; i < MAX_CHAN_PER_CONNECTOR; i++) {
             if (i >= bf_qsfp_get_ch_cnt (port)) {
-                aim_printf (&uc->pvs, "%-29s | ", "NA");
+                aim_printf (&uc->pvs, "%-19s | ", "NA");
             } else {
-                aim_printf (&uc->pvs, "%-29s | ",
+                aim_printf (&uc->pvs, "%-19s | ",
                             qsfp_channel_fsm_st_get (port, i));
             }
         }
         aim_printf (&uc->pvs, "\n");
-
-#if 0
+        // FSM for host side only with tof2 implementation.
         if (platform_type_equal (AFN_X732QT)) {
             aim_printf (&uc->pvs, "%-4s | %s | ", " ",
-                        " ");
+                        "                   ");
             for (i = 0; i < MAX_CHAN_PER_CONNECTOR; i++) {
                  if (i >= bf_qsfp_get_ch_cnt (port)) {
-                     aim_printf (&uc->pvs, "%-29s | ", "NA");
+                     aim_printf (&uc->pvs, "%-19s | ", "NA");
                  } else {
-                     aim_printf (&uc->pvs, "%-29s | ",
+                     aim_printf (&uc->pvs, "%-19s | ",
                          bf_pm_intf_fsm_st_get (port, i));
                  }
              }
             aim_printf (&uc->pvs, "\n");
         }
-#endif
     }
     return 0;
 }
+#if 0
 static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_fsm_set (ucli_context_t *uc)
 {
-    int port, first_port, max_port;
-    int max_ports = bf_qsfp_get_max_qsfp_ports();
-    uint8_t st = 0;
 
-    UCLI_COMMAND_INFO (uc, "fsm-set", 2,
-                       "fsm-set <port> <state>");
+    UCLI_COMMAND_INFO (uc,
+        "fsm-set", 2,
+        "<port OR -1 for all ports> <state>");
+
+    uint8_t st = 0;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
 
     port = atoi (uc->pargs->args[0]);
-    if (port == -1) {
-        first_port = 1;
-        max_port = max_ports;
-    } else {
-        first_port = max_port = port;
+    if (port > 0) {
+        first_port = last_port = port;
     }
-
-    if ((first_port == 0) ||
-        (first_port > max_ports ||
-         max_port > max_ports)) {
-        aim_printf (&uc->pvs,
-                    "port must between 1 and %d OR -1 for all ports\n",
-                    max_ports);
-        return 0;
-    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
 
     st = atoi (uc->pargs->args[1]);
 
@@ -3919,17 +4095,60 @@ bf_pltfm_ucli_ucli__qsfp_fsm_set (ucli_context_t *uc)
     return 0;
 }
 
+static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_fsm_ch_set (ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+        "fsm-ch-set", 4,
+        "<port OR -1 for all ports> "
+        "<ch OR -1 for all channels> "
+        "<state> "
+        "<stop>");
+
+    uint8_t st = 0, stop = 0;
+    int max_ch = 4;
+    int ch, first_ch = 0, last_ch = (max_ch - 1);
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    port = atoi (uc->pargs->args[0]);
+    if (port > 0) {
+        first_port = last_port = port;
+    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
+    if (platform_type_equal(AFN_X732QT)) {
+        last_ch = max_ch = 8;
+    }
+
+    ch = atoi (uc->pargs->args[1]);
+    if (ch >= 0) {
+        first_ch = last_ch = ch;
+    }
+    BF_UCLI_CH_VALID(ch, first_ch, last_ch, max_ch, "ch");
+
+    /* qsfp_fsm_ch_en_state_t */
+    st = atoi (uc->pargs->args[2]);
+    stop = atoi (uc->pargs->args[3]);
+
+    for (port = first_port; port <= max_port;
+         port ++) {
+        for (int c = first_ch; c <= last_ch; c ++) {
+            qsfp_channel_fsm_st_set (port, ch, st, stop);
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+    return 0;
+}
+#endif
 static ucli_status_t bf_pltfm_ucli_ucli__qsfp_rxlos_debounce_set(
     ucli_context_t *uc) {
-    UCLI_COMMAND_INFO(uc, "qsfp-rxlos-debounce-set", 2, "<port> <count>");
-    char usage[] = "qsfp-rxlos-debounce-set <port> <count>";
-    int port, count, max_port;
 
-    if (uc->pargs->count != 2) {
-        aim_printf(&uc->pvs, "Incorrect syntax\n");
-        aim_printf(&uc->pvs, "Usage : %s\n", usage);
-        return 0;
-    }
+    UCLI_COMMAND_INFO(uc,
+        "qsfp-rxlos-debounce-set", 2,
+        "<port> <count>");
+
+    int port, count, max_port;
 
     max_port = bf_qsfp_get_max_qsfp_ports();
     port = atoi(uc->pargs->args[0]);
@@ -3943,7 +4162,9 @@ static ucli_status_t bf_pltfm_ucli_ucli__qsfp_rxlos_debounce_set(
         aim_printf(&uc->pvs, "count must be 0 or more\n");
         return 0;
     }
-
+    aim_printf(&uc->pvs, "RxLOS debounce count %d -> %d\n",
+        bf_qsfp_rxlos_debounce_get(port),
+        count);
     bf_qsfp_rxlos_debounce_set(port, count);
     return 0;
 }
@@ -3952,12 +4173,9 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_period_set (
     ucli_context_t *uc)
 {
-    static char usage[] =
-        "qsfp-temper-period-set <period in sec. min:1>";
     UCLI_COMMAND_INFO (uc,
-                       "qsfp-temper-period-set",
-                       1,
-                       "<poll period in sec. min:1> Default 5-sec");
+        "qsfp-temper-period-set", 1,
+        "<poll period in sec. min:1> Default 5-sec");
 
     int64_t period_secs;
 
@@ -3973,9 +4191,6 @@ bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_period_set (
         }
     }
 
-    aim_printf (&uc->pvs,
-                "Error Usage : %s. Input valid period\n", usage);
-
     return 0;
 }
 
@@ -3983,10 +4198,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_log_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-realtime-ddm-log", 1,
-                       "<1=Enable, 0=Disable>");
-    static char usage[] =
-        "qsfp-realtime-ddm-log 1=enable or 0=disable";
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-realtime-ddm-log", 1,
+        "<1: Enable, 0: Disable>");
+
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
@@ -3996,9 +4211,6 @@ bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_log_enable (
         } else {
             bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG;
         }
-    } else {
-        aim_printf (&uc->pvs,
-                    "Error  : %s. Input valid 1 or 0\n", usage);
     }
 
     return 0;
@@ -4008,10 +4220,10 @@ static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monitor_enable (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "qsfp-realtime-ddm-monit-enable",
-                       1, "<1=Enable, 0=Disable>");
-    static char usage[] =
-        "qsfp-realtime-ddm-monit-enable 1=enable or 0=disable";
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-realtime-ddm-monit-enable", 1,
+        "<1: Enable, 0: Disable>");
+
     bool enable;
 
     enable = atoi (uc->pargs->args[0]);
@@ -4021,9 +4233,6 @@ bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monitor_enable (
         } else {
             bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_QSFP_REALTIME_DDM;
         }
-    } else {
-        aim_printf (&uc->pvs,
-                    "Error  : %s. Input valid 1 or 0\n", usage);
     }
 
     return 0;
@@ -4041,7 +4250,6 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_get_int,
     bf_pltfm_ucli_ucli__qsfp_get_lpmode,
     bf_pltfm_ucli_ucli__qsfp_set_lpmode,
-    bf_pltfm_ucli_ucli__qsfp_sw_get_lpmode,
     bf_pltfm_ucli_ucli__qsfp_get_pres,
     bf_pltfm_ucli_ucli__qsfp_get_ddm,
     bf_pltfm_ucli_ucli__qsfp_type_show,
@@ -4058,20 +4266,21 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_summary,
     bf_pltfm_ucli_ucli__qsfp_reset,
     //bf_pltfm_ucli_ucli__qsfp_lpmode_hw,
-    //bf_pltfm_ucli_ucli__qsfp_lpmode_sw,
+    bf_pltfm_ucli_ucli__qsfp_lpmode_sw,
+    bf_pltfm_ucli_ucli__qsfp_sw_get_lpmode,
     bf_pltfm_ucli_ucli__qsfp_lpbk,
     bf_pltfm_ucli_ucli__qsfp_capture,
     bf_pltfm_ucli_ucli__qsfp_tmr_stop,
     bf_pltfm_ucli_ucli__qsfp_tmr_start,
     bf_pltfm_ucli_ucli__qsfp_special_case_set,
     bf_pltfm_ucli_ucli__qsfp_special_case_clear,
-    bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_set,
-    bf_pltfm_ucli_ucli__qsfp_special_case_ctrlmask_get,
+    bf_pltfm_ucli_ucli__qsfp_ctrlmask_set,
     bf_pltfm_ucli_ucli__qsfp_soft_remove,
     bf_pltfm_ucli_ucli__qsfp_soft_remove_show,
     bf_pltfm_ucli_ucli__mark_qsfp_port_as_internal,
     bf_pltfm_ucli_ucli__qsfp_fsm,
-    bf_pltfm_ucli_ucli__qsfp_fsm_set,
+    //bf_pltfm_ucli_ucli__qsfp_fsm_set,
+    //bf_pltfm_ucli_ucli__qsfp_fsm_ch_set,
     bf_pltfm_ucli_ucli__qsfp_dump_idprom_cache,
     bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_period_set,
     bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_log_enable,

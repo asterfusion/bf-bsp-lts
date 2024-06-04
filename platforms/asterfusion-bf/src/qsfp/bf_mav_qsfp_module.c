@@ -459,8 +459,8 @@ int bf_pltfm_qsfp_get_presence_mask (
 {
     bf_pltfm_cp2112_device_ctx_t *hndl = NULL;
 
-    /* CPU mask */
-    *port_cpu_pres   = *port_cpu_pres;
+    /* CPU mask init as absent. */
+    *port_cpu_pres   = 0xFFFFFFFF;
     return bf_pltfm_get_sub_module_pres (hndl,
                                   port_1_32_pres, port_32_64_pres);
 }
@@ -524,7 +524,7 @@ int bf_pltfm_qsfp_get_lpmode_mask (
 }
 
 
-/** set qsfp lpmode
+/** set qsfp lpmode using hardware pin
  *
  *  @param module
  *   port
@@ -537,54 +537,15 @@ int bf_pltfm_qsfp_set_lpmode (unsigned int module,
                               bool lpmode)
 {
     int rc;
-    uint8_t val = 0;
-    uint8_t byte_93;
-    uint32_t lpmode_mask = 0;
+    unsigned int sub_module;
+    bf_pltfm_cp2112_device_ctx_t *hndl;
 
-    rc = bf_pltfm_qsfp_read_module (module, 93, 1, &byte_93);
+    /* get the cp2112 for lower numbered ports */
+    rc = mav_qsfp_param_get(module, &sub_module, &hndl);
     if (rc) {
-        LOG_WARNING (
-            "QSFP    %2d : Error <%d> reading Power ctrl (byte 93)",
-            module, rc);
-    } else {
-        val = POWER_OVERRIDE;
-        if (lpmode) {
-            val |= POWER_SET;  // this bit set to 1 forces LPMode
-        }
-        byte_93 = (byte_93 & ~3) | (val & 3);
-
-        rc = bf_pltfm_qsfp_write_module (module, 93, 1, &byte_93);
-        if (rc) {
-            LOG_WARNING ("QSFP    %2d : Error <%d> writing Power ctrl (byte 93) = %02x",
-                       module,
-                       rc,
-                       byte_93);
-        } else {
-            LOG_DEBUG ("QSFP    %2d : Power ctrl (byte 93) = %02x",
-                       module, byte_93);
-            if (module <= 32) {
-                lpmode_mask = qsfp_lpmode_mask_l;
-            } else {
-                lpmode_mask = qsfp_lpmode_mask_h;
-            }
-
-            if (lpmode) {
-                /* Set LPMode bit=1 to identify this module is in low power mode. */
-                lpmode_mask |= (1 << (module - 1));
-            } else {
-                /* Set LPMode bit=0 to identify this module is not in low power mode. */
-                lpmode_mask &= ~(1 << (module - 1));
-            }
-
-            if (module <= 32) {
-                qsfp_lpmode_mask_l = lpmode_mask;
-            } else {
-                qsfp_lpmode_mask_h = lpmode_mask;
-            }
-        }
+      return -1;
     }
-
-    return rc;
+    return bf_pltfm_set_sub_module_lpmode(hndl, sub_module, lpmode);
 }
 
 /* set the i2c mux to enable the MISC channel of PCA9548. many miscellaneous

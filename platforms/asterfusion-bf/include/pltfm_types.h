@@ -97,10 +97,6 @@ extern "C" {
 #define RDONLY
 #endif
 
-#ifndef ARRAY_LENGTH
-#define ARRAY_LENGTH(a) (int)(sizeof(a)/sizeof((a)[0]))
-#endif
-
 #ifndef __BITS_PER_LONG
 #if defined(__x86_64__) || defined(__aarch64__)
 #   define __BITS_PER_LONG 64
@@ -129,10 +125,6 @@ extern "C" {
             const typeof(((type *)0)->member) *__mptr = (ptr); \
             (type *)((char *)__mptr - offsetof(type,member));})
 #endif
-
-/* Considering mounting LOG_DIR_PREFIX to ramfs or tmpfs.
- * by tsihang, 2022-06-02. */
-#define LOG_DIR_PREFIX  "/var/asterfusion"
 
 #define BOLD        "\e[1m"
 #define UNDERLINE   "\e[4m"

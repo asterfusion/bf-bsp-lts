@@ -158,10 +158,10 @@ bf_pltfm_status_t bf_pltfm_bd_type_set_by_key (uint8_t type, uint8_t subtype)
  */
 static int product_name (const char *index)
 {
-    char str[13];
+    char str[21];
     uint8_t i = 0;
 
-    while (i < 12) {
+    while (i < 20) {
         if ((index[i] == '\'') || (index[i] == '\"')) {
             break;
         }
@@ -172,8 +172,8 @@ static int product_name (const char *index)
     str[i] = '\0';
     strncpy (eeprom.bf_pltfm_product_name, str, i + 1);
 
-    LOG_DEBUG ("Product Name: %s \n",
-               eeprom.bf_pltfm_product_name);
+    //LOG_DEBUG ("Product Name: %s \n",
+    //           eeprom.bf_pltfm_product_name);
 
     return 0;
 }
@@ -200,8 +200,8 @@ static int product_number (const char *index)
         bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_PTPX_INSTALLED;
     }
 
-    LOG_DEBUG ("Product Number: %s \n",
-               eeprom.bf_pltfm_product_number);
+    //LOG_DEBUG ("Product Number: %s \n",
+    //           eeprom.bf_pltfm_product_number);
 
     return 0;
 }
@@ -230,8 +230,8 @@ static int product_serial_number (const char
 
     strncpy (eeprom.bf_pltfm_product_serial, str, i + 1);
 
-    LOG_DEBUG ("Product Serial Number: %s \n",
-               eeprom.bf_pltfm_product_serial);
+    //LOG_DEBUG ("Product Serial Number: %s \n",
+    //           eeprom.bf_pltfm_product_serial);
 
     return 0;
 }
@@ -256,13 +256,13 @@ static int ext_mac_base (const char *index)
                                           hex, NULL, 16);
     }
 
-    LOG_DEBUG ("Extended MAC Base %x:%x:%x:%x:%x:%x\n",
-               eeprom.bf_pltfm_mac_base[0],
-               eeprom.bf_pltfm_mac_base[1],
-               eeprom.bf_pltfm_mac_base[2],
-               eeprom.bf_pltfm_mac_base[3],
-               eeprom.bf_pltfm_mac_base[4],
-               eeprom.bf_pltfm_mac_base[5]);
+    //LOG_DEBUG ("Extended MAC Base %x:%x:%x:%x:%x:%x\n",
+    //           eeprom.bf_pltfm_mac_base[0],
+    //           eeprom.bf_pltfm_mac_base[1],
+    //           eeprom.bf_pltfm_mac_base[2],
+    //           eeprom.bf_pltfm_mac_base[3],
+    //           eeprom.bf_pltfm_mac_base[4],
+    //           eeprom.bf_pltfm_mac_base[5]);
     return 0;
 }
 
@@ -286,8 +286,8 @@ static int system_manufacturing_date (
     eeprom.bf_pltfm_system_manufacturing_date[len] =
         '\0';
 
-    LOG_DEBUG ("System Manufacturing Date: %s \n",
-               eeprom.bf_pltfm_system_manufacturing_date);
+    //LOG_DEBUG ("System Manufacturing Date: %s \n",
+    //           eeprom.bf_pltfm_system_manufacturing_date);
 
     return 0;
 }
@@ -312,8 +312,8 @@ static int product_version (const char *index)
     str[j] = '\0';
     eeprom.bf_pltfm_product_version = atoi (str);
 
-    LOG_DEBUG ("Product Version: %d \n",
-               eeprom.bf_pltfm_product_version);
+    //LOG_DEBUG ("Product Version: %d \n",
+    //           eeprom.bf_pltfm_product_version);
 
     return 0;
 }
@@ -339,8 +339,8 @@ static int product_subversion (const char *index)
     strncpy (eeprom.bf_pltfm_product_subversion,
         str, j);
 
-    LOG_DEBUG ("Product Sub-Version: %s \n",
-               eeprom.bf_pltfm_product_subversion);
+    //LOG_DEBUG ("Product Sub-Version: %s \n",
+    //           eeprom.bf_pltfm_product_subversion);
 
     return 0;
 }
@@ -362,8 +362,8 @@ static int product_arch (const char *index)
              index, len);
     eeprom.bf_pltfm_product_platform_arch[len] = '\0';
 
-    LOG_DEBUG ("System Platform Arch: %s \n",
-               eeprom.bf_pltfm_product_platform_arch);
+    //LOG_DEBUG ("System Platform Arch: %s \n",
+    //           eeprom.bf_pltfm_product_platform_arch);
 
     return 0;
 }
@@ -384,8 +384,8 @@ static int onie_version (const char *index)
              len);
     eeprom.bf_pltfm_onie_version[len] = '\0';
 
-    LOG_DEBUG ("System ONIE Version: %s \n",
-               eeprom.bf_pltfm_onie_version);
+    //LOG_DEBUG ("System ONIE Version: %s \n",
+    //           eeprom.bf_pltfm_onie_version);
 
     return 0;
 }
@@ -409,8 +409,8 @@ static int ext_mac_size (const char *index)
     str[j] = '\0';
     eeprom.bf_pltfm_mac_size = atoi (str);
 
-    LOG_DEBUG ("Extended MAC Address Size: %d \n",
-               eeprom.bf_pltfm_mac_size);
+    //LOG_DEBUG ("Extended MAC Address Size: %d \n",
+    //           eeprom.bf_pltfm_mac_size);
 
     return 0;
 }
@@ -433,8 +433,8 @@ static int system_manufacturer (const char
              index, len);
     eeprom.bf_pltfm_system_manufacturer[len] = '\0';
 
-    LOG_DEBUG ("System Manufacturer: %s \n",
-               eeprom.bf_pltfm_system_manufacturer);
+    //LOG_DEBUG ("System Manufacturer: %s \n",
+    //           eeprom.bf_pltfm_system_manufacturer);
 
     return 0;
 }
@@ -454,8 +454,8 @@ static int country_code (const char *index)
     strncpy (eeprom.bf_pltfm_cc, index, len);
     eeprom.bf_pltfm_cc[len] = '\0';
 
-    LOG_DEBUG ("Country Code: %s \n",
-               eeprom.bf_pltfm_cc);
+    //LOG_DEBUG ("Country Code: %s \n",
+    //           eeprom.bf_pltfm_cc);
 
     return 0;
 }
@@ -480,8 +480,8 @@ static int product_vendor (const char *index)
              len);
     eeprom.bf_pltfm_product_vendor[len] = '\0';
 
-    LOG_DEBUG ("Product Vendor: %s \n",
-               eeprom.bf_pltfm_product_vendor);
+    //LOG_DEBUG ("Product Vendor: %s \n",
+    //           eeprom.bf_pltfm_product_vendor);
 
     return 0;
 }
@@ -502,8 +502,8 @@ static int diag_version (const char *index)
              len);
     eeprom.bf_pltfm_diag_version[len] = '\0';
 
-    LOG_DEBUG ("Diag Version: %s \n",
-               eeprom.bf_pltfm_diag_version);
+    //LOG_DEBUG ("Diag Version: %s \n",
+    //           eeprom.bf_pltfm_diag_version);
 
     return 0;
 }
@@ -523,8 +523,8 @@ static int serv_tag (const char *index)
     strncpy (eeprom.bf_pltfm_serv_tag, index, len);
     eeprom.bf_pltfm_serv_tag[len] = '\0';
 
-    LOG_DEBUG ("Service Tag: %s \n",
-               eeprom.bf_pltfm_serv_tag);
+    //LOG_DEBUG ("Service Tag: %s \n",
+    //           eeprom.bf_pltfm_serv_tag);
 
     return 0;
 }
@@ -544,8 +544,8 @@ static int asic_vendor (const char *index)
     strncpy (eeprom.bf_pltfm_asic_vendor, index, len);
     eeprom.bf_pltfm_asic_vendor[len] = '\0';
 
-    LOG_DEBUG ("ASIC Vendor: %s \n",
-               eeprom.bf_pltfm_asic_vendor);
+    //LOG_DEBUG ("ASIC Vendor: %s \n",
+    //           eeprom.bf_pltfm_asic_vendor);
 
     return 0;
 }
@@ -574,8 +574,8 @@ static int product_main_board_version (
     strncpy (eeprom.bf_pltfm_main_board_version, str,
              i + 1);
 
-    LOG_DEBUG ("Product Main Board Version: %s \n",
-               eeprom.bf_pltfm_main_board_version);
+    //LOG_DEBUG ("Product Main Board Version: %s \n",
+    //           eeprom.bf_pltfm_main_board_version);
 
     return 0;
 }
@@ -602,8 +602,8 @@ static int comexpress_version (const char *index)
 
     strncpy (eeprom.bf_pltfm_come_version, str, i + 1);
 
-    LOG_DEBUG ("Product COMe Board Version: %s \n",
-               eeprom.bf_pltfm_come_version);
+    //LOG_DEBUG ("Product COMe Board Version: %s \n",
+    //           eeprom.bf_pltfm_come_version);
 
     return 0;
 }
@@ -631,8 +631,8 @@ static int ghc_bd0_version (const char *index)
          * by tsihang, 2023/11/09. */
         bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU1_INSTALLED;
     }
-    LOG_DEBUG ("Product Computing Card0 Version: %s \n",
-               eeprom.bf_pltfm_ghc_bd0_version);
+    //LOG_DEBUG ("Product Computing Card0 Version: %s \n",
+    //           eeprom.bf_pltfm_ghc_bd0_version);
 
     return 0;
 }
@@ -660,8 +660,8 @@ static int ghc_bd1_version (const char *index)
          * by tsihang, 2023/11/09. */
         bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_DPU2_INSTALLED;
     }
-    LOG_DEBUG ("Product Computing Card1 Version: %s \n",
-               eeprom.bf_pltfm_ghc_bd1_version);
+    //LOG_DEBUG ("Product Computing Card1 Version: %s \n",
+    //           eeprom.bf_pltfm_ghc_bd1_version);
 
     return 0;
 }
@@ -688,7 +688,7 @@ static int eecrc32 (const char *index)
     eeprom.bf_pltfm_crc32 = (uint32_t)strtol (str,
                             NULL, 0);
 
-    LOG_DEBUG ("CRC32: %d \n", eeprom.bf_pltfm_crc32);
+    //LOG_DEBUG ("CRC32: %d \n", eeprom.bf_pltfm_crc32);
 
     return 0;
 }

@@ -1858,6 +1858,7 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
         }
         fclose (fp);
     }
+    aim_printf (&uc->pvs, "    LogExt: %s\n", BF_DRIVERS_LOG_EXT);
 
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
@@ -2542,7 +2543,7 @@ ucli_node_t *bf_pltfm_spi_ucli_node_create (
 }
 
 static ucli_module_t
-mavericks_pltfm_mgrs_ucli_module__ = {
+afn_pltfm_mgrs_ucli_module__ = {
     "pltfm_mgr_ucli", NULL, bf_pltfm_mgr_ucli_ucli_handlers__, NULL, NULL,
 };
 
@@ -2551,9 +2552,9 @@ ucli_node_t *pltfm_mgrs_ucli_node_create (
 {
     ucli_node_t *n;
     ucli_module_init (
-        &mavericks_pltfm_mgrs_ucli_module__);
+        &afn_pltfm_mgrs_ucli_module__);
     n = ucli_node_create ("pltfm_mgr", m,
-                          &mavericks_pltfm_mgrs_ucli_module__);
+                          &afn_pltfm_mgrs_ucli_module__);
     ucli_node_subnode_add (n,
                            ucli_module_log_node_create ("pltfm_mgr"));
     return n;
@@ -2643,6 +2644,12 @@ void bf_pltfm_platform_exit (void *arg)
     platform_bd_deinit();
 
     bf_sys_rmutex_del (&mav_i2c_lock);
+
+    // Make sure extended_log_hdl is closed at last anyway.
+    if (bf_pltfm_mgr_ctx()->extended_log_hdl) {
+        fclose (bf_pltfm_mgr_ctx()->extended_log_hdl);
+        bf_pltfm_mgr_ctx()->extended_log_hdl = NULL;
+    }
 }
 
 static void hostinfo()
@@ -2704,6 +2711,7 @@ bf_status_t bf_pltfm_platform_init (
     }
 
     hostinfo();
+    AF_LOG_EXT ("Started");
 
     /* Initialize the Chassis Management library */
     err = chss_mgmt_init();

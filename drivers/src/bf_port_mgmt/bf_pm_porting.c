@@ -23,7 +23,10 @@
 // Local header includes
 #include "bf_pm_priv.h"
 
-#define ENTER_DBG //fprintf(stdout, "f : %s l : %4d\n", __FILE__, __LINE__);
+// For valueable info
+#define AF_LOG(...)\
+    AF_LOG_EXT(__VA_ARGS__);\
+    LOG_WARNING(__VA_ARGS__)
 
 #define BF_DEV_PORT_TO_PIPE(x) (((x) >> 7) & 3)
 #define BF_DEV_PORT_TO_LOCAL_PORT(x) ((x) & 0x7F)
@@ -369,10 +372,16 @@ bf_status_t bf_pm_pre_port_delete_cfg_set (
     port_info.chnl_id = port_hdl->chnl_id;
     if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
         bf_pm_intf_del(&port_info, port_cfg);
-        return BF_SUCCESS;
+        //return BF_SUCCESS;
+    }
+    if (devport_state_enabled_chk(dev_id, port_hdl)) {
+        LOG_WARNING (
+            "It's not recommended to delete a port which is not truely disabled. : %d : front port : %d/%d",
+            dev_id,
+            port_info.conn_id,
+            port_info.chnl_id);
     }
 
-    ENTER_DBG;
     devport_state_enabled_set(0, port_hdl, false);
     // Currently there is nothing to be done so just return
     (void)port_cfg;
@@ -542,13 +551,14 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
         }
     }
 
-    LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s/%s",
+    if (bf_qsfp_is_fsm_logging(port_info.conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s/%s",
                port_info.conn_id,
                port_info.chnl_id,
                dev_port,
                is_present ? "PRESENT" : "ABSENT",
                is_optic   ? "OPTICAL" : "COPPER");
-
+    }
     /* TBD: Add force Tx conditions. */
     if (is_present || devport_state_tx_mode_chk(dev_id, port_hdl)) {
         /* Set LED to enabled status for X564P-T/X532P-T when there's a transciever plugged-in.
@@ -567,7 +577,6 @@ bf_status_t bf_pm_pre_port_enable_cfg_set (
             bf_pltfm_err_str (sts),
             sts);
     }
-    ENTER_DBG;
     devport_state_enabled_set(dev_id, port_hdl, true);
     (void)port_cfg;
     return BF_SUCCESS;
@@ -714,7 +723,6 @@ bf_status_t bf_pm_pre_port_disable_cfg_set (
             }
         }
     }
-    ENTER_DBG;
     devport_state_enabled_set(dev_id, port_hdl, false);
     (void)port_cfg;
     return BF_SUCCESS;
@@ -846,6 +854,9 @@ bf_status_t bf_pm_port_link_up_actions (
              "%2d/%d : %s : is_present : %d\n",
              (port_hdl)->conn_id, (port_hdl)->chnl_id, "up",
              is_present);
+    AF_LOG ("%2d/%d : %s : is_present : %d\n",
+             (port_hdl)->conn_id, (port_hdl)->chnl_id, "up",
+             is_present);
 
     /* by tsihang, 21 Nov. 2019 */
     devport_speed_to_led_color (port_cfg->speed_cfg, &led_cond);
@@ -920,15 +931,14 @@ bf_status_t bf_pm_port_link_down_actions (
         }
     }
 
-    ENTER_DBG;
     /* Pull led off if the linkdown event caused by port-dis. */
     if (!devport_state_enabled_chk(dev_id, port_hdl)) {
         led_cond = BF_LED_POST_PORT_DIS;
-        LOG_DEBUG (
+        AF_LOG (
                  "QSFP    %2d/%d : %s\n",
                  (port_hdl)->conn_id, (port_hdl)->chnl_id, "Forced link dn ...");
     } else {
-        LOG_DEBUG (
+        AF_LOG (
                  "QSFP    %2d/%d : %s\n",
                  (port_hdl)->conn_id, (port_hdl)->chnl_id, "Remote link dn ...");
     }
@@ -1008,7 +1018,7 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
     bf_status_t rc;
     int lane;
     bool is_optical = false;
-    bool is_sfp;
+    bool is_sfp = false;
     int module;
     bf_pltfm_port_info_t port_info;
 
@@ -1035,21 +1045,24 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         bf_sfp_get_port (port_info.conn_id,
                          port_info.chnl_id, &module);
         is_optical = bf_sfp_is_optical (module);
-        LOG_DEBUG (" SFP    %2d : [%02d/%d] : dev_port=%3d : is %s",
+        if (bf_sfp_is_fsm_logging(module)) {
+            LOG_DEBUG (" SFP    %2d : [%02d/%d] : dev_port=%3d : is %s",
                    module,
                    port_info.conn_id,
                    port_info.chnl_id,
                    dev_port,
                    is_optical ? "OPTICAL" : "COPPER");
+        }
     } else {
         is_optical = bf_qsfp_is_optical (
                          port_info.conn_id);
-
-        LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
+        if (bf_qsfp_is_fsm_logging (port_info.conn_id)) {
+            LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
                    port_info.conn_id,
                    port_info.chnl_id,
                    dev_port,
                    is_optical ? "OPTICAL" : "COPPER");
+        }
     }
 
     /* Here's is a bug for Tx only without module.
@@ -1069,11 +1082,13 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
     if (is_sfp) {
         /* by tsihang, 2022-04-11
          * kick off sfp_fsm. */
-        LOG_DEBUG (" SFP    %2d : [%02d/%d] : Enable dev_port=%3d",
+        if (bf_sfp_is_fsm_logging(module)) {
+            LOG_DEBUG (" SFP    %2d : [%02d/%d] : Enable dev_port=%3d",
                    module,
                    port_info.conn_id,
                    port_info.chnl_id,
                    dev_port);
+        }
         sfp_fsm_st_enable (dev_id, module);
         return BF_SUCCESS;
     }
@@ -1086,11 +1101,13 @@ static bf_status_t bf_pm_qsfp_mgmt_cb (
         return BF_INVALID_ARG;
     }
     for (lane = 0; lane < num_lanes; lane++) {
-        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%3d, ln=%d)",
+        if (bf_qsfp_is_fsm_logging (port_info.conn_id)) {
+            LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%3d, ln=%d)",
                    port_hdl.conn_id,
                    port_hdl.chnl_id + lane,
                    dev_port,
                    lane);
+        }
         if (!bf_pltfm_pm_is_ha_mode()) {
             qsfp_fsm_ch_enable (dev_id, port_hdl.conn_id,
                                 port_hdl.chnl_id + lane);
@@ -1118,6 +1135,8 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
     bf_status_t rc;
     int lane;
     bool is_optical = false;
+    bool is_sfp = false;
+    int module;
     bf_pltfm_port_info_t port_info;
 
     rc = bf_pm_port_dev_port_to_front_panel_port_get (
@@ -1131,13 +1150,31 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
     port_info.conn_id = port_hdl.conn_id;
     port_info.chnl_id = port_hdl.chnl_id;
 
-    is_optical = bf_qsfp_is_optical (
-                     port_info.conn_id);
-    LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
-               port_info.conn_id,
-               port_info.chnl_id,
-               dev_port,
-               is_optical ? "OPTICAL" : "COPPER");
+    is_sfp = is_panel_sfp (port_hdl.conn_id,
+                           port_hdl.chnl_id);
+    if (is_sfp) {
+        bf_sfp_get_port (port_info.conn_id,
+                         port_info.chnl_id, &module);
+        is_optical = bf_sfp_is_optical (module);
+        if (bf_sfp_is_fsm_logging(module)) {
+            LOG_DEBUG (" SFP    %2d : [%02d/%d] : dev_port=%3d : is %s",
+                   module,
+                   port_info.conn_id,
+                   port_info.chnl_id,
+                   dev_port,
+                   is_optical ? "OPTICAL" : "COPPER");
+        }
+    } else {
+        is_optical = bf_qsfp_is_optical (
+                         port_info.conn_id);
+        if (bf_qsfp_is_fsm_logging (port_info.conn_id)) {
+            LOG_DEBUG ("QSFP    %2d : ch[%d] : dev_port=%3d : is %s",
+                   port_info.conn_id,
+                   port_info.chnl_id,
+                   dev_port,
+                   is_optical ? "OPTICAL" : "COPPER");
+        }
+    }
 #if 0
     /* ignore module type when in Tx mode.
      * by tsihang, 2021-07-27. */
@@ -1151,12 +1188,13 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
                                  true);
     bf_port_optical_xcvr_ready_set (dev_id, dev_port,
                                     false);
-    if (is_panel_sfp (port_info.conn_id,
-                      port_info.chnl_id)) {
+    if (is_sfp) {
         /* by tsihang, 2020-05-11
          * Set tranciver ready to TRUE defaultly */
         bf_port_optical_xcvr_ready_set (dev_id, dev_port,
                                         true);
+        sfp_fsm_st_enable (dev_id, module);
+        return 0;
     }
 
     rc = bf_pm_pltfm_front_port_num_lanes_get (dev_id,
@@ -1167,11 +1205,13 @@ static bf_status_t bf_pm_qsfp_mgmt_cb_tx_mode (
         return BF_INVALID_ARG;
     }
     for (lane = 0; lane < num_lanes; lane++) {
-        LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%3d, ln=%d)",
+        if (bf_qsfp_is_fsm_logging (port_info.conn_id)) {
+            LOG_DEBUG ("QSFP    %2d : ch[%d] Enable (dev_port=%3d, ln=%d)",
                    port_hdl.conn_id,
                    port_hdl.chnl_id + lane,
                    dev_port,
                    lane);
+        }
         if (!bf_pltfm_pm_is_ha_mode()) {
             qsfp_fsm_ch_enable (dev_id, port_hdl.conn_id,
                                 port_hdl.chnl_id + lane);

@@ -21,9 +21,11 @@ static int port_num_is_valid (uint32_t conn,
         conn > (uint32_t)bf_bd_cfg_bd_num_port_get()) {
         return -1;
     }
-    if (chnl >= QSFP_NUM_CHN) {
+
+    if (chnl >= (uint32_t)bf_bd_cfg_bd_port_num_nlanes_get(conn)) {
         return -1;
     }
+
     return 0;
 }
 
@@ -69,7 +71,7 @@ err_cleanup:
 }
 
 static int conn_and_chnl_get (const char *str,
-                              int *conn, int *chnl)
+                              uint32_t *conn, uint32_t *chnl)
 {
     bf_pltfm_port_info_t port_info;
     bf_pltfm_status_t sts;
@@ -98,8 +100,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_mac_get__ (
                        "<conn_id/chnl_id>");
 
     ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
+              uc->pargs->args[0], &port_info.conn_id,
+              &port_info.chnl_id);
     if (ret != 0) {
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
@@ -142,8 +144,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_tx_phy_lane_get__
                        "<conn_id/chnl_id>");
 
     ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
+              uc->pargs->args[0], &port_info.conn_id,
+              &port_info.chnl_id);
     if (ret != 0) {
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
@@ -185,8 +187,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_rx_phy_lane_get__
                        "<conn_id/chnl_id>");
 
     ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
+              uc->pargs->args[0], &port_info.conn_id,
+              &port_info.chnl_id);
     if (ret != 0) {
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
@@ -228,8 +230,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_tx_pn_swap_get__
                        "<conn_id/chnl_id>");
 
     ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
+              uc->pargs->args[0], &port_info.conn_id,
+              &port_info.chnl_id);
     if (ret != 0) {
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
@@ -271,8 +273,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_rx_pn_swap_get__
                        "<conn_id/chnl_id>");
 
     ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
+              uc->pargs->args[0], &port_info.conn_id,
+              &port_info.chnl_id);
     if (ret != 0) {
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
@@ -319,8 +321,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_port_mac_lane_info_get__
                        "2->Cu_2m, 3->Cu_3m, 4->Cu_loop, 5->Opt>");
 
     ret = conn_and_chnl_get (
-              uc->pargs->args[0], (int *)&port_info.conn_id,
-              (int *)&port_info.chnl_id);
+              uc->pargs->args[0], &port_info.conn_id,
+              &port_info.chnl_id);
     if (ret != 0) {
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
@@ -814,7 +816,7 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_dump__ (
     UCLI_COMMAND_INFO (uc,
                        "dump",
                        -1,
-                       "Usage: show -p <conn_id/chnl_id> -q "
+                       "dump -p <conn_id/chnl_id> -q "
                        "<qsfp_type:0->Cu_0.5m, 1->Cu_1m, 2->Cu_2m, 3->Cu_3m, "
                        "4->Cu_loop, 5->Opt> [-d -r]");
 
@@ -851,8 +853,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_dump__ (
 
     if (pflag == 1) {
         ret = conn_and_chnl_get (
-                  p_arg, (int *)&port_info.conn_id,
-                  (int *)&port_info.chnl_id);
+                  p_arg, &port_info.conn_id,
+                  &port_info.chnl_id);
         if (ret != 0) {
             aim_printf (&uc->pvs, "%s\n", usage);
             return 0;
@@ -876,7 +878,8 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_dump__ (
         }
 
         if (lflag == 1) {
-            if (port_info.chnl_id > 3) {
+            if (port_info.chnl_id >=
+                    (uint32_t)bf_bd_cfg_bd_port_num_nlanes_get(port_info.conn_id)) {
                 aim_printf (
                     &uc->pvs, "show: Invalid channel number %d\n",
                     port_info.chnl_id);
@@ -903,7 +906,6 @@ bf_pltfm_bd_cfg_ucli_ucli__bd_cfg_dump__ (
     return 0;
 }
 
-
 static ucli_status_t
 bf_pltfm_bd_cfg_ucli_ucli__tx_sds_eq_set__ (
     ucli_context_t *uc)
@@ -916,6 +918,7 @@ bf_pltfm_bd_cfg_ucli_ucli__tx_sds_eq_set__ (
     int conn = 0, chnl = 0;
     uint32_t i, j;
     bf_pltfm_port_info_t port_info;
+    int max_nlanes = 4;
     static char usage[] =
         "Usage: tx_sds_eq_set <conn_id/chnl_id> <tx_attn> <tx_pre> <tx_post>";
 
@@ -928,6 +931,9 @@ bf_pltfm_bd_cfg_ucli_ucli__tx_sds_eq_set__ (
         aim_printf (&uc->pvs, "%s\n", usage);
         return 0;
     }
+    if (platform_type_equal (AFN_X732QT))
+        max_nlanes = 8;
+
     conn = (int)port_info.conn_id;
     chnl = (int)port_info.chnl_id;
 
@@ -940,7 +946,7 @@ bf_pltfm_bd_cfg_ucli_ucli__tx_sds_eq_set__ (
     }
     if (chnl == -1) {
         chnl_begin = 0;
-        chnl_end = QSFP_NUM_CHN - 1;
+        chnl_end = max_nlanes - 1;
     } else {
         chnl_begin = chnl;
         chnl_end = chnl;
@@ -1062,7 +1068,6 @@ static ucli_status_t bf_pltfm_bd_cfg_ucli_ucli__bd_map_dump__(ucli_context_t *uc
     }
     return 0;
 }
-
 
 static ucli_command_handler_f
 bf_pltfm_bd_cfg_ucli_ucli_handlers__[] = {

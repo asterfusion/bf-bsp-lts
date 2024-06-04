@@ -38,7 +38,9 @@
 
 #define BMC_CMD_SENSOR_CNT_GET 0x03
 #define BMC_CMD_SENSOR_TMP_GET 0x04
+#define BMC_CMD_SENSOR_TMP_SET 0x04
 
+static float pipe_temp_max = 0.0;
 static bf_pltfm_temperature_info_t bmc_tmp_data;
 static bf_pltfm_switch_temperature_info_t
 switch_tmp_data[MAX_SWITCH_SENSORS];
@@ -444,19 +446,30 @@ __bf_pltfm_chss_mgmt_temperature_get_x732q__ (
     uint8_t rd_buf[128];
     int err = BF_PLTFM_COMM_FAILED, ret;
 
-    wr_buf[0] = 0xAA;
-    wr_buf[1] = 0xAA;
-
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        // Write highest asic temperature first
+        if (bf_pltfm_compare_bmc_ver("v1.0.2") >= 0 &&
+            pipe_temp_max > 0.0) {
+            wr_buf[0] = 0x01;
+            wr_buf[1] = (uint8_t) pipe_temp_max;
+            bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_SENSOR_TMP_SET, wr_buf, 2, rd_buf,
+                    (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+        }
+
+        // Read temperature of all sensors
+        wr_buf[0] = 0xAA;
+        wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
                   BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, rd_buf,
                   (128 - 1),
                   BMC_COMM_INTERVAL_US);
+
     } else {
         ret = bf_pltfm_bmc_write_read (bmc_i2c_addr,
                                        BMC_CMD_SENSOR_TMP_GET, wr_buf, 2, 0xFF, rd_buf, sizeof(rd_buf),
                                        BMC_COMM_INTERVAL_US);
-
     }
 
     if ((ret == 7) && (rd_buf[0] == 6)) {
@@ -529,10 +542,36 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
 {
     uint32_t temp_mC = 0;
     uint32_t timeout = 0;
+    uint32_t num_pipes = 0;
+    uint32_t logical_pipe;
+    float pipe_temp;
+    bf_dev_port_t dev_port;
     bf_status_t err;
 
     clr_stemp_info (tmp);
-    if (!bf_pm_intf_is_device_family_tofino(dev_id)) return BF_PLTFM_SUCCESS;
+    if (bf_pm_intf_is_device_family_tofino2(dev_id)) {
+        pipe_temp_max = 0.0;
+        lld_sku_get_num_active_pipes(dev_id, &num_pipes);
+        for (logical_pipe = 0; logical_pipe < num_pipes; logical_pipe++) {
+            dev_port = MAKE_DEV_PORT(logical_pipe, 8);
+            if (BF_SUCCESS !=
+                bf_tof2_serdes_fw_temperature_get (
+                    dev_id, dev_port, &pipe_temp)) {
+                LOG_ERROR ("Error in reading pipe%d temperature of tofino2 asic.", logical_pipe);
+            } else {
+                // LOG_DEBUG ("Read tofino2 asic pipe%d temperature: %.1fC", logical_pipe, pipe_temp);
+                pipe_temp_max = MAX(pipe_temp, pipe_temp_max);
+                /* Write to cache. */
+                sensor = (int)logical_pipe;
+                tmp->main_sensor = tmp->remote_sensor = (uint32_t)pipe_temp;
+                cpy_stemp_info (&switch_tmp_data[sensor %
+                                                MAX_SWITCH_SENSORS], tmp);
+                // Tell caller the highest temp current.
+                tmp->main_sensor = tmp->remote_sensor = (uint32_t)pipe_temp_max;
+            }
+        }
+        return BF_PLTFM_SUCCESS;
+    }
 
     if (BF_SUCCESS !=
         bf_serdes_temperature_read_start (
@@ -779,13 +818,13 @@ bf_pltfm_chss_mgmt_tmp_init()
             fprintf (stdout, "tmp2    %.1f C   \"%s\"\n",
                      t.tmp2, "Mainboard Front Right");
             fprintf (stdout, "tmp3    %.1f C   \"%s\"\n",
-                     t.tmp3, "ASIC Ambient");
+                     t.tmp3, "Fan 1");
             fprintf (stdout, "tmp4    %.1f C   \"%s\"\n",
-                     t.tmp4, "ASIC Junction");
+                     t.tmp4, "Fan 2");
             fprintf (stdout, "tmp5    %.1f C   \"%s\"\n",
-                     t.tmp5, "Fan 1");
+                     t.tmp5, "ASIC Ambient");
             fprintf (stdout, "tmp6    %.1f C   \"%s\"\n",
-                     t.tmp6, "Fan 2");
+                     t.tmp6, "ASIC Junction");
             /* Added more sensors. */
         } else if (platform_type_equal (AFN_HC36Y24C)) {
             fprintf (stdout, "tmp1    %.1f C   \"%s\"\n",

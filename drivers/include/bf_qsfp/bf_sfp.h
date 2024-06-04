@@ -137,6 +137,7 @@ void bf_sfp_print_ddm (int port, sfp_global_sensor_t *trans, sfp_channel_t *chnl
 
 bool bf_sfp_is_detected (int port);
 void bf_sfp_set_detected (int port, bool detected);
+int bf_sfp_is_fsm_logging (int port);
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_sfp_ucli_node_create (

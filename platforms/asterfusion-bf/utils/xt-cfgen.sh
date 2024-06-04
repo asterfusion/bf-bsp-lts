@@ -395,9 +395,9 @@ echo "# X-T Bare Metal Hardware Platform." >> $cfgfile
 echo "# Currently supported X-T Bare Metal like below:" >> $cfgfile
 echo "#   1. X532P-T (Default)" >> $cfgfile
 echo "#   2. X564P-T"  >> $cfgfile
-echo "#   3. X308P-T" >> $cfgfile
+echo "#   3. X308P-T (3056XT)" >> $cfgfile
 echo "#   4. X312P-T" >> $cfgfile
-echo "#   5. 3056XT" >> $cfgfile
+echo "#   5. X732Q-T" >> $cfgfile
 echo $xt_platform $hw_platform
 echo "platform:"$hw_platform >> $cfgfile
 echo "" >> $cfgfile
@@ -422,11 +422,11 @@ echo "" >> $cfgfile
 
 echo "# Master I2C which is used to access CPLD and/or BMC." >> $cfgfile
 echo "#" >> $cfgfile
-echo "#             [X312P-T V3.0 and later]      [X308P-T]           [X532P-T/X564P-T]" >> $cfgfile
-echo "#                      |                       |                        |" >> $cfgfile
-echo "#  BMC          <---- nct6779d          <---- UART               <---- UART" >> $cfgfile
-echo "#  CPLD         <---- nct6779d          <---- cp2112             <---- cp2112" >> $cfgfile
-echo "#  Transceiver  <---- cp2112            <---- cp2112             <---- cp2112" >> $cfgfile
+echo "#                 [X312P-T V3.0 and later]    [X308P-T/3056XT]    [X532P-T/X564P-T]      [X732Q-T]" >> $cfgfile
+echo "#                            |                        |                   |                  |" >> $cfgfile
+echo "#  BMC                 <---- nct6779d           <---- UART          <---- UART         <---- UART" >> $cfgfile
+echo "#  CPLD                <---- nct6779d           <---- cp2112        <---- cp2112       <---- CP2112" >> $cfgfile
+echo "#  Transceiver         <---- cp2112             <---- cp2112        <---- cp2112       <---- CP2112" >> $cfgfile
 echo "#" >> $cfgfile
 echo "# Details" >> $cfgfile
 echo "# For X532P-T/X564P-T with ComExpress CG15xx serials, i2c-127 means CPLD forcely accessed through cgosdrv (transition scenarios)." >> $cfgfile
@@ -437,6 +437,7 @@ echo "# For X564P-T V1.2, CPLD can be accessed by cgosdrv and as well by cp2112 
 echo "# For X564P-T V2.0, CPLD can be and only can be accessed by cp2112." >> $cfgfile
 echo "# For X312P-T V1.0, nct6779d is used to access BMC/CPLD/Transceiver." >> $cfgfile
 echo "# For X312P-T V2.0, cp2112 is used to access BMC/CPLD/Transceiver." >> $cfgfile
+echo "# For X732Q-T V1.0, CPLD can be and only can be accessed by cp2112." >> $cfgfile
 echo "#" >> $cfgfile
 if [ $enable_iic = 1 ]; then
     echo "i2c-"$default_i2c

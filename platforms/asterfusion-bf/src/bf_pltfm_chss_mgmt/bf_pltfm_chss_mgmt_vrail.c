@@ -418,14 +418,25 @@ __bf_pltfm_chss_mgmt_bmc_data_vrail_decode__ (uint8_t* p_src)
 
     memset (&temp_vrail_data, 0, sizeof(bf_pltfm_pwr_rails_info_t));
 
-    temp_vrail_data.vrail1 = p_src[13] * 1000 + p_src[14] * 100;
-    temp_vrail_data.vrail2 = p_src[15] * 1000 + p_src[16] * 100;
-    temp_vrail_data.vrail3 = p_src[3]  * 1000 + p_src[4]  * 100;
-    temp_vrail_data.vrail4 = p_src[5]  * 1000 + p_src[6]  * 100;
-    temp_vrail_data.vrail5 = p_src[7]  * 1000 + p_src[8]  * 100;
-    temp_vrail_data.vrail6 = p_src[17] * 1000 + p_src[18] * 100;
-    temp_vrail_data.vrail7 = p_src[9]  * 1000 + p_src[10] * 100;
-    temp_vrail_data.vrail8 = p_src[11] * 1000 + p_src[12] * 100;
+    if (bf_pltfm_compare_bmc_ver("v3.2.0") < 0) {
+        temp_vrail_data.vrail1 = p_src[13] * 1000 + p_src[14] * 100;
+        temp_vrail_data.vrail2 = p_src[15] * 1000 + p_src[16] * 100;
+        temp_vrail_data.vrail3 = p_src[3]  * 1000 + p_src[4]  * 100;
+        temp_vrail_data.vrail4 = p_src[5]  * 1000 + p_src[6]  * 100;
+        temp_vrail_data.vrail5 = p_src[7]  * 1000 + p_src[8]  * 100;
+        temp_vrail_data.vrail6 = p_src[17] * 1000 + p_src[18] * 100;
+        temp_vrail_data.vrail7 = p_src[9]  * 1000 + p_src[10] * 100;
+        temp_vrail_data.vrail8 = p_src[11] * 1000 + p_src[12] * 100;
+    } else {
+        temp_vrail_data.vrail1 = ((p_src[13] << 8) + p_src[14]) * 100;
+        temp_vrail_data.vrail2 = ((p_src[15] << 8) + p_src[16]) * 100;
+        temp_vrail_data.vrail3 = ((p_src[3]  << 8) + p_src[4] ) * 100;
+        temp_vrail_data.vrail4 = ((p_src[5]  << 8) + p_src[6] ) * 100;
+        temp_vrail_data.vrail5 = ((p_src[7]  << 8) + p_src[8] ) * 100;
+        temp_vrail_data.vrail6 = ((p_src[17] << 8) + p_src[18]) * 100;
+        temp_vrail_data.vrail7 = ((p_src[9]  << 8) + p_src[10]) * 100;
+        temp_vrail_data.vrail8 = ((p_src[11] << 8) + p_src[12]) * 100;
+    }
 
     memcpy (&bmc_vrail_data, &temp_vrail_data, sizeof (bf_pltfm_pwr_rails_info_t));
 

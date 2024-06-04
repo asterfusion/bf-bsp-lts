@@ -264,7 +264,7 @@ int platform_num_ports_get (void)
     if (platform_type_equal (AFN_X732QT)) {
         return bd_map->num_of_connectors;
     } else {
-        return (bd_map->rows / QSFP_NUM_CHN);
+        return (bd_map->rows / 4);
     }
 }
 

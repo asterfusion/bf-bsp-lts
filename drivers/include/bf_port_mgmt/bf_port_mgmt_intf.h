@@ -501,7 +501,7 @@ int bf_pm_num_qsfp_get (void);
 
 char *qsfp_channel_fsm_st_get (int conn_id,
                                int ch);
-void qsfp_channel_fsm_st_set (int conn_id, int ch, uint8_t state);
+void qsfp_channel_fsm_st_set (int conn_id, int ch, uint8_t state, bool stop);
 char *qsfp_module_fsm_st_get (int conn_id);
 void qsfp_module_fsm_st_set (int conn_id, uint8_t state);
 

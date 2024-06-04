@@ -109,8 +109,7 @@ static uint32_t temper_monitor_interval_ms = 5000;
 /****************************************************************************
  * This .c file performs all interrupt flag servicing for the platforms
  * module. The following list shows which routine services each flag or if
- * the flag is ignored. When a flag is serviced and/or logged, it is also
-cleared
+ * the flag is ignored. When a flag is serviced and/or logged, it is also cleared
  * so that it doesn't get double reported by downstream loggers. Each flag must
  * be serviced/logged in only one place on a given pass through the SM
  *
@@ -232,25 +231,6 @@ static char *qsfp_fsm_st_to_str[] = {
     "QSFP_FSM_ST_WAIT_UPDATE     ",
 };
 
-static char *qsfp_dp_config_str[] = {
-    [DATAPATH_CONF_UNDEF] = "DATAPATH_CONF_UNDEF",
-    [DATAPATH_CONF_SUCCESS] = "DATAPATH_CONF_SUCCESS",
-    [DATAPATH_CONF_REJECT] = "DATAPATH_CONF_REJECT",
-    [DATAPATH_CONF_REJECT_INVALID_APSEL] = "DATAPATH_CONF_REJECT_INVALID_APSEL",
-    [DATAPATH_CONF_REJECT_INVALID_DP] = "DATAPATH_CONF_REJECT_INVALID_DP",
-    [DATAPATH_CONF_REJECT_INVALID_SI] = "DATAPATH_CONF_REJECT_INVALID_SI",
-    [DATAPATH_CONF_REJECT_LANE_INUSE] = "DATAPATH_CONF_REJECT_LANE_INUSE",
-    [DATAPATH_CONF_REJECT_PARTIAL_DP] = "DATAPATH_CONF_REJECT_PARTIAL_DP",
-    [DATAPATH_CONF_REJECT_RESERVED_0x8] = "DATAPATH_CONF_REJECT_RESERVED_0x8",
-    [DATAPATH_CONF_REJECT_RESERVED_0x9] = "DATAPATH_CONF_REJECT_RESERVED_0x9",
-    [DATAPATH_CONF_REJECT_RESERVED_0xA] = "DATAPATH_CONF_REJECT_RESERVED_0xA",
-    [DATAPATH_CONF_REJECT_RESERVED_0xB] = "DATAPATH_CONF_REJECT_RESERVED_0xB",
-    [DATAPATH_CONF_INPROGRESS] = "DATAPATH_CONF_INPROGRESS",
-    [DATAPATH_CONF_REJECT_CUSTOM_0xD] = "DATAPATH_CONF_REJECT_CUSTOM_0xD",
-    [DATAPATH_CONF_REJECT_CUSTOM_0xE] = "DATAPATH_CONF_REJECT_CUSTOM_0xE",
-    [DATAPATH_CONF_REJECT_CUSTOM_0xF] = "DATAPATH_CONF_REJECT_CUSTOM_0xF",
-};
-
 /* Channel FSM states */
 typedef enum {
     QSFP_CH_FSM_ST_DISABLED = 0,
@@ -266,16 +246,16 @@ typedef enum {
 } qsfp_fsm_ch_en_state_t;
 
 static char *qsfp_fsm_ch_en_st_to_str[] = {
-    "QSFP_CH_FSM_ST_DISABLED      ",
-    "QSFP_CH_FSM_ST_ENABLING      ",
-    "QSFP_CH_FSM_ST_APPSEL        ",
-    "QSFP_CH_FSM_ST_APPLY_DPINIT  ",
-    "QSFP_CH_FSM_ST_ENA_CDR       ",
-    "QSFP_CH_FSM_ST_ENA_OPTICAL_TX",
-    "QSFP_CH_FSM_ST_NOTIFY_ENABLED",
-    "QSFP_CH_FSM_ST_ENABLED       ",
-    "QSFP_CH_FSM_ST_DISABLING     ",
-    "QSFP_CH_FSM_ST_REJECTED      ",
+    "QSFP_CH_FSM_ST_DISABLED        ",
+    "QSFP_CH_FSM_ST_ENABLING        ",
+    "QSFP_CH_FSM_ST_APPSEL          ",
+    "QSFP_CH_FSM_ST_APPLY_DPINIT    ",
+    "QSFP_CH_FSM_ST_ENA_CDR         ",
+    "QSFP_CH_FSM_ST_ENA_OPTICAL_TX  ",
+    "QSFP_CH_FSM_ST_NOTIFY_ENABLED  ",
+    "QSFP_CH_FSM_ST_ENABLED         ",
+    "QSFP_CH_FSM_ST_DISABLING       ",
+    "QSFP_CH_FSM_ST_REJECTED        ",
 };
 
 typedef enum qsfp_typ_t {
@@ -511,9 +491,9 @@ typedef struct qsfp_channel_fsm_t {
 
 typedef struct dev_cfg_per_channel_t {
     bf_port_speed_t intf_speed;
-    int host_intf_nlanes;
-    int host_head_ch;  // host side head channel in this data path (CMIS only)
-    int media_intf_nlanes;
+    int host_intf_nlanes;   // Number of host lanes, updated via qsfp_fsm_update_cfg
+    int host_head_ch;  // host side head channel in this data path (CMIS only), updated via qsfp_fsm_update_cfg.
+    int media_intf_nlanes;  // Number of media lanes, updated when port is enabled and the Application is selected
     int media_head_ch;  // media side head channel in this data path (CMIS only)
     int media_ch;       // media side channel # corresponding to this host side ch
     bf_pltfm_encoding_type_t encoding;
@@ -521,13 +501,12 @@ typedef struct dev_cfg_per_channel_t {
 
 typedef struct qsfp_state_t {
     qsfp_typ_t qsfp_type;
-    uint8_t ch_cnt;        // number of host channels in the module
-    uint8_t media_ch_cnt;  // number of media channels in the module (per bank)
+    uint8_t ch_cnt;        // number of host channels in the module, updated via bf_qsfp_get_ch_cnt
+    uint8_t media_ch_cnt;  // number of media channels in the module (per bank), updated via bf_qsfp_get_media_ch_cnt
     qsfp_fsm_state_t fsm_st;
     bool flat_mem;
     bool needs_hi_pwr_init;  // only Luxtera known to require this
     bool qsfp_quick_removed;
-    uint32_t flags;
     struct timespec next_fsm_run_time;
     struct timespec next_flag_poll_time;
     int sync_ena_cdr;
@@ -583,7 +562,6 @@ qsfp_state_t qsfp_state[BF_PLAT_MAX_QSFP + 1] = {
         false,
         false,
         false,
-        0,
         {0, 0},
         {0, 0},
         0,
@@ -675,56 +653,6 @@ static int bf_fsm_qsfp_wr2(
   return rc;
 }
 
-#if 0
-/****************************************************
- *
- ****************************************************/
-static int bf_fsm_qsfp_rd (unsigned int module,
-                           int offset,
-                           int len,
-                           uint8_t *buf)
-{
-    int rc;
-
-    rc = bf_qsfp_read_transceiver (module, offset,
-                                   len, buf);
-
-    // LOG_DEBUG("QSFP    %2d : Rd : offset=%2d : len=%3d : data[0]=%02x",
-    //          module, offset, len, buf[0]);
-
-    return rc;
-}
-
-/****************************************************
- *
- ****************************************************/
-static int bf_fsm_qsfp_wr (unsigned int module,
-                           int offset,
-                           int len,
-                           uint8_t *buf)
-{
-    int rc;
-
-    // LOG_DEBUG("QSFP    %2d : Wr : offset=%2d : len=%3d : data[0]=%02x",
-    //          module, offset, len, buf[0]);
-
-    rc = bf_qsfp_write_transceiver (module, offset,
-                                    len, buf);
-    return rc;
-}
-
-/****************************************************
- *
- ****************************************************/
-static void qsfp_set_pg (int conn_id, uint8_t pg)
-{
-    if (qsfp_state[conn_id].flat_mem == false) {
-        bf_fsm_qsfp_wr2 (conn_id, 0, 127, 1, &pg);
-        bf_sys_usleep (50000);
-    }
-}
-#endif
-
 /****************************************************
  * called by qsfp_fsm to set next time to process QSFP
  ****************************************************/
@@ -772,9 +700,11 @@ void qsfp_fsm_inserted (int conn_id)
         false;
     qsfp_state[conn_id].temper_high_record = 0;
 
-    LOG_DEBUG ("QSFP    %2d : %s -> QSFP_FSM_ST_INSERTED\n",
+    LOG_DEBUG ("QSFP    %2d : %s -> QSFP_FSM_ST_INSERTED",
                conn_id,
                qsfp_fsm_st_to_str[prev_st]);
+    fprintf (stdout, "QSFP    %2d : inserted\n",
+             conn_id);
 }
 
 /****************************************************
@@ -870,6 +800,8 @@ static int qsfp_fsm_identify_type (int conn_id,
                                    bool *is_optical)
 {
     uint8_t cdr_ctrl_state = 0x00;
+    uint32_t trans_state = 0;
+
     if (qsfp_state[conn_id].qsfp_type ==
         QSFP_TYP_OPTICAL) {
         *is_optical = true;
@@ -892,28 +824,38 @@ static int qsfp_fsm_identify_type (int conn_id,
          * While it's better to check with SFF-8636 spec.
          * by tsihang, 2023-06-07. */
         bf_qsfp_get_rxtx_cdr_ctrl_state (conn_id, &cdr_ctrl_state);
+        bf_qsfp_trans_state_get (conn_id, &trans_state);
         if (cdr_ctrl_state & 0x0F) {
-            qsfp_state[conn_id].flags |= BF_TRANS_STATE_CDR_ON;
+            trans_state |= BF_TRANS_STATE_RX_CDR_ON;
         } else {
-            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_CDR_ON;
+            trans_state &= ~BF_TRANS_STATE_RX_CDR_ON;
+        }
+        if (cdr_ctrl_state & 0xF0) {
+            trans_state |= BF_TRANS_STATE_TX_CDR_ON;
+        } else {
+            trans_state &= ~BF_TRANS_STATE_TX_CDR_ON;
         }
 
         /* Default, TX_DISABLE is enabled for most QSFP28/QSFP+.
          * While it's better to check with SFF-8636 spec.
          * by tsihang, 2023-06-07. */
         if (bf_qsfp_tx_is_disabled(conn_id, 0)) {
-            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
+            trans_state &= ~BF_TRANS_STATE_LASER_ON;
         } else {
-            qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
+            trans_state |= BF_TRANS_STATE_LASER_ON;
         }
+        bf_qsfp_trans_state_set (conn_id, trans_state);
 
-        LOG_DEBUG (
-            "QSFP    %2d : Default CDR_%s", conn_id,
-            (qsfp_state[conn_id].flags & BF_TRANS_STATE_CDR_ON) ? "ENABLED" : "DISABLED");
+        if (bf_qsfp_is_fsm_logging(conn_id)) {
+            LOG_DEBUG (
+                "QSFP    %2d : Default CDR_RX_%s : CDR_Tx_%s", conn_id,
+                (trans_state & BF_TRANS_STATE_RX_CDR_ON) ? "ENABLED" : "DISABLED",
+                (trans_state & BF_TRANS_STATE_TX_CDR_ON) ? "ENABLED" : "DISABLED");
 
-        LOG_DEBUG (
-            "QSFP    %2d : Default TX_%s", conn_id,
-            (qsfp_state[conn_id].flags & BF_TRANS_STATE_LASER_ON) ? "ENABLED" : "DISABLED");
+            LOG_DEBUG (
+                "QSFP    %2d : Default TX_%s", conn_id,
+                (trans_state & BF_TRANS_STATE_LASER_ON) ? "ENABLED" : "DISABLED");
+        }
 
         qsfp_state[conn_id].qsfp_type = QSFP_TYP_OPTICAL;
         qsfp_state[conn_id].ch_cnt = bf_qsfp_get_ch_cnt (
@@ -1019,6 +961,28 @@ static int qsfp_fsm_identify_model_requirements (
                    vendor.part_number);
     }
     return 0;
+}
+
+/****************************************************
+ * Determine if QSFP requires forcely apply DPINIT
+ * ignore default staged app set.
+ * Based on a priori knowledge of QSFP Vendor/PN
+ ****************************************************/
+/*static*/ int qsfp_fsm_force_dpinit_required_for_special_modules(int conn_id) {
+    int rc = 0;
+    qsfp_vendor_info_t vendor;
+
+    rc = bf_qsfp_get_vendor_info(conn_id, &vendor);
+    if (!rc) {
+        LOG_ERROR("QSFP    %2d : Error retrieving vendor info", conn_id);
+        return -1;
+    }
+    if (!memcmp(vendor.name, "Asterfusion", strlen("Asterfusion")) &&
+               !memcmp(vendor.part_number, "TSQD13L052D4E1", strlen("TSQD13L052D4E1"))) {
+        return 0;
+    }
+
+    return -1;
 }
 
 /****************************************************
@@ -1250,8 +1214,10 @@ static void qsfp_fsm_reset_de_assert (
 {
     int rc;
 
-    LOG_DEBUG ("QSFP    %2d : RESETL = false",
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : RESETL = false",
                conn_id);
+    }
     // de-assert resetL
     rc = bf_qsfp_reset (conn_id, false);
     if (rc != 0) {
@@ -1267,8 +1233,10 @@ static void qsfp_fsm_reset_assert (int conn_id)
 {
     int rc;
 
-    LOG_DEBUG ("QSFP    %2d : RESETL = true",
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : RESETL = true",
                conn_id);
+    }
     // assert resetL
     rc = bf_qsfp_reset (conn_id, true);
     if (rc != 0) {
@@ -1278,16 +1246,18 @@ static void qsfp_fsm_reset_assert (int conn_id)
 }
 
 /*****************************************************************
- *
+ * LPMode De-assert from hardware pin is NOT SUPPORTED
+ * for ALL X-T platforms. The call will always be success.
  *****************************************************************/
 static void qsfp_fsm_lpmode_de_assert (
     int conn_id)
 {
-#if 0
     int rc;
 
-    LOG_DEBUG ("QSFP    %2d : LPMODE = false",
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : LPMODE = false",
                conn_id);
+    }
     // de-assert LPMODE
     rc = bf_qsfp_set_transceiver_lpmode (conn_id,
                                          false);
@@ -1295,19 +1265,20 @@ static void qsfp_fsm_lpmode_de_assert (
         LOG_WARNING ("QSFP    %2d : Error <%d> de-asserting LPMODE",
                    conn_id, rc);
     }
-#endif
 }
 
 /*****************************************************************
- *
+ * LPMode Assert from hardware pin is NOT SUPPORTED
+ * for ALL X-T platforms. The call will always be success.
  *****************************************************************/
 static void qsfp_fsm_lpmode_assert (int conn_id)
 {
-#if 0
     int rc;
 
-    LOG_DEBUG ("QSFP    %2d : LPMODE = true",
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : LPMODE = true",
                conn_id);
+    }
     // assert LPMODE
     rc = bf_qsfp_set_transceiver_lpmode (conn_id,
                                          true);
@@ -1315,7 +1286,6 @@ static void qsfp_fsm_lpmode_assert (int conn_id)
         LOG_WARNING ("QSFP    %2d : Error <%d> asserting LPMODE",
                    conn_id, rc);
     }
-#endif
 }
 
 /*****************************************************************
@@ -1365,7 +1335,15 @@ void qsfp_deassert_all_reset_pins (void)
 }
 
 /*****************************************************************
+ * All spec including SFF-8636 and CMIS requires the Host:
+ *    - Applies Vcc
+ *    - LPMode=1
+ *    - ResetL=1
  *
+ * While lpmode assert and deassert are not controlable by the Host
+ * for all X-T platforms.
+ *
+ * by Hang Tsi, 2024/05/27.
  *****************************************************************/
 static void qsfp_fsm_st_inserted (bf_dev_id_t
                                   dev_id, int conn_id)
@@ -1395,6 +1373,12 @@ static int qsfp_fsm_st_tx_disable (
     bool disable = true;
     int chmask = (1 << qsfp_state[conn_id].media_ch_cnt) - 1;
 
+    /* For DR4 -> DR1/DR4 or FR4 -> FR1/FR4.
+     * by Hang Tsi, 2024/03/05 */
+    //if (bf_qsfp_is_cmis (conn_id)) {
+    //    chmask = (1 << qsfp_state[conn_id].ch_cnt) - 1;
+    //}
+
     // Luxtera modules require TX_DISABLE de-asserted during init seq
     if (qsfp_needs_hi_pwr_init(conn_id)) {
         disable = false;
@@ -1406,43 +1390,29 @@ static int qsfp_fsm_st_tx_disable (
                      conn_id,
                      rc,
                      disable ? "true" : "false");
-    } else {
-        if (disable) {
-            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
-        } else {
-            qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
-        }
     }
+
     return rc;
 }
 
 /*****************************************************************
- *
+ * Enables all Tx lanes
  *****************************************************************/
 int qsfp_fsm_st_tx_enable (
     bf_dev_id_t dev_id, int conn_id)
 {
     bf_status_t rc;
-    uint8_t byte_86;
+    bool disable = false;
+    int chmask = (1 << qsfp_state[conn_id].media_ch_cnt) - 1;
 
-    byte_86 = 0x0;
-    LOG_DEBUG ("%s:%d  -> QSFP    %2d : TX_DISABLE = %2x\n",
-               __func__, __LINE__, conn_id, byte_86);
-
-    /* 0x56, Tx Disable Control */
-    rc = bf_fsm_qsfp_wr2 (conn_id, 0, 86, 1, &byte_86);
+    rc = bf_qsfp_tx_disable(conn_id, chmask, disable);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> Setting TX_DISABLE=0x%x0",
+        LOG_WARNING ("QSFP    %2d : Error <%d> Setting TX_DISABLE=%s",
                      conn_id,
                      rc,
-                     byte_86);
-    } else {
-        if (byte_86) {
-            qsfp_state[conn_id].flags &= ~BF_TRANS_STATE_LASER_ON;
-        } else {
-            qsfp_state[conn_id].flags |= BF_TRANS_STATE_LASER_ON;
-        }
+                     disable ? "true" : "false");
     }
+
     return rc;
 }
 
@@ -1475,7 +1445,7 @@ void qsfp_log_alarms (bf_dev_id_t dev_id,
     if (memcmp ((char *)old, (char *)new,
                 sizeof (*old)) != 0) {
         // log the raw fields to provide current state of all alarms
-        LOG_DEBUG (
+        AF_LOG_EXT (
             "QSFP    %2d : Alarms (Bytes 2-14) : %02x %02x %02x %02x %02x"
             " %02x %02x %02x %02x %02x %02x %02x %02x",
             conn_id,
@@ -1496,21 +1466,21 @@ void qsfp_log_alarms (bf_dev_id_t dev_id,
         if (old->status2 != new->status2) {
             if ((old->status2 & BYTE2_INTL) !=
                 (new->status2 & BYTE2_INTL)) {
-                LOG_DEBUG ("QSFP    %2d : IntL : %d -> %d",
+                AF_LOG_EXT ("QSFP    %2d : IntL : %d -> %d",
                            conn_id,
                            (old->status2 & BYTE2_INTL) >> 1,
                            (new->status2 & BYTE2_INTL) >> 1);
             }
             if ((old->status2 & BYTE2_DATA_NOT_READY) !=
                 (new->status2 & BYTE2_DATA_NOT_READY)) {
-                LOG_DEBUG ("QSFP    %2d : Data_Not_Ready: %d -> %d",
+                AF_LOG_EXT ("QSFP    %2d : Data_Not_Ready: %d -> %d",
                            conn_id,
                            (old->status2 & BYTE2_DATA_NOT_READY),
                            (new->status2 & BYTE2_DATA_NOT_READY));
             }
         }
         if (old->los_ind != new->los_ind) {
-            LOG_DEBUG (
+            AF_LOG_EXT (
                 "QSFP    %2d : [7:4] Tx LOS: %1x -> %1x : [3:0] Rx LOS: %1x -> %1x",
                 conn_id,
                 old->los_ind >> 4,
@@ -1519,7 +1489,7 @@ void qsfp_log_alarms (bf_dev_id_t dev_id,
                 new->los_ind & 0xF);
         }
         if (old->eq_laser_fault != new->eq_laser_fault) {
-            LOG_DEBUG (
+            AF_LOG_EXT (
                 "QSFP    %2d : [7:4] Tx Adapt EQ Fault: %1x -> %1x : [3:0] Tx Laser "
                 "fault: %1x -> %1x",
                 conn_id,
@@ -1529,7 +1499,7 @@ void qsfp_log_alarms (bf_dev_id_t dev_id,
                 new->eq_laser_fault & 0xF);
         }
         if (old->lol_ind != new->lol_ind) {
-            LOG_DEBUG (
+            AF_LOG_EXT (
                 "QSFP    %2d : [7:4] Tx CDR LOL: %1x -> %1x : [3:0] Rx CDR LOL: %1x "
                 "-> "
                 "%1x",
@@ -1540,61 +1510,61 @@ void qsfp_log_alarms (bf_dev_id_t dev_id,
                 new->lol_ind & 0xF);
         }
         if (old->temp_alarm != new->temp_alarm) {
-            LOG_DEBUG ("QSFP    %2d : Temp Alarm/Warn: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Temp Alarm/Warn: %02x -> %02x",
                        conn_id,
                        old->temp_alarm,
                        new->temp_alarm);
         }
         if (old->vcc_alarm != new->vcc_alarm) {
-            LOG_DEBUG ("QSFP    %2d : Vcc Alarm/Warn: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Vcc Alarm/Warn: %02x -> %02x",
                        conn_id,
                        old->vcc_alarm,
                        new->vcc_alarm);
         }
         if (old->vendor_spec != new->vendor_spec) {
-            LOG_DEBUG ("QSFP    %2d : Vendor Sepcific (Byte 8): %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Vendor Sepcific (Byte 8): %02x -> %02x",
                        conn_id,
                        old->vendor_spec,
                        new->vendor_spec);
         }
         if (old->rx_power_alarm12 !=
             new->rx_power_alarm12) {
-            LOG_DEBUG ("QSFP    %2d : Rx Power Alarm/Warn CH1/2: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Rx Power Alarm/Warn CH1/2: %02x -> %02x",
                        conn_id,
                        old->rx_power_alarm12,
                        new->rx_power_alarm12);
         }
         if (old->rx_power_alarm34 !=
             new->rx_power_alarm34) {
-            LOG_DEBUG ("QSFP    %2d : Rx Power Alarm/Warn CH3/4: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Rx Power Alarm/Warn CH3/4: %02x -> %02x",
                        conn_id,
                        old->rx_power_alarm34,
                        new->rx_power_alarm34);
         }
         if (old->tx_bias_alarm12 !=
             new->tx_bias_alarm12) {
-            LOG_DEBUG ("QSFP    %2d : Tx Bias Alarm/Warn CH1/2: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Tx Bias Alarm/Warn CH1/2: %02x -> %02x",
                        conn_id,
                        old->tx_bias_alarm12,
                        new->tx_bias_alarm12);
         }
         if (old->tx_bias_alarm34 !=
             new->tx_bias_alarm34) {
-            LOG_DEBUG ("QSFP    %2d : Tx Bias Alarm/Warn CH3/4: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Tx Bias Alarm/Warn CH3/4: %02x -> %02x",
                        conn_id,
                        old->tx_bias_alarm34,
                        new->tx_bias_alarm34);
         }
         if (old->tx_power_alarm12 !=
             new->tx_power_alarm12) {
-            LOG_DEBUG ("QSFP    %2d : Tx Power Alarm/Warn CH1/2: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Tx Power Alarm/Warn CH1/2: %02x -> %02x",
                        conn_id,
                        old->tx_power_alarm12,
                        new->tx_power_alarm12);
         }
         if (old->tx_power_alarm34 !=
             new->tx_power_alarm34) {
-            LOG_DEBUG ("QSFP    %2d : Tx Power Alarm/Warn CH3/4: %02x -> %02x",
+            AF_LOG_EXT ("QSFP    %2d : Tx Power Alarm/Warn CH3/4: %02x -> %02x",
                        conn_id,
                        old->tx_power_alarm34,
                        new->tx_power_alarm34);
@@ -1638,7 +1608,7 @@ static void qsfp_log_module_flags(int conn_id) {
                               conn_id,
                               module_flag_log[loopcnt].desc);
                 } else {
-                    LOG_DEBUG("QSFP    %2d : %s change (0 -> 1)",
+                    AF_LOG_EXT ("QSFP    %2d : %s change (0 -> 1)",
                               conn_id,
                               module_flag_log[loopcnt].desc);
                 }
@@ -1654,17 +1624,16 @@ static void qsfp_log_module_flags(int conn_id) {
                         //    removal and insertion.
                         //    Software doesn't remove lp-mode to avoid cyclic nature.
                         double mod_temp = bf_qsfp_get_temp_sensor(conn_id);
-                        bf_qsfp_set_pwr_ctrl(conn_id, 1);
                         qsfp_state[conn_id].temper_high_alarm_flagged = true;
                         qsfp_state[conn_id].temper_high_record = mod_temp;
-                        LOG_ERROR(
+                        AF_LOG_EXT (
                             "QSFP    %2d : High Temperature = %fC detected. "
                             "low power forced. Recover requires removal & insertion",
                             conn_id,
                             mod_temp);
+                        //bf_qsfp_set_pwr_ctrl(conn_id, 1);
                     }
                 }
-
             } else if ((flag_val < module_flag_log[loopcnt].fval_prev[conn_id]) &&
                        (module_flag_log[loopcnt].type == FLAG_TYPE_STATUS)) {
                 if (module_flag_log[loopcnt].logtype == FLAG_ERROR) {
@@ -1672,7 +1641,7 @@ static void qsfp_log_module_flags(int conn_id) {
                               conn_id,
                               module_flag_log[loopcnt].desc);
                 } else {
-                    LOG_DEBUG("QSFP    %2d : %s change (1 -> 0)",
+                    AF_LOG_EXT ("QSFP    %2d : %s change (1 -> 0)",
                               conn_id,
                               module_flag_log[loopcnt].desc);
                 }
@@ -1746,7 +1715,7 @@ static void qsfp_log_lane_flags(int conn_id) {
 
         if (logflag) {
             if (ln_flag_log[loopcnt].logtype == FLAG_ERROR) {
-                LOG_ERROR("QSFP    %2d : %s change (0x%0*x -> 0x%0*x)",
+                AF_LOG_EXT ("QSFP    %2d : %s change (0x%0*x -> 0x%0*x)",
                           conn_id,
                           ln_flag_log[loopcnt].desc,
                           (qsfp_state[conn_id].ch_cnt / 4),
@@ -1765,7 +1734,7 @@ static void qsfp_log_lane_flags(int conn_id) {
                     qsfp_state[conn_id].rx_lol = ln_flag_log[loopcnt].fval_cur[conn_id];
                 }
 
-                LOG_DEBUG("QSFP    %2d : %s change (0x%0*x -> 0x%0*x)",
+                AF_LOG_EXT ("QSFP    %2d : %s change (0x%0*x -> 0x%0*x)",
                           conn_id,
                           ln_flag_log[loopcnt].desc,
                           (qsfp_state[conn_id].ch_cnt / 4),
@@ -1804,7 +1773,7 @@ static void qsfp_fsm_check_alarms_after_unreset (
     LOG_DEBUG ("QSFP    %2d : Clear existing alarms..",
                conn_id);
     rc = bf_fsm_qsfp_rd2 (
-             conn_id, 0, 2, sizeof (status_and_alarms),
+             conn_id, QSFP_PAGE0_LOWER, 2, sizeof (status_and_alarms),
              (uint8_t *)&status_and_alarms);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading status fields",
@@ -1823,7 +1792,7 @@ static void qsfp_fsm_check_alarms_after_unreset (
     LOG_DEBUG ("QSFP    %2d : Now check for current alarms..",
                conn_id);
     rc = bf_fsm_qsfp_rd2 (
-             conn_id, 0, 2, sizeof (status_and_alarms),
+             conn_id, QSFP_PAGE0_LOWER, 2, sizeof (status_and_alarms),
              (uint8_t *)&status_and_alarms);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading status fields",
@@ -1849,18 +1818,41 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
     qsfp_status_and_alarms_t status_and_alarms;
     int rc, ch;
     bf_dev_id_t dev_id_of_port = 0;
+    uint8_t global_state_info = 0;
 
     // Donot move FSM until removal is hanlded
     if (qsfp_state[conn_id].qsfp_quick_removed) {
         return -1;
     }
 
-    // read status and alarms (bytes2-14) onto stack. This is in case
-    // there is an error on the read we dont corrupt the qsfp_state
-    // structure. If no error, copy into struct
-    rc = bf_fsm_qsfp_rd2 (
-             conn_id, 0, 2, sizeof (status_and_alarms),
-             (uint8_t *)&status_and_alarms);
+    // CPLD told us this module is absent.
+    // Donot move FSM until removal is hanlded
+    //if (!bf_qsfp_is_present (conn_id)) {
+    //    return -1;
+    //}
+
+    /* IntL is latched requires clear-on-read op. */
+    if (bf_qsfp_get_memmap_format (conn_id) ==
+                         MMFORMAT_SFF8636) {
+        // read status and alarms (bytes2-14) onto stack. This is in case
+        // there is an error on the read we dont corrupt the qsfp_state
+        // structure. If no error, copy into struct
+        rc = bf_fsm_qsfp_rd2 (
+                 conn_id, QSFP_PAGE0_LOWER, 2, sizeof (status_and_alarms),
+                 (uint8_t *)&status_and_alarms);
+    } else if (bf_qsfp_get_memmap_format (conn_id) >=
+                     MMFORMAT_CMIS3P0) {
+        /* IntL is latched requires clear-on-read op. */
+        rc = bf_fsm_qsfp_rd2 (
+                 conn_id, QSFP_PAGE0_LOWER, 3, 1,
+                 &global_state_info);
+    } else {
+        /* Just return without any logging. */
+        //LOG_WARNING ("QSFP    %2d : Unknown MMFORMATE.",
+        //           conn_id);
+        return 0;
+    }
+
     if (rc) {
         /* Added by tsihang, 2023-03-21. */
         // Detect and latch the removal
@@ -1883,6 +1875,14 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
                    conn_id, rc);
         return 0;  // can't trust the data, just leave
     }
+
+    /* RX_LOS and RX_LOL is latched and update via bf_qsfp_refresh_flags for tof2 implementation.
+     * So stop and return here. */
+    if (!bf_pm_intf_is_device_family_tofino (
+                    dev_id)) {
+        return 0;
+    }
+
     qsfp_log_alarms (dev_id,
                      conn_id,
                      &qsfp_state[conn_id].status_and_alarms,
@@ -1915,7 +1915,7 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
 
     // read TX_DISABLE state (once)
     uint8_t byte_86 = 0;
-    rc = bf_fsm_qsfp_rd2 (conn_id, 0, 86, 1, &byte_86);
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_LOWER, 86, 1, &byte_86);
     if (rc) {
         LOG_WARNING (
             "QSFP    %2d : Error <%d> reading TX_DISABLE (byte 86)",
@@ -1934,15 +1934,16 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
         bfn_fp2_dp (dev_id_of_port, &port_hdl, &dev_port);
         dev_id = dev_id_of_port;
 
+        // dirty code.
         if (!bf_pm_intf_is_device_family_tofino (
                 dev_id)) {
             if (((rx_los_now & (1 << ch)) ^ (rx_los_before &
                                              (1 << ch))) ||
                 ((rx_lol_now & (1 << ch)) ^ (rx_lol_before &
                                              (1 << ch)))) {
-                LOG_DEBUG (
-                    "QSFP    %2d : dev_port=%d : RXLOS=%d", conn_id,
-                    dev_port, los);
+                //LOG_DEBUG (
+                //    "QSFP    %2d : dev_port=%d : RXLOS=%d", conn_id,
+                //    dev_port, los);
             }
             continue;
         }
@@ -1965,7 +1966,7 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
                                              (1 << ch))) ||
                 ((rx_lol_now & (1 << ch)) ^ (rx_lol_before &
                                              (1 << ch)))) {
-                LOG_DEBUG ("QSFP    %2d : dev_port=%3d : LOS=%d",
+                AF_LOG_EXT ("QSFP    %2d : dev_port=%3d : LOS=%d",
                            conn_id, dev_port, los);
             }
         }
@@ -1975,7 +1976,6 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
         status_and_alarms;
     return 0;
 }
-
 
 /*****************************************************************
  * Bring all ch_fsms to DISABLED, then put the entire module in LPMode
@@ -2011,8 +2011,9 @@ static void qsfp_fsm_st_lp_mode_on(bf_dev_id_t dev_id,
     if (*alldown) {  // all ch_fsms are in DISABLED for this conn_id
         if (bf_qsfp_is_cmis(conn_id)) {
             Module_State module_state;
+            bool intl_deasserted = false;
             // look at module state to see where we are in the process
-            if (bf_cmis_get_module_state(conn_id, &module_state) < 0) {
+            if (bf_cmis_get_module_state(conn_id, &module_state, &intl_deasserted) < 0) {
                 LOG_ERROR("qsfp fsm: qsfp %d unable to get module state", conn_id);
                 *alldown = false;
                 return;
@@ -2061,8 +2062,8 @@ static int qsfp_module_fsm_update2(int dev_id, int conn_id) {
             rc ? "Fail" : "Success");
         return rc;
     }
-
-    LOG_DEBUG(
+    // quite important to reach here.
+    LOG_WARNING(
         "QSFP wr_coalesce : Port %d field:%d wr_op deferred : wr_chmask:%#x "
         "wr_data:%#x",
         conn_id,
@@ -2076,6 +2077,7 @@ static int qsfp_module_fsm_update2(int dev_id, int conn_id) {
  *
  *****************************************************************/
 static void qsfp_module_fsm_complete_update2(bf_dev_id_t dev_id, int conn_id) {
+    bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_CP2112_RELAX;
     qsfp_state[conn_id].wr_coalesce.in_progress = 0;
     qsfp_state[conn_id].wr_coalesce.delay_ms = 0;
     qsfp_state[conn_id].wr_coalesce.field = 0;
@@ -2128,28 +2130,28 @@ static int qsfp_module_fsm_update (
             return -1;
         }
     }
-
-    if (mask == 0xFF) {
-        LOG_DEBUG (
-            "QSFP    %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
-            "%02xh : cur=XX",
-            conn_id,
-            pg,
-            ofs,
-            mask,
-            data);
-    } else {
-        LOG_DEBUG (
-            "QSFP    %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
-            "%02xh : cur=%02x",
-            conn_id,
-            pg,
-            ofs,
-            mask,
-            data,
-            cur_val);
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        if (mask == 0xFF) {
+            LOG_DEBUG (
+                "QSFP    %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
+                "%02xh : cur=XX",
+                conn_id,
+                pg,
+                ofs,
+                mask,
+                data);
+        } else {
+            LOG_DEBUG (
+                "QSFP    %2d : Coalesced Wr: page %d : offset %d : mask %02xh : data "
+                "%02xh : cur=%02x",
+                conn_id,
+                pg,
+                ofs,
+                mask,
+                data,
+                cur_val);
+        }
     }
-
     new_val = (cur_val & ~mask) | data;
     if (new_val != cur_val) {
         rc = bf_fsm_qsfp_wr2 (conn_id, pg, ofs, 1, &new_val);
@@ -2186,12 +2188,31 @@ static void qsfp_module_fsm_complete_update (
 
 char *qsfp_module_fsm_st_get (int conn_id)
 {
-    return qsfp_fsm_st_to_str[qsfp_state[conn_id].fsm_st];
+    int asize = ARRAY_LENGTH (qsfp_fsm_st_to_str);
+    qsfp_fsm_state_t msm = qsfp_state[conn_id].fsm_st;
+
+    // return short state. QSFP_FSM_ST_INSERTED -> ST_INSERTED
+    return qsfp_fsm_st_to_str[msm % asize] + 9;
 }
 
 void qsfp_module_fsm_st_set (int conn_id, uint8_t state)
 {
     qsfp_state[conn_id].fsm_st = (qsfp_fsm_state_t)state;
+}
+
+char *qsfp_channel_fsm_st_get (int conn_id,
+                               int ch)
+{
+    int asize = ARRAY_LENGTH (qsfp_fsm_ch_en_st_to_str);
+    qsfp_fsm_ch_en_state_t csm = qsfp_state[conn_id].per_ch_fsm[ch].fsm_st;
+
+    //if (ch == qsfp_state[conn_id].dev_cfg[ch].host_head_ch) {
+        // return short state. QSFP_CH_FSM_ST_ENA_OPTICAL_TX -> ST_ENA_OPTICAL_TX
+        return qsfp_fsm_ch_en_st_to_str[csm % asize] + 12;
+    //} else {
+        // Skip the lanes which not performing fsm.
+    //    return " ";
+    //}
 }
 
 /*****************************************************************
@@ -2205,6 +2226,9 @@ static void qsfp_module_fsm_run (bf_dev_id_t
     int rc, delay_ms = 0;
     bool is_optical = false, alldown;
     uint32_t ctrlmask = 0;
+    Module_State module_state;
+    bool intl_deasserted = false;
+    MemMap_Format memmap_format = bf_qsfp_get_memmap_format(conn_id);
 
     bf_qsfp_ctrlmask_get(conn_id, &ctrlmask);
 
@@ -2216,13 +2240,11 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             // reset to initial conditions
             // resetL          <-- 1 # not reset
             // lp_mode         <-- 1 # low power mode
-            // tx_disable[3:0] <-- 1 # laser OFF
             qsfp_fsm_st_removed (dev_id, conn_id);
 
             next_st = QSFP_FSM_ST_IDLE;
             delay_ms = 0;
             qsfp_state[conn_id].qsfp_quick_removed = false;
-            qsfp_state[conn_id].flags = 0;
 
             /* If soft removal detected, try to turn off laser. */
             if (bf_qsfp_soft_removal_get(conn_id)) {
@@ -2236,7 +2258,6 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             // else ensure initial conditions
             //   resetL          <-- 0 # assert reset
             //   lp_mode         <-- 1 low power mode
-            //   tx_disable[3:0] <-- 1 # laser OFF
             rc = qsfp_fsm_identify_type (conn_id,
                                          &is_optical);
             if ((rc != 0) ||
@@ -2276,6 +2297,7 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             break;
 
         case QSFP_FSM_ST_WAIT_T_RESET:
+            /* A Hot-plugin-like host action, then ResetL=0. */
             qsfp_fsm_reset_de_assert (conn_id);
 
             next_st = QSFP_FSM_ST_WAIT_TON_TXDIS;
@@ -2287,39 +2309,30 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             if (bf_pm_intf_is_device_family_tofino(dev_id)) {
                 qsfp_fsm_check_alarms_after_unreset (dev_id,
                                                      conn_id);
-
-                next_st = QSFP_FSM_ST_TOFF_LPMODE;
-                /* if the module needs hi-pwr init then we actually de-asserted
-                 * TX_DISABLE above and need to wait for CMISand8636_TMR_toff_txdis
-                 * PLUS the Luxtera MZI init time of 3.1 seconds for a total of 3.5
-                 * seconds*/
-                if (qsfp_needs_hi_pwr_init (conn_id)) {
-                    delay_ms =
-                        CMISand8636_TMR_toff_txdis +
-                        3100;  // 3.5 sec for Luxtera MZI init;
-                } else {
-                    delay_ms = CMISand8636_TMR_ton_txdis;
-                }
-            } else {
-                next_st = QSFP_FSM_ST_WAIT_LOWPWR;
-                delay_ms = 0;
             }
-
             qsfp_fsm_st_tx_disable (dev_id, conn_id);
+            next_st = QSFP_FSM_ST_WAIT_LOWPWR;
+            delay_ms = 0;
             break;
 
+            /* From hotplug -> LowPwr,
+             * module powers up and initializes management interface, sets power on defaults, such as
+             * LowPwrRequestSW=0,
+             * LowPwrAllowRequestHW=1,
+             * DPDeinit=00h, OutputDisableTx = 0 and OutputSquelchForceTx = 0, and writes the power on
+             * default Data Path configurations into the Active Control Set and Staged Control Set 0.
+             */
         case QSFP_FSM_ST_WAIT_LOWPWR:
             delay_ms = 0;
             if (bf_qsfp_is_cmis(conn_id)) {
-                Module_State module_state;
                 // look at module state to see where we are in the process
-                if (bf_cmis_get_module_state(conn_id, &module_state) < 0) {
+                if (bf_cmis_get_module_state(conn_id, &module_state, &intl_deasserted) < 0) {
                     LOG_ERROR("qsfp fsm: qsfp %d unable to get module state", conn_id);
                     next_st = QSFP_FSM_ST_WAIT_LOWPWR;
                     delay_ms = 100;
                     break;
                 }
-
+                /* Module sets ModuleStateChangedFlag on entry into ModuleLowPwr */
                 if (module_state == MODULE_ST_LOWPWR) {
                     next_st = QSFP_FSM_ST_DP_DEACTIVATE;
                 } else if ((module_state == MODULE_ST_PWRUP) ||
@@ -2333,9 +2346,10 @@ static void qsfp_module_fsm_run (bf_dev_id_t
                     delay_ms = 100;
                 } else if (module_state == MODULE_ST_FAULT) {
                     LOG_ERROR(
-                        "QSFPMSM %2d : Module in Fault state. Recover by re-inserting "
+                        "QSFPMSM %2d : Module in Fault state (%s). Recover by re-inserting "
                         "the module",
-                        conn_id);
+                        conn_id,
+                        bf_cmis_get_module_fault_cause_str(conn_id, 0xFF /* get real module fault */));
                     next_st = QSFP_FSM_ST_IDLE;
                 } else {
                     next_st = QSFP_FSM_ST_WAIT_LOWPWR;
@@ -2354,9 +2368,21 @@ static void qsfp_module_fsm_run (bf_dev_id_t
                 delay_ms =
                     CMISand8636_TMR_toff_txdis + 3100;  // 3.5 sec for Luxtera MZI init;
             } else {
+                /* Host detects assertion of IntL and reads all interrupt flag registers,
+                 * which deasserts IntL. by Hang Tsi, 2024/05/27. */
+                if (bf_qsfp_is_cmis (conn_id)) {
+                    if (bf_cmis_get_module_state(conn_id, &module_state, &intl_deasserted) < 0) {
+                        break;
+                    }
+                    if (intl_deasserted) {
+
+                    }
+                }
                 bf_qsfp_dp_deactivate_all(conn_id);  // prevent datapaths from auto-
                 // initing when we go into hp mode
-
+                /* For test only */
+                //uint8_t scs_dr1[8] = {0x20, 0x20, 0x24, 0x24, 0x28, 0x28, 0x2C, 0x2c};
+                //bf_fsm_qsfp_wr2 (conn_id, QSFP_PAGE16, 145, 8, scs_dr1);
                 delay_ms = CMISand8636_TMR_ton_txdis;
             }
             next_st = QSFP_FSM_ST_TOFF_LPMODE;
@@ -2381,12 +2407,9 @@ static void qsfp_module_fsm_run (bf_dev_id_t
         case QSFP_FSM_ST_WAIT_TOFF_LPMODE:
             next_st = QSFP_FSM_ST_WAIT_TOFF_LPMODE;
             delay_ms = CMISand8636_TMR_Toff_LPMode;
-
-            MemMap_Format memmap_format = bf_qsfp_get_memmap_format(conn_id);
             if (bf_qsfp_is_cmis(conn_id) && (memmap_format >= MMFORMAT_CMIS4P0)) {
-                Module_State module_state;
                 // look at module state to see where we are in the process
-                if (bf_cmis_get_module_state(conn_id, &module_state) < 0) {
+                if (bf_cmis_get_module_state(conn_id, &module_state, &intl_deasserted) < 0) {
                     LOG_ERROR("qsfp fsm: qsfp %d unable to get module state", conn_id);
                     next_st = QSFP_FSM_ST_WAIT_TOFF_LPMODE;
                     break;
@@ -2394,11 +2417,14 @@ static void qsfp_module_fsm_run (bf_dev_id_t
 
                 if (module_state == MODULE_ST_READY) {
                     next_st = QSFP_FSM_ST_DETECTED;
+                    /* Activate all datapath when module ready. */
+                    //bf_qsfp_dp_activate_all (conn_id);
                 } else if (module_state == MODULE_ST_FAULT) {
                     LOG_ERROR(
-                        "QSFPMSM %2d : Module in Fault state. Recover by re-inserting "
+                        "QSFPMSM %2d : Module in Fault state (%s). Recover by re-inserting "
                         "the module",
-                        conn_id);
+                        conn_id,
+                        bf_cmis_get_module_fault_cause_str(conn_id, 0xFF /* get real module fault */));
                     next_st = QSFP_FSM_ST_IDLE;
                 }
             } else {
@@ -2407,23 +2433,24 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             break;
 
         case QSFP_FSM_ST_WAIT_TOFF_TXDIS:
-            /* Keep current state till the user clears the BF_TRANS_CTRLMASK_LASER_OFF bits,
-             * then FSM will issue QSFP_FSM_ST_DETECTED stage. */
-            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
-                next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
-                break;
+            if (bf_pm_intf_is_device_family_tofino(dev_id)) {
+                /* Keep current state till the user clears the BF_TRANS_CTRLMASK_LASER_OFF bits,
+                 * then FSM will issue QSFP_FSM_ST_DETECTED stage. */
+                if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
+                    next_st = QSFP_FSM_ST_WAIT_TOFF_TXDIS;
+                    break;
+                }
+                /* TX_DISABLE de-assert. */
+                qsfp_fsm_st_tx_enable (dev_id, conn_id);
+                delay_ms = CMISand8636_TMR_toff_txdis;
             }
-
-            /* TX_DISABLE de-assert. */
-            qsfp_fsm_st_tx_enable (dev_id, conn_id);
-            delay_ms = CMISand8636_TMR_toff_txdis;
-
             next_st = QSFP_FSM_ST_DETECTED;
             break;
 
         case QSFP_FSM_ST_DETECTED:
             bf_qsfp_set_detected (conn_id, true);
             // check LOS
+            // enable quick-removal detected for tof2 as well.
             if (bf_pm_intf_is_device_family_tofino (dev_id)) {
                 if (qsfp_fsm_is_optical (conn_id) &&
                     (bf_qsfp_get_memmap_format (conn_id) ==
@@ -2482,7 +2509,7 @@ static void qsfp_module_fsm_run (bf_dev_id_t
         &qsfp_state[conn_id].next_fsm_run_time, delay_ms);
 
     if (st != next_st) {
-        LOG_DEBUG ("QSFPMSM %2d : %s --> %s (%dms)\n",
+        LOG_DEBUG ("QSFPMSM %2d : %s --> %s (%dms)",
                    conn_id,
                    qsfp_fsm_st_to_str[st],
                    qsfp_fsm_st_to_str[next_st],
@@ -2508,6 +2535,7 @@ static int qsfp_fsm_coalesce_wr2(bf_dev_id_t dev_id,
         ((1 << qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes) - 1)
         << host_head_ch;
 
+    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_CP2112_RELAX; // skip module IO to relax i2c.
     if (!qsfp_state[conn_id].wr_coalesce.in_progress) {
         qsfp_state[conn_id].wr_coalesce.in_progress = true;
         qsfp_state[conn_id].wr_coalesce.delay_ms = delay_ms;
@@ -2516,15 +2544,16 @@ static int qsfp_fsm_coalesce_wr2(bf_dev_id_t dev_id,
         qsfp_state[conn_id].wr_coalesce.host_chmask = host_chmask_thisport;
         qsfp_state[conn_id].wr_coalesce.mask = mask;
         qsfp_state[conn_id].wr_coalesce.data = data;
-
-        LOG_DEBUG(
-            "QSFP wr_coalesce : Port %2d:%d new wr_op request : field:%d mask:%#x "
-            "data:%#x",
-            conn_id,
-            ch,
-            field,
-            mask,
-            data);
+        if (bf_qsfp_is_fsm_logging(conn_id)) {
+            LOG_DEBUG(
+                "QSFP wr_coalesce : Port %2d:%d new wr_op request : field:%d mask:%#x "
+                "data:%#x",
+                conn_id,
+                ch,
+                field,
+                mask,
+                data);
+        }
         LOG_DEBUG("QSFPMSM %2d : %s --> %s (%dms)",
                   conn_id,
                   qsfp_fsm_st_to_str[qsfp_state[conn_id].fsm_st],
@@ -2539,17 +2568,18 @@ static int qsfp_fsm_coalesce_wr2(bf_dev_id_t dev_id,
         if ((qsfp_state[conn_id].wr_coalesce.field == field) &&
             (host_chmask_thisport & (1 << ch))) {
             // merge this write with in-progress one
-            LOG_DEBUG(
-                "QSFP    %2d/%d : Coalesce field=%d : merge mask=%02x : data=%02x : "
-                "with : mask=%02x : data=%02x",
-                conn_id,
-                ch,
-                field,
-                mask,
-                data,
-                qsfp_state[conn_id].wr_coalesce.mask,
-                qsfp_state[conn_id].wr_coalesce.data);
-
+            if (bf_qsfp_is_fsm_logging(conn_id)) {
+                LOG_DEBUG(
+                    "QSFP    %2d/%d : Coalesce field=%d : merge mask=%02x : data=%02x : "
+                    "with : mask=%02x : data=%02x",
+                    conn_id,
+                    ch,
+                    field,
+                    mask,
+                    data,
+                    qsfp_state[conn_id].wr_coalesce.mask,
+                    qsfp_state[conn_id].wr_coalesce.data);
+            }
             qsfp_state[conn_id].wr_coalesce.host_wr_chmask |= (1 << ch);
             qsfp_state[conn_id].wr_coalesce.mask |= mask;
             qsfp_state[conn_id].wr_coalesce.data |= data;
@@ -2599,11 +2629,13 @@ static int qsfp_fsm_coalesce_wr (bf_dev_id_t
         if ((qsfp_state[conn_id].wr_coalesce.pg == pg) &&
             (qsfp_state[conn_id].wr_coalesce.ofs == ofs)) {
             // merge this write with in-progress one
-            // LOG_WARNING("QSFP    %2d : Coalesce pg=%d : ofs=%d : mask=%02x : data=%02x
-            // : with : mask=%02x : data=%02x",
-            //          conn_id, pg, ofs, mask, data,
-            //          qsfp_state[conn_id].wr_coalesce.mask,
-            //          qsfp_state[conn_id].wr_coalesce.data);
+            if (bf_qsfp_is_fsm_logging(conn_id)) {
+                LOG_WARNING("QSFP    %2d : Coalesce pg=%d : ofs=%d : mask=%02x : data=%02x : "
+                      "with : mask=%02x : data=%02x",
+                      conn_id, pg, ofs, mask, data,
+                      qsfp_state[conn_id].wr_coalesce.mask,
+                      qsfp_state[conn_id].wr_coalesce.data);
+            }
             qsfp_state[conn_id].wr_coalesce.mask |= mask;
             qsfp_state[conn_id].wr_coalesce.data |= data;
         } else {
@@ -2785,60 +2817,6 @@ static int qsfp_fsm_ch_sff8636_disable_rx_cdr (
     return rc;  // non-0 means "try later"
 }
 
-/* Will be removed later. */
-#if 0
-/*****************************************************************
- * enable both TX and RX CDRs - only use for sff-8636 modules
- *****************************************************************/
-static int qsfp_fsm_ch_enable_cdr (
-    bf_dev_id_t dev_id, int conn_id, int ch)
-{
-    int rc;
-    rc = qsfp_fsm_coalesce_wr (dev_id,
-                               conn_id,
-                               300 /*300ms*/,
-                               0 /*pg=0*/,
-                               98 /*98 (0x62)*/,
-                               (0x11 << ch),
-                               (0x11 << ch));
-    return rc;  // non-0 means "try later"
-}
-
-/*****************************************************************
- * disable both TX and RX CDRs - only use for sff-8636 modules
- *****************************************************************/
-static int qsfp_fsm_ch_disable_cdr (
-    bf_dev_id_t dev_id, int conn_id, int ch)
-{
-    int rc;
-    rc = qsfp_fsm_coalesce_wr (dev_id,
-                               conn_id,
-                               300 /*300ms*/,
-                               0 /*pg=0*/,
-                               98 /*98 (0x62)*/,
-                               (0x11 << ch),
-                               (0x00 << ch));
-    return rc;  // non-0 means "try later"
-}
-
-/*****************************************************************
- * disable RX CDRs - only use for sff-8636 modules
- *****************************************************************/
-static int qsfp_fsm_ch_disable_rx_cdr (
-    bf_dev_id_t dev_id, int conn_id, int ch)
-{
-    int rc;
-    rc = qsfp_fsm_coalesce_wr (dev_id,
-                               conn_id,
-                               300 /*300ms*/,
-                               0 /*pg=0*/,
-                               98 /*98 (0x62)*/,
-                               (0x01 << ch),
-                               (0x00 << ch));
-    return rc;  // non-0 means "try later"
-}
-#endif
-
 /*****************************************************************
  * select the Application that matches the configured device speed
  * only use for CMIS modules
@@ -2900,6 +2878,7 @@ static int qsfp_fsm_ch_cmis_apply_dpinit(bf_dev_id_t dev_id,
     bool active_expctrl, staged_expctrl;
     qsfp_application_info_t staged_info, active_info;
     uint8_t mask;
+    int dp_init_mask = 0;
 
     if (retry) *retry = 0;
 
@@ -2919,13 +2898,17 @@ static int qsfp_fsm_ch_cmis_apply_dpinit(bf_dev_id_t dev_id,
 
     if ((active_apsel == staged_apsel) && (active_dpid == staged_dpid) &&
             (active_expctrl == staged_expctrl)) {
+        /* Force apply no matter what looks like in stage set for Gigalight modules. */
+        if (!qsfp_fsm_force_dpinit_required_for_special_modules(conn_id)) {
+            goto apply_dpinit;
+        }
         LOG_DEBUG("QSFP    %2d/%d : Skipping apply_dpinit, already applied..",
                   conn_id,
                   ch);
-        return 0;
+        goto finish;
     }
 
-    int dp_init_mask = 0;
+apply_dpinit:
     // For certain QSFP DD, dp init needs to be applied for all channel
     if (qsfp_fsm_get_dp_mask_for_special_modules(conn_id, &dp_init_mask) == 0) {
         if (dp_init_mask != 0) {
@@ -2962,6 +2945,14 @@ static int qsfp_fsm_ch_cmis_apply_dpinit(bf_dev_id_t dev_id,
         }
     }
 
+finish:
+    LOG_DEBUG("QSFPCSM %2d/%d : CMIS datapath %s @ ApSel %d : head_ch %d : media_nlanes %d : media_ch %d",
+                conn_id, ch,
+                "enabled",
+                staged_apsel,
+                qsfp_state[conn_id].dev_cfg[ch].media_head_ch,
+                qsfp_state[conn_id].dev_cfg[ch].media_intf_nlanes,
+                qsfp_state[conn_id].dev_cfg[ch].media_ch);
     return 0;
 }
 
@@ -2984,8 +2975,6 @@ static int qsfp_fsm_ch_cmis_datapath_init(bf_dev_id_t dev_id,
         newvalue = 0;
     }
 
-    /* Reopen this API as issue has been resolved. */
-#if 1
     // combine all DataPathDeinit updates into one I2C transaction
     rc = qsfp_fsm_coalesce_wr2(dev_id,
                                conn_id,
@@ -2994,13 +2983,6 @@ static int qsfp_fsm_ch_cmis_datapath_init(bf_dev_id_t dev_id,
                                ch,
                                (0x1 << ch),
                                (newvalue << ch));
-#else
-    rc = bf_fsm_qsfp_wr2 (conn_id, 16, 128, 1, &newvalue);
-#endif
-    LOG_DEBUG("QSFP    %2d : Attempt to coalesce write 0x%02x, %s",
-              conn_id,
-              newvalue << ch,
-              rc ? "no" : "yes");
     return rc;  // non-0 means "try later"
 }
 
@@ -3072,6 +3054,75 @@ static bool qsfp_fsm_ch_cmis_is_state_dpactivated(bf_dev_id_t dev_id,
     return true;
 }
 
+/*****************************************************************
+ * returns true if the DataPath state is DataPathDeactivated
+ * only use for CMIS modules
+ *****************************************************************/
+static bool qsfp_fsm_ch_cmis_is_state_dpdeactivated(bf_dev_id_t dev_id,
+        int conn_id,
+        int ch) {
+    DataPath_State datapath_state;
+    if (bf_cmis_get_datapath_state(conn_id, ch, &datapath_state) < 0) {
+        LOG_ERROR(
+            "qsfp ch fsm: qsfp %d ch %d unable to get datapath state", conn_id, ch);
+        return false;  // keep trying
+    }
+
+    if (datapath_state == DATAPATH_ST_DEACTIVATED) {
+        return true;
+    }
+    return false;
+}
+
+/****************************************************
+ * Determine if QSFP requires SKIP DP state or not
+ * Based on a priori knowledge of QSFP Vendor/PN.
+ * For XSL.
+ * by Hang Tsi, 2024/03/05.
+ ****************************************************/
+static bool qsfp_fsm_cmis_is_state_dpignored(int conn_id) {
+    bool ignore = false;
+    int rc = 0;
+    qsfp_vendor_info_t vendor;
+
+    rc = bf_qsfp_get_vendor_info(conn_id, &vendor);
+    if (!rc) {
+        LOG_ERROR("QSFP    %2d : Error retrieving vendor info", conn_id);
+        goto finish;
+    }
+
+    /* XSL is following CMIS 5.1 or later but required APPSEL in low power mode. */
+    if (!memcmp(vendor.name, "XSL", strlen("XSL")) &&
+               !memcmp(vendor.part_number, "HSD1-400-DR-C2S", strlen("HSD1-400-DR-C2S"))) {
+        ignore = true;
+    }
+
+finish:
+    return ignore;
+}
+
+static bool qsfp_fsm_ch_cmis_is_dp_config_inprog_ignored(bf_dev_id_t dev_id,
+        int conn_id) {
+    bool ignore = false;
+    int rc = 0;
+    qsfp_vendor_info_t vendor;
+
+    rc = bf_qsfp_get_vendor_info(conn_id, &vendor);
+    if (!rc) {
+        LOG_ERROR("QSFP    %2d : Error retrieving vendor info", conn_id);
+        goto finish;
+    }
+
+    /* XSL is following CMIS 5.1 or later but required APPSEL in low power mode. */
+    if (!memcmp(vendor.name, "XSL", strlen("XSL")) &&
+               !memcmp(vendor.part_number, "HSD1-400-DR-C2S", strlen("HSD1-400-DR-C2S"))) {
+        ignore = true;
+    }
+
+finish:
+    return ignore;
+}
+
 static bool qsfp_fsm_ch_cmis_is_dp_config_inprog(bf_dev_id_t dev_id,
         int conn_id,
         int ch) {
@@ -3083,12 +3134,16 @@ static bool qsfp_fsm_ch_cmis_is_dp_config_inprog(bf_dev_id_t dev_id,
             "QSFPCSM %2d/%d : unable to get datapath config status", conn_id, ch);
         return true;
     }
+    // For cases ignore dp inprog state during enabling.
+    bool ignore = qsfp_fsm_ch_cmis_is_dp_config_inprog_ignored (dev_id, conn_id);
     if (datapath_config_status == DATAPATH_CONF_INPROGRESS) {
-        LOG_DEBUG("QSFPCSM %2d/%d : Datapath Status : %s",
+        LOG_DEBUG("QSFPCSM %2d/%d : Datapath Status : %s : %s",
                   conn_id,
                   ch,
-                  qsfp_dp_config_str[datapath_config_status]);
-        return true;
+                  bf_cmis_get_datapath_config_state_str(conn_id, ch, datapath_config_status),
+                  ignore ? "ignored" : "-------");
+        //return true;
+        return (ignore == false);
     }
     return false;
 }
@@ -3111,43 +3166,7 @@ static bool qsfp_fsm_ch_cmis_is_dp_config_error(bf_dev_id_t dev_id,
         LOG_DEBUG("QSFPCSM %2d/%d : Datapath Status : %s",
                   conn_id,
                   ch,
-                  qsfp_dp_config_str[datapath_config_status]);
-        return true;
-    }
-    return false;
-}
-
-/* By Hang Tsi, 2024/02/28 */
-const char* qsfp_fsm_ch_cmis_get_dp_config_error(bf_dev_id_t dev_id,
-        int conn_id,
-        int ch) {
-    DataPath_Config_Status datapath_config_status;
-
-    if (bf_cmis_get_datapath_config_status(conn_id, ch, &datapath_config_status) <
-            0) {
-        LOG_ERROR(
-            "QSFPCSM %2d/%d : unable to get datapath config status", conn_id, ch);
-        return "Unknown";
-    }
-
-    return qsfp_dp_config_str[datapath_config_status % 16];
-}
-
-/*****************************************************************
- * returns true if the DataPath state is DataPathDeactivated
- * only use for CMIS modules
- *****************************************************************/
-static bool qsfp_fsm_ch_cmis_is_state_dpdeactivated(bf_dev_id_t dev_id,
-        int conn_id,
-        int ch) {
-    DataPath_State datapath_state;
-    if (bf_cmis_get_datapath_state(conn_id, ch, &datapath_state) < 0) {
-        LOG_ERROR(
-            "qsfp ch fsm: qsfp %d ch %d unable to get datapath state", conn_id, ch);
-        return false;  // keep trying
-    }
-
-    if (datapath_state == DATAPATH_ST_DEACTIVATED) {
+                  bf_cmis_get_datapath_config_state_str(conn_id, ch, datapath_config_status));
         return true;
     }
     return false;
@@ -3170,7 +3189,7 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
     int num_lanes = qsfp_num_lanes_get (conn_id, ch);
     uint32_t msk = lane_mask[num_lanes] << (ch + 4);
 
-    rc = bf_fsm_qsfp_rd2 (conn_id, 0, 3, 1, &byte_3);
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_LOWER, 3, 1, &byte_3);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading TX LOS (byte 3)",
                      conn_id, rc);
@@ -3182,7 +3201,7 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
         *ok = true;
     }
 
-    rc = bf_fsm_qsfp_rd2 (conn_id, 0, 5, 1, &byte_5);
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_LOWER, 5, 1, &byte_5);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading CDR LOL (byte 5)",
                    conn_id, rc);
@@ -3194,16 +3213,18 @@ static void qsfp_fsm_ch_check_tx_cdr_lol (
     *los_val = byte_3;
     *lol_val = byte_5;
 
-    LOG_DEBUG (
-        "QSFP    %2d : ch[%d] : TX LOS (byte 3) = %02x : TX CDR LOL (byte 5) = "
-        "%02x : %s <num_lanes=%d : msk=%x>",
-        conn_id,
-        ch,
-        byte_3,
-        byte_5,
-        *ok ? "[ok]" : "[fault present]",
-        num_lanes,
-        msk);
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG (
+            "QSFP    %2d : ch[%d] : TX LOS (byte 3) = %02x : TX CDR LOL (byte 5) = "
+            "%02x : %s <num_lanes=%d : msk=%x>",
+            conn_id,
+            ch,
+            byte_3,
+            byte_5,
+            *ok ? "[ok]" : "[fault present]",
+            num_lanes,
+            msk);
+    }
 }
 
 /*****************************************************************
@@ -3310,7 +3331,7 @@ void qsfp_fsm_ch_check_tx_optical_fault (
     uint32_t msk = lane_mask[num_lanes] << ch;
 
     // read "Interrupt Flags" bytes, 3-15, most are faults and alarms
-    rc = bf_fsm_qsfp_rd2 (conn_id, 0, 0, 15,
+    rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_LOWER, 0, 15,
                          faults_and_alarms);
     if (rc) {
         LOG_WARNING ("QSFP    %2d : Error <%d> reading faults and alarms",
@@ -3334,10 +3355,12 @@ void qsfp_fsm_ch_check_tx_optical_fault (
             if (byte == 4) {
                 fault_or_alarm_set = true;
             }
-            LOG_DEBUG ("QSFP    %2d : Page 0: Faults and alarms: Byte %2d: %02xh",
-                       conn_id,
-                       byte,
-                       faults_and_alarms[byte]);
+            if (bf_qsfp_is_fsm_logging(conn_id)) {
+                LOG_DEBUG ("QSFP    %2d : Page 0: Faults and alarms: Byte %2d: %02xh",
+                           conn_id,
+                           byte,
+                           faults_and_alarms[byte]);
+            }
         }
     }
     if (fault_or_alarm_set) {
@@ -3461,12 +3484,6 @@ void qsfp_fsm_ch_first_enable_clear (
         = false;
 }
 
-char *qsfp_channel_fsm_st_get (int conn_id,
-                               int ch)
-{
-    return qsfp_fsm_ch_en_st_to_str[qsfp_state[conn_id].per_ch_fsm[ch].fsm_st];
-}
-
 static inline int qsfp_fsm_is_cdr_required (bf_dev_id_t
                                   dev_id, int conn_id, int ch, bool *rx_cdr_required, bool *tx_cdr_required)
 {
@@ -3499,14 +3516,13 @@ static inline int qsfp_fsm_is_cdr_required (bf_dev_id_t
     return 0;
 }
 
-#if 1
 /*****************************************************************
  * TF2 Implementation
  *****************************************************************/
 static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
     qsfp_fsm_ch_en_state_t st = qsfp_state[conn_id].per_ch_fsm[ch].fsm_st;
     qsfp_fsm_ch_en_state_t next_st = st;  // default to no transition
-    MemMap_Format memmap_format = MMFORMAT_UNKNOWN;
+    MemMap_Format memmap_format = bf_qsfp_get_memmap_format(conn_id);;
     int wr_coalesce_err, err = -1, delay_ms = 0;
     int substate = qsfp_state[conn_id].per_ch_fsm[ch].substate;
     int next_substate = substate;
@@ -3592,7 +3608,6 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                 break;
             }
             qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel = true;
-            memmap_format = bf_qsfp_get_memmap_format(conn_id);
             if ((memmap_format >= MMFORMAT_CMIS5P0) && (ch == host_head_ch) &&
                     qsfp_fsm_ch_cmis_is_dp_config_inprog(dev_id, conn_id, ch)) {
                 LOG_DEBUG(
@@ -3604,6 +3619,7 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                 next_st = QSFP_CH_FSM_ST_DISABLING;
                 break;
             }
+
             err = qsfp_fsm_ch_cmis_select_application(dev_id, conn_id, ch);
             if (err) {
                 break;
@@ -3653,9 +3669,7 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
         // CMIS (software init) - transition data path state to DataPathInit,
         //   where the module will initialize the data path and then transition
         //   the data path state to DataPathInitialized
-
-        memmap_format = bf_qsfp_get_memmap_format(conn_id);
-        if (bf_qsfp_is_cmis(conn_id) && (memmap_format >= MMFORMAT_CMIS5P0)) {
+        if (memmap_format >= MMFORMAT_CMIS5P0) {
             if (qsfp_fsm_ch_cmis_is_dp_config_inprog(dev_id, conn_id, ch)) {
                 delay_ms = 100;
                 break;
@@ -3720,7 +3734,6 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
             // CMIS hardware init - nothing to do
             next_substate++;  // fall through
         case 1:             // Step 1 -  wait for initialization to complete
-            memmap_format = bf_qsfp_get_memmap_format(conn_id);
             if (memmap_format == MMFORMAT_SFF8636) {
                 if (bf_pm_intf_is_device_family_tofino(dev_id)) {
                     // for some reason, need to read twice to clear latched faults
@@ -3798,7 +3811,7 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                                   conn_id,
                                   ch,
                                   "have reached DataPathActivated. ",
-                                  "Continuing to wait...");
+                                  "cmis 3.0, Continuing to wait...");
                     }
                 } else {
                     // CMIS 4.0+ - exit state from DataPathInit is DataPathInitialized
@@ -3818,11 +3831,17 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                                   "have reached DataPathInitialized. ",
                                   "Module may not be cmis 4.0 compliant. Continue ...");
                     } else {
-                        LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
-                                  conn_id,
-                                  ch,
-                                  "have reached DataPathInitialized. ",
-                                  "Continuing to wait...");
+                        if (qsfp_fsm_cmis_is_state_dpignored(conn_id)) {
+                            delay_ms = 0;  // we already waited, so we're ready to proceed
+                            next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                            next_substate = 0;
+                        } else {
+                            LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
+                                      conn_id,
+                                      ch,
+                                      "have reached DataPathInitialized. ",
+                                      "Continuing to wait...");
+                        }
                     }
                 }
                 break;
@@ -3862,7 +3881,6 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
             }
             break;
         case 1:  // step 1 - wait for the transmitters to be enabled
-            memmap_format = bf_qsfp_get_memmap_format(conn_id);
             if ((memmap_format == MMFORMAT_SFF8636) ||
                     (memmap_format == MMFORMAT_CMIS3P0)) {
                 // CMIS state machine did not comprehend optics readiness until
@@ -3979,10 +3997,12 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
             if (wr_coalesce_err == 0) {
                 delay_ms = 0;  // wait in the next substate
                 next_substate++;
+                if (memmap_format == MMFORMAT_SFF8636) {
+                    next_substate = 4; // goto last substate for SFF-8636 modules.
+                }
             }
             break;
         case 2:  // step 2 - wait for transmitters to be disabled
-            memmap_format = bf_qsfp_get_memmap_format(conn_id);
             if (memmap_format >= MMFORMAT_CMIS4P0) {
                 if (qsfp_fsm_ch_cmis_is_state_dpinitialized(dev_id, conn_id, ch) ||
                         qsfp_fsm_ch_cmis_is_state_dpdeactivated(dev_id, conn_id, ch)) {
@@ -3990,7 +4010,7 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                     next_substate++;
                 }
             } else {
-                delay_ms = 100;  // wait 100ms for transmitters to be enabled
+                delay_ms = 100;  // wait 100ms for transmitters to be disabled
                 next_substate++;
             }
             break;
@@ -4046,543 +4066,6 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
                   delay_ms);
     }
 }
-#else
-/*****************************************************************
- *
- *****************************************************************/
-static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
-    qsfp_fsm_ch_en_state_t st = qsfp_state[conn_id].per_ch_fsm[ch].fsm_st;
-    qsfp_fsm_ch_en_state_t next_st = st;  // default to no transition
-    MemMap_Format memmap_format = MMFORMAT_UNKNOWN;
-    int wr_coalesce_err, err = -1, delay_ms = 0;
-    int substate = qsfp_state[conn_id].per_ch_fsm[ch].substate;
-    int next_substate = substate;
-    bool ok, discard_latched;
-    uint8_t los_fault_val, lol_fault_val;
-    uint8_t fault_val;
-    int host_head_ch;
-    int host_chmask_thisport;
-    bool is_optical = false;
-    int retry = 0;
-
-    host_head_ch = qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
-    /*
-        LOG_DEBUG("QSFPCSM %2d/%d : CSM RUN -- %s.%d",
-              conn_id,
-              ch,
-              qsfp_fsm_ch_en_st_to_str[st],
-              substate);
-    */
-    // this mask has a 1 in each bit position corresponding to a lane in the
-    // current port
-    host_chmask_thisport =
-        ((1 << qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes) - 1)
-            << host_head_ch;
-
-    switch (st) {
-        case QSFP_CH_FSM_ST_DISABLED:
-          // waiting to start enabling
-          break;
-        case QSFP_CH_FSM_ST_ENABLING:
-          // initalize/re-initialize variables used in ch_fsm
-          qsfp_state[conn_id].per_ch_fsm[ch].immediate_enable = false;
-          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_ena_cdr = false;
-          qsfp_state[conn_id].sync_ena_cdr &= (0xFFFF ^ (1 << ch));  // unset
-          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_ena_opt_tx = false;
-          qsfp_state[conn_id].sync_tx_locked &= (0xFFFF ^ (1 << ch));  // unset
-          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_tx_locked = false;
-          qsfp_state[conn_id].sync_ena_opt_tx &= (0xFFFF ^ (1 << ch));  // unset
-          qsfp_state[conn_id].per_ch_fsm[ch].head_1st_notify_enb = false;
-          qsfp_state[conn_id].sync_notify_enb &= (0xFFFF ^ (1 << ch));  // unset
-          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel = false;
-          qsfp_state[conn_id].sync_appsel &= (0xFFFF ^ (1 << ch));  // unset
-
-          if (bf_pm_intf_is_device_family_tofino(dev_id)) {
-            // notify driver
-            qsfp_fsm_ch_notify_not_ready(dev_id, conn_id, ch);
-
-            // assume straight-through connections
-            qsfp_state[conn_id].dev_cfg[ch].media_ch = ch;
-            qsfp_state[conn_id].dev_cfg[ch].media_head_ch =
-                qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
-            qsfp_state[conn_id].dev_cfg[ch].media_intf_nlanes =
-                qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes;
-
-            delay_ms = 300;  // ms
-            next_st = QSFP_CH_FSM_ST_ENA_CDR;
-            next_substate = 0;
-            break;
-          }
-
-          // if the media is copper
-          qsfp_fsm_identify_type(conn_id, &is_optical);
-          if (!is_optical) {
-            next_st = QSFP_CH_FSM_ST_ENABLED;
-            delay_ms = 0;
-            break;
-          }
-          delay_ms = 0;  // no need to wait after this
-          next_st = QSFP_CH_FSM_ST_APPSEL;
-          next_substate = 0;
-          break;
-        case QSFP_CH_FSM_ST_APPSEL:
-          // update the selected Application for CMIS modules
-          if ((bf_qsfp_is_cmis(conn_id)) && (!qsfp_needs_hi_pwr_init(conn_id))) {
-            // CMIS, software init
-            qsfp_state[conn_id].sync_appsel |= 1 << ch;
-            // this check makes sure all channel state machines go through this
-            // state at the same time, starting wich the head channel
-            if (((qsfp_state[conn_id].sync_appsel & host_chmask_thisport) !=
-                 host_chmask_thisport) ||
-                ((!qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel) &&
-                 (ch != host_head_ch))) {
-              break;
-            }
-            qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_appsel = true;
-            memmap_format = bf_qsfp_get_memmap_format(conn_id);
-            if ((memmap_format >= MMFORMAT_CMIS5P0) && (ch == host_head_ch) &&
-                qsfp_fsm_ch_cmis_is_dp_config_inprog(dev_id, conn_id, ch)) {
-              LOG_DEBUG(
-                  "QSFPCSM %2d/%d : Datapath config is in progress before "
-                  "apply_dpinit. Retrying..",
-                  conn_id,
-                  ch);
-              qsfp_log_port_retry(dev_id, conn_id, ch);
-              next_st = QSFP_CH_FSM_ST_DISABLING;
-              break;
-            }
-            err = qsfp_fsm_ch_cmis_select_application(dev_id, conn_id, ch);
-            if (err) {
-              break;
-            } else {
-              delay_ms = 0;
-              next_st = QSFP_CH_FSM_ST_APPLY_DPINIT;
-              next_substate = 0;
-            }
-
-          } else {
-            // SFF-8636 - doesn't have Applications, nothing to do
-            // CMIS, hardware init - nothing to do
-
-            // assume straight-through connections
-            qsfp_state[conn_id].dev_cfg[ch].media_ch = ch;
-            qsfp_state[conn_id].dev_cfg[ch].media_head_ch =
-                qsfp_state[conn_id].dev_cfg[ch].host_head_ch;
-            qsfp_state[conn_id].dev_cfg[ch].media_intf_nlanes =
-                qsfp_state[conn_id].dev_cfg[ch].host_intf_nlanes;
-
-            delay_ms = 0;  // no need to wait after this
-            next_st = QSFP_CH_FSM_ST_ENA_CDR;
-            next_substate = 0;
-          }
-          break;
-        case QSFP_CH_FSM_ST_APPLY_DPINIT:
-          err = qsfp_fsm_ch_cmis_apply_dpinit(dev_id, conn_id, ch, &retry);
-          if (err == 0) {  // successfully added to queue
-            if (retry) {
-              delay_ms = 1000;
-              next_st = QSFP_CH_FSM_ST_APPLY_DPINIT;
-              next_substate = 0;
-            } else {
-              delay_ms = 100;  // wait in the next substate
-              next_st = QSFP_CH_FSM_ST_ENA_CDR;
-              next_substate = 0;
-            }
-          } else {
-            delay_ms = 0;
-            next_st = QSFP_CH_FSM_ST_APPSEL;
-            next_substate = 0;
-          }
-          break;
-        case QSFP_CH_FSM_ST_ENA_CDR:
-          // this state initializes the data path electronics in the module
-          // SFF-8636 - enable the TX and RX CDRs, then wait for LOL to clear
-          // CMIS (software init) - transition data path state to DataPathInit,
-          //   where the module will initialize the data path and then transition
-          //   the data path state to DataPathInitialized
-
-          memmap_format = bf_qsfp_get_memmap_format(conn_id);
-          if (bf_qsfp_is_cmis(conn_id) && (memmap_format >= MMFORMAT_CMIS5P0)) {
-            if (qsfp_fsm_ch_cmis_is_dp_config_inprog(dev_id, conn_id, ch)) {
-              delay_ms = 100;
-              break;
-            } else if (qsfp_fsm_ch_cmis_is_dp_config_error(dev_id, conn_id, ch)) {
-              LOG_ERROR(
-                  "QSFPCSM %2d/%d : Datapath config rejected! Verify configuration "
-                  "mode. Disable and Enable port to retry.",
-                  conn_id,
-                  ch);
-              qsfp_update_fsm_st_rejected(dev_id, conn_id, ch);
-              next_st = QSFP_CH_FSM_ST_REJECTED;
-              break;
-            }
-          }
-          qsfp_state[conn_id].sync_ena_cdr |= 1 << ch;
-          // this check makes sure all channel state machines go through this state
-          // at the same time, starting wich the head channel
-          if (((qsfp_state[conn_id].sync_ena_cdr & host_chmask_thisport) !=
-               host_chmask_thisport) ||
-              ((!qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_cdr) &&
-               (ch != host_head_ch))) {
-            break;
-          }
-          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_cdr = true;
-          switch (next_substate) {
-            case 0:  // step 0 - initalize data path electronics
-              if (!bf_qsfp_is_cmis(conn_id)) {
-                // SFF-8636 - enable the CDR
-                wr_coalesce_err =
-                    qsfp_fsm_ch_sff8636_enable_cdr(dev_id, conn_id, ch);
-                if (wr_coalesce_err == 0) {  // successfully added to queue
-                  delay_ms = 300;            // wait 300 ms before checking LOL flag
-                  next_substate++;
-                }  // else {
-                // we'll try to add to the queue next time around
-                //}
-                break;
-              } else if (!qsfp_needs_hi_pwr_init(conn_id)) {
-                // CMIS, software init - clear applicable DataPathDeinit bits.
-                //   This advances the modure DataPath state machine to
-                //   DataPathInit, where it will start initializing the data path
-                //   electronics
-                wr_coalesce_err =
-                    qsfp_fsm_ch_cmis_datapath_init(dev_id, conn_id, ch);
-                if (wr_coalesce_err == 0) {  // successfully added to queue
-                  delay_ms = 0;              // wait in the next substate
-                  next_substate++;
-                }
-                break;
-              }
-              // CMIS hardware init - nothing to do
-              next_substate++;  // fall through
-            case 1:             // Step 1 -  wait for initialization to complete
-              memmap_format = bf_qsfp_get_memmap_format(conn_id);
-              if (memmap_format == MMFORMAT_SFF8636) {
-                if (bf_pm_intf_is_device_family_tofino(dev_id)) {
-                  // for some reason, need to read twice to clear latched faults
-                  // Tofino 1 flag handling method only
-                  qsfp_fsm_ch_check_tx_cdr_lol(dev_id,
-                                               conn_id,
-                                               ch,
-                                               &discard_latched,
-                                               &los_fault_val,
-                                               &lol_fault_val);
-                  qsfp_fsm_ch_check_tx_cdr_lol(dev_id,
-                                               conn_id,
-                                               ch,
-                                               &discard_latched,
-                                               &los_fault_val,
-                                               &lol_fault_val);
-                  // third time's the charm - see if the qsfp still sets lol or los
-                  qsfp_fsm_ch_check_tx_cdr_lol(
-                      dev_id, conn_id, ch, &ok, &los_fault_val, &lol_fault_val);
-                  if (!ok) {
-                    LOG_DEBUG(
-                        "QSFP    %2d : ch[%d] : TX LOS <%02x>, TX CDR LOL <%02x>. "
-                        "retry..",
-                        conn_id,
-                        ch,
-                        los_fault_val,
-                        lol_fault_val);
-                  } else {
-                    delay_ms =
-                        0;  // LOL and LOS are both unset, proceed immediately
-                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
-                    next_substate = 0;
-                  }
-                } else {  // tof2
-                  // get current los and lol flags for this lane
-                  qsfp_fsm_check_tx_lock(conn_id, ch, &ok);
-                  if (ok) {  // current lane has signal and cdr is locked
-                    // add lane to mask for port
-                    qsfp_state[conn_id].sync_tx_locked |= 1 << ch;
-
-                    // see if we are good across all lanes & we are on the head lane
-                    if (((qsfp_state[conn_id].sync_tx_locked &
-                          host_chmask_thisport) != host_chmask_thisport) ||
-                        ((!qsfp_state[conn_id]
-                               .per_ch_fsm[host_head_ch]
-                               .head_1st_tx_locked) &&
-                         (ch != host_head_ch))) {
-                      // not all lanes ready yet, keep waiting
-                      break;
-                    }
-
-                    // entire logical port has sig det and cdr lock, advance states
-                    qsfp_state[conn_id]
-                        .per_ch_fsm[host_head_ch]
-                        .head_1st_tx_locked = true;
-                    delay_ms = 0;
-                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
-                    next_substate = 0;
-                  }
-                }
-                break;
-              } else if (!qsfp_needs_hi_pwr_init(conn_id)) {
-                // CMIS, software init - wait for initialization to complete on all
-                //   data path channels. The module is supposed to only report the
-                //   new state when all channels in the data path have reached it
-
-                if (memmap_format == MMFORMAT_CMIS3P0) {
-                  // CMIS 3.0 - exit state from DataPathInit is DataPathActivated
-                  if (qsfp_fsm_ch_cmis_is_state_dpactivated(dev_id, conn_id, ch)) {
-                    delay_ms = 0;  // we already waited, so we're ready to proceed
-                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
-                    next_substate = 0;
-                  } else {
-                    LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
-                              conn_id,
-                              ch,
-                              "have reached DataPathActivated. ",
-                              "Continuing to wait...");
-                  }
-                } else {
-                  // CMIS 4.0+ - exit state from DataPathInit is DataPathInitialized
-                  if (qsfp_fsm_ch_cmis_is_state_dpinitialized(
-                          dev_id, conn_id, ch)) {
-                    delay_ms = 0;  // we already waited, so we're ready to proceed
-                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
-                    next_substate = 0;
-                  } else if (qsfp_fsm_ch_cmis_is_state_dpactivated(
-                                 dev_id, conn_id, ch)) {
-                    delay_ms = 0;  // we already waited, so we're ready to proceed
-                    next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
-                    next_substate = 0;
-                    LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
-                              conn_id,
-                              ch,
-                              "have reached DataPathInitialized. ",
-                              "Module may not be cmis 4.0 compliant. Continue ...");
-                  } else {
-                    LOG_DEBUG("QSFPCSM %2d/%d : Not all data path states %s %s",
-                              conn_id,
-                              ch,
-                              "have reached DataPathInitialized. ",
-                              "Continuing to wait...");
-                  }
-                }
-                break;
-              }
-              // CMIS hardware init - nothing to do, advance major state
-              delay_ms = 0;
-              next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
-              next_substate = 0;
-              break;
-          }
-          break;  // QSFP_CH_FSM_ST_ENA_CDR
-        case QSFP_CH_FSM_ST_ENA_OPTICAL_TX:
-          // this state enables the optical transmitters for all module types
-
-          qsfp_state[conn_id].sync_ena_opt_tx |= 1 << ch;
-
-          // this check makes sure all channel state machines go through this state
-          // at the same time, starting wich the head channel
-          if (((qsfp_state[conn_id].sync_ena_opt_tx & host_chmask_thisport) !=
-               host_chmask_thisport) ||
-              ((!qsfp_state[conn_id]
-                     .per_ch_fsm[host_head_ch]
-                     .head_1st_ena_opt_tx) &&
-               (ch != host_head_ch))) {
-            break;
-          }
-          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_opt_tx = true;
-
-          switch (next_substate) {
-            case 0:  // step 0 - enable the transmitters
-              // applies to all memory map formats
-              wr_coalesce_err =
-                  qsfp_fsm_ch_enable_optical_tx(dev_id, conn_id, ch, 0);
-              if (wr_coalesce_err == 0) {
-                delay_ms = 0;  // wait in the next substate
-                next_substate++;
-              }
-              break;
-            case 1:  // step 1 - wait for the transmitters to be enabled
-              memmap_format = bf_qsfp_get_memmap_format(conn_id);
-              if ((memmap_format == MMFORMAT_SFF8636) ||
-                  (memmap_format == MMFORMAT_CMIS3P0)) {
-                // CMIS state machine did not comprehend optics readiness until
-                // CMIS4.0. Calculate the delay needed for the optics to stabilize
-                if (qsfp_fsm_ch_first_enable(dev_id, conn_id, ch)) {
-                  delay_ms = 400 + 3100;  // 3.5 sec for Luxtera MZI init
-                  LOG_DEBUG(
-                      "QSFPCSM %2d/%d : First enable after reset. Extra 3.1 sec "
-                      "wait",
-                      conn_id,
-                      ch);
-                } else {
-                  delay_ms = 400;  // ms
-                }
-                next_st = QSFP_CH_FSM_ST_NOTIFY_ENABLED;
-                next_substate = 0;
-                break;
-              } else {  // CMIS 4.0+
-                // wait for tx enable to complete on all data path channels. The
-                // module is supposed to only report the new state when all channels
-                // in the data path have reached it
-                if (qsfp_fsm_ch_cmis_is_state_dpactivated(dev_id, conn_id, ch)) {
-                  delay_ms = 0;  // we already waited, so we're ready to proceed
-                  next_st = QSFP_CH_FSM_ST_NOTIFY_ENABLED;
-                  next_substate = 0;
-                }
-              }
-              break;
-          }
-          break;  // QSFP_CH_FSM_ST_ENA_OPTICAL_TX
-        case QSFP_CH_FSM_ST_NOTIFY_ENABLED:
-          // this state does a check for faults and, if none found, notifies
-          // the driver that the module is ready to bring the link up
-
-          qsfp_state[conn_id].sync_notify_enb |= 1 << ch;
-
-          // this check makes sure all channel state machines go through this state
-          // at the same time, starting wich the head channel
-          if (((qsfp_state[conn_id].sync_notify_enb & host_chmask_thisport) !=
-               host_chmask_thisport) ||
-              ((!qsfp_state[conn_id]
-                     .per_ch_fsm[host_head_ch]
-                     .head_1st_ena_opt_tx) &&
-               (ch != host_head_ch))) {
-            break;
-          }
-          qsfp_state[conn_id].per_ch_fsm[host_head_ch].head_1st_ena_opt_tx = true;
-
-          qsfp_fsm_ch_first_enable_clear(dev_id, conn_id, ch);
-          if (bf_pm_intf_is_device_family_tofino(dev_id)) {
-            qsfp_fsm_ch_check_tx_optical_fault(dev_id,
-                                               conn_id,
-                                               ch,
-                                               true /*clear only*/,
-                                               &discard_latched,
-                                               &fault_val);
-            // for some reason, need to read twice to clear latched faults
-            qsfp_fsm_ch_check_tx_optical_fault(dev_id,
-                                               conn_id,
-                                               ch,
-                                               true /*clear only*/,
-                                               &discard_latched,
-                                               &fault_val);
-            qsfp_fsm_ch_check_tx_optical_fault(
-                dev_id, conn_id, ch, false /* log faults*/, &ok, &fault_val);
-            if (!ok) {
-              LOG_DEBUG("QSFP    %2d : ch[%d] : Optical TX FAULT <%02x>. retry..",
-                        conn_id,
-                        ch,
-                        fault_val);
-            }
-          } else {  // tof 2
-            qsfp_fsm_check_tx_faults(conn_id, ch, &ok);
-            if (!ok) {
-              LOG_DEBUG("QSFP    %2d : ch[%d] : FAULT in TX, retry..", conn_id, ch);
-            }
-          }
-
-          if (!ok) {
-            // we had a fault in the tx, take all lanes in the logical port back
-            // through the ch_fsm, starting in ENABLING
-            qsfp_log_port_retry(dev_id, conn_id, ch);
-            next_st = QSFP_CH_FSM_ST_DISABLING;
-          } else {  // ok
-            if (bf_pm_intf_is_device_family_tofino(dev_id)) {
-              // notify driver
-              qsfp_fsm_ch_notify_ready(dev_id, conn_id, ch);
-            }
-            // else the driver stuff is handled in the pm_intf_fsm when it sees
-            // all lanes are ENABLED
-
-            delay_ms = 0;  // ms
-            next_st = QSFP_CH_FSM_ST_ENABLED;
-          }
-          break;
-        case QSFP_CH_FSM_ST_ENABLED:
-          // waiting to start disabling
-          next_substate = 0;
-          break;
-        case QSFP_CH_FSM_ST_DISABLING:
-          // this state notifies the driver that the module is no longer ready,
-          // disables the optical transmitters, and then deinitializes the
-          // data path, if applicable
-          switch (substate) {
-            case 0:  // step 0 - notify driver
-              if (bf_pm_intf_is_device_family_tofino(dev_id)) {
-                qsfp_fsm_ch_notify_not_ready(dev_id, conn_id, ch);
-              }
-              delay_ms = 0;  // no need to wait here
-              next_substate++;
-              break;
-            case 1:  // step 1 - disable optical TX
-              wr_coalesce_err = qsfp_fsm_ch_disable_optical_tx(dev_id, conn_id, ch);
-              if (wr_coalesce_err == 0) {
-                delay_ms = 0;  // wait in the next substate
-                next_substate++;
-              }
-              break;
-            case 2:  // step 2 - wait for transmitters to be disabled
-              memmap_format = bf_qsfp_get_memmap_format(conn_id);
-              if (memmap_format >= MMFORMAT_CMIS4P0) {
-                if (qsfp_fsm_ch_cmis_is_state_dpinitialized(dev_id, conn_id, ch) ||
-                    qsfp_fsm_ch_cmis_is_state_dpdeactivated(dev_id, conn_id, ch)) {
-                  delay_ms = 0;  // we already waited, so we're ready to proceed
-                  next_substate++;
-                }
-              } else {
-                delay_ms = 100;  // wait 100ms for transmitters to be enabled
-                next_substate++;
-              }
-              break;
-            case 3:  // step 3 - deinitialize the data path
-              if (bf_qsfp_is_cmis(conn_id)) {
-                wr_coalesce_err =
-                    qsfp_fsm_ch_cmis_datapath_deinit(dev_id, conn_id, ch);
-                if (wr_coalesce_err == 0) {  // successfully added to queue
-                  delay_ms = 0;              // wait in the next substate
-                  next_substate++;
-                }
-                break;
-              }
-              next_substate++;  // SFF-8636 - nothing to do
-            // fall through
-            case 4:  // step 4 - wait for data path to be deinitialized
-              if (bf_qsfp_is_cmis(conn_id)) {
-                // no pkb support, should be used for real CMIS modules
-                if (!qsfp_fsm_ch_cmis_is_state_dpdeactivated(dev_id, conn_id, ch)) {
-                  break;  // keep waiting
-                }
-              }
-              if (qsfp_state[conn_id].per_ch_fsm[ch].immediate_enable) {
-                next_st = QSFP_CH_FSM_ST_ENABLING;
-              } else {
-                next_st = QSFP_CH_FSM_ST_DISABLED;
-              }
-              delay_ms = 0;  // we already waited, so we're ready to proceed
-              next_substate = 0;
-              break;
-          }
-          break;  // QSFP_CH_FSM_ST_DISABLING
-        case QSFP_CH_FSM_ST_REJECTED:
-          // waiting till port is re-enabled
-          break;
-        default:
-          assert(0);
-          break;
-    }
-    qsfp_fsm_next_run_time_set(
-        &qsfp_state[conn_id].per_ch_fsm[ch].next_fsm_run_time, delay_ms);
-
-    if ((st != next_st) || (substate != next_substate)) {
-        qsfp_state[conn_id].per_ch_fsm[ch].fsm_st = next_st;
-        qsfp_state[conn_id].per_ch_fsm[ch].substate = next_substate;
-        LOG_DEBUG("QSFPCSM %2d/%d : %s.%d --> %s.%d (%dms)",
-                  conn_id,
-                  ch,
-                  qsfp_fsm_ch_en_st_to_str[st],
-                  substate,
-                  qsfp_fsm_ch_en_st_to_str[next_st],
-                  next_substate,
-                  delay_ms);
-    }
-}
-#endif
 
 /*****************************************************************
  * TF1 Implementation.
@@ -4627,12 +4110,14 @@ static void qsfp_channel_fsm_run (bf_dev_id_t
 #endif
                 delay_ms = 300;  // ms
             }
-            LOG_DEBUG ("QSFP    %2d : ch[%d] : RX_CDR_CONTROL %s TX_CDR_CONTROL %s <rc=%02x>. ",
-                       conn_id,
-                       ch,
-                       rx_cdr_required ? "enabled" : "disabled",
-                       tx_cdr_required ? "enabled" : "disabled",
-                       wr_coalesce_err);
+            if (bf_qsfp_is_fsm_logging (conn_id)) {
+                LOG_DEBUG ("QSFP    %2d : ch[%d] : RX_CDR_CONTROL %s TX_CDR_CONTROL %s <rc=%02x>. ",
+                           conn_id,
+                           ch,
+                           rx_cdr_required ? "enabled" : "disabled",
+                           tx_cdr_required ? "enabled" : "disabled",
+                           wr_coalesce_err);
+            }
             break;
         case QSFP_CH_FSM_ST_ENA_OPTICAL_TX:
             qsfp_fsm_ch_check_tx_cdr_lol (dev_id,
@@ -4879,12 +4364,8 @@ bf_pltfm_status_t qsfp_fsm (bf_dev_id_t dev_id)
                 continue;
             }
             // time to run this QSFP (module) state
-            qsfp_module_fsm_run (dev_id, conn_id);
-            // TF2 implementation.
-            // clear the cache for all module flags that we aren't ignoring
-            //if ((!bf_pm_intf_is_device_family_tofino(dev_id)) &&
-            //    qsfp_fsm_is_optical(conn_id)) {
-            //    clear_log_module_flags(conn_id);
+            //if (!qsfp_state[conn_id].temper_high_alarm_flagged) {
+                 qsfp_module_fsm_run (dev_id, conn_id);
             //}
         }
     }
@@ -4974,7 +4455,7 @@ void qsfp_oper_info_get (int conn_id,
 
     rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_LOWER, 0, MAX_QSFP_PAGE_SIZE, pg0_lower);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 0 (lower)",
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading QSFP_PAGE0_LOWER",
                      conn_id, rc);
         *present = false;
         return;
@@ -4983,7 +4464,7 @@ void qsfp_oper_info_get (int conn_id,
     rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE0_UPPER, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE,
                          pg0_upper);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 0 (upper)",
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading QSFP_PAGE0_UPPER",
                      conn_id, rc);
         *present = false;
         return;
@@ -5015,7 +4496,7 @@ void qsfp_oper_info_get_pg1 (int conn_id,
 
     rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE1, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg1);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 1",
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading QSFP_PAGE1",
                      conn_id, rc);
         *present = false;
         return;
@@ -5047,7 +4528,7 @@ void qsfp_oper_info_get_pg3 (int conn_id,
 
     rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE3, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg3);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 3",
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading QSFP_PAGE3",
                      conn_id, rc);
         *present = false;
         return;
@@ -5079,7 +4560,7 @@ void qsfp_oper_info_get_pg16 (int conn_id,
 
     rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE16, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg16);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 16",
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading QSFP_PAGE16",
                      conn_id, rc);
         *present = false;
         return;
@@ -5111,7 +4592,7 @@ void qsfp_oper_info_get_pg17 (int conn_id,
 
     rc = bf_fsm_qsfp_rd2 (conn_id, QSFP_PAGE17, 0 + MAX_QSFP_PAGE_SIZE, MAX_QSFP_PAGE_SIZE, pg17);
     if (rc) {
-        LOG_WARNING ("QSFP    %2d : Error <%d> reading page 17",
+        LOG_WARNING ("QSFP    %2d : Error <%d> reading QSFP_PAGE17",
                      conn_id, rc);
         *present = false;
         return;
@@ -5256,7 +4737,7 @@ void qsfp_state_ha_config_set (bf_dev_id_t dev_id,
     qsfp_state[conn_id].fsm_st = QSFP_FSM_ST_DETECTED;
 
     /* Make sure all channel state is disabled */
-    for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+    for (chnl_id = 0; chnl_id < CHANNEL_COUNT;
          chnl_id++) {
         qsfp_state[conn_id].per_ch_fsm[chnl_id].fsm_st =
             QSFP_CH_FSM_ST_ENABLED;
@@ -5327,12 +4808,13 @@ int qsfp_fsm_update_cfg (int conn_id,
         qsfp_state[conn_id].dev_cfg[cur_ch].media_ch = -1;
         qsfp_state[conn_id].dev_cfg[cur_ch].encoding = encoding;
 
-        LOG_DEBUG ("QSFP    %2d : ch : %d : head_ch : %d : nlanes : %d : speed: %d",
+        LOG_DEBUG ("QSFP    %2d : ch %d : head_ch %d : nlanes %d : speed %d/%s",
                    conn_id,
                    cur_ch,
                    qsfp_state[conn_id].dev_cfg[cur_ch].host_head_ch,
                    qsfp_state[conn_id].dev_cfg[cur_ch].host_intf_nlanes,
-                   qsfp_state[conn_id].dev_cfg[cur_ch].intf_speed);
+                   qsfp_state[conn_id].dev_cfg[cur_ch].intf_speed,
+                   (encoding == BF_PLTFM_ENCODING_NRZ) ? "_NRZ" : "_PAM4");
     }
     return 0;
 }
@@ -5359,13 +4841,6 @@ int qsfp_fsm_deinit_cfg (int conn_id,
         qsfp_state[conn_id].dev_cfg[cur_ch].media_head_ch    = -1;
         qsfp_state[conn_id].dev_cfg[cur_ch].media_ch = -1;
         qsfp_state[conn_id].dev_cfg[cur_ch].encoding = 0;
-
-        LOG_DEBUG ("QSFP    %2d : ch : %d : head_ch : %d : nlanes : %d : speed: %d",
-                   conn_id,
-                   cur_ch,
-                   qsfp_state[conn_id].dev_cfg[cur_ch].host_head_ch,
-                   qsfp_state[conn_id].dev_cfg[cur_ch].host_intf_nlanes,
-                   qsfp_state[conn_id].dev_cfg[cur_ch].intf_speed);
     }
 
     return 0;
@@ -5383,8 +4858,7 @@ int qsfp_fsm_get_enabled_mask (int conn_id,
             cur_ch < (first_ch + host_intf_nlanes);
             cur_ch++) {
         if (qsfp_state[conn_id].per_ch_fsm[cur_ch].fsm_st
-                ==
-                QSFP_CH_FSM_ST_ENABLED) {
+                == QSFP_CH_FSM_ST_ENABLED) {
             enabled_mask |= 1 << cur_ch;
         }
     }
@@ -5463,7 +4937,14 @@ int qsfp_get_rx_los_support (int port,
         *rx_los_support = true;
     }
 
-    return 0;
+    // by Hang Tsi, 2024/04/10
+    uint32_t ctrlmask = 0;
+    bf_qsfp_ctrlmask_get(port, &ctrlmask);
+    if (ctrlmask & BF_TRANS_CTRLMASK_IGNORE_RX_LOS) {
+        *rx_los_support = false;
+    }
+
+    return rc;
 }
 /* TF2 */
 int qsfp_get_rx_lol_support (int port,
@@ -5494,6 +4975,13 @@ int qsfp_get_rx_lol_support (int port,
         }
     }
 
+    // by Hang Tsi, 2024/04/10
+    uint32_t ctrlmask = 0;
+    bf_qsfp_ctrlmask_get(port, &ctrlmask);
+    if (ctrlmask & BF_TRANS_CTRLMASK_IGNORE_RX_LOL) {
+        *rx_lol_support = false;
+    }
+
     return rc;
 }
 
@@ -5519,12 +5007,14 @@ static int qsfp_num_lanes_get (int conn_id,
     if (bf_status == BF_SUCCESS) {
         return num_lanes;
     }
-    LOG_DEBUG ("QSFP    %2d : ch[%d] : dp[%3d] : lanes[%d] : Result: %d : attempting to get num_lanes",
+    if (bf_qsfp_is_fsm_logging (conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : ch[%d] : dp[%3d] : lanes[%d] : Result: %d : attempting to get num_lanes",
                conn_id,
                chnl_id,
                dev_port,
                num_lanes,
                bf_status);
+    }
     return 0;
 }
 void bf_port_qsfp_mgmnt_temper_monitor_period_set (

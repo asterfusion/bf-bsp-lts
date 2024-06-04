@@ -457,7 +457,10 @@ static void bf_pm_intf_fsm_next_run_time_set(struct timespec *next_run_time,
  *****************************************************************/
 char *bf_pm_intf_sfp_fsm_st_get (int port)
 {
-    return pm_intf_fsm_st_to_str[pm_intf_sfp_fsm_st[port]];
+    int asize = ARRAY_LENGTH (pm_intf_fsm_st_to_str);
+    pm_intf_fsm_states_t csm = pm_intf_sfp_fsm_st[port];
+
+    return pm_intf_fsm_st_to_str[csm % asize] + 12;
 }
 
 // assumes caller will hold the lock
@@ -685,7 +688,15 @@ static void bf_pm_interface_sfp_fsm_run(bf_pm_intf_cfg_t *icfg,
 char *bf_pm_intf_fsm_st_get (int conn_id,
                                int ch)
 {
-    return pm_intf_fsm_st_to_str[pm_intf_fsm_st[conn_id % MAX_CONNECTORS][ch % MAX_CHAN_PER_CONNECTOR]];
+    int asize = ARRAY_LENGTH (pm_intf_fsm_st_to_str);
+    pm_intf_fsm_states_t csm = pm_intf_fsm_st[conn_id % MAX_CONNECTORS][ch % MAX_CHAN_PER_CONNECTOR];
+
+    //if (ch == qsfp_state[conn_id].dev_cfg[ch].host_head_ch) {
+        return pm_intf_fsm_st_to_str[csm % asize] + 12;
+    //} else {
+        // Skip the lanes which is not in fsm.
+        //return " ";
+    //}
 }
 
 static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
@@ -696,7 +707,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
     bf_pal_front_port_handle_t port_hdl;
     bool asic_serdes_tx_ready;
     uint32_t ch = 0;
-    int module_chan;
+    int module_chan, rc;
     bool rx_los_flag, rx_lol_flag, rx_lol_sup, rx_los_sup;
     int delay_ms = 0;
 
@@ -744,14 +755,18 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         if (qsfp_info->is_optic) {
             module_chan =
                 bf_bd_first_conn_ch_get(port_hdl.conn_id) + port_hdl.chnl_id;
-            if (bf_cmis_find_matching_Application(
+            if ((rc = bf_cmis_find_matching_Application(
                         icfg->conn_id, icfg->intf_speed, icfg->intf_nlanes, module_chan
-                        /* icfg->encoding */) < 0) {
+                        /* icfg->encoding */)) < 0) {
                 LOG_ERROR(
                     "pm intf fsm: qsfp %d ch %d Matching Application not found. "
-                    "Speed mismtach between optical-module and configuration \n",
+                    "Speed mismtach between optical-module and configuration "
+                    "<intf_nlanes %d : module_chan %d : rc %d> \n",
                     icfg->conn_id,
-                    icfg->channel);
+                    icfg->channel,
+                    icfg->intf_nlanes,
+                    module_chan,
+                    rc);
                 if (bf_qsfp_is_cmis(port_hdl.conn_id) ||
                         (icfg->intf_nlanes > bf_qsfp_get_ch_cnt(port_hdl.conn_id))) {
                     next_st = PM_INTF_FSM_INCOMPATIBLE_MEDIA;
@@ -851,7 +866,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
             intf->self_fsm_running = true;
             intf->rxlos_debounce_cntr =
                 bf_qsfp_rxlos_debounce_get(port_hdl.conn_id);
-            next_st = PM_INTF_FSM_WAIT_MEDIA_RX_LOS;
+            next_st = PM_INTF_FSM_SET_RX_READY;
             break;
         }
 
@@ -956,6 +971,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         break;
     case PM_INTF_FSM_SET_RX_READY:
         if (!bf_pltfm_pm_is_ha_mode()) {
+            /* If Rx not ready, bf_pm_fsm_run will keep in BF_PM_FSM_ST_WAIT_SIGNAL_OK state. */
             bf_pm_port_serdes_rx_ready_for_bringup_set(
                 icfg->dev_id, &port_hdl, true);
             intf->self_fsm_running = true;
@@ -1231,8 +1247,13 @@ void bf_pm_intf_enable(bf_pltfm_port_info_t *port_info,
     port_hdl.conn_id = icfg->conn_id;
     port_hdl.chnl_id = icfg->channel;
     bf_pm_port_autoneg_get(icfg->dev_id, &port_hdl, &icfg->an_policy);
-    bf_pm_intf_update_fsm_st(
-        fsm_state, PM_INTF_FSM_INIT, conn, chan);
+    if (is_panel_sfp (conn, chan)) {
+        bf_pm_intf_update_sfp_fsm_st(
+            fsm_state, PM_INTF_FSM_INIT, module);
+    } else {
+        bf_pm_intf_update_fsm_st(
+            fsm_state, PM_INTF_FSM_INIT, conn, chan);
+    }
     bf_pm_intf_fsm_next_run_time_set(&intf->next_run_time, 0);
     icfg->admin_up = true;
     bf_sys_mutex_unlock(&mtx->intf_mtx);
@@ -1243,9 +1264,15 @@ void bf_pm_intf_enable(bf_pltfm_port_info_t *port_info,
         module = conn;
     }
 
-    LOG_DEBUG("PM_INTF_FSM: %2d/%d : %cSFP %2d : admin_up %d : is_present %d \n",
+    LOG_DEBUG("PM_INTF_FSM: %2d/%d : %cSFP %2d : admin_up %d : is_present %d : is_optic %d : qsfp_type %d : qsfpdd_type %d\n",
          icfg->conn_id, icfg->channel,
-         is_panel_sfp(conn, chan) ? ' ' : 'Q', module, intf->qsfp_info->is_present);
+         is_panel_sfp(conn, chan) ? ' ' : 'Q',
+         module,
+         icfg->admin_up,
+         intf->qsfp_info->is_present,
+         intf->qsfp_info->is_optic,
+         intf->qsfp_info->qsfp_type,
+         intf->qsfp_info->qsfpdd_type);
 }
 
 void bf_pm_intf_disable(bf_pltfm_port_info_t *port_info,

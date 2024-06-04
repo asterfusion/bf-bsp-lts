@@ -90,12 +90,26 @@ static inline void onlp_save (
 {
     FILE *fp = NULL;
     char path_bak[MAX_LEN + 16] = {0};
+    size_t s = 0;
 
     sprintf (path_bak, "%s.bak", path);
 
     fp = fopen (path_bak, "w+");
-    if (fp && (valen == fwrite (value, 1, valen,
-                                fp))) {
+    if (!fp) {
+        ;
+    } else {
+        //do {
+        //    s += fwrite (value + s, 1, valen, fp);
+        //} while (s != valen);
+        s = fwrite (value, 1, valen, fp);
+        if (valen != s) {
+            /* close fp anyway even writes fail. */
+            fclose (fp);
+            /* delete the bak file and return for next call. */
+            remove (path_bak);
+            return;
+        }
+
         fflush (fp);
         fclose (fp);
         /* Rename */
@@ -417,8 +431,19 @@ static void bf_pltfm_onlp_mntr_transceiver()
     char value[MAX_LEN] = {0};
 
     for (i = 1; i <= max_qsfp_modules; i ++) {
+        /* Relax i2c for prior task such as channel_fsm/module_fsm,
+         * instead of doing IO. if anyone of modules been detected to need IO. */
+        if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CP2112_RELAX)
+            continue;
+
         qsfp = &qsfp_ctx[i - 1];
-        module = atoi (&qsfp->desc[1]);
+        /* For QSFP-DD module the desc has 'QC' as its prefix. */
+        if (qsfp->desc[0] == 'Q' && qsfp->desc[1] == 'C') {
+            module = atoi (&qsfp->desc[2]);
+        } else {
+            /* For QSFP28 module the desc has 'C' as its prefix. */
+            module = atoi (&qsfp->desc[1]);
+        }
 
         if (module >= 33) {
             bit_mask = 1 << (module - 33);
@@ -550,6 +575,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
                                     buf + 2 * MAX_QSFP_PAGE_SIZE) ) {
             continue;
         }
+        /* $ hexdump /var/asterfusion/qsfp_10_eeprom is helpful. */
         onlp_save (path, (char *)buf,
                    MAX_QSFP_PAGE_SIZE * 4);
     }
@@ -904,7 +930,7 @@ static bf_pltfm_status_t check_tofino_temperature (void)
 
     if (temp_mC.main_sensor >=
         TOFINO_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TOFINO MAIN TEMP SENOR above threshold value(%d): %d C\n",
+        LOG_WARNING ("TOFINO MAIN TEMP SENOR above threshold value(%d): %d C\n",
                    (TOFINO_TMP_ALARM_RANGE / 1000),
                    (temp_mC.main_sensor / 1000));
         LOG_ALARM ("=========================================\n");
@@ -914,7 +940,7 @@ static bf_pltfm_status_t check_tofino_temperature (void)
 
     if (temp_mC.remote_sensor >=
         TOFINO_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TOFINO REMOTE TEMP SENOR above threshold value(%d): %d C\n",
+        LOG_WARNING ("TOFINO REMOTE TEMP SENOR above threshold value(%d): %d C\n",
                    (TOFINO_TMP_ALARM_RANGE / 1000),
                    (temp_mC.remote_sensor / 1000));
         LOG_ALARM ("=========================================\n");
@@ -941,53 +967,53 @@ static bf_pltfm_status_t check_chassis_temperature (void)
     }
 
     if (t.tmp1 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP1 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP1 in above alarm range :%f\n",
                    t.tmp1);
     }
 
     if (t.tmp2 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP2 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP2 in above alarm range :%f\n",
                    t.tmp2);
     }
 
     if (t.tmp3 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP3 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP3 in above alarm range :%f\n",
                    t.tmp3);
     }
 
     if (t.tmp4 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP4 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP4 in above alarm range :%f\n",
                    t.tmp4);
     }
 
     if (t.tmp5 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP5 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP5 in above alarm range :%f\n",
                    t.tmp5);
     }
 
     if (t.tmp6 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP6 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP6 in above alarm range :%f\n",
                    t.tmp6);
     }
 
     if (t.tmp7 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP7 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP7 in above alarm range :%f\n",
                    t.tmp7);
     }
 
     if (t.tmp8 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP8 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP8 in above alarm range :%f\n",
                    t.tmp8);
     }
 
     if (t.tmp9 > CHASSIS_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP9 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP9 in above alarm range :%f\n",
                    t.tmp9);
     }
 
     /* TMP10 is assumed to be the ASIC temperature */
     if (t.tmp10 > ASIC_TMP_ALARM_RANGE) {
-        LOG_ALARM ("TMP10 in above alarm range :%f\n",
+        AF_LOG_EXT ("TMP10 in above alarm range :%f\n",
                    t.tmp10);
     }
 
@@ -1096,7 +1122,7 @@ void *health_mntr_init (void *arg)
     uint32_t flags = 0, update_flags = 0;
     static bool first_startup = true;
     static uint64_t try_trans_poll = 0;
-    extern uint64_t g_rt_async_led_q_length;
+    //extern uint64_t g_rt_async_led_q_length;
 
     fprintf (stdout, "\n\nHealth monitor started \n");
     FOREVER {
@@ -1104,10 +1130,26 @@ void *health_mntr_init (void *arg)
         flags = bf_pltfm_mgr_ctx()->flags;
         update_flags = 0;
 
+        if (platform_type_equal (AFN_X312PT) &&
+            (flags & AF_PLAT_CTRL_HA_MODE)) {
+            fprintf (stdout, "Chassis Monitor is disabled\n");
+            fprintf (stdout, "@ %s\n",
+                     ctime ((time_t *)
+                            &bf_pltfm_mgr_ctx()->ull_mntr_ctrl_date));
+            /* Notify others that the health monitor is idle.
+             * by tsihang, 2023-07-10. */
+            if (unlikely (!(flags & AF_PLAT_MNTR_IDLE))) {
+                bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_IDLE;
+            }
+
+            sleep (600);
+            bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_HA_MODE;
+            continue;
+        }
+
         if ((platform_type_equal (AFN_X532PT) ||
             platform_type_equal (AFN_X564PT) ||
-            platform_type_equal (AFN_X308PT) ||
-            platform_type_equal (AFN_X732QT)) &&
+            platform_type_equal (AFN_X308PT)) &&
             (bf_pltfm_compare_bmc_ver("v3.0.0") >= 0)) {
 
             if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {
@@ -1138,7 +1180,7 @@ void *health_mntr_init (void *arg)
             }
 
             /* A new BMC dynamic data command was imported, after BMC v3.0.0.*/
-            if (!g_rt_async_led_q_length) {
+            if (!(flags & AF_PLAT_CTRL_I2C_RELAX)) {
                 err = check_bmc_data();
                 if (!err) {
                     /* Flush TEMP/FAN/Power files in /var/asterfusion/ ONLY when no error occures. */
@@ -1153,7 +1195,7 @@ void *health_mntr_init (void *arg)
             }
 
             if ((try_trans_poll % 5) == 0) {
-                if (!g_rt_async_led_q_length) {
+                if (!(flags & AF_PLAT_CTRL_I2C_RELAX)) {
                     err = check_tofino_temperature();
                     if (!err) {
                         /* Flush TEMP files in /var/asterfusion/ ONLY when no error occures. */
@@ -1173,7 +1215,7 @@ void *health_mntr_init (void *arg)
              * Monitor this unconditionally even though Monitor Ctrl is disabled.
              * by tsihang, 2021-07-06. */
             if (likely (flags & AF_PLAT_MNTR_TMP) &&
-                !g_rt_async_led_q_length) {
+                !(flags & AF_PLAT_CTRL_I2C_RELAX)) {
                 err = check_chassis_temperature();
                 sleep (3);
 
@@ -1206,10 +1248,19 @@ void *health_mntr_init (void *arg)
                     bf_pltfm_start_312_i2c_wdt();
                 }
 
+                /* Notify others that the health monitor is idle.
+                * by tsihang, 2023-07-10. */
+                if (unlikely (!(flags & AF_PLAT_MNTR_IDLE))) {
+                    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_IDLE;
+                }
+
                 sleep (15);
             } else {
+                /* Make sure AF_PLAT_MNTR_IDLE is cleared every calling. */
+                bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_IDLE;
+
                 if (likely (flags & AF_PLAT_MNTR_FAN) &&
-                    !g_rt_async_led_q_length) {
+                    !(flags & AF_PLAT_CTRL_I2C_RELAX)) {
                     sleep (3);
                     err = check_fantray();
                     if (!err) {
@@ -1219,7 +1270,7 @@ void *health_mntr_init (void *arg)
                 }
 
                 if (likely (flags & AF_PLAT_MNTR_POWER) &&
-                    !g_rt_async_led_q_length) {
+                    !(flags & AF_PLAT_CTRL_I2C_RELAX)) {
                     sleep (3);
                     err = check_pwr_supply();
                     sleep (3);

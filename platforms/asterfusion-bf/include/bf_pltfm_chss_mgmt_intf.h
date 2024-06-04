@@ -10,10 +10,12 @@
 
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <dvm/bf_drv_intf.h>
+#include <lld/lld_reg_if.h>
+#include <lld/lld_sku.h>
 #include <port_mgr/bf_port_if.h>
 #include <port_mgr/bf_serdes_if.h>
+#include <port_mgr/bf_tof2_serdes_if.h>
 #include <port_mgr/port_mgr_intf.h>
-#include <lld/lld_reg_if.h>
 #include <bf_pltfm.h>
 #include "pltfm_types.h"
 
@@ -29,7 +31,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init();
 // Board EEPROM functions
 #define BFN_EEPROM_F_MAGIC 2
 #define BFN_EEPROM_F_VERSION 1
-#define BFN_EEPROM_F_PRODUCT_NAME 12
+#define BFN_EEPROM_F_PRODUCT_NAME 20
 #define BFN_EEPROM_F_PRODUCT_NUMBER 32
 #define BFN_EEPROM_F_ASSEMBLY_NUMBER 12
 #define BFN_EEPROM_F_BAREFOOT_PCBA_NUMBER 12

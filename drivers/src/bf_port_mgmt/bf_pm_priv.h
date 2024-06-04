@@ -56,10 +56,11 @@ typedef struct bf_pm_intf_cfg_ {
 } bf_pm_intf_cfg_t;
 
 // port structure to coordinate between, bf-pm, qsfp and its fsm
+// The members of this struct is cleared/initialized after port-add
 typedef struct bf_pm_intf_ {
     bf_pm_intf_cfg_t intf_cfg;  // from SDK
 
-    bf_pm_qsfp_info_t *qsfp_info;
+    bf_pm_qsfp_info_t *qsfp_info; // pointer to pm_qsfp_info_arr
 
     // If needed, add ext-phy here
 

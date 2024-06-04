@@ -231,6 +231,12 @@ bf_status_t bf_bd_cfg_mac_to_serdes_map_get (
     return BF_SUCCESS;
 }
 
+/*****************************************************************
+ * Get mac lane info for a port with given qsfp type.
+ * This is a callback API called by SDE to provide params
+ * from platform
+ * For tof1 only
+ *****************************************************************/
 bf_status_t bf_bd_cfg_serdes_info_get (
     bf_pal_front_port_handle_t *port_hdl,
     bf_pal_serdes_info_t *serdes_info)
@@ -283,12 +289,10 @@ bf_status_t bf_bd_cfg_serdes_info_get (
         return sts;
     }
 
-    serdes_info->tx_inv =
-        mac_lane_info.tx_phy_pn_swap;
-    serdes_info->rx_inv =
-        mac_lane_info.rx_phy_pn_swap;
+    serdes_info->tx_inv  = mac_lane_info.tx_phy_pn_swap;
+    serdes_info->rx_inv  = mac_lane_info.rx_phy_pn_swap;
     serdes_info->tx_attn = mac_lane_info.tx_attn;
-    serdes_info->tx_pre = mac_lane_info.tx_pre;
+    serdes_info->tx_pre  = mac_lane_info.tx_pre;
     serdes_info->tx_post = mac_lane_info.tx_post;
 
     return BF_SUCCESS;
@@ -301,7 +305,6 @@ bf_bd_cfg_mac_to_multi_serdes_map_get (
     bf_pal_mac_to_multi_serdes_lane_map_t
     *mac_blk_map)
 {
-#if 0
     bf_pltfm_status_t sts;
     bf_pltfm_port_info_t port_info;
 
@@ -362,7 +365,7 @@ bf_bd_cfg_mac_to_multi_serdes_map_get (
             sts);
         return sts;
     }
-
+#if SDE_VERSION_GT(9100) //since 9110
     sts = bf_bd_port_serdes_polarity_get (&port_info,
                                           &mac_blk_map->rx_inv[0], &mac_blk_map->tx_inv[0]);
     if (sts != BF_PLTFM_SUCCESS) {

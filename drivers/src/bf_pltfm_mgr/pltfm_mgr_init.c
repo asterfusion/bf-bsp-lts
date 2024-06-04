@@ -5,10 +5,6 @@
  * $Id: $
  *
  ******************************************************************************/
-#include <stdio.h>
-#include <unistd.h>  //write
-#define __USE_GNU    /* See feature_test_macros(7) */
-#include <pthread.h>
 
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_switchd/bf_switchd.h>

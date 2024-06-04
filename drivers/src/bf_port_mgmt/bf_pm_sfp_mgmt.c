@@ -175,7 +175,6 @@ typedef struct sfp_state_t {
     sfp_fsm_ch_en_state_t fsm_ch_st;
     struct timespec next_fsm_run_time;
     struct timespec next_fsm_ch_run_time;
-    uint32_t flags;
     bool sfp_quick_removed;
     bool wr_inprog;
     bool rx_los;
@@ -192,7 +191,6 @@ sfp_state_t sfp_state[BF_PLAT_MAX_SFP + 1] = {
         SFP_CH_FSM_ST_DISABLED,
         {0, 0},
         {0, 0},
-        0,
         false,
         false,
         true,
@@ -210,7 +208,10 @@ sfp_alarms_initial_state = { {0}, 0, {0}, {0} };
  *****************************************************************/
 char *sfp_channel_fsm_st_get (int port)
 {
-    return sfp_ch_fsm_en_st_to_str[sfp_state[port].fsm_ch_st];
+    int asize = ARRAY_LENGTH (sfp_ch_fsm_en_st_to_str);
+    sfp_fsm_ch_en_state_t csm = sfp_state[port].fsm_ch_st;
+
+    return sfp_ch_fsm_en_st_to_str[csm % asize] + 14;
 }
 
 /*****************************************************************
@@ -218,7 +219,10 @@ char *sfp_channel_fsm_st_get (int port)
  *****************************************************************/
 char *sfp_module_fsm_st_get (int port)
 {
-    return sfp_fsm_st_to_str[sfp_state[port].fsm_st];
+    int asize = ARRAY_LENGTH (sfp_fsm_st_to_str);
+    sfp_fsm_state_t msm = sfp_state[port].fsm_st;
+
+    return sfp_fsm_st_to_str[msm % asize] + 8;
 }
 
 /*****************************************************************
@@ -264,7 +268,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
     if (memcmp ((char *)old, (char *)new,
                 sizeof (*old)) != 0) {
         // log the raw fields to provide current state of all alarms
-        LOG_DEBUG (
+        AF_LOG_EXT (
             " SFP    %2d : Alarms (A2h Bytes 110-113) : %02x %02x %02x %02x",
             module,
             new->byte_110.value,
@@ -278,7 +282,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
 
             if (old->byte_110.tx_dis_state !=
                 new->byte_110.tx_dis_state) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Tx Dis:",
                            old->byte_110.tx_dis_state,
@@ -287,7 +291,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
 
             if (old->byte_110.data_not_ready !=
                 new->byte_110.data_not_ready) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Data_Not_Ready:",
                            old->byte_110.data_not_ready,
@@ -296,7 +300,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
 
             if (old->byte_110.rx_los !=
                 new->byte_110.rx_los) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Rx Los:",
                            old->byte_110.rx_los, new->byte_110.rx_los);
@@ -308,7 +312,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
             if ((old->byte_112.value & SFF8472_SA_TMP_ALARM)
                 !=
                 (new->byte_112.value & SFF8472_SA_TMP_ALARM)) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Tmp Alarm/Warn:",
                            (old->byte_112.value & SFF8472_SA_TMP_ALARM) >> 6,
@@ -318,7 +322,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
             if ((old->byte_112.value & SFF8472_SA_VCC_ALARM)
                 !=
                 (new->byte_112.value & SFF8472_SA_VCC_ALARM)) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Vcc Alarm/Warn:",
                            (old->byte_112.value & SFF8472_SA_VCC_ALARM) >> 4,
@@ -329,7 +333,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
                  SFF8472_SA_TX_BIAS_ALARM) !=
                 (new->byte_112.value &
                  SFF8472_SA_TX_BIAS_ALARM)) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Tx Bias Alarm/Warn:",
                            (old->byte_112.value & SFF8472_SA_TX_BIAS_ALARM)
@@ -341,7 +345,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
                  SFF8472_SA_TX_POWER_ALARM) !=
                 (new->byte_112.value &
                  SFF8472_SA_TX_POWER_ALARM)) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Tx Power Alarm/Warn:",
                            (old->byte_112.value & SFF8472_SA_TX_POWER_ALARM)
@@ -357,7 +361,7 @@ static void sfp_log_alarms (bf_dev_id_t dev_id,
                  SFF8472_SA_RX_POWER_ALARM) !=
                 (new->byte_113.value &
                  SFF8472_SA_RX_POWER_ALARM)) {
-                LOG_DEBUG (" SFP    %2d : %28s %02x -> %02x",
+                AF_LOG_EXT (" SFP    %2d : %28s %02x -> %02x",
                            module,
                            "Rx Power Alarm/Warn:",
                            (old->byte_113.value & SFF8472_SA_RX_POWER_ALARM)
@@ -431,6 +435,12 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
         return -1;
     }
 
+    // skip trigger quick removal action until everything goes right.
+    if (platform_type_equal(AFN_X312PT) &&
+        (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_HA_MODE)) {
+        return 0;
+    }
+
     // read status and alarms A2h (bytes 110-113) onto stack. This is in case
     // there is an error on the read we dont corrupt the sfp_state
     // structure. If no error, copy into struct
@@ -440,6 +450,14 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
                 sizeof (status_and_alarms),
                 (uint8_t *)&status_and_alarms);
         if (rc) {
+            // skip trigger quick removal action and disable chassis monitor.
+            // requires maunally op via command chassis-ctrlmask-set if everything goes right.
+            if (platform_type_equal(AFN_X312PT) &&
+                1/* TBD, sfp_pres_mask is truely set */ &&
+                1/* TBD, error occured during PCA9548*/) {
+                bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_HA_MODE;
+                return 0;
+            }
             // Detect and latch the removal
             // state, so that can sfp-scan handle the rest.
             if (!sfp_state[module].sfp_quick_removed) {
@@ -449,7 +467,6 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
                     sfp_state[module].sfp_quick_removed = true;
                     LOG_DEBUG (" SFP    %2d : Removal detected",
                             module);
-                    sfp_state[module].sfp_quick_removed = true;
                     bf_pm_sfp_quick_removal_detected_set (module,
                                                         true);
                     return -1;
@@ -498,7 +515,7 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
         if (bf_status == BF_SUCCESS) {
             sfp_state[module].rx_los = los;
             if (rx_los_now ^ rx_los_before) {
-                LOG_DEBUG (" SFP    %2d : dev_port=%3d : LOS=%d",
+                AF_LOG_EXT (" SFP    %2d : dev_port=%3d : LOS=%d",
                            module, dev_port, los);
             }
         }
@@ -573,8 +590,10 @@ static void sfp_fsm_reset_assert (bf_dev_id_t
     int rc;
     fetch_by_module (module);
 
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) RESETL = true",
+    if (bf_sfp_is_fsm_logging(module)) {
+        LOG_DEBUG (" SFP    %2d : (%02d/%d) RESETL = true",
                module, conn, chnl);
+    }
     // assert resetL
     rc = bf_sfp_reset (module, true);
     if (rc != 0) {
@@ -593,8 +612,10 @@ static void sfp_fsm_reset_de_assert (
     int rc;
     fetch_by_module (module);
 
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) RESETL = false",
+    if (bf_sfp_is_fsm_logging(module)) {
+        LOG_DEBUG (" SFP    %2d : (%02d/%d) RESETL = false",
                module, conn, chnl);
+    }
     // de-assert resetL
     rc = bf_sfp_reset (module, false);
     if (rc != 0) {
@@ -644,13 +665,17 @@ void sfp_fsm_inserted (int module)
     sfp_fsm_state_t prev_st =
         sfp_state[module].fsm_st;
 
-    sfp_state[module].fsm_st = SFP_FSM_ST_INSERTED;
     sfp_state[module].next_fsm_run_time.tv_sec = 0;
     sfp_state[module].next_fsm_run_time.tv_nsec = 0;
-
+    sfp_state[module].fsm_st = SFP_FSM_ST_INSERTED;
     LOG_DEBUG (" SFPMSM %2d : (%02d/%d) %s -->  SFP_FSM_ST_INSERTED",
                module, conn, chnl,
                sfp_fsm_st_to_str[prev_st]);
+    fprintf (stdout,
+             " SFP    %2d : %2d/%d : inserted\n",
+             module,
+             conn,
+             chnl);
 }
 
 /*****************************************************************
@@ -667,7 +692,6 @@ void sfp_fsm_removed (int module)
 
     sfp_state[module].next_fsm_run_time.tv_sec = 0;
     sfp_state[module].next_fsm_run_time.tv_nsec = 0;
-
     sfp_state[module].fsm_st = SFP_FSM_ST_REMOVED;
     LOG_DEBUG (" SFPMSM %2d : (%02d/%d) %s -->  SFP_FSM_ST_REMOVED",
                module, conn, chnl,
@@ -780,16 +804,8 @@ static void sfp_fsm_st_tx_off (
     bf_dev_id_t dev_id,
     uint32_t module)
 {
-    int err;
     fetch_by_module (module);
-
-    err = bf_sfp_tx_disable (module, true);
-    if (!err) {
-        sfp_state[module].flags &= ~BF_TRANS_STATE_LASER_ON;
-    }
-
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
-               module, conn, chnl, __func__);
+    bf_sfp_tx_disable (module, true);
 }
 
 /*****************************************************************
@@ -799,15 +815,8 @@ static void sfp_fsm_st_tx_on (
     bf_dev_id_t dev_id,
     uint32_t module)
 {
-    int err;
     fetch_by_module (module);
-
-    err = bf_sfp_tx_disable (module, false);
-    if (!err) {
-        sfp_state[module].flags |= BF_TRANS_STATE_LASER_ON;
-    }
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
-               module, conn, chnl, __func__);
+    bf_sfp_tx_disable (module, false);
 }
 
 /*****************************************************************
@@ -823,8 +832,7 @@ static void sfp_fsm_st_removed (bf_dev_id_t
     // reset type
     sfp_state[module].sfp_type = SFP_TYP_UNKNOWN;
     // reset alarm states
-    sfp_state[module].status_and_alarms =
-        sfp_alarms_initial_state;
+    sfp_state[module].status_and_alarms = sfp_alarms_initial_state;
 
     fetch_by_module (module);
 
@@ -842,10 +850,6 @@ static void sfp_fsm_st_removed (bf_dev_id_t
     bf_port_optical_los_set (dev_id, dev_port, true);
 
     sfp_fsm_st_tx_off (dev_id, module);
-
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
-               module, conn, chnl, __func__);
-
 }
 
 /*****************************************************************
@@ -857,9 +861,6 @@ static void sfp_fsm_st_inserted (bf_dev_id_t
     fetch_by_module (module);
 
     sfp_fsm_reset_assert (dev_id, module);
-
-    LOG_DEBUG (" SFP    %2d : (%02d/%d) %s ...",
-               module, conn, chnl, __func__);
 }
 
 /*****************************************************************
@@ -949,7 +950,6 @@ static void sfp_module_fsm_run (bf_dev_id_t
             delay_ms = 0;
 
             sfp_state[module].sfp_quick_removed = false;
-            sfp_state[module].flags = 0;
 
             /* If soft removal detected, try to turn off laser. */
             if (bf_sfp_soft_removal_get(module)) {
@@ -963,9 +963,10 @@ static void sfp_module_fsm_run (bf_dev_id_t
                 (sfp_state[module].sfp_type == SFP_TYP_UNKNOWN)) {
                 // error identifying type. Stay in this state
                 next_st = SFP_FSM_ST_INSERTED;
-                fprintf (stdout,
-                         " SFP    %2d : (%02d/%d) Unknown SFP type\n",
+                if (bf_sfp_is_fsm_logging(module)) {
+                    LOG_WARNING (" SFP    %2d : (%02d/%d) Unknown SFP type ...",
                          module, conn, chnl);
+                }
                 delay_ms = 1000;  // try again in 1sec
                 break;
             }
@@ -980,10 +981,9 @@ static void sfp_module_fsm_run (bf_dev_id_t
                 next_st = SFP_FSM_ST_WAIT_T_RESET;
                 delay_ms = 2;
             } else {
-                fprintf (stdout,
-                         " SFP    %2d : (%02d/%d) Notify platform ...\n",
-                         module, conn, chnl);
                 /* Every thing ready, notify barefoot core to start PM FSM. */
+                LOG_WARNING (" SFP    %2d : (%02d/%d) NOT OPTICAL ...",
+                     module, conn, chnl);
                 if (bf_pm_intf_is_device_family_tofino(dev_id))  {
                     sfp_fsm_notify_bf_pltfm (dev_id, module);
                 }
@@ -1035,7 +1035,7 @@ static void sfp_module_fsm_run (bf_dev_id_t
         case SFP_FSM_ST_DETECTED:
             bf_sfp_set_detected (module, true);
             // check LOS
-            if (bf_pm_intf_is_device_family_tofino (dev_id)) {
+            //if (bf_pm_intf_is_device_family_tofino (dev_id)) {
                 if (sfp_fsm_is_optical (module) &&
                     (bf_sfp_get_memmap_format (module) ==
                      MMFORMAT_SFF8472)) {
@@ -1046,24 +1046,10 @@ static void sfp_module_fsm_run (bf_dev_id_t
                         }
                     }
                 }
-            }
+            //}
 
             next_st = SFP_FSM_ST_DETECTED;
             delay_ms = 200; // 200ms poll time
-
-#if 0
-            if (ctrlmask & BF_TRANS_CTRLMASK_LASER_OFF) {
-                if ((sfp_state[module].flags & BF_TRANS_STATE_LASER_ON)) {
-                    /* User turns off Tx. */
-                    sfp_fsm_st_tx_off (dev_id, module);
-                }
-            } else {
-                if (!(sfp_state[module].flags & BF_TRANS_STATE_LASER_ON)) {
-                    /* User turns on Tx. */
-                    sfp_fsm_st_tx_on (dev_id, module);
-                }
-            }
-#endif
             break;
 
         case SFP_FSM_ST_UPDATE:

@@ -537,14 +537,10 @@ void bf_pltfm_load_conf () {
         fp = fopen(cfg, "r");
     }
     if (!fp) {
-        fprintf (stdout,
-                 "Exiting due to fopen(%s) : "
-                 "%s : %s.\n", cfg, strerror (errno),
-                 (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
         LOG_ERROR (
-                 "Exiting due to fopen(%s) : "
-                 "%s : %s.\n", cfg, strerror (errno),
-                 (errno == ENOENT) ? "try to create one by running xt-cfgen.sh" : "......");
+                 "Exiting due to invalid platform.conf : "
+                 "%s : %s.\n", strerror (errno),
+                 (errno == ENOENT) ? "Try to create one by running xt-cfgen.sh" : "......");
         exit (0);
     } else {
         fprintf (stdout,
@@ -593,8 +589,7 @@ void bf_pltfm_load_conf () {
         /* Must never reach here.
          * If so, that means there may be a risk to run bsp to init platform.
          * by tsihang, 2022/08/01. */
-        fprintf (stdout, "Exiting due to no valid value in EEPROM(0x26/0x27/0x31) to identify current platform.\n");
-        LOG_ERROR ("Exiting due to no valid value in EEPROM(0x26/0x27/0x31) to identify current platform.\n");
+        LOG_ERROR ("Exiting due to invalid value in EEPROM(0x26/0x27/0x31).\n");
         LOG_ERROR ("pltfm_mgr: Error in detecting platform.\n");
         exit (0);
     }

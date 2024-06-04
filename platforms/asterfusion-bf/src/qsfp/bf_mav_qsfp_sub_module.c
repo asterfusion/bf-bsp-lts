@@ -962,12 +962,14 @@ int bf_pltfm_get_sub_module_lpmode (
 }
 
 /* set the qsfp lpmode as set by hardware pins
-*/
+ */
 int bf_pltfm_set_sub_module_lpmode (
     bf_pltfm_cp2112_device_ctx_t *hndl,
     unsigned int module,
     bool lpmode)
 {
+    /* Set lpmode via hardware pin is NOT supported for ALL X-T platforms */
+
     int rc;
     /* If the THIS source is indicated by CPLD and read by master i2c,
      * please using MASTER_I2C_LOCK.

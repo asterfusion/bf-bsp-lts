@@ -25,9 +25,17 @@
 #include <bf_qsfp/bf_qsfp.h>
 #include <bf_pltfm_qsfp.h>
 
+extern uint32_t qsfp_lpmode_mask_l;
+extern uint32_t qsfp_lpmode_mask_h;
+extern uint32_t qsfp_lpmode_mask_c;
+
 #define BYTES_PER_APP 4
 
 #define MAX_BANKS 4
+
+/* host and media lane count from the lane count byte */
+#define HOST_LANE_COUNT(lane_count)         ((lane_count) >> 4)
+#define MEDIA_LANE_COUNT(lane_count)        ((lane_count) & 0xf)
 
 #define SFF8636_MODULE_FLAG_BYTES 3
 #define CMIS_MODULE_FLAG_BYTES 6
@@ -48,6 +56,7 @@
 typedef double (*qsfp_conversion_fn) (
     uint16_t value);
 
+extern int bf_qsfp_is_fsm_logging (int port);
 
 typedef struct bf_qsfp_special_info_ {
     bf_pltfm_qsfp_type_t qsfp_type;
@@ -60,7 +69,7 @@ typedef struct bf_qsfp_special_info_ {
     char vendor[16];
     char pn[16];
     /* BF_TRANS_CTRLMASK_XXXX */
-    uint32_t ctrlmask;
+    uint32_t ctrlmask;  // merged to [q]sfp_info_t->ctrlmask
 } bf_qsfp_special_info_t;
 
 // one supported application in CMIS or SFF-8636. In the case of 8636, each
@@ -102,14 +111,14 @@ typedef struct bf_qsfp_info_t {
     bool flat_mem;
     bool passive_cu;
     bool fsm_detected; /* by tsihang, 2023-06-26. */
-    uint8_t num_ch;
+    uint8_t num_ch;    /* number of host channel in the module. */
     MemMap_Format memmap_format;
 
     /* cached QSFP values */
     bool cache_dirty;
     bool suppress_repeated_rd_fail_msgs;
-    uint8_t idprom[MAX_QSFP_PAGE_SIZE];
-    uint8_t page0[MAX_QSFP_PAGE_SIZE];
+    uint8_t idprom[MAX_QSFP_PAGE_SIZE]; /* pg0 lower */
+    uint8_t page0[MAX_QSFP_PAGE_SIZE];  /* pg0 upper */
     uint8_t page1[MAX_QSFP_PAGE_SIZE];
     uint8_t page2[MAX_QSFP_PAGE_SIZE];
     uint8_t page3[MAX_QSFP_PAGE_SIZE];
@@ -131,6 +140,12 @@ typedef struct bf_qsfp_info_t {
     int num_apps;
 
     bf_qsfp_special_info_t special_case_port;
+
+    /* BF_TRANS_CTRLMASK_XXXX. It can only be set by bf_[q]sfp_ctrlmask_set/get. */
+    uint32_t ctrlmask;
+    /* BF_TRANS_STATE_XXXX. It can only be set/get by bf_[q]sfp_transtate_set/get. */
+    uint32_t trans_state;
+
     bf_sys_mutex_t qsfp_mtx;
     bool internal_port;  // via ucli for special purposes
     int rxlos_debounce_cnt;
@@ -248,6 +263,7 @@ static sff_field_map_t cmis_field_map[] = {
     {POWER_CONTROL, {QSFP_BANKNA, QSFP_PAGE0_LOWER, 26, 1, false}}, /* note -
         LowPwr bit (6) first appeared in CMIS 4.0 */
     {FIRMWARE_VER_ACTIVE, {QSFP_BANKNA, QSFP_PAGE0_LOWER, 39, 2, false}},
+    {MODULE_FAULT_CAUSE, {QSFP_BANKNA, QSFP_PAGE0_LOWER, 41, 1, false}},/* cmis 5.0+ */
     {MODULE_MEDIA_TYPE, {QSFP_BANKNA, QSFP_PAGE0_LOWER, 85, 1, true}},
     {APSEL1_ALL, {QSFP_BANKNA, QSFP_PAGE0_LOWER, 86, BYTES_PER_APP, true}},
     {APSEL1_HOST_ID, {QSFP_BANKNA, QSFP_PAGE0_LOWER, 86, 1, true}},
@@ -620,45 +636,45 @@ static cmis_app_host_id_map_t
 cmis_app_host_if_speed_map[] = {
     /* host_id, bf_port_speed_t, host_id_desc */
     /*                     -- max length -------------------------- */
-    {0, BF_SPEED_NONE, "Undefined"},
-    {1, BF_SPEED_1G, "1000BASE-CX      1 x 1.25Gbd NRZ"},
+    {HOST_TYPE_UNDEF,             BF_SPEED_NONE, "Undefined"},
+    {HOST_TYPE_1000BASE_CX,       BF_SPEED_1G,   "1000BASE-CX          1 x 1.25Gbd NRZ"},
     //  {2, BF_SPEED_???,     "XAUI             4 x 3.125Gbd NRZ"},
-    {4, BF_SPEED_10G, "SFI           1 x 9.95-11.18Gbd NRZ"},
-    {5, BF_SPEED_25G, "25GAUI           1 x 25.78125Gbd NRZ"},
-    {6, BF_SPEED_40G, "XLAUI            4 X 10.3125Gbd NRZ"},  // typ CFP
-    {7, BF_SPEED_40G, "XLPPI            4 X 10.3125Gbd NRZ"},  // typ QSFP
-    {8, BF_SPEED_50G, "LAUI-2           2 X 25.78125Gbd NRZ"},
-    {9, BF_SPEED_50G, "50GAUI-2         2 X 26.5625Gbd NRZ"},  // KP FEC
-    {10, BF_SPEED_50G, "50GAUI-1         1 x 26.5625Gbd PAM4"},
-    {11, BF_SPEED_100G, "CAUI-4 FEC       4 x 25.78125Gbd NRZ"},  // KR FEC
-    {12, BF_SPEED_100G, "100GAUI-4        4 x 26.5625Gbd NRZ"},   // KP FEC
-    {13, BF_SPEED_100G, "100GAUI-2        2 x 26.5625Gbd PAM4"},
-    {14, BF_SPEED_200G, "200GAUI-8        8 x 26.5625Gbd NRZ"},
-    {15, BF_SPEED_200G, "200GAUI-4        4 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_SFI,               BF_SPEED_10G,  "SFI            1 x 9.95-11.18Gbd NRZ"},
+    {HOST_TYPE_25GAUI_C2M,        BF_SPEED_25G,  "25GAUI           1 x 25.78125Gbd NRZ"},
+    {HOST_TYPE_XLAUI_C2M,         BF_SPEED_40G,  "XLAUI            4 X 10.3125Gbd NRZ"},  // typ CFP
+    {HOST_TYPE_XLPPI_C2M,         BF_SPEED_40G,  "XLPPI            4 X 10.3125Gbd NRZ"},  // typ QSFP
+    {HOST_TYPE_LAUI_2_C2M,        BF_SPEED_50G,  "LAUI-2           2 X 25.78125Gbd NRZ"},
+    {HOST_TYPE_50GAUI_2_C2M,      BF_SPEED_50G,  "50GAUI-2         2 X 26.5625Gbd NRZ"},  // KP FEC
+    {HOST_TYPE_50GAUI_1_C2M,      BF_SPEED_50G,  "50GAUI-1         1 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_CAUI_4_C2M,        BF_SPEED_100G, "CAUI-4 FEC       4 x 25.78125Gbd NRZ"},  // KR FEC
+    {HOST_TYPE_100GAUI_4_C2M,     BF_SPEED_100G, "100GAUI-4        4 x 26.5625Gbd NRZ"},   // KP FEC
+    {HOST_TYPE_100GAUI_2_C2M,     BF_SPEED_100G, "100GAUI-2        2 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_200GAUI_8_C2M,     BF_SPEED_200G, "200GAUI-8        8 x 26.5625Gbd NRZ"},
+    {HOST_TYPE_200GAUI_4_C2M,     BF_SPEED_200G, "200GAUI-4        4 x 26.5625Gbd PAM4"},
     //  {16, BF_SPEED_400G,    "400GAUI-16 C2M     16 x 26.5625Gbd NRZ"}, /* by Hang Tsi, 2024/02/26. */
-    {17, BF_SPEED_400G, "400GAUI-8        8 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_400GAUI_8_C2M,     BF_SPEED_400G, "400GAUI-8        8 x 26.5625Gbd PAM4"},
     //  {19, BF_SPEED_???,    "10GBASE-CX4      4 x 3.125Gbd NRZ"},
-    {20, BF_SPEED_25G, "25GBASE-CR CA-L  1 x 25.78125 Gbd NRZ"},
-    {21, BF_SPEED_25G, "25GBASE-CR CA-S  1 x 25.78125 Gbd NRZ"},
-    {22, BF_SPEED_25G, "25GBASE-CR CA-N  1 x 25.78125 Gbd NRZ"},
-    {23, BF_SPEED_40G, "40GBASE-CR4      4 X 10.3125Gbd NRZ"},
-    {24, BF_SPEED_50G, "50GBASE-CR       1 x 26.5625Gbd PAM4"},
-    {26, BF_SPEED_100G, "100GBASE-CR4     4 x 25.78125Gbd NRZ"},
-    {27, BF_SPEED_100G, "100GBASE-CR2     2 x 26.5625Gbd PAM4"},
-    {28, BF_SPEED_200G, "200GBASE-CR4     4 x 26.5625Gbd PAM4"},
-    {29, BF_SPEED_400G, "400GBASE-CR8     8 x 26.5625Gbd PAM4"},
-    {65, BF_SPEED_100G, "CAUI-4 C2M NOFEC 4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/01/23. */
-    {66, BF_SPEED_100G, "CAUI-4 C2M   FEC 4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/02/26. */
-    {70, BF_SPEED_100G, "100GBASE-CR1     1 x 53.125GBd PAM4"},
-    {71, BF_SPEED_200G, "200GBASE-CR2     2 x 53.125GBd PAM4"},
-    {72, BF_SPEED_400G, "400GBASE-CR4     4 x 53.125GBd PAM4"},
+    {HOST_TYPE_25GBASE_CR_CA_L,   BF_SPEED_25G,  "25GBASE-CR CA-L  1 x 25.78125 Gbd NRZ"},
+    {HOST_TYPE_25GBASE_CR_CA_S,   BF_SPEED_25G,  "25GBASE-CR CA-S  1 x 25.78125 Gbd NRZ"},
+    {HOST_TYPE_25GBASE_CR_CA_N,   BF_SPEED_25G,  "25GBASE-CR CA-N  1 x 25.78125 Gbd NRZ"},
+    {HOST_TYPE_40GBASE_CR4,       BF_SPEED_40G,  "40GBASE-CR4      4 X 10.3125Gbd NRZ"},
+    {HOST_TYPE_50GBASE_CR,        BF_SPEED_50G,  "50GBASE-CR       1 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_100GBASE_CR4,      BF_SPEED_100G, "100GBASE-CR4     4 x 25.78125Gbd NRZ"},
+    {HOST_TYPE_100GBASE_CR2,      BF_SPEED_100G, "100GBASE-CR2     2 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_200GBASE_CR4,      BF_SPEED_200G, "200GBASE-CR4     4 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_400GBASE_CR8,      BF_SPEED_400G, "400GBASE-CR8     8 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_CAUI_4_C2M_NO_FEC, BF_SPEED_100G, "CAUI-4 NO FEC    4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/01/23. */
+    {HOST_TYPE_CAUI_4_C2M_RS_FEC, BF_SPEED_100G, "CAUI-4 RS FEC    4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/02/26. */
+    {HOST_TYPE_100GBASE_CR1,      BF_SPEED_100G, "100GBASE-CR1     1 x 53.125GBd PAM4"},
+    {HOST_TYPE_200GBASE_CR2,      BF_SPEED_200G, "200GBASE-CR2     2 x 53.125GBd PAM4"},
+    {HOST_TYPE_400GBASE_CR4,      BF_SPEED_400G, "400GBASE-CR4     4 x 53.125GBd PAM4"},
     //{73, BF_SPEED_800G, "800GBASE-CR8     8 x 53.125GBd PAM4"},
-    {75, BF_SPEED_100G, "100GAUI-1-S      1 x 53.125GBd PAM4"},
-    {76, BF_SPEED_100G, "100GAUI-1-L      1 x 53.125GBd PAM4"},
-    {77, BF_SPEED_200G, "200GAUI-2-S      2 x 53.125GBd PAM4"},
-    {78, BF_SPEED_200G, "200GAUI-2-L      2 x 53.125GBd PAM4"},
-    {79, BF_SPEED_400G, "400GAUI-4-S      4 x 53.125GBd PAM4"},
-    {80, BF_SPEED_400G, "400GAUI-4-L      4 x 53.125GBd PAM4"},
+    {HOST_TYPE_100GAUI_1_S_C2M,   BF_SPEED_100G, "100GAUI-1-S      1 x 53.125GBd PAM4"},
+    {HOST_TYPE_100GAUI_1_L_C2M,   BF_SPEED_100G, "100GAUI-1-L      1 x 53.125GBd PAM4"},
+    {HOST_TYPE_200GAUI_2_S_C2M,   BF_SPEED_200G, "200GAUI-2-S      2 x 53.125GBd PAM4"},
+    {HOST_TYPE_200GAUI_2_L_C2M,   BF_SPEED_200G, "200GAUI-2-L      2 x 53.125GBd PAM4"},
+    {HOST_TYPE_400GAUI_4_S_C2M,   BF_SPEED_400G, "400GAUI-4-S      4 x 53.125GBd PAM4"},
+    {HOST_TYPE_400GAUI_4_L_C2M,   BF_SPEED_400G, "400GAUI-4-L      4 x 53.125GBd PAM4"},
     //{81, BF_SPEED_800G, "800GAUI-8-S      8 x 53.125GBd PAM4"},
     //{82, BF_SPEED_800G, "800GAUI-8-L      8 x 53.125GBd PAM4"},
 };
@@ -700,68 +716,68 @@ static cmis_app_media_id_map_t
 cmis_app_media_if_speed_map[] = {
     /* media_type, media_id, bf_port_speed_t, media_id_desc */
     /*                     -- max length -------------------------- */
-    {MEDIA_TYPE_MMF, 0, "Undefined"},
-    {MEDIA_TYPE_MMF, 1, "10GBASE-SW       1 X 9.95328 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 2, "10GBASE-SR       1 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 3, "25GBASE-SR       1 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 4, "40GBASE-SR4      4 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 5, "40GE SWDM MSA    4 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 6, "40GE BiDi        2 X 20.625 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 7, "50GBASE-SR       1 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 8, "100GBASE-SR10    10 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 9, "100GBASE-SR4     4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 10, "100GE SWDM4 MSA  4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_MMF, 11, "100GE BiDi       2 X 25.5625 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 12, "100GBASE-SR2     2 X 25.5625 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 13, "100GBASE-SR      1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 14, "200GBASE-SR4     4 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 15, "400GBASE-SR16    16 X 25.5625 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 16, "400GBASE-SR8     8 X 26.5625 Gbd PAM4"}, /* by Hang Tsi, 2024/01/23. */
-    {MEDIA_TYPE_MMF, 17, "400GBASE-SR4     4 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 18, "800GBASE-SR8     8 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 26, "400GE BiDi       8 X 25.5625 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 27, "200GBASE-SR2     2 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 29, "100GBASE-VR      1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 30, "200GBASE-VR2     2 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_MMF, 31, "400GBASE-VR4     4 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_UNDEF,         "Undefined"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_10GBASE_SW,    "10GBASE-SW       1 X 9.95328 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_10GBASE_SR,    "10GBASE-SR       1 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_25GBASE_SR,    "25GBASE-SR       1 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_40GBASE_SR4,   "40GBASE-SR4      4 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_40GE_SWDM4,    "40GE SWDM MSA    4 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_40GE_BiDi,     "40GE BiDi        2 X 20.625 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_50GBASE_SR,    "50GBASE-SR       1 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GBASE_SR10, "100GBASE-SR10    10 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GBASE_SR4,  "100GBASE-SR4     4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GE_SWDM4,   "100GE SWDM4 MSA  4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GE_BiDi,    "100GE BiDi       2 X 25.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GBASE_SR2,  "100GBASE-SR2     2 X 25.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GBASE_SR,   "100GBASE-SR      1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_200GBASE_SR4,  "200GBASE-SR4     4 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_400GBASE_SR16, "400GBASE-SR16    16 X 25.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_400GBASE_SR8,  "400GBASE-SR8     8 X 26.5625 Gbd PAM4"}, /* by Hang Tsi, 2024/01/23. */
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_400GBASE_SR4,  "400GBASE-SR4     4 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_800GBASE_SR8,  "800GBASE-SR8     8 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_400GE_BiDi,    "400GE BiDi       8 X 25.5625 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_200GBASE_SR2,  "200GBASE-SR2     2 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_100GBASE_VR,   "100GBASE-VR      1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_200GBASE_VR2,  "200GBASE-VR2     2 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_MMF, MEDIA_TYPE_MMF_400GBASE_VR4,  "400GBASE-VR4     4 X 53.125 Gbd PAM4"},
 
     /*                     -- max length -------------------------- */
-    {MEDIA_TYPE_SMF, 0, "Undefined"},
-    {MEDIA_TYPE_SMF, 1, "10GBASE-LW       1 X 9.95328 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 2, "10GBASE-EW       1 X 9.953 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 3, "10G-ZW           1 X 9.953 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 4, "10GBASE-LR       1 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 5, "10GBASE-ER       1 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 6, "10G-ZR           1 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 7, "25GBASE-LR       1 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 8, "25GBASE-ER       1 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 9, "40GBASE-LR4      4 X 10.3125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 10, "40GBASE-FR       1 X 41.25 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 11, "50GBASE-FR       1 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 12, "50GBASE-LR       1 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 13, "100GBASE-LR4     4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 14, "100GBASE-ER4     4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 15, "100G PSM4 MSA    4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 52, "100G CWDM4-OCP   4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 16, "100G CWDM4 MSA   4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 17, "100G 4WDM-10 MSA 4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 18, "100G 4WDM-20 MSA 4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 19, "100G 4WDM-30 MSA 4 X 25.78125 Gbd NRZ"},
-    {MEDIA_TYPE_SMF, 20, "100GBASE-DR      1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 21, "100G-FR          1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 22, "100G-LR          1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 23, "200GBASE-DR4     4 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 24, "200GBASE-FR4     4 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 25, "200GBASE-LR4     4 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 26, "400GBASE-FR8     8 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 27, "400GBASE-LR8     8 X 26.5625 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 28, "400GBASE-DR4     4 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 29, "400G-FR4         4 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 30, "400G-LR4-10      4 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 67, "400G-LR4-6       4 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 74, "100G-LR1-20      1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 75, "100G-ER1-30      1 X 53.125 Gbd PAM4"},
-    {MEDIA_TYPE_SMF, 76, "100G-ER1-40      1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_UNDEF, "Undefined"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_10GBASE_LW, "10GBASE-LW       1 X 9.95328 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_10GBASE_EW, "10GBASE-EW       1 X 9.953 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_10G_ZW, "10G-ZW           1 X 9.953 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_10GBASE_LR, "10GBASE-LR       1 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_10GBASE_ER, "10GBASE-ER       1 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_10G_ZR, "10G-ZR           1 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_25GBASE_LR, "25GBASE-LR       1 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_25GBASE_ER, "25GBASE-ER       1 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_40GBASE_LR4, "40GBASE-LR4      4 X 10.3125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_40GBASE_FR, "40GBASE-FR       1 X 41.25 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_50GBASE_FR, "50GBASE-FR       1 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_50GBASE_LR, "50GBASE-LR       1 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100GBASE_LR4, "100GBASE-LR4     4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100GBASE_ER4, "100GBASE-ER4     4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_PSM4, "100G PSM4 MSA    4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_CWDM4_OCP, "100G CWDM4-OCP   4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_CWDM4, "100G CWDM4 MSA   4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_4WDM10, "100G 4WDM-10 MSA 4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_4WDM20, "100G 4WDM-20 MSA 4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_4WDM40, "100G 4WDM-40 MSA 4 X 25.78125 Gbd NRZ"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100GBASE_DR, "100GBASE-DR      1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_FR, "100G-FR          1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_LR, "100G-LR          1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_200GBASE_DR4, "200GBASE-DR4     4 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_200GBASE_FR4, "200GBASE-FR4     4 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_200GBASE_LR4, "200GBASE-LR4     4 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_400GBASE_FR8, "400GBASE-FR8     8 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_400GBASE_LR8, "400GBASE-LR8     8 X 26.5625 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_400GBASE_DR4, "400GBASE-DR4     4 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_400G_FR4, "400G-FR4         4 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_400G_LR4_10, "400G-LR4-10      4 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_400GBASE_LR4_6, "400G-LR4-6       4 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_LR1_20, "100G-LR1-20      1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_ER1_30, "100G-ER1-30      1 X 53.125 Gbd PAM4"},
+    {MEDIA_TYPE_SMF, MEDIA_TYPE_SMF_100G_ER1_40, "100G-ER1-40      1 X 53.125 Gbd PAM4"},
 
     /*                            -- max length -------------------------- */
     {MEDIA_TYPE_PASSIVE_CU, 0, "Undefined"},
@@ -773,6 +789,7 @@ cmis_app_media_if_speed_map[] = {
     {MEDIA_TYPE_ACTIVE_CBL, 2, "Active cable assembly, BER < 5E-5"},
     {MEDIA_TYPE_ACTIVE_CBL, 3, "Active cable assembly, BER < 2.6E-4"},
     {MEDIA_TYPE_ACTIVE_CBL, 4, "Active cable assembly, BER < 1E-6"},
+    {MEDIA_TYPE_ACTIVE_CBL, MEDIA_ACTIVE_LOOPBACK, "Active Loopback module"},
 };
 
 // the host_id's in this array are from SFF-8024, rev 4.6, section 4.7
@@ -781,11 +798,62 @@ innolight_cmis_app_media_if_speed_map[] = {
     {MEDIA_TYPE_SMF, 251, "200GBASE-DR2     2 X 53.125 Gbd PAM4"},
     {MEDIA_TYPE_SMF, 252, "800GBASE-DR8     8 X 53.125 Gbd PAM4"},
 };
-/* by Hang Tsi, 2024/01/23.
- * Temporary code and will be removed later. */
-typedef enum {
-    QSFPDD_400G_SR8 = 0x07, /* Asterfusion QFDD-8G400-01 50GBASE-SR (Clause 138) */
-} Custom_Module_MMF_media_interface_code;
+
+static char *qsfp_dp_config_str[] = {
+    [DATAPATH_CONF_UNDEF] = "DATAPATH_CONF_UNDEF",
+    [DATAPATH_CONF_SUCCESS] = "DATAPATH_CONF_SUCCESS",
+    [DATAPATH_CONF_REJECT] = "DATAPATH_CONF_REJECT",
+    [DATAPATH_CONF_REJECT_INVALID_APSEL] = "DATAPATH_CONF_REJECT_INVALID_APSEL",
+    [DATAPATH_CONF_REJECT_INVALID_DP] = "DATAPATH_CONF_REJECT_INVALID_DP",
+    [DATAPATH_CONF_REJECT_INVALID_SI] = "DATAPATH_CONF_REJECT_INVALID_SI",
+    [DATAPATH_CONF_REJECT_LANE_INUSE] = "DATAPATH_CONF_REJECT_LANE_INUSE",
+    [DATAPATH_CONF_REJECT_PARTIAL_DP] = "DATAPATH_CONF_REJECT_PARTIAL_DP",
+    [DATAPATH_CONF_REJECT_RESERVED_0x8] = "DATAPATH_CONF_REJECT_RESERVED_0x8",
+    [DATAPATH_CONF_REJECT_RESERVED_0x9] = "DATAPATH_CONF_REJECT_RESERVED_0x9",
+    [DATAPATH_CONF_REJECT_RESERVED_0xA] = "DATAPATH_CONF_REJECT_RESERVED_0xA",
+    [DATAPATH_CONF_REJECT_RESERVED_0xB] = "DATAPATH_CONF_REJECT_RESERVED_0xB",
+    [DATAPATH_CONF_INPROGRESS] = "DATAPATH_CONF_INPROGRESS",
+    [DATAPATH_CONF_REJECT_CUSTOM_0xD] = "DATAPATH_CONF_REJECT_CUSTOM_0xD",
+    [DATAPATH_CONF_REJECT_CUSTOM_0xE] = "DATAPATH_CONF_REJECT_CUSTOM_0xE",
+    [DATAPATH_CONF_REJECT_CUSTOM_0xF] = "DATAPATH_CONF_REJECT_CUSTOM_0xF",
+};
+
+static const char *qsfp_dp_stat_str[] = {
+    [DATAPATH_ST_RESERVED] = "Reserved",
+    [DATAPATH_ST_DEACTIVATED] = "DPDeactivated(or unused LN)",
+    [DATAPATH_ST_INIT] = "DPInit",
+    [DATAPATH_ST_DEINIT] = "DPDeinit",
+    [DATAPATH_ST_ACTIVATED] = "DPActivated",
+    [DATAPATH_ST_TXTURNON] = "DPTxTurnOn",
+    [DATAPATH_ST_TXTURNOFF] = "DPTxTurnOff",
+    [DATAPATH_ST_INITIALIZED] = "DPInitialized",
+    [8]  = "Reserved",
+    [9]  = "Reserved",
+    [10] = "Reserved",
+    [11] = "Reserved",
+    [12] = "Reserved",
+    [13] = "Reserved",
+    [14] = "Reserved",
+    [15] = "Reserved",
+};
+
+static const char *qsfp_module_stat_str[] = {
+    [MODULE_ST_RESV0] = "Reserved",
+    [MODULE_ST_LOWPWR] = "ModuleLowPwr",
+    [MODULE_ST_PWRUP] = "ModulePwrUp",
+    [MODULE_ST_READY] = "ModuleReady",
+    [MODULE_ST_PWRDN] = "ModulePwrDn",
+    [MODULE_ST_FAULT] = "ModuleFault",
+    [MODULE_ST_RESV6] = "Reserved",
+    [MODULE_ST_RESV7] = "Reserved",
+};
+
+static const char *qsfp_module_fault_cause_str[] = {
+    [MODULE_FAULT_NO_FAULT] = "No fault detected / not supported",
+    [MODULE_FAULT_TEC_RUNAWAY] = "TEC runaway",
+    [MODULE_FAULT_DATA_MEM_CORRUPTED] = "Data memory corrupted",
+    [MODULE_FAULT_PROG_MEM_CORRUPTED] = "Program memory corrupted",
+};
 
 static cmis_app_host_id_map_t
 *bf_qsfp_get_custom_host_if_speed_map (
@@ -1040,8 +1108,7 @@ int bf_cmis_find_matching_Application (int port,
 
     if (rc >= 0) {  // we have found a match. rc is the matching ApSel index
         if (bf_qsfp_info_arr[port].app_list[rc].host_lane_assign_mask
-            &
-            (0x1 << firstLane)) {  // host lane assignment options matches
+            & (0x1 << firstLane)) {  // host lane assignment options matches
             // since the spec is 1-based, add 1 to return the actual ApSel code
             rc++;
         } else {
@@ -1078,7 +1145,8 @@ int bf_cmis_get_Application_media_info (int port,
     int app = curr_app -
               1;  // Since ApSel is 1-based but app_list is 0 indexed
 
-    /* Not neccesarry indeed for real world. */
+    /* Not neccesarry indeed for real world.
+     * by Hang Tsi, 2024/03/01 */
     if (BF_APP_INVALID(bf_qsfp_info_arr[port].app_list[app])) {
         LOG_ERROR ("QSFP    %2d : INVALID ApSel (%d)",
                    port,
@@ -2095,6 +2163,8 @@ int bf_qsfp_refresh_flags (int port)
     }
 
     if (bf_qsfp_is_cmis (port)) {
+        /* TBD: update pg0_lower.8/9/10/11/12/13 cache. */
+        //memcpy (&bf_qsfp_info_arr[port].idprom[8], &new_module_flags[0], CMIS_MODULE_FLAG_BYTES);
         chmask = (1 << bf_qsfp_info_arr[port].num_ch) - 1;
         cur_chmask = 0xFF;
         loopcnt = 0;
@@ -2108,6 +2178,12 @@ int bf_qsfp_refresh_flags (int port)
             if (res != 0) {
                 return res;
             }
+            /*
+             * TBD: by Hang Tsi, 2024/03/20.
+             * Update pg17.134 - pg17.152, 19 bytes for CMIS 4.0.
+             * Update pg17.134 - pg17.153, 20 bytes for CMIS 5.0 or later.
+             */
+            //memcpy (&bf_qsfp_info_arr[port].page17[134], &new_lane_flags[0], CMIS_LANE_FLAG_BYTES);
             for (loopcnt2 = 0;
                  loopcnt2 < CMIS_LANE_FLAG_BYTES; loopcnt2++) {
                 // increment flag counters for all set flags
@@ -2126,6 +2202,8 @@ int bf_qsfp_refresh_flags (int port)
             loopcnt++;
         }
     } else {  // SFF-8636
+        /* TBD: update pg0_lower.6/7/8 cache. */
+        //memcpy (&bf_qsfp_info_arr[port].idprom[6], &new_module_flags[0], SFF8636_MODULE_FLAG_BYTES);
         res = bf_qsfp_field_read_onebank (port,
                                           SFF8636_LANE_STATUS_FLAGS,
                                           0,
@@ -2157,6 +2235,7 @@ int bf_qsfp_refresh_flags (int port)
         if (res != 0) {
             return res;
         }
+        //memcpy (&bf_qsfp_info_arr[port].idprom[9], &new_lane_flags[0], SFF8636_LANE_MONITOR_FLAG_BYTES);
         for (loopcnt2 = 0;
              loopcnt2 < SFF8636_LANE_MONITOR_FLAGS;
              loopcnt2++) {
@@ -2923,14 +3002,12 @@ bool bf_qsfp_get_dp_state_info (int port,
     for (cur_ch = 0; cur_ch < num_ch; cur_ch += 8) {
         if (bf_qsfp_field_read_onebank (
                 port, DATAPATH_STATE_ALL, (chmask & curbank_mask),
-                0, 4, dp_state) <
-            0) {
+                0, 4, dp_state) < 0) {
             return false;
         }
         if (bf_qsfp_field_read_onebank (
                 port, DATAPATH_DEINIT, (chmask & curbank_mask), 0,
-                1, &dp_deinit) <
-            0) {
+                1, &dp_deinit) < 0) {
             return false;
         }
         for (sub_ch = cur_ch; ((sub_ch < num_ch) &&
@@ -3568,24 +3645,23 @@ int bf_qsfp_init (void)
         bf_qsfp_info_arr[port].passive_cu = false;
         bf_qsfp_info_arr[port].fsm_detected = false;
         bf_qsfp_info_arr[port].num_ch = 0;
-        bf_qsfp_info_arr[port].memmap_format =
-            MMFORMAT_UNKNOWN;
-        bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs
-            = false;
-        bf_qsfp_info_arr[port].rxlos_debounce_cnt =
-            QSFP_RXLOS_DEBOUNCE_DFLT;
+        bf_qsfp_info_arr[port].memmap_format = MMFORMAT_UNKNOWN;
+        bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs = false;
+        bf_qsfp_info_arr[port].rxlos_debounce_cnt = QSFP_RXLOS_DEBOUNCE_DFLT;
         bf_qsfp_info_arr[port].checksum = true;
+        bf_qsfp_info_arr[port].ctrlmask = 0;
 
         /* Special case routine. by tsihang, 2023-05-11. */
         bf_qsfp_info_arr[port].special_case_port.qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
         bf_qsfp_info_arr[port].special_case_port.is_set = false;
-        /* Keep the bf_qsfp_info_arr[port].special_case_port.ctrlmask never cleanup for Stratum during warm init.
+        /* Keep the bf_qsfp_info_arr[port].ctrlmask never cleanup for Stratum during warm init.
          * As it will no chance to load them from /etc/transceiver-cases.conf to bf_pltfm_special_transceiver_case.
          * Added by tsihang, 2023-05-17. */
         //bf_qsfp_info_arr[port].special_case_port.ctrlmask = 0;
         memset (&bf_qsfp_info_arr[port].special_case_port.vendor[0], 0, 16);
         memset (&bf_qsfp_info_arr[port].special_case_port.pn[0], 0, 16);
-        //bf_qsfp_info_arr[port].special_case_port.ctrlmask = BF_TRANS_CTRLMASK_LASER_OFF;
+        // for dbg only
+        //bf_qsfp_info_arr[port].ctrlmask = BF_TRANS_CTRLMASK_FSM_LOG_ENA;
     }
     return 0;
 }
@@ -3608,10 +3684,9 @@ int bf_qsfp_port_deinit (int port)
     bf_qsfp_info_arr[port].flat_mem = true;
     bf_qsfp_info_arr[port].passive_cu = false;
     bf_qsfp_info_arr[port].num_ch = 0;
-    bf_qsfp_info_arr[port].memmap_format =
-        MMFORMAT_UNKNOWN;
-    bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs
-        = false;
+    bf_qsfp_info_arr[port].memmap_format = MMFORMAT_UNKNOWN;
+    bf_qsfp_info_arr[port].suppress_repeated_rd_fail_msgs = false;
+    bf_qsfp_info_arr[port].ctrlmask = 0;
 
 #if defined (APP_ALLOC)
     if (bf_qsfp_info_arr[port].app_list) {
@@ -3665,12 +3740,12 @@ int bf_qsfp_tx_disable_single_lane (int port,
 
     // Expect channel range check to be done by the caller.
     // Don't add it here.
-
-    LOG_DEBUG ("QSFP    %2d: TX_DISABLE, ch=%d, new value=%d",
-               port,
-               channel,
-               disable ? 1 : 0);
-
+    if (bf_qsfp_is_fsm_logging(port)) {
+        LOG_DEBUG ("QSFP    %2d: TX_DISABLE, ch=%d, new value=%d",
+                   port,
+                   channel,
+                   disable ? 1 : 0);
+    }
     /* read the current value and change qsfp memory if needed
      * using read/modify/write
      */
@@ -3709,11 +3784,12 @@ int bf_qsfp_tx_disable (int port,
 
     // Expect channel_mask range check to be done by the caller.
     // Don't add it here.
-
-    LOG_DEBUG ("QSFP    %2d : TX_DISABLE, mask=0x%x, new value=%d",
-               port,
-               channel_mask,
-               disable ? 1 : 0);
+    if (bf_qsfp_is_fsm_logging(port)) {
+        LOG_DEBUG ("QSFP    %2d : TX_DISABLE, mask=0x%x, new value=%d",
+                   port,
+                   channel_mask,
+                   disable ? 1 : 0);
+    }
 
     if (disable) {  // no need to change new_st if we are enabling
         new_st = channel_mask;
@@ -3724,6 +3800,13 @@ int bf_qsfp_tx_disable (int port,
              channel_mask, new_st);
     bf_sys_usleep (400000);
 
+    if (rc == 0) {
+        if (disable) {
+            bf_qsfp_info_arr[port].trans_state &= ~BF_TRANS_STATE_LASER_ON;
+        } else {
+            bf_qsfp_info_arr[port].trans_state |= BF_TRANS_STATE_LASER_ON;
+        }
+    }
     return rc;
 }
 
@@ -3815,7 +3898,14 @@ int bf_qsfp_cdr_disable (int port,
     return rc;
 }
 
-/** deactivate all data paths
+/** deactivate all data paths.
+ *
+ *  CMIS 4.0     C.1.3
+ *  CMIS 5.0/5.1 D.1.3
+ *  Host writes FFh to the DPDeinit register to prevent automatic Data Path initialization
+ *  when the module reaches ModuleReady, and writes FFh into the OutputDisableTx register
+ *  to prevent automatic Data Path activation when the Data Path state reaches DPInitialized.
+ *                                        by Hang Tsi, 2024/03/04.
  *
  *  @param port
  *   port
@@ -3857,6 +3947,56 @@ int bf_qsfp_dp_deactivate_all (int port)
     return 0;
 }
 
+
+/** Activate all data paths.
+ *
+ *  CMIS 4.0     C.1.3
+ *  CMIS 5.0/5.1 D.1.3
+ *  Host writes FFh to the DPDeinit register to prevent automatic Data Path initialization
+ *  when the module reaches ModuleReady, and writes FFh into the OutputDisableTx register
+ *  to prevent automatic Data Path activation when the Data Path state reaches DPInitialized.
+ *                                        by Hang Tsi, 2024/03/04.
+ *
+ *  @param port
+ *   port
+ *  @return
+ *   0 on success and  -1 on error
+ */
+int bf_qsfp_dp_activate_all (int port)
+{
+    int all_chmask, curbank_chmask;
+    uint8_t newval;
+    if ((port > bf_plt_max_qsfp) ||
+        (!bf_qsfp_is_cmis (port))) {
+        return -1;
+    }
+
+    // CMIS changed the polarity of this register in CMIS 4.0
+    if (bf_qsfp_info_arr[port].memmap_format ==
+        MMFORMAT_CMIS3P0) {
+        newval = 0xFF;
+    } else {
+        newval = 0x00;
+    }
+
+    all_chmask = (1 << bf_qsfp_info_arr[port].num_ch)
+                 - 1;
+    curbank_chmask = 0xFF;
+    while (curbank_chmask <= all_chmask) {
+        if (bf_qsfp_field_write_onebank (port,
+                                         DATAPATH_DEINIT,
+                                         (all_chmask & curbank_chmask),
+                                         0,
+                                         1,
+                                         &newval)) {
+            return -1;
+        }
+        curbank_chmask <<= 8;
+    }
+
+    return 0;
+}
+
 /** reset qsfp module
  *
  *  @param port
@@ -3870,8 +4010,6 @@ int bf_qsfp_reset (int port, bool reset)
 {
     if (port <= bf_plt_max_qsfp) {
         bf_qsfp_info_arr[port].reset = reset;
-        LOG_DEBUG ("QSFP    %2d : %s", port,
-                   reset ? "True" : "False");
         return (bf_pltfm_qsfp_module_reset (port, reset));
     } else {
         return -1; /* TBD: handle cpu port QSFP */
@@ -4035,17 +4173,18 @@ void bf_qsfp_set_present (int port, bool present)
 bool bf_qsfp_get_module_capability (int port,
                                     uint16_t *type)
 {
-    Ethernet_compliance eth_comp;
+    Ethernet_compliance eth_comp = COMPLIANCE_NONE;
+    Ethernet_extended_compliance eth_ext_comp = EXT_COMPLIANCE_NONE;
+
     if (bf_qsfp_get_eth_compliance (port,
                                     &eth_comp) != 0) {
         *type = 0;
     }
 
     if (eth_comp & 0x80) {
-        Ethernet_extended_compliance ext_comp;
         if (bf_qsfp_get_eth_ext_compliance (port,
-                                            &ext_comp) == 0) {
-            *type = (eth_comp << 8) | ext_comp;
+                                            &eth_ext_comp) == 0) {
+            *type = (eth_comp << 8) | eth_ext_comp;
         } else {
             *type = 0;
         }
@@ -4203,10 +4342,11 @@ static int cmis_get_application_data (int port,
         }
     }
 
+    /* 4 bytes per application. */
     *host_id = app_data[0];
     *media_id = app_data[1];
-    *host_lane_count = app_data[2] >> 4;
-    *media_lane_count = app_data[2] & 0xF;
+    *host_lane_count  = HOST_LANE_COUNT(app_data[2]);  //app_data[2] >> 4;
+    *media_lane_count = MEDIA_LANE_COUNT(app_data[2]); //app_data[2] & 0xF;
     *host_lane_option_mask = app_data[3];
 
     if (!bf_qsfp_is_flat_mem (port)) {
@@ -4220,6 +4360,19 @@ static int cmis_get_application_data (int port,
         }
     }
     return 0;
+}
+
+/* 0xff for host interface code indicates end of application array
+ * however some modules do not set it correctly. for those modules,
+ * end of array is indicated by all advertisement fields being 0 */
+static bool __cmis_app_valid(bf_pm_qsfp_apps_t *app)
+{
+    if (app->host_if_id == 0xff)
+        return false;
+
+    return (app->host_if_id || app->media_if_id ||
+            app->host_lane_cnt || app->media_lane_cnt ||
+            app->host_lane_assign_mask || app->media_lane_assign_mask);
 }
 
 // populate bf_qsfp_info_arr with the supported Application details
@@ -4239,8 +4392,10 @@ static int qsfp_cmis_populate_app_list (int port)
                 &bf_qsfp_info_arr[port].app_list[cur_app_num].media_lane_assign_mask) != 0) {
             return -1;
         }
-        BF_APP_VALID_SET(bf_qsfp_info_arr[port].app_list[cur_app_num]);
-        cur_app_num++;
+        if (__cmis_app_valid(&bf_qsfp_info_arr[port].app_list[cur_app_num])) {
+            BF_APP_VALID_SET(bf_qsfp_info_arr[port].app_list[cur_app_num]);
+            cur_app_num++;
+        }
     }
     return 0;
 }
@@ -4318,9 +4473,9 @@ static int qsfp_sff8636_add_app (int port,
 static int qsfp_sff8636_populate_app_list (
     int port)
 {
-    Ethernet_compliance eth_comp;
-    Ethernet_extended_compliance eth_ext_comp;
-    Ethernet_extended_compliance eth_sec_comp;
+    Ethernet_compliance eth_comp = COMPLIANCE_NONE;
+    Ethernet_extended_compliance eth_ext_comp = EXT_COMPLIANCE_NONE;
+    Ethernet_extended_compliance eth_sec_comp = EXT_COMPLIANCE_NONE;
 
     bf_qsfp_info_arr[port].num_apps = 0;
 
@@ -4365,34 +4520,40 @@ static int qsfp_sff8636_populate_app_list (
     //                      uint8_t host_lane_assign_mask,
     //                      uint8_t media_lane_assign_mask)
     if (eth_comp & 0x1) {  // 40G active cable (XLPPI)
-        qsfp_sff8636_add_app (port, 0x4, 7, 1, 4, 4, 0x1,
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_ACTIVE_CBL, 7, 1, 4, 4, 0x1,
                               0x1);
     } else if ((eth_comp >> 1) &
                0x1) {  // 40GBASE-LR4
-        qsfp_sff8636_add_app (port, 0x2, 7, 9, 4, 4, 0x1,
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF, 7, 9, 4, 4, 0x1,
                               0x1);
     } else if ((eth_comp >> 2) &
                0x1) {  // 40GBASE-SR4
-        qsfp_sff8636_add_app (port, 0x1, 7, 4, 4, 4, 0x1,
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_MMF, 7, 4, 4, 4, 0x1,
                               0x1);
     } else if ((eth_comp >> 3) &
                0x1) {  // 40GBASE-CR4
-        qsfp_sff8636_add_app (port, 0x3, 7, 1, 4, 4, 0x1,
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 7, 1, 4, 4, 0x1,
                               0x1);
     }
 
     if ((eth_comp >> 4) &
         0x1) {  // 10GBASE-SR - assume breakout x4
         //qsfp_sff8636_add_app (port, 0x1, 7, 2, 1, 1, 0xF, 0xF);
-        qsfp_sff8636_add_app (port, 0x1, 4, 2, 1, 1, 0xF,
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_MMF, 4, 2, 1, 1, 0xF,
                               0xF);
     } else if ((eth_comp >> 5) &
                0x1) {  // 10GBASE-LR - assume breakout x4
         //qsfp_sff8636_add_app (port, 0x2, 7, 4, 1, 1, 0xF, 0xF);
-        qsfp_sff8636_add_app (port, 0x2, 4, 4, 1, 1, 0xF,
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF, 4, 4, 1, 1, 0xF,
+                              0xF);
+    } else if ((eth_comp >> 6) &
+               0x1) {  // 10GBASE-LRM - assume breakout x4
+        qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF, 4, 4, 1, 1, 0xF,
                               0xF);
     }
 
+    /* The Extended Specification Compliance Codes are maintained
+        in the Transceiver Management section of SFF-8024. */
     switch (eth_ext_comp) {
         case EXT_COMPLIANCE_NONE:
         case EXT_COMPLIANCE_RSVD2:
@@ -4404,70 +4565,84 @@ static int qsfp_sff8636_populate_app_list (
         // Providing a worst BER of 5 ? 10-5
         case ACC_100G_BER_5:  // 100G ACC (Active Copper Cable) or 25GAUI C2M ACC.
             // Providing a worst BER of 5 ? 10-5
-            qsfp_sff8636_add_app (port, 0x4, 11, 2, 4, 4, 0x1,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_ACTIVE_CBL, 11, 2, 4, 4, 0x1,
                                   0x1);
 
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
             //qsfp_sff8636_add_app (port, 0x4, 5, 2, 1, 1, 0xF, 0xF);
-            qsfp_sff8636_add_app (port, 0x4, 4, 2, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_ACTIVE_CBL, 4, 2, 1, 1, 0xF,
                                   0xF);
             break;
         case SR4_100GBASE:  // 100GBASE-SR4 or 25GBASE-SR
-            qsfp_sff8636_add_app (port, 0x1, 11, 9, 4, 4, 0x1,
-                                  0x1);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_MMF,
+                        HOST_TYPE_CAUI_4_C2M, MEDIA_TYPE_MMF_100GBASE_SR4, 4, 4, 0x1, 0x1);
 
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x1, 5, 3, 1, 1, 0xF,
-                                  0xF);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_MMF,
+                        HOST_TYPE_25GAUI_C2M, MEDIA_TYPE_MMF_25GBASE_SR, 1, 1, 0xF, 0xF);
             break;
         case LR4_100GBASE:   // 100GBASE-LR4 or 25GBASE-LR
         case PSM4_100G_SMF:  // 100G PSM4
-            qsfp_sff8636_add_app (port, 0x2, 11, 13, 4, 4,
-                                  0x1, 0x1);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        HOST_TYPE_CAUI_4_C2M, MEDIA_TYPE_SMF_100GBASE_LR4, 4, 4, 0x1, 0x1);
 
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x2, 5, 7, 1, 1, 0xF,
-                                  0xF);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        5, 7, 1, 1, 0xF, 0xF);
             break;
         case ER4_100GBASE:  // 100GBASE-ER4 or 25GBASE-ER
-            qsfp_sff8636_add_app (port, 0x2, 11, 14, 4, 4,
-                                  0x1, 0x1);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        11, 14, 4, 4, 0x1, 0x1);
 
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x2, 5, 8, 1, 1, 0xF,
-                                  0xF);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        5, 8, 1, 1, 0xF, 0xF);
             break;
         case SR10_100GBASE:  // 100GBASE-SR10
             // not in CMIS
             break;
         case CWDM4_100G:  // 100G CWDM4
-            qsfp_sff8636_add_app (port, 0x2, 11, 16, 4, 4,
-                                  0x1, 0x1);
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        HOST_TYPE_CAUI_4_C2M, MEDIA_TYPE_SMF_100G_CWDM4, 4, 4, 0x1, 0x1);
             break;
+
+        case DR_100GBASE:   /* by Hang Tsi, 2024/03/19. */
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        HOST_TYPE_CAUI_4_C2M_NO_FEC, MEDIA_TYPE_SMF_100GBASE_DR, 4, 1, 0x1, 0xF);
+            break;
+        case FR_100GBASE:   /* by Hang Tsi, 2024/03/19. */
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        HOST_TYPE_CAUI_4_C2M_NO_FEC, MEDIA_TYPE_SMF_100GBASE_FR1, 4, 1, 0x1, 0xF);
+            break;
+        case LR_100GBASE:   /* by Hang Tsi, 2024/03/19. */
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_SMF,
+                        HOST_TYPE_CAUI_4_C2M_NO_FEC, MEDIA_TYPE_SMF_100GBASE_LR1, 4, 1, 0x1, 0xF);
+            break;
+
         case CR4_100GBASE:  // 100GBASE-CR4 or 25GBASE-CR CA-25G-L
-            qsfp_sff8636_add_app (port, 0x3, 26, 1, 4, 4, 0x1,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 26, 1, 4, 4, 0x1,
                                   0x1);
 
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x3, 20, 1, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 20, 1, 1, 1, 0xF,
                                   0xF);
             break;
         case CR_25GBASE_CA_S:  // 25GBASE-CR CA-25G-S
-            qsfp_sff8636_add_app (port, 0x3, 21, 1, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 21, 1, 1, 1, 0xF,
                                   0xF);
             break;
         case CR_25GBASE_CA_N:  // 25GBASE-CR CA-25G-N
-            qsfp_sff8636_add_app (port, 0x3, 22, 1, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 22, 1, 1, 1, 0xF,
                                   0xF);
             break;
         case ACC_200G_BER_6:  // 50GAUI, 100GAUI-2 or 200GAUI-4 C2M
@@ -4551,20 +4726,20 @@ static int qsfp_sff8636_populate_app_list (
             eth_sec_comp);
         // Add a dumy
         if (bf_qsfp_is_optical (port)) {
-            qsfp_sff8636_add_app (port, 0x1, 11, 9, 4, 4, 0x1,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_MMF, 11, 9, 4, 4, 0x1,
                                   0x1);
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x1, 5, 3, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_MMF, 5, 3, 1, 1, 0xF,
                                   0xF);
         } else {
-            qsfp_sff8636_add_app (port, 0x3, 26, 1, 4, 4, 0x1,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 26, 1, 4, 4, 0x1,
                                   0x1);  // 100G Copper
             // assume it supports breakout, but this may be a bad assumption. Need to
             // read the Pg 0 Byte 113 to see
             // the cable construction
-            qsfp_sff8636_add_app (port, 0x3, 20, 1, 1, 1, 0xF,
+            qsfp_sff8636_add_app (port, MEDIA_TYPE_PASSIVE_CU, 20, 1, 1, 1, 0xF,
                                   0xF);
         }
     }
@@ -4724,27 +4899,27 @@ static int bf_qsfp_update_cache (int port)
     }
 
     if (bf_qsfp_is_cmis (port)) {
-        // page 00h (lower), bytes 85-117
+        // page 00h (lower), bytes 0-127
         if (bf_qsfp_module_read (port,
                                  0,  /* bank */
                                  0,  /* page */
-                                 85, /* offset */
-                                 33, /* length */
-                                 &bf_qsfp_info_arr[port].idprom[85]) < 0) {
+                                 0, /* offset */
+                                 128, /* length */
+                                 &bf_qsfp_info_arr[port].idprom[0]) < 0) {
             LOG_WARNING ("Error reading QSFP %2d lower memory\n",
                        port);
             return -1;
         }
 
         if (!bf_qsfp_is_flat_mem (port)) {
-            // page 01h, bytes 130-255
+            // page 01h, bytes 128-255
             if (bf_qsfp_module_read (port,
                                      0,   /* bank */
                                      1,   /* page */
-                                     130, /* offset */
-                                     126, /* length */
-                                     &bf_qsfp_info_arr[port].page1[2]) < 0) {
-                LOG_WARNING ("Error reading QSFP %2d page 1 offset <130-255>\n",
+                                     128, /* offset */
+                                     128, /* length */
+                                     &bf_qsfp_info_arr[port].page1[0]) < 0) {
+                LOG_WARNING ("Error reading QSFP %2d page 1 offset <128-255>\n",
                            port);
                 return -1;
             }
@@ -4768,7 +4943,7 @@ static int bf_qsfp_update_cache (int port)
                                      128, /* offset */
                                      1,   /* length */
                                      &bf_qsfp_info_arr[port].page19[0]) < 0) {
-                LOG_ERROR ("Error reading QSFP %2d page 13 offset <19-19>\n",
+                LOG_ERROR ("Error reading QSFP %2d page 13 offset 19\n",
                            port);
                 return -1;
             }
@@ -4780,7 +4955,7 @@ static int bf_qsfp_update_cache (int port)
                                      128, /* offset */
                                      1,   /* length */
                                      &bf_qsfp_info_arr[port].page47[0]) < 0) {
-                LOG_ERROR ("Error reading QSFP %2d page 2f offset <128-128>\n",
+                LOG_ERROR ("Error reading QSFP %2d page 2f offset 128\n",
                            port);
                 return -1;
             }
@@ -4903,16 +5078,20 @@ static int bf_qsfp_update_cache (int port)
         }
     }
 
+    qsfp_vendor_info_t vendor;
+    bf_qsfp_get_vendor_info (port, &vendor);
     LOG_DEBUG (
-        "QSFP    %2d : Spec %s : %s : %s : lanes %d", port,
+        "QSFP    %2d : Spec %s : %s : %s : lanes %d : "
+        "Vendor %s : Model %s : SN %s : %s", port,
         bf_qsfp_is_cmis (port)       ? "CMIS" : "SFF-8636",
         bf_qsfp_is_passive_cu (port) ? "Passive copper" : "Active/Optical",
         bf_qsfp_is_flat_mem (port)   ? "Flat" : "Paged",
-        bf_qsfp_info_arr[port].num_ch);
+        bf_qsfp_info_arr[port].num_ch,
+        vendor.name, vendor.part_number, vendor.serial_number,
+        "Update cache complete");
 
     bf_qsfp_info_arr[port].cache_dirty = false;
-    LOG_DEBUG ("QSFP    %2d : Update cache complete",
-               port);
+
     return 0;
 }
 
@@ -5222,10 +5401,11 @@ int bf_qsfp_get_pwr_ctrl(int port) {
         LOG_DEBUG("QSFP    %2d : qsfp Power Control read failure", port);
         return -1;
     }
-
-    LOG_DEBUG("QSFP    %2d : value read from qsfp Power Control byte : 0x%x",
+    if (bf_qsfp_is_fsm_logging(port)) {
+        LOG_DEBUG("QSFP    %2d : value read from qsfp Power Control byte : 0x%x",
                 port,
                 pwr_ctrl);
+    }
     // modify the read value
     if (!bf_qsfp_is_cmis(port)) {  // SFF-8636
         if (pwr_ctrl & POWER_OVERRIDE) {
@@ -5269,6 +5449,7 @@ int bf_qsfp_get_pwr_ctrl(int port) {
 void bf_qsfp_set_pwr_ctrl (int port, bool lpmode)
 {
     uint8_t new_pwr_ctrl;
+    uint32_t lpmode_mask = 0;
 
     if (port > bf_plt_max_qsfp) {
         return;
@@ -5283,10 +5464,11 @@ void bf_qsfp_set_pwr_ctrl (int port, bool lpmode)
                    port);
         return;
     }
-
-    LOG_DEBUG ("QSFP    %2d : value read from qsfp Power Control byte : 0x%x",
+    if (bf_qsfp_is_fsm_logging(port)) {
+        LOG_DEBUG ("QSFP    %2d : value read from qsfp Power Control byte : 0x%x",
                port,
                pwr_ctrl);
+    }
 
     // modify the read value
     if (!bf_qsfp_is_cmis (port)) { // SFF-8636
@@ -5369,12 +5551,32 @@ void bf_qsfp_set_pwr_ctrl (int port, bool lpmode)
     LOG_DEBUG ("QSFP    %2d : value Written to new Power Control byte : 0x%x",
                port,
                new_pwr_ctrl);
+
+    if (port <= 32) {
+        lpmode_mask = qsfp_lpmode_mask_l;
+    } else {
+        lpmode_mask = qsfp_lpmode_mask_h;
+    }
+
+    if (lpmode) {
+        /* Set LPMode bit=1 to identify this module is in low power mode. */
+        lpmode_mask |= (1 << (port - 1));
+    } else {
+        /* Set LPMode bit=0 to identify this module is not in low power mode. */
+        lpmode_mask &= ~(1 << (port - 1));
+    }
+
+    if (port <= 32) {
+        qsfp_lpmode_mask_l = lpmode_mask;
+    } else {
+        qsfp_lpmode_mask_h = lpmode_mask;
+    }
+
 }
 
-/* copies cached x-ver data to user suppled buffer
+/**
+ * Copies cached x-ver data to user suppled buffer
  * buffer must take MAX_QSFP_PAGE_SIZE  bytes in it
- */
-/** return qsfp cached information
  *
  *  @param port
  *   port
@@ -5421,6 +5623,55 @@ int bf_qsfp_get_cached_info (int port, int page,
     return 0;
 }
 
+/**
+ * Return a pointer that points to cached x-ver data.
+ * User should never changed datas by this pointer.
+ *
+ *  @param port
+ *   port
+ *  @param page
+ *   lower page, upper page0 or page3
+ *  @param buf
+ *   read the data into
+ *  @return
+ *   0 on success and -1 on error
+ */
+int bf_qsfp_get_cached_info_priv (int port, int page,
+                             uint8_t **bufp)
+{
+    uint8_t *cptr;
+
+    if (port > bf_plt_max_qsfp) {
+        return -1;
+    }
+    if (bf_qsfp_info_arr[port].cache_dirty == true) {
+        return -1;
+    }
+    if (page == QSFP_PAGE0_LOWER) {
+        cptr = &bf_qsfp_info_arr[port].idprom[0];
+    } else if (page == QSFP_PAGE0_UPPER) {
+        cptr = &bf_qsfp_info_arr[port].page0[0];
+    } else if (page == QSFP_PAGE1) {
+        cptr = &bf_qsfp_info_arr[port].page1[0];
+    } else if (page == QSFP_PAGE2) {
+        cptr = &bf_qsfp_info_arr[port].page2[0];
+    } else if (page == QSFP_PAGE3) {
+        cptr = &bf_qsfp_info_arr[port].page3[0];
+    } else if (page == QSFP_PAGE17) {
+        cptr = &bf_qsfp_info_arr[port].page17[0];
+    } else if (page == QSFP_PAGE18) {
+        cptr = &bf_qsfp_info_arr[port].page18[0];
+    } else if (page == QSFP_PAGE19) {
+        cptr = &bf_qsfp_info_arr[port].page19[0];
+    } else if (page == QSFP_PAGE47) {
+        cptr = &bf_qsfp_info_arr[port].page47[0];
+    } else {
+        return -1;
+    }
+    *bufp = cptr;
+    return 0;
+}
+
 /** Reads qsfp and returns its information. Mainly used by Sonic.
  *
  *  @param port
@@ -5434,8 +5685,8 @@ int bf_qsfp_get_cached_info (int port, int page,
  *  @note
  *   buffer must take MAX_QSFP_PAGE_SIZE  bytes in it
  */
-int bf_qsfp_get_info (int port, int page,
-                      uint8_t *buf)
+static int bf_qsfp_get_info (int port, int page,
+                      uint8_t **buf)
 {
     uint8_t *cptr, eeprom_info[MAX_QSFP_PAGE_SIZE] = {0};
 
@@ -5496,7 +5747,8 @@ int bf_qsfp_get_info (int port, int page,
         memcpy (cptr, eeprom_info, MAX_QSFP_PAGE_SIZE);
     }
 
-    memcpy (buf, cptr, MAX_QSFP_PAGE_SIZE);
+    //memcpy (buf, cptr, MAX_QSFP_PAGE_SIZE);
+    *buf = cptr;
     return 0;
 }
 
@@ -5644,7 +5896,8 @@ bf_pltfm_status_t bf_qsfp_module_cached_read (
                                     length,
                                     buf);
     }
-    uint8_t cached_page_buf[MAX_QSFP_PAGE_SIZE];
+    //uint8_t cached_page_buf[MAX_QSFP_PAGE_SIZE];
+    uint8_t *cached_page_buf = NULL;
     cache_segment_t *cache_list = NULL;
     int cache_size = 0;
     cache_segment_list_t *cache_segment_list =
@@ -5652,7 +5905,7 @@ bf_pltfm_status_t bf_qsfp_module_cached_read (
     if (cache_segment_list) {
         cache_list = cache_segment_list->list;
         cache_size = cache_segment_list->size;
-        bf_pltfm_status_t sts = bf_qsfp_get_info(port, page, cached_page_buf);
+        bf_pltfm_status_t sts = bf_qsfp_get_info(port, page, (uint8_t **)&cached_page_buf);
         if (sts != BF_SUCCESS) {
             LOG_ERROR("%s(port=%d): error getting page %d, status = %d",
                     __func__,
@@ -5680,7 +5933,7 @@ bf_pltfm_status_t bf_qsfp_module_cached_read (
             int cached_length_to_read = min (left_cached,
                                              left_to_read);
             memcpy (buf + writing_buf_offset,
-                    &cached_page_buf[curr_offset],
+                    cached_page_buf + curr_offset,
                     cached_length_to_read);
             left_to_read -= cached_length_to_read;
             curr_offset += cached_length_to_read;
@@ -5960,7 +6213,7 @@ uint8_t bf_qsfp_get_media_ch_cnt (int port)
         media_ch_cnt = bf_qsfp_info_arr[port].num_ch;
     }
 
-    LOG_DEBUG ("QSFP    %2d : Media lane count = %d",
+    LOG_DEBUG ("QSFP    %2d : Cacluated media lane count = %d",
                port, media_ch_cnt);
     return media_ch_cnt;
 }
@@ -6155,7 +6408,9 @@ int bf_qsfp_type_get (int port,
         return -1;
     }
 
-    Ethernet_compliance eth_comp;
+    Ethernet_compliance eth_comp = COMPLIANCE_NONE;
+    Ethernet_extended_compliance eth_ext_comp = EXT_COMPLIANCE_NONE;
+
     if (bf_qsfp_get_eth_compliance (port,
                                     &eth_comp) != 0) {
         // Default to Copper Loop back in case of error
@@ -6172,8 +6427,10 @@ int bf_qsfp_type_get (int port,
         return 0;
     }
 
-    LOG_DEBUG ("QSFP    %2d : eth_comp : %2d", port,
+    if (bf_qsfp_is_fsm_logging(port)) {
+        LOG_DEBUG ("QSFP    %2d : eth_comp : %2d", port,
                eth_comp);
+    }
 
     /* SFF standard is not clear about necessity to look at both compliance
      * code and the extended compliance code. From the cable types known so far,
@@ -6185,22 +6442,21 @@ int bf_qsfp_type_get (int port,
         0x77) {  // all except 40GBASE-CR4 and ext compliance bits
         type_copper = false;
     } else if (eth_comp & 0x80) {
-        Ethernet_extended_compliance ext_comp;
         // See SFF-8024 spec rev 4.6.1
         if (bf_qsfp_get_eth_ext_compliance (port,
-                                            &ext_comp) == 0) {
+                                            &eth_ext_comp) == 0) {
             type_copper =
-                bf_qsfp_is_eth_ext_compliance_copper (ext_comp);
+                bf_qsfp_is_eth_ext_compliance_copper (eth_ext_comp);
         } else {
             type_copper = true;
         }
     } else {
         /* Force to QSFP OPT as if ext_compiance and eth ext_compliance not 0x80 or 0x77.
-        * This may occur vary error and let us keep tracking.
-        * by tsihang, 2022-06-22.
-        */
-        LOG_WARNING ("QSFP    %2d : Force to OPT as if ext_compiance and eth ext_compliance not 0x80 or 0x77.\
-        This override by tsihang.\n", port);
+         * This may occur vary error and let us keep tracking.
+         * by tsihang, 2022-06-22.
+         */
+        LOG_WARNING ("QSFP    %2d : Force to OPT as ext_compiance=0x%02x and eth_ext_compliance=0x%02x\n",
+            port, eth_comp, eth_ext_comp);
         type_copper = false;
     }
 
@@ -6215,9 +6471,10 @@ int bf_qsfp_type_get (int port,
         0) {
         return -1;
     }
-
-    LOG_DEBUG ("QSFP    %2d : len_copp : %2d", port,
+    if (bf_qsfp_is_fsm_logging(port)) {
+        LOG_DEBUG ("QSFP    %2d : len_copp : %2d", port,
                cable_len);
+    }
 
     switch (cable_len) {
         case 0:
@@ -6737,7 +6994,8 @@ int bf_cmis_get_datapath_config_status (
 }
 
 int bf_cmis_get_module_state (int port,
-                              Module_State *module_state)
+                              Module_State *module_state,
+                              bool *intl_deasserted)
 {
     int rc;
     uint8_t readval;
@@ -6746,8 +7004,122 @@ int bf_cmis_get_module_state (int port,
                                      MODULE_STATE, 0, 0, 1, &readval);
     if (rc == 0) {
         *module_state = (readval >> 1) & 0x7;
+        if (intl_deasserted)
+            *intl_deasserted = readval & 0x1;
     }
     return rc;
+}
+
+/* By Hang Tsi, 2024/03/22. */
+const char* bf_cmis_get_datapath_state_str(int port,
+        int ch,
+        DataPath_State state) {
+    int asize = ARRAY_LENGTH (qsfp_dp_stat_str);
+
+    // Read from module
+    if (state == 0xFF) {
+        if (bf_cmis_get_datapath_state(port, ch, &state) <
+                0) {
+            LOG_ERROR(
+                "QSFP    %2d/%d : unable to get datapath status", port, ch);
+            return "Unknown";
+        }
+    }
+
+    return qsfp_dp_stat_str[state % asize];
+}
+
+/* CMIS only. By Hang Tsi, 2024/03/22 */
+const char* bf_cmis_get_module_state_str(int port,
+        Module_State state) {
+    int asize = ARRAY_LENGTH (qsfp_module_stat_str);
+
+    // Read from module
+    if (state == 0xFF) {
+        if (bf_cmis_get_module_state(port, &state, NULL) <
+                0) {
+            LOG_ERROR (
+                "QSFP    %2d : unable to get module status", port);
+            return "Unknown";
+        }
+    }
+
+    return qsfp_module_stat_str[state % asize];
+}
+
+/* By Hang Tsi, 2024/02/28 */
+const char* bf_cmis_get_datapath_config_state_str(int port,
+        int ch,
+        DataPath_Config_Status state) {
+    int asize = ARRAY_LENGTH (qsfp_dp_config_str);
+
+    // Read from module
+    if (state == 0xFF) {
+        if (bf_cmis_get_datapath_config_status(port, ch, &state) <
+                0) {
+            LOG_ERROR (
+                "QSFP    %2d/%d : unable to get datapath config status", port, ch);
+            return "Unknown";
+        }
+    }
+
+    return qsfp_dp_config_str[state % asize];
+}
+
+int bf_cmis_get_module_fault_cause (int port,
+                              Module_Fault_Cause *module_fault)
+{
+    int rc;
+    uint8_t readval;
+
+    rc = bf_qsfp_field_read_onebank (port,
+                                     MODULE_FAULT_CAUSE, 0, 0, 1, &readval);
+    if (rc == 0) {
+        *module_fault = readval;
+    }
+    return rc;
+}
+
+/* Print the Module Fault Information. Relevant documents:
+ * [1] CMIS Rev. 5, pag. 64, section 6.3.2.12
+ * [2] CMIS Rev. 5, pag. 115, section 8.2.10, Table 8-15
+ */
+const char *bf_cmis_get_module_fault_cause_str (int port,
+        Module_Fault_Cause state)
+{
+    int asize = ARRAY_LENGTH (qsfp_module_fault_cause_str);
+
+    if (bf_qsfp_get_memmap_format (port) <= MMFORMAT_CMIS4P0) {
+        return "Module fault cause is not supported, CMIS <= 4.0";
+    }
+
+    /* Already known module in fault state if this api called. */
+#if 0
+	Module_State module_state;
+    if (bf_cmis_get_module_state(port, &module_state) < 0) {
+        return "Unknown";
+    }
+
+	if (module_state != MODULE_ST_FAULT) {
+        return "No module fault detected";
+    }
+#endif
+    // Read from module
+    if (state == 0xFF) {
+        if (bf_cmis_get_module_fault_cause(port, &state) < 0) {
+            return "unknown";
+        }
+    }
+
+    switch (state) {
+        case MODULE_FAULT_NO_FAULT:
+        case MODULE_FAULT_TEC_RUNAWAY:
+        case MODULE_FAULT_DATA_MEM_CORRUPTED:
+        case MODULE_FAULT_PROG_MEM_CORRUPTED:
+            return qsfp_module_fault_cause_str[state % asize];
+        default:
+            return " (reserved or unknown)";
+    }
 }
 
 int bf_qsfp_vec_init (bf_qsfp_vec_t *vec)
@@ -6776,11 +7148,10 @@ void bf_qsfp_get_sff_eth_extended_code_description (
                    sizeof (sff_ext_code_map[0]);
 
     Ethernet_compliance eth_comp = COMPLIANCE_NONE;
-    Ethernet_extended_compliance ext_comp =
-        EXT_COMPLIANCE_NONE;
+    Ethernet_extended_compliance eth_ext_comp = EXT_COMPLIANCE_NONE;
 
     bf_qsfp_get_eth_compliance (port, &eth_comp);
-    bf_qsfp_get_eth_ext_compliance (port, &ext_comp);
+    bf_qsfp_get_eth_ext_compliance (port, &eth_ext_comp);
 
     if (eth_comp &
         0x77) {  // all except 40GBASE-CR4 and ext compliance bits
@@ -6791,12 +7162,12 @@ void bf_qsfp_get_sff_eth_extended_code_description (
 
     if (! (eth_comp & COMPLIANCE_RSVD)) { // extended
         sprintf (ext_code_desc,
-                 "Non extended Eth compliance 0x%0x", ext_comp);
+                 "Non extended Eth compliance 0x%0x", eth_ext_comp);
         return;
     }
 
     while (asize) {
-        if (cPtr->ext_code == ext_comp) {
+        if (cPtr->ext_code == eth_ext_comp) {
             strncpy (ext_code_desc, &cPtr->ext_code_desc[0],
                      250);
             code_found = true;
@@ -6808,7 +7179,7 @@ void bf_qsfp_get_sff_eth_extended_code_description (
 
     if (!code_found) {
         sprintf (ext_code_desc, "Reserved (0x%0X)",
-                 ext_comp);
+                 eth_ext_comp);
     }
 }
 
@@ -6927,7 +7298,7 @@ int bf_qsfp_get_tx_cdr_ctrl_support (int port,
    return 0;
 }
 
-/* TF1, by tsihang 2023-05-10. */
+/* SFF-8636 only, by tsihang 2023-05-10. */
 int bf_qsfp_get_rxtx_cdr_ctrl_state (int port,
                          uint8_t *cdr_ctrl_state)
 {
@@ -7025,8 +7396,8 @@ int bf_qsfp_is_cdr_required (int port, bool *rx_cdr_required, bool *tx_cdr_requi
     if (port > bf_plt_max_qsfp) {
         return 0;
     }
-    *rx_cdr_required = !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_RX_CDR_OFF);
-    *tx_cdr_required = !(bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_TX_CDR_OFF);
+    *rx_cdr_required = !(bf_qsfp_info_arr[port].ctrlmask & BF_TRANS_CTRLMASK_RX_CDR_OFF);
+    *tx_cdr_required = !(bf_qsfp_info_arr[port].ctrlmask & BF_TRANS_CTRLMASK_TX_CDR_OFF);
     return 0;
 }
 
@@ -7036,7 +7407,7 @@ int bf_qsfp_ctrlmask_set (int port,
         return -1;
     }
 
-    bf_qsfp_info_arr[port].special_case_port.ctrlmask = ctrlmask;
+    bf_qsfp_info_arr[port].ctrlmask = ctrlmask;
 
     return 0;
 }
@@ -7047,7 +7418,7 @@ int bf_qsfp_ctrlmask_get (int port,
         return -1;
     }
 
-    *ctrlmask = bf_qsfp_info_arr[port].special_case_port.ctrlmask;
+    *ctrlmask = bf_qsfp_info_arr[port].ctrlmask;
 
     return 0;
 }
@@ -7057,7 +7428,29 @@ bool bf_qsfp_is_force_overwrite (int port)
     if (port > bf_plt_max_qsfp) {
         return true;
     }
-    return (bf_qsfp_info_arr[port].special_case_port.ctrlmask & BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT);
+    return (bf_qsfp_info_arr[port].ctrlmask & BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT);
+}
+
+int bf_qsfp_trans_state_set (int port,
+                  uint32_t transate) {
+    if (port > bf_plt_max_qsfp) {
+        return -1;
+    }
+
+    bf_qsfp_info_arr[port].trans_state = transate;
+
+    return 0;
+}
+
+int bf_qsfp_trans_state_get (int port,
+                uint32_t *transate) {
+    if (port > bf_plt_max_qsfp) {
+        return -1;
+    }
+
+    *transate = bf_qsfp_info_arr[port].trans_state;
+
+    return 0;
 }
 
 bool bf_qsfp_is_detected (int port)
@@ -7078,6 +7471,14 @@ void bf_qsfp_set_detected (int port, bool detected)
      * now it's ready to read the ddm of this port.
      */
     bf_qsfp_info_arr[port].fsm_detected = detected;
+}
+
+int bf_qsfp_is_fsm_logging (int port)
+{
+    if (port > bf_plt_max_qsfp) {
+        return 0;
+    }
+    return (bf_qsfp_info_arr[port].ctrlmask & BF_TRANS_CTRLMASK_FSM_LOG_ENA);
 }
 
 void bf_qsfp_print_ddm (int conn_id, qsfp_global_sensor_t *trans, qsfp_channel_t *chnl)
@@ -7129,7 +7530,9 @@ void bf_qsfp_print_ddm (int conn_id, qsfp_global_sensor_t *trans, qsfp_channel_t
                   "--------------");
 }
 
-/* Added by tsihang, 2023-05-10. */
+/* Special cases load from /etc/transceiver-cases.conf.
+ * Also supports to add cases via bfshell.
+ * Added by tsihang, 2023-05-10. */
 static bf_qsfp_special_info_t bf_pltfm_special_transceiver_case[BF_PLAT_MAX_QSFP] = {
     {
         BF_PLTFM_QSFP_UNKNOWN,
@@ -7170,7 +7573,7 @@ int bf_qsfp_tc_entry_add (char *vendor, char *pn, char *option,
             //strncpy (&tc_entry->option[0], option, 16);
             tc_entry->ctrlmask = ctrlmask;
             tc_entry->is_set = true;
-            LOG_DEBUG ("add entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, ctrlmask);
+            LOG_DEBUG ("add entry[%3d] : %-16s : %-16s : %-8x", i, vendor, pn, ctrlmask);
             return 0;
         }
     }
@@ -7191,10 +7594,10 @@ int bf_qsfp_tc_entry_find (char *vendor, char *pn, char *option,
             if (0 == bf_qsfp_tc_entry_cmp (tc_entry, vendor, pn, option)) {
                 /* Find the entry and return its ctrlmask. */
                 *ctrlmask = tc_entry->ctrlmask;
-                LOG_DEBUG ("find entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, tc_entry->ctrlmask);
+                LOG_DEBUG ("find entry[%d] : %-16s : %-16s : %-8x", i, vendor, pn, tc_entry->ctrlmask);
                 if (rmv) {
                     /* Remove it if required. */
-                    LOG_DEBUG ("remove entry[%d] : %-16s : %-16s : %-4x\n", i, vendor, pn, tc_entry->ctrlmask);
+                    LOG_DEBUG ("remove entry[%d] : %-16s : %-16s : %-8x", i, vendor, pn, tc_entry->ctrlmask);
                     tc_entry->is_set = false;
                 }
                 return 0;
@@ -7215,13 +7618,13 @@ int bf_qsfp_tc_entry_dump (char *vendor, char *pn, char *option)
         else {
             if (vendor && pn /* && option */) {
                 if (0 == bf_qsfp_tc_entry_cmp (tc_entry, vendor, pn, option)) {
-                    LOG_DEBUG ("find entry[%d] : %-16s : %-16s : %-4x",
+                    LOG_DEBUG ("find entry[%d] : %-16s : %-16s : %-8x",
                         i, tc_entry->vendor, tc_entry->pn, tc_entry->ctrlmask);
                     return 0;
                 }
             } else {
                 /* Dump all if vendor=NULL and pn=NULL */
-                LOG_DEBUG ("dump entry[%d] : %-16s : %-16s : %-4x",
+                LOG_DEBUG ("dump entry[%d] : %-16s : %-16s : %-8x",
                         i, tc_entry->vendor, tc_entry->pn, tc_entry->ctrlmask);
             }
         }
@@ -7253,7 +7656,9 @@ void bf_pltfm_qsfp_load_conf ()
         "#  #define BF_TRANS_CTRLMASK_RX_CDR_OFF        (1 << 0)\n"   \
         "#  #define BF_TRANS_CTRLMASK_TX_CDR_OFF        (1 << 1)\n"   \
         "#  #define BF_TRANS_CTRLMASK_LASER_OFF         (1 << 2)\n"   \
-        "#  #define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)\n";
+        "#  #define BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT (1 << 7)\n"   \
+        "#  #define BF_TRANS_CTRLMASK_IGNORE_RX_LOS     (1 << 16)\n"  \
+        "#  #define BF_TRANS_CTRLMASK_IGNORE_RX_LOL     (1 << 17)\n";
 
     int i;
     bf_qsfp_special_info_t *tc_entry;
@@ -7294,27 +7699,32 @@ void bf_pltfm_qsfp_load_conf ()
         fwrite (entry, 1, length, fp);
         length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Asterfusion", "TSQ885S101E1", "83=HEX(BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF|BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT)");
         fwrite (entry, 1, length, fp);
+        length = sprintf (entry, "%-16s   %-16s   %-16s\n", "#Asterfusion", "14060165-1", "83=HEX(BF_TRANS_CTRLMASK_RX_CDR_OFF|BF_TRANS_CTRLMASK_TX_CDR_OFF|BF_TRANS_CTRLMASK_OVERWRITE_DEFAULT)");
+        fwrite (entry, 1, length, fp);
 
         /* Write real ones. */
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "WTD", "RTXM420-010", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "WTD", "RTXM420-010", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSQ885S101T1", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Teraspek", "TSQ885S101T1", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Asterfusion", "TSQ885S101T1", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Asterfusion", "TSQ885S101T1", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Asterfusion", "TSQ813L103H1", 0x81);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Asterfusion", "TSQ813L103H1", 0x00000081);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSQ885S101E1", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Teraspek", "TSQ885S101E1", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "Teraspek", "TSO885S030E1", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Teraspek", "TSO885S030E1", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FTLC1157RGPL-TF", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "FINISAR", "FTLC1157RGPL-TF", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FTLC1154RGPL", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "FINISAR", "FTLC1154RGPL", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FCBN425QB2C07", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "FINISAR", "FCBN425QB2C07", 0x00000003);
         fwrite (entry, 1, length, fp);
-        length = sprintf (entry, "%-16s   %-16s   %-4x\n", "FINISAR", "FCBN425QB2C05", 3);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "FINISAR", "FCBN425QB2C05", 0x00000003);
+        fwrite (entry, 1, length, fp);
+
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Asterfusion", "14060165-1", 0x00030000);
         fwrite (entry, 1, length, fp);
 
         fflush(fp);
@@ -7337,5 +7747,5 @@ void bf_pltfm_qsfp_load_conf ()
     }
     fclose (fp);
     fprintf (stdout,
-                "   done(%d entries)\n", num_entries);
+                "   done(%d entries)\n\n", num_entries);
 }

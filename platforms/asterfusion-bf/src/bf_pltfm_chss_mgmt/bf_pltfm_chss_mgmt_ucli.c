@@ -325,13 +325,13 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tmp_show__ (
         aim_printf (&uc->pvs, "tmp2    %.1f C   \"%s\"\n",
                     t.tmp2, "Mainboard Front Right");
         aim_printf (&uc->pvs, "tmp3    %.1f C   \"%s\"\n",
-                    t.tmp3, "BF Ambient  <- from BMC");
+                    t.tmp3, "Fan 1");
         aim_printf (&uc->pvs, "tmp4    %.1f C   \"%s\"\n",
-                    t.tmp4, "BF Junction <- from BMC");
+                    t.tmp4, "Fan 2");
         aim_printf (&uc->pvs, "tmp5    %.1f C   \"%s\"\n",
-                    t.tmp5, "Fan 1");
+                    t.tmp5, "BF Ambient  <- from BMC");
         aim_printf (&uc->pvs, "tmp6    %.1f C   \"%s\"\n",
-                    t.tmp6, "Fan 2");
+                    t.tmp6, "BF Junction <- from BMC");
     } else if (platform_type_equal (AFN_HC36Y24C)) {
         aim_printf (&uc->pvs, "tmp1    %.1f C   \"%s\"\n",
                     t.tmp1, "Unkonwn");
@@ -552,6 +552,76 @@ bf_pltfm_rptr_ucli_ucli__chss_mgmt_tofino_tmp_show__
 
     return 0;
 }
+/* See pltfm_mgr_info_s */
+static char *pltfm_mgr_ctrlmask_str[] = {
+    "AF_PLAT_MNTR_POWER                ",
+    "AF_PLAT_MNTR_FAN                  ",
+    "AF_PLAT_MNTR_TMP                  ",
+    "AF_PLAT_MNTR_MODULE               ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "AF_PLAT_MNTR_IDLE                 ",
+    "AF_PLAT_MNTR_CTRL                 ",
+    "AF_PLAT_MNTR_QSFP_REALTIME_DDM    ",
+    "AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG",
+    "AF_PLAT_MNTR_SFP_REALTIME_DDM     ",
+    "AF_PLAT_MNTR_SFP_REALTIME_DDM_LOG ",
+    "AF_PLAT_MNTR_DPU1_INSTALLED       ",
+    "AF_PLAT_MNTR_DPU2_INSTALLED       ",
+    "AF_PLAT_MNTR_PTPX_INSTALLED       ",
+    "AF_PLAT_CTRL_HA_MODE              ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "                                  ",
+    "AF_PLAT_CTRL_CP2112_RELAX         ",
+    "AF_PLAT_CTRL_I2C_RELAX            ",
+    "AF_PLAT_CTRL_BMC_UART             ",
+    "AF_PLAT_CTRL_CPLD_CP2112          ",
+};
+
+/* You will be able to get current contrl mask via command 'bsp' */
+static ucli_status_t
+bf_pltfm_rptr_ucli_ucli__chss_mgmt_ctrlmask_set__
+(
+    ucli_context_t *uc)
+{
+    uint32_t mask;
+    UCLI_COMMAND_INFO (uc,
+                       "chassis-ctrlmask-set",
+                       -1,
+                       " chassis-ctrlmask-set [mask]");
+
+    mask = bf_pltfm_mgr_ctx()->flags;
+    if (uc->pargs->count > 0) {
+        mask     = strtol (uc->pargs->args[0], NULL, 16);
+        aim_printf (&uc->pvs,
+                    "Chassis mgmt ctrlmask %x -> %x\n",
+                    bf_pltfm_mgr_ctx()->flags,
+                    mask);
+        bf_pltfm_mgr_ctx()->flags = mask;
+    }
+    aim_printf (&uc->pvs, "\n%x\n\n",
+        mask);
+    for (int bit = 0; bit < 32; bit ++) {
+        if (pltfm_mgr_ctrlmask_str[bit][0] != ' ') {
+            aim_printf (&uc->pvs, "%35s (bit=%2d) -> %s\n",
+                pltfm_mgr_ctrlmask_str[bit],
+                bit,
+                ((mask >> bit) & 1) ? "enabled" : "disabled");
+        }
+    }
+
+    return 0;
+}
 
 #if 0
 static ucli_status_t
@@ -598,6 +668,7 @@ bf_pltfm_chss_mgmt_ucli_ucli_handlers__[] = {
     bf_pltfm_rptr_ucli_ucli__chss_mgmt_ps_show__,
     bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_show__,
     bf_pltfm_rptr_ucli_ucli__chss_mgmt_fan_speed_set__,
+    bf_pltfm_rptr_ucli_ucli__chss_mgmt_ctrlmask_set__,
     //bf_pltfm_ucli_ucli__chss_mgmt_bmc_cmd_,
     NULL
 };

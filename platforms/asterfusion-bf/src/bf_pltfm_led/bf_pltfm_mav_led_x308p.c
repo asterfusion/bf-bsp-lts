@@ -5,12 +5,6 @@
  * TSIHANG (tsihang@asterfusion.com)
  */
 
-#include <stdio.h>
-#define __USE_GNU /* See feature_test_macros(7) */
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <errno.h>
 #include <string.h>
 #include <dvm/bf_drv_intf.h>
 #include <lld/lld_gpio_if.h>

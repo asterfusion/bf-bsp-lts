@@ -87,6 +87,21 @@ qsfp_quick_rmv_pres_mask[3];  // 0->lower mask, 1->upper mask
 static int bf_pm_num_qsfp = 0;
 static int bf_pm_num_mac  = 0;
 
+// bf_bd_cfg_bd_port_num_nlanes_get
+int bf_pm_num_lanes_get(
+    uint32_t conn_id)
+{
+    int nlanes = 4;
+
+    if (platform_type_equal(AFN_X732QT)) {
+        if (conn_id != 33)
+            nlanes = 8;
+    } else {
+        // do nothing
+    }
+    return nlanes;
+}
+
 int bf_pm_num_qsfp_get (void)
 {
     return bf_pm_num_qsfp;
@@ -142,8 +157,11 @@ static void qsfp_info_clear (uint32_t conn_id)
 static void cmis_populate_qsfp_info_arr (
     int conn_id)
 {
-    bf_cmis_type_get (conn_id,
-                      &pm_qsfp_info_arr[conn_id].qsfpdd_type);
+    if (bf_cmis_type_get (conn_id,
+                      &pm_qsfp_info_arr[conn_id].qsfpdd_type) != 0) {
+        LOG_ERROR ("PM_INTF QSFP    %2d : error getting QSFP type\n",
+                 conn_id);
+    }
 
     // Hw-init method. Now handled in the module fsm as host-init
     // bf_qsfp_set_transceiver_lpmode(conn_id, true);
@@ -190,10 +208,14 @@ static void qsfp_present_actions (int conn_id)
     pm_qsfp_info_arr[conn_id].is_optic =
         bf_qsfp_is_optical (conn_id);
 
-    LOG_DEBUG ("PM_INTF QSFP    %2d : %s module\n",
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG ("PM_INTF QSFP    %2d : %s module : qsfp_type %d : qsfpdd_type %d",
                conn_id,
                pm_qsfp_info_arr[conn_id].is_optic ? "Optical" :
-               "Copper");
+               "Copper",
+               pm_qsfp_info_arr[conn_id].qsfp_type,
+               pm_qsfp_info_arr[conn_id].qsfpdd_type);
+    }
 
     // mark present
     pm_qsfp_info_arr[conn_id].is_present = true;
@@ -245,7 +267,7 @@ static void qsfp_detection_actions (
         dev_id, conn_id,
         pm_qsfp_info_arr[conn_id].qsfp_type);
     port_hdl.conn_id = conn_id;
-    for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+    for (chnl_id = 0; chnl_id < bf_pm_num_lanes_get(conn_id);
          chnl_id++) {
         port_hdl.chnl_id = chnl_id;
         an_elig = autoneg_to_apply (conn_id, chnl_id);
@@ -261,10 +283,12 @@ static void qsfp_detection_actions (
                 bf_err_str (sts),
                 sts);
         } else {
-            LOG_DEBUG ("PM_INTF QSFP    %2d/%d : mark port eligible_%s for AN\n",
+            if (bf_qsfp_is_fsm_logging(conn_id)) {
+                LOG_DEBUG ("PM_INTF QSFP    %2d/%d : mark port eligible_%s for AN",
                         port_hdl.conn_id,
                         port_hdl.chnl_id,
                         an_elig ? "true" : "false");
+            }
         }
 
         sts = bf_pal_pm_front_port_ready_for_bringup (
@@ -281,12 +305,9 @@ static void qsfp_detection_actions (
         }
     }
 
-    fprintf (stdout, "QSFP    %2d : inserted\n",
-             conn_id);
-
     bool kick_off_ch_fsm = false;
     port_hdl.conn_id = conn_id;
-    for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+    for (chnl_id = 0; chnl_id < bf_pm_num_lanes_get(conn_id);
          chnl_id++) {
         port_hdl.chnl_id = chnl_id;
         is_subport_cfg_lp_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
@@ -299,7 +320,7 @@ static void qsfp_detection_actions (
 
     if (kick_off_ch_fsm) {
         port_hdl.conn_id = conn_id;
-        for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+        for (chnl_id = 0; chnl_id < bf_pm_num_lanes_get(conn_id);
              chnl_id++) {
             port_hdl.chnl_id = chnl_id;
             /* Kick off channel FSM  to enable opt Tx.
@@ -321,8 +342,12 @@ static void qsfp_removal_actions (bf_dev_id_t
 
     qsfp_info_clear (conn_id);
 
+    // if (!bf_pm_intf_is_device_family_tofino(dev_id)) {
+    //     return;
+    // }
+
     port_hdl.conn_id = conn_id;
-    for (chnl_id = 0; chnl_id < QSFP_NUM_CHN;
+    for (chnl_id = 0; chnl_id < bf_pm_num_lanes_get(conn_id);
          chnl_id++) {
         port_hdl.chnl_id = chnl_id;
         /* At least one of subports. */
@@ -485,13 +510,15 @@ static bf_pltfm_status_t qsfp_scan_helper (
             ((conn_id % 32) != 0)
             ? (PM_BIT_GET(qsfp_pres_mask[mask_id], (conn_id % 32) - 1))
             : (PM_BIT_GET(qsfp_pres_mask[mask_id], 31));
-        LOG_DEBUG ("PM_INTF QSFP    %2d : curr-pres-st : %d prev-pres-st : %d",
+        if (bf_qsfp_is_fsm_logging(conn_id)) {
+            LOG_DEBUG ("PM_INTF QSFP    %2d : curr-pres-st : %d prev-pres-st : %d",
                    conn_id,
                    qsfp_curr_st_abs,
                    qsfp_prev_st_abs);
+        }
         if (qsfp_curr_st_abs) {
             if (!qsfp_prev_st_abs) {
-                LOG_DEBUG ("PM_INTF QSFP    %2d : unplugged (from plug st)\n",
+                LOG_DEBUG ("PM_INTF QSFP    %2d : unplugged (from plug st)",
                            conn_id);
                 is_present = false;
                 // hack to clear the states.
@@ -506,10 +533,12 @@ static bf_pltfm_status_t qsfp_scan_helper (
 
         int detect_st = bf_qsfp_detect_transceiver (
                             conn_id, &is_present);
-        LOG_DEBUG ("PM_INTF QSFP    %2d : detect-st : %d is-present : %d",
+        if (bf_qsfp_is_fsm_logging(conn_id)) {
+            LOG_DEBUG ("PM_INTF QSFP    %2d : detect-st : %d is-present : %d",
                    conn_id,
                    detect_st,
                    is_present);
+        }
 
         // Find if the said qsfp module was removed or added
         if (detect_st) {
@@ -525,7 +554,7 @@ handle_removal:
                     LOG_DEBUG (
                         "PM_INTF QSFP    %2d : Latched removal conditon detected. Doing "
                         "removal "
-                        "actions.\n",
+                        "actions.",
                         conn_id);
                     is_present = false;
                 }
@@ -994,11 +1023,12 @@ static void sfp_present_actions (int module)
     pm_sfp_info_arr[module].is_optic =
         bf_sfp_is_optical (module);
 
-    LOG_DEBUG ("PM_INTF  SFP    %2d : contains %s module",
+    if (bf_sfp_is_fsm_logging (module)) {
+        LOG_DEBUG ("PM_INTF  SFP    %2d : contains %s module",
                module,
                pm_qsfp_info_arr[module].is_optic ? "Optical" :
                "Copper");
-
+    }
     // mark present
     pm_sfp_info_arr[module].is_present = true;
 }
@@ -1042,12 +1072,6 @@ static void sfp_detection_actions (
             bf_err_str (sts),
             sts);
     }
-
-    fprintf (stdout,
-             " SFP    %2d : %2d/%d : inserted\n",
-             module,
-             port_hdl.conn_id,
-             port_hdl.chnl_id);
 
     is_subport_cfg_lp_mode = devport_state_loopback_mode_chk (dev_id, &port_hdl);
     is_subport_cfg_force_tx_mode = devport_state_tx_mode_chk (dev_id, &port_hdl);
@@ -1127,24 +1151,24 @@ static bf_pltfm_status_t sfp_scan_helper (
             if (bf_sfp_get_reset (module)) {
                 int rc;
 
-                LOG_DEBUG (" SFP    %2d : RESETL = true",
+                LOG_DEBUG ("PM_INTF  SFP    %2d : RESETL = true",
                            module);
                 // assert resetL
                 rc = bf_sfp_reset (module, true);
                 if (rc != 0) {
-                    LOG_ERROR (" SFP    %2d : Error <%d> asserting resetL",
+                    LOG_ERROR ("PM_INTF  SFP    %2d : Error <%d> asserting resetL",
                                module, rc);
                 }
 
                 bf_sys_usleep (3); // really 2 micro-seconds
 
-                LOG_DEBUG (" SFP    %2d : RESETL = false",
+                LOG_DEBUG ("PM_INTF  SFP    %2d : RESETL = false",
                            module);
                 // de-assert resetL
                 rc = bf_sfp_reset (module, false);
                 if (rc != 0) {
                     LOG_ERROR (
-                        " SFP    %2d : Error <%d> de-asserting resetL",
+                        "PM_INTF  SFP    %2d : Error <%d> de-asserting resetL",
                         module, rc);
                 }
                 // We need 2-seconds for module to be ready, hence we continue.
@@ -1163,13 +1187,15 @@ static bf_pltfm_status_t sfp_scan_helper (
             ((module % 32) != 0)
             ? (PM_BIT_GET(sfp_pres_mask[mask_id], (module % 32) - 1))
             : (PM_BIT_GET(sfp_pres_mask[mask_id], 31));
-        LOG_DEBUG (" SFP    %2d : curr-pres-st : %d prev-pres-st : %d",
+        if (bf_sfp_is_fsm_logging(module)) {
+            LOG_DEBUG ("PM_INTF  SFP    %2d : curr-pres-st : %d prev-pres-st : %d",
                    module,
                    sfp_curr_st_abs,
                    sfp_prev_st_abs);
+        }
         if (sfp_curr_st_abs) {
             if (!sfp_prev_st_abs) {
-                LOG_DEBUG (" SFP    %2d : unplugged (from plug st)",
+                LOG_DEBUG ("PM_INTF  SFP    %2d : unplugged (from plug st)",
                            module);
                 is_present = false;
                 // hack to clear the states.
@@ -1178,7 +1204,7 @@ static bf_pltfm_status_t sfp_scan_helper (
             }
             // we should never land here. But fall through and handle as done
             // previously
-            LOG_DEBUG (" SFP    %2d : unplugged (from unplugged st)",
+            LOG_DEBUG ("PM_INTF  SFP    %2d : unplugged (from unplugged st)",
                        module);
         }
 
@@ -1189,18 +1215,19 @@ static bf_pltfm_status_t sfp_scan_helper (
         uint32_t conn_id = 0, chnl_id = 0;
         bf_sfp_get_conn (module, &conn_id,
                          &chnl_id);
-
-        LOG_DEBUG (" SFP    %2d : %2d/%d : detect-st : %d is-present : %d",
+        if (bf_sfp_is_fsm_logging(module)) {
+            LOG_DEBUG ("PM_INTF  SFP    %2d : %2d/%d : detect-st : %d is-present : %d",
                    module,
                    conn_id,
                    chnl_id,
                    detect_st,
                    is_present);
+        }
 
         // Find if so-called sfp module was removed or added
         if (detect_st) {
             // hopefully, detect it in the next iteration
-            LOG_ERROR (" SFP    %2d : error detecting SFP",
+            LOG_ERROR ("PM_INTF  SFP    %2d : error detecting SFP",
                        module);
             module++;
             continue;  // back to outer while loop
@@ -1211,7 +1238,7 @@ handle_removal:
                 // over-ride present bit so that we go through clean state in next cycle
                 if (is_present) {
                     LOG_DEBUG (
-                        " SFP    %2d : Latched removal conditon detected. Doing removal "
+                        "PM_INTF  SFP    %2d : Latched removal conditon detected. Doing removal "
                         "actions.\n",
                         module);
                     is_present = false;
@@ -1438,10 +1465,14 @@ bf_pltfm_status_t bf_pltfm_pm_port_sfp_type_get (
     /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
+     *
+     * bf_pm_num_lanes_get is quite different as there are only 4 lanes
+     * for AUX MAC. While it's lucky that we can handle this case
+     * wisely with is_panel_sfp to dobule check.
+     * by Hang Tsi, 2024-04-10.
      */
-    if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_mac) ||
-        (port_info->chnl_id >= QSFP_NUM_CHN) ||
+    if ((port_info->conn_id > (uint32_t)bf_pm_num_mac) ||
+        (port_info->chnl_id >= (uint32_t)bf_pm_num_lanes_get(port_info->conn_id)) ||
         !is_panel_sfp (port_info->conn_id,
                        port_info->chnl_id)) {
         return BF_PLTFM_INVALID_ARG;
@@ -1468,10 +1499,14 @@ bf_pltfm_status_t pltfm_pm_port_sfp_is_present (
     /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
+     *
+     * bf_pm_num_lanes_get is quite different as there are only 4 lanes
+     * for AUX MAC. While it's lucky that we can handle this case
+     * wisely with is_panel_sfp to dobule check.
+     * by Hang Tsi, 2024-04-10.
      */
-    if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_mac) ||
-        (port_info->chnl_id >= QSFP_NUM_CHN) ||
+    if ((port_info->conn_id > (uint32_t)bf_pm_num_mac) ||
+        (port_info->chnl_id >= (uint32_t)bf_pm_num_lanes_get(port_info->conn_id)) ||
         !is_panel_sfp (port_info->conn_id,
                        port_info->chnl_id)) {
         return BF_PLTFM_INVALID_ARG;
@@ -1530,10 +1565,14 @@ bf_pltfm_status_t bf_pltfm_pm_port_qsfp_type_get (
     /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
+     *
+     * bf_pm_num_lanes_get is quite different as there are only 4 lanes
+     * for AUX MAC. While it's lucky that we can handle this case
+     * wisely with is_panel_sfp to dobule check.
+     * by Hang Tsi, 2024-04-10.
      */
-    if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_mac) ||
-        (port_info->chnl_id >= QSFP_NUM_CHN)) {
+    if ((port_info->conn_id > (uint32_t)bf_pm_num_mac) ||
+        (port_info->chnl_id >= (uint32_t)bf_pm_num_lanes_get(port_info->conn_id))) {
         return BF_PLTFM_INVALID_ARG;
     }
 
@@ -1565,10 +1604,14 @@ bf_pltfm_status_t pltfm_pm_port_qsfp_is_present (
     /* bf_pm_num_mac is equle the number of MAC. No matter SFP or QSFP,
      * this branch can be used for two of them. So I keep it here.
      * by tsihang, 2021-07-18.
+     *
+     * bf_pm_num_lanes_get is quite different as there are only 4 lanes
+     * for AUX MAC. While it's lucky that we can handle this case
+     * wisely with is_panel_sfp to dobule check.
+     * by Hang Tsi, 2024-04-10.
      */
-    if ((port_info->conn_id > (uint32_t)
-         bf_pm_num_mac) ||
-        (port_info->chnl_id >= QSFP_NUM_CHN)) {
+    if ((port_info->conn_id > (uint32_t)bf_pm_num_mac) ||
+        (port_info->chnl_id >= (uint32_t)bf_pm_num_lanes_get(port_info->conn_id))) {
         return BF_PLTFM_INVALID_ARG;
     }
 

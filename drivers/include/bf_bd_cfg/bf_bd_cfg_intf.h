@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-#define QSFP_NUM_CHN 4
+//#define QSFP_NUM_CHN 4
 
 typedef bf_pltfm_status_t (
     *bf_pltfm_bd_cfg_qsfp_type_fn) (
@@ -264,6 +264,9 @@ bf_pltfm_status_t bf_bd_cfg_init();
  * @return number of ports on the underlying platform
  */
 int bf_bd_cfg_bd_num_port_get();
+
+int bf_bd_cfg_bd_port_num_nlanes_get(
+    uint32_t conn_id);
 
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_bd_cfg_ucli_node_create (

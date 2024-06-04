@@ -96,8 +96,7 @@ typedef struct bd_map_ent_t {
     uint32_t device_id;
 
     // Serdes params for DD modules
-    serdes_lane_tx_eq_t
-    *tx_eq_for_qsfpdd[2];  // 0: NRZ 1:PAM4
+    serdes_lane_tx_eq_t *tx_eq_for_qsfpdd[2];  // 0: NRZ 1:PAM4
     serdes_lane_tx_eq_t *tx_eq_for_internal_port[2];
 
     /* tof3 related is ignored. */
