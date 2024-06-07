@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 //#include "libbb.h"
 #include "onie_tlvinfo.h"
 #include "sys_eeprom.h"
@@ -169,7 +170,7 @@ static int set_date (char *buf,
         return -1;
     }
     if (strlen (string) != 19) {
-        printf ("ERROR: Date strlen() != 19 -- %d\n",
+        printf ("ERROR: Date strlen() != 19 -- %lu\n",
                 strlen (string));
         printf ("ERROR: Bad date format (MM/DD/YYYY hh:mm:ss): %s\n",
                 string);
@@ -262,7 +263,7 @@ static int set_mac (char *buf,
         return -1;
     }
     if (strlen (p) != 17) {
-        printf ("ERROR: MAC address strlen() != 17 -- %d\n",
+        printf ("ERROR: MAC address strlen() != 17 -- %lu\n",
                 strlen (p));
         printf ("ERROR: Bad MAC address format: %s\n",
                 string);
@@ -296,7 +297,7 @@ static int set_mac (char *buf,
             p = (*end) ? end + 1 : end;
         }
     }
-    if (!is_valid_ether_addr ((char *)buf)) {
+    if (!is_valid_ether_addr ((const uint8_t *)buf)) {
         printf (
             "ERROR: MAC address must not be 00:00:00:00:00:00, "
             "a multicast address or FF:FF:FF:FF:FF:FF.\n");
@@ -425,7 +426,6 @@ static void decode_tlv (tlvinfo_tlv_t *tlv)
 {
     char name[DECODE_NAME_MAX];
     char value[TLV_DECODE_VALUE_MAX_LEN];
-    int i;
 
     decode_tlv_value (tlv, value);
 
@@ -606,12 +606,12 @@ int read_eeprom (u_int8_t *eeprom)
 
     /* Read the header */
     ret = read_sys_eeprom ((void *)eeprom_hdr, 0,
-                           sizeof (tlvinfo_header_t));
+                           (int)sizeof (tlvinfo_header_t));
     /* If the header was successfully read, read the TLVs */
     if ((ret == 0) &&
         is_valid_tlvinfo_header (eeprom_hdr)) {
         ret = read_sys_eeprom ((void *)eeprom_tlv,
-                               sizeof (tlvinfo_header_t),
+                               (int)sizeof (tlvinfo_header_t),
                                be16_to_cpu (eeprom_hdr->totallen));
     }
     // If the contents are invalid, start over with default contents
@@ -665,6 +665,7 @@ int prog_eeprom (u_int8_t *eeprom)
     return 0;
 }
 
+#if 0
 /*
  * is_sys_eeprom_valid - Is the EEPROM binary data in hardware valid
  */
@@ -672,7 +673,7 @@ static int is_sys_eeprom_valid()
 {
     return hw_eeprom_valid;
 }
-
+#endif
 /*
  *  tlvinfo_multiple_tcode_allowed
  *
@@ -866,7 +867,7 @@ bool tlvinfo_add_tlv (u_int8_t *eeprom, int tcode,
     }
 
     // Is there room for this TLV?
-    if ((be16_to_cpu (eeprom_hdr->totallen) + sizeof (
+    if ((int)(be16_to_cpu (eeprom_hdr->totallen) + sizeof (
              tlvinfo_tlv_t) +
          new_tlv_len) > max_size) {
         printf ("ERROR: There is not enough room in the EERPOM to save data.\n");
@@ -920,8 +921,7 @@ void show_tlv_code_list (void)
     printf ("TLV Code    TLV Name\n");
     printf ("========    =================\n");
     for (i = 0;
-         i < sizeof (tlv_code_list) / sizeof (
-             tlv_code_list[0]); i++) {
+         i < ARRAY_LENGTH(tlv_code_list); i++) {
         printf (
             "0x%02x        %s\n", tlv_code_list[i].m_code,
             tlv_code_list[i].m_name);

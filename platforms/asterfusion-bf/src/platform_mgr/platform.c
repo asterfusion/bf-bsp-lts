@@ -118,7 +118,7 @@ static void pltfm_mgr_start_health_mntr (void)
         pthread_setname_np (
             bf_pltfm_mgr_ctx()->health_mntr_t_id,
             bf_pltfm_mgr_ctx()->np_name);
-        LOG_DEBUG ("pltfm_mgr: health monitor initialized(%u : %s)\n",
+        LOG_DEBUG ("pltfm_mgr: health monitor initialized(%lu : %s)\n",
                    bf_pltfm_mgr_ctx()->health_mntr_t_id,
                    bf_pltfm_mgr_ctx()->np_name);
     }
@@ -135,7 +135,7 @@ static void pltfm_mgr_start_health_mntr (void)
         pthread_setname_np (
             bf_pltfm_mgr_ctx()->onlp_mntr_t_id,
             bf_pltfm_mgr_ctx()->np_onlp_mntr_name);
-        LOG_DEBUG ("pltfm_mgr: transceiver monitor initialized(%u : %s)\n",
+        LOG_DEBUG ("pltfm_mgr: transceiver monitor initialized(%lu : %s)\n",
                    bf_pltfm_mgr_ctx()->onlp_mntr_t_id,
                    bf_pltfm_mgr_ctx()->np_onlp_mntr_name);
     }
@@ -2712,6 +2712,8 @@ bf_status_t bf_pltfm_platform_init (
 
     hostinfo();
     AF_LOG_EXT ("Started");
+    AF_LOG_EXT ("OS_VERSION=%d, SDE_VERSION=%d\n",
+        OS_VERSION, SDE_VERSION);
 
     /* Initialize the Chassis Management library */
     err = chss_mgmt_init();

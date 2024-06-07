@@ -15,7 +15,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
+#ifndef __USE_GNU
 #define __USE_GNU /* See feature_test_macros(7) */
+#endif
 #include <pthread.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -35,7 +37,9 @@
 /* Mainline SDE version used by bsp, set 9.13.0 as default.
  * Valid value in [891,900,910,930,950,970,990,9110,9120,9130 ...].
  * A sub version start from a given mainline is valid too, such as 931,952,971, etc. */
+#ifndef SDE_VERSION
 #define SDE_VERSION 9130
+#endif
 #define SDE_VERSION_EQ(key) \
         EQ(SDE_VERSION, (key))
 
@@ -46,7 +50,9 @@
         LT(SDE_VERSION, (key))
 
 /* Mainline OS version, <= 9 or > 9. Valid value in [8,9,10,11]. */
+#ifndef OS_VERSION
 #define OS_VERSION 9
+#endif
 #define OS_VERSION_EQ(key) \
         EQ(OS_VERSION, (key))
 
@@ -147,6 +153,7 @@ extern "C" {
   bf_sys_log_and_trace(BF_MOD_PLTFM, BF_LOG_WARN, __VA_ARGS__)
 #define LOG_DEBUG(...) \
   bf_sys_log_and_trace(BF_MOD_PLTFM, BF_LOG_DBG, __VA_ARGS__)
+
 /* Considering mounting LOG_DIR_PREFIX to ramfs or tmpfs.
  * by tsihang, 2022-06-02. */
 #define LOG_DIR_PREFIX  "/var/asterfusion"

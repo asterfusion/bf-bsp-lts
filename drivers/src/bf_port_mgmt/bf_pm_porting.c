@@ -266,7 +266,7 @@ static bf_status_t bf_pm_port_fc_mac_set (
     bf_dev_id_t dev_id = 0;
     bf_pltfm_port_info_t port_info;
     uint8_t mac_addr[6] = {0};
-    bf_status_t sts;
+    bf_status_t sts = BF_PLTFM_SUCCESS;
 
     // Safety Checks
     if (!port_hdl) {
@@ -278,9 +278,12 @@ static bf_status_t bf_pm_port_fc_mac_set (
 
     if (platform_port_mac_addr_get (&port_info,
                                     mac_addr) != BF_PLTFM_SUCCESS) {
-        LOG_ERROR ("Unable to get the mac address for front port %d/%d : %s (%d)",
+        LOG_ERROR ("Unable to get the mac address for front port %d/%d : "
+                   "%s (%d)",
                    port_info.conn_id,
-                   port_info.chnl_id);
+                   port_info.chnl_id,
+                   bf_pltfm_err_str (sts),
+                   sts);
         return BF_INVALID_ARG;
     }
 
@@ -289,10 +292,12 @@ static bf_status_t bf_pm_port_fc_mac_set (
               dev_id, dev_port, mac_addr);
     if (sts != BF_SUCCESS) {
         LOG_ERROR (
-            "Unable to set the flow-control mac address for front port %d/%d : %s "
-            "(%d)",
+            "Unable to set the flow-control mac address for front port %d/%d : "
+            "%s (%d)",
             port_info.conn_id,
-            port_info.chnl_id);
+            port_info.chnl_id,
+            bf_pltfm_err_str (sts),
+            sts);
     }
 
     // Currently there is nothing to be done so just return

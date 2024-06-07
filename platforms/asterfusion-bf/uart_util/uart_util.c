@@ -10,6 +10,9 @@
 #include <errno.h>
 #include <string.h>
 
+#include <bf_pltfm_types/bf_pltfm_types.h>
+#include <bf_bd_cfg/bf_bd_cfg_intf.h>
+#include <bf_bd_cfg/bf_bd_cfg_bd_map.h>
 #include <bf_pltfm_uart.h>
 
 extern bool uart_debug;
@@ -46,6 +49,13 @@ static int need_converto_char(uint8_t cmd) {
     return (cmd == 1 || cmd == 14);
 }
 
+/* stub functions to make uart_util build */
+int platform_num_ports_get(void) { return 0; }
+/* stub functions to make uart_util build */
+pltfm_bd_map_t *platform_pltfm_bd_map_get(int *rows) {
+    *rows = 0;
+    return NULL;
+}
 
 /* uart_util /dev/ttyS1 0xd 0xaa 0xaa.
  * by tsihang, 2022-05-26. */

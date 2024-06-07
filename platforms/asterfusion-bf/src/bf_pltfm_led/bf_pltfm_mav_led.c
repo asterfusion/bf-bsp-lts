@@ -260,7 +260,7 @@ bf_pltfm_status_t bf_pltfm_tf_cpld_write (
 
     if (err != BF_PLTFM_SUCCESS) {
         LOG_ERROR (
-            "Error %s(%d) Tofino i2c write failed for device: 0x%x offset 0x%x ",
+            "Error %s(%d) Tofino i2c write failed for device: 0x%x offset 0x%x "
             "data: 0x%x\n",
             bf_err_str (err),
             err,
@@ -1180,7 +1180,7 @@ bf_pltfm_ucli_ucli__led_set_tofino_
 
     if (err) {
         aim_printf (&uc->pvs,
-                    "error setting LED(%02d/%2d : %d)\n",
+                    "error setting LED (%d)\n",
                     err);
     } else {
         aim_printf (&uc->pvs, "LED set OK\n");

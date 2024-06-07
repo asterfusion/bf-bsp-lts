@@ -1,6 +1,9 @@
 #include "onie_tlvinfo.h"
 
-int process_request (int count, char *cmd[]);
+extern int proc_addr_read (int count, char *cmd[],
+                    bool is_unsafe, uint8_t *rb);
+extern bool is_checksum_valid (u_int8_t *eeprom);
+extern int process_request (int count, char *cmd[]);
 
 static char start_offset[16];
 const char *cmd1[] = {"0", "write", "1", "0xe8", "1", "0x40"};
@@ -11,14 +14,14 @@ const char *cmd2[] = {
 int read_sys_eeprom (unsigned char *eeprom_hdr,
                      int offset, int size)
 {
-    unsigned int len = 0;
-    process_request (6, cmd1);
+    int len = 0;
+    process_request (6, (char **)cmd1);
     //  process_request(8, cmd2);
     // loop 60 bytes at a time and read
     while (len < size) {
         snprintf (start_offset, 8, "0x%02x",
                   len + offset);
-        proc_addr_read (8, cmd2, true, eeprom_hdr + len);
+        proc_addr_read (8, (char **)cmd2, true, eeprom_hdr + len);
         len += 60;
     }
     return 0;
@@ -59,7 +62,7 @@ int main (int argc, char **argv)
         if (t->type == ((argc > 1) ? atoi (
                             argv[1]) : 0x22)) {
             // return the string in stdout
-            strncpy (ret, t->value, t->length);
+            strncpy (ret, (char *)t->value, (size_t)t->length);
             printf ("%s\n", ret);
             return 0;
         }
@@ -69,5 +72,5 @@ int main (int argc, char **argv)
         //    printf("Type = 0x%x\n", t->type);
         len += t->length + 2;
     }
-    return -1;
+    return sts;
 }

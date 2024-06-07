@@ -335,9 +335,9 @@ static int product_subversion (const char *index)
         }
         i++;
     }
+    strcpy (eeprom.bf_pltfm_product_subversion,
+        str);
     str[j] = '\0';
-    strncpy (eeprom.bf_pltfm_product_subversion,
-        str, j);
 
     //LOG_DEBUG ("Product Sub-Version: %s \n",
     //           eeprom.bf_pltfm_product_subversion);
@@ -840,8 +840,7 @@ bf_pltfm_status_t bf_pltfm_bd_type_init()
             path);
         fp = fopen(path, "r");
         if (!fp) {
-            LOG_ERROR ("\n\nError : Launch failed\n\n",
-                path);
+            LOG_ERROR ("\n\nError : Launch failed\n\n");
             /* First boot error, no chance to rescure, exit forcely. */
             exit (0);
         } else {

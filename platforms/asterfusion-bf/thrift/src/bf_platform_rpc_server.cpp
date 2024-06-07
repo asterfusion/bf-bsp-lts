@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <netdb.h>
-#include "config.h"
+//#include "config.h"
 #include "bf_platform_rpc_server.h"
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>

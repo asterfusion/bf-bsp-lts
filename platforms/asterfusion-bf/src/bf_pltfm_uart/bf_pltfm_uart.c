@@ -235,7 +235,7 @@ xmit (struct bf_pltfm_uart_ctx_t *ctx,
     } else if (rc == -1) {
         LOG_ERROR (
             "%s[%d], "
-            "read(%d) : %d : %s"
+            "read(%d) : %lu : %s"
             "\n",
             __FILE__, __LINE__, ctx->fd, tx_len,
             oryx_safe_strerror (errno));
@@ -270,7 +270,7 @@ recv (struct bf_pltfm_uart_ctx_t *ctx,
     } else if (rc == -1) {
         LOG_ERROR (
             "%s[%d], "
-            "read(%d) : %d : %s"
+            "read(%d) : %lu : %s"
             "\n",
             __FILE__, __LINE__, ctx->fd, rx_len,
             oryx_safe_strerror (errno));

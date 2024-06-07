@@ -939,7 +939,7 @@ int main (int argc, char *argv[]) {
 int platform_num_ports_get (void) {
     return 0;
 }
-
+/* stub functions to make cp2112_util build */
 pltfm_bd_map_t *platform_pltfm_bd_map_get (
     int *rows) {
     *rows = 0;

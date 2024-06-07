@@ -495,7 +495,7 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
     bf_pltfm_status_t sts = BF_SUCCESS;
     char cpld_ver[MAX_SYSCPLDS][8] = {{0}};
 
-    for (int i = 0; i < bf_pltfm_mgr_ctx()->cpld_count; i++) {
+    for (int i = 0; i < (int)bf_pltfm_mgr_ctx()->cpld_count; i++) {
         bf_pltfm_get_cpld_ver((uint8_t)(i + 1), cpld_ver[i], true);
     }
 

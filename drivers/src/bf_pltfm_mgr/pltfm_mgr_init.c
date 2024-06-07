@@ -130,7 +130,10 @@ bf_status_t pltfm_mgr_init (bf_switchd_context_t
 
 #if SDE_VERSION_GT(9110)
         bf_pm_interface.pltfm_ha_wait_port_cfg_done = &bf_pm_ha_wait_port_cfg_done;
-        /* Since 9.13.x */
+#endif
+
+#if SDE_VERSION_GT(9131)
+        /* Since 9.13.2 */
         bf_pm_interface.pltfm_is_port_non_func =
             &bf_pm_is_port_non_func;
 #endif

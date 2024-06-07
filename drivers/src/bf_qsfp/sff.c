@@ -7,6 +7,7 @@
 
 #include <bf_qsfp/sff_standards.h>
 
+#define SFF_CONFIG_INCLUDE_EXT_CC_CHECK 1
 
 extern int
 sff_nonstandard_lookup (sff_info_t *info);

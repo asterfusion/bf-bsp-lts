@@ -143,8 +143,7 @@ static inline const char *tlv_type2name (
     int i;
 
     for (i = 0;
-         i < sizeof (tlv_code_list) / sizeof (
-             tlv_code_list[0]); i++) {
+         i < ARRAY_LENGTH (tlv_code_list); i++) {
         if (tlv_code_list[i].m_code == type) {
             name = tlv_code_list[i].m_name;
             break;
