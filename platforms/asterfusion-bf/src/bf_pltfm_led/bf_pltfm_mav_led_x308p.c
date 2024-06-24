@@ -110,10 +110,11 @@ static void led_cond_convert_to_color_x308p (bf_led_condition_t led_cond,
 
         /* Green when link is up. The color will be reset to the one which indicates current speed. */
         case BF_LED_PORT_LINK_UP:
-        /* Green at 25/10/1G, 22 Dec, 2023. */
+        /* Yellow at 25/10/1G, 22 Dec, 2023. */
         case BF_LED_PORT_LINKUP_1G_10G:
         case BF_LED_PORT_LINKUP_25G:
-            led_col = BF_MAV_PORT_LED_GREEN;
+            led_col = BF_MAV_PORT_LED_RED |
+                      BF_MAV_PORT_LED_GREEN;
             break;
 
         /* Red at 40G */
@@ -121,11 +122,10 @@ static void led_cond_convert_to_color_x308p (bf_led_condition_t led_cond,
             led_col = BF_MAV_PORT_LED_RED;
             break;
 
-        /* Yellow at 50G/100G */
+        /* Green at 50G/100G */
         case BF_LED_PORT_LINKUP_50G:
         case BF_LED_PORT_LINKUP_100G:
-            led_col = BF_MAV_PORT_LED_RED |
-                      BF_MAV_PORT_LED_GREEN;
+            led_col = BF_MAV_PORT_LED_GREEN;
             break;
 
         /* Test only */
@@ -165,27 +165,19 @@ bf_pltfm_port_led_by_tofino_sync_set_x308p (
     uint8_t led_link, led_speed;
 
     switch (val & (BF_MAV_PORT_LED_RED + BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_BLUE)) {
-        case BF_MAV_PORT_LED_GREEN:
+        case (BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_RED):
             led_link  = 0x01;
-            led_speed = 0x00;           // 10G
+            led_speed = 0x01;           // 10G/25G
             break;
-        case (BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_BLUE):
-            led_link  = 0x01;
-            led_speed = 0x01;           // 25G
-            break;
-        case BF_MAV_PORT_LED_BLUE:
+        case BF_MAV_PORT_LED_RED:
             led_link  = 0x01;
             led_speed = 0x02;           // 40G
             break;
-        case (BF_MAV_PORT_LED_BLUE + BF_MAV_PORT_LED_RED):
+        case BF_MAV_PORT_LED_GREEN:
             led_link  = 0x01;
-            led_speed = 0x03;           // 50G
+            led_speed = 0x03;           // 50G/100G
             break;
-        case (BF_MAV_PORT_LED_RED + BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_BLUE):
-            led_link  = 0x01;
-            led_speed = 0x03;           // 100G
-            break;
-        case (BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_RED):
+        case (BF_MAV_PORT_LED_GREEN + BF_MAV_PORT_LED_RED + BF_MAV_PORT_LED_BLUE):
             led_link  = 0x00;
             led_speed = 0x00;           // link down
             break;

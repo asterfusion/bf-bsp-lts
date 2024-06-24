@@ -1678,15 +1678,15 @@ __bf_pltfm_chss_mgmt_bmc_data_psu_decode__ (uint8_t* p_src)
             temp_psu_data[i].vout    = p_src[j + 3] * 1000 + p_src[j + 4] * 100;
             temp_psu_data[i].iin     = p_src[j + 5] * 1000 + p_src[j + 6] * 100;
             temp_psu_data[i].iout    = p_src[j + 7] * 1000 + p_src[j + 8] * 100;
-            temp_psu_data[i].pwr_out = (p_src[j + 9]  * 256 + p_src[j + 10]) * 1000;
-            temp_psu_data[i].pwr_in  = (p_src[j + 11] * 256 + p_src[j + 12]) * 1000;
+            temp_psu_data[i].pwr_in = (p_src[j + 9]  * 256 + p_src[j + 10]) * 1000;
+            temp_psu_data[i].pwr_out  = (p_src[j + 11] * 256 + p_src[j + 12]) * 1000;
         } else {
             temp_psu_data[i].vin     = ((p_src[j + 1] << 8) + p_src[j + 2]) * 100;
             temp_psu_data[i].vout    = ((p_src[j + 3] << 8) + p_src[j + 4]) * 100;
             temp_psu_data[i].iin     = ((p_src[j + 5] << 8) + p_src[j + 6]) * 100;
             temp_psu_data[i].iout    = ((p_src[j + 7] << 8) + p_src[j + 8]) * 100;
-            temp_psu_data[i].pwr_out = ((p_src[j + 9]  << 8) + p_src[j + 10]) * 100;
-            temp_psu_data[i].pwr_in  = ((p_src[j + 11] << 8) + p_src[j + 12]) * 100;
+            temp_psu_data[i].pwr_in = ((p_src[j + 9]  << 8) + p_src[j + 10]) * 100;
+            temp_psu_data[i].pwr_out  = ((p_src[j + 11] << 8) + p_src[j + 12]) * 100;
         }
 
         temp_psu_data[i].temp     = p_src[j + 14];

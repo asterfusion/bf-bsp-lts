@@ -6,7 +6,7 @@ Table of Contents
   - [Environment Variables](#environment-variables)
   - [Build BSP](#build-bsp)
     - [Clone repo](#clone-repo)
-    - [Build BSP via CMAKE](#build-bsp-via-cmake)
+    - [Build BSP via CMake](#build-bsp-via-cmake)
     - [Build BSP via an Outdated Way](#build-bsp-via-an-outdated-way)
   - [Launch](#launch)
     - [Generate Launching Variables](#generate-launching-variables)
@@ -89,22 +89,29 @@ root@localhost:~/bf-bsp-lts#
 
 There're `2 ways` to build BSP.
 
-#### <a name="build-bsp-via-cmake"></a>Build BSP via CMAKE
+#### <a name="build-bsp-via-cmake"></a>Build BSP via CMake
 The `1st` (also recommended) one is by cmake:
 ```
 root@localhost:~/bf-bsp-lts# ./autogen.sh
 root@localhost:~/bf-bsp-lts# mkdir build && cd build/
-root@localhost:~/bf-bsp-lts/build# cmake .. \
-                      -DCMAKE_MODULE_PATH=`pwd`/../cmake  \
-                      -DCMAKE_INSTALL_PREFIX=$SDE_INSTALL \
-                      -DOS_NAME=Debian                    \
-                      -DOS_VERSION=9                      \
-                      -DSDE_VERSION=9130
+root@localhost:~/bf-bsp-lts/build# cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake  \
+                                            -DCMAKE_INSTALL_PREFIX=$SDE_INSTALL \
+                                            -DOS_NAME=Debian                    \
+                                            -DOS_VERSION=9                      \
+                                            -DSDE_VERSION=9133
 root@localhost:~/bf-bsp-lts/build# make -j15 install
 ```
-The defaut value of variables listed below if none of them passed by cmake CLI:
+The defaut value of supported variables are listed below if none of them passed by CMake CLI:
 
-`OS_NAME=Debian`, `OS_VERSION=9`, `SDE_VERSION=9130`
+`OS_NAME=Debian`,
+
+`OS_VERSION=9`,
+
+`SDE_VERSION=9133`,
+
+`THRIFT-DRIVER=on`,
+
+`LASER_ON=off`
 
 #### <a name="build-bsp-via-an-outdated-way"></a>Build BSP via an Outdated Way
 

@@ -161,8 +161,18 @@ extern "C" {
 #define AF_LOG_MSG_SIZE 512
 #define AF_LOG_EXT(...)                                                         \
     do {                                                                        \
+        FILE *xfp = fopen (BF_DRIVERS_LOG_EXT, "r");                            \
+        if (xfp == NULL) {                                                      \
+            if (bf_pltfm_mgr_ctx()->extended_log_hdl) {                         \
+                fclose(bf_pltfm_mgr_ctx()->extended_log_hdl);                   \
+                bf_pltfm_mgr_ctx()->extended_log_hdl = NULL;                    \
+            }                                                                   \
+        } else {                                                                \
+            fclose(xfp);                                                        \
+        }                                                                       \
         if (bf_pltfm_mgr_ctx()->extended_log_hdl == NULL) {                     \
-            bf_pltfm_mgr_ctx()->extended_log_hdl = fopen (BF_DRIVERS_LOG_EXT, "a+");\
+            bf_pltfm_mgr_ctx()->extended_log_hdl =                              \
+                                            fopen (BF_DRIVERS_LOG_EXT, "a+");   \
         }                                                                       \
         if (bf_pltfm_mgr_ctx()->extended_log_hdl) {                             \
             fflush (bf_pltfm_mgr_ctx()->extended_log_hdl);                      \
@@ -189,8 +199,7 @@ extern "C" {
             fprintf (bf_pltfm_mgr_ctx()->extended_log_hdl, "%s\n", ____info);   \
             fflush (bf_pltfm_mgr_ctx()->extended_log_hdl);                      \
         }                                                                       \
-    } while (0);/*\
-    //LOG_WARNING(__VA_ARGS__);*/
+    } while (0);
 
 #define MAX_CHAN_PER_CONNECTOR 8
 

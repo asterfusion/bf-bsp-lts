@@ -4,41 +4,36 @@
 #
 # Hang Tsi (tsihang@asterfusion.com)
 #
-# Belowing shows how to build bf-bsp-lts via CMake.
-#
-# cd bf-bsp-lts
-# ./autogen.sh
-# mkdir build && cd build
-# cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake -DCMAKE_INSTALL_PREFIX=$SDE_INSTALL
-# make -j4 install
-#
-#
 
 cmake_minimum_required(VERSION 3.5)
 
-option(STANDALONE  "Build outside of pkgsrc" ON)
-option(FORCE32            "Force a 32bit compile on 64bit" OFF)
+option(LASER_ON           "Force default laser enabled when modules plugged-in" OFF)
 option(THRIFT-DRIVER      "Build with thrift support" ON)
-option(COVERAGE           "Build with gcov" OFF)
-option(TOFINO             "Build for TOFINO" ON)
-option(TOFINO2            "Build for TOFINO2" OFF)
 option(ASTERFUSION-DIAGS  "Build Asterfusion Diags" OFF)
+option(FORCE32            "Force a 32bit compile on 64bit" OFF)
+option(COVERAGE           "Build with gcov" OFF)
 
+#
 # Pass OS_NAME/OS_VERSION/SDE_VERSION by cmake CLI. Take belowing as an example:
 # cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake -DCMAKE_INSTALL_PREFIX=$SDE_INSTALL \
 #          -DOS_NAME=(Debian|Ubuntu)                                     \
-#          -DOS_VERSION=[(8|9|10|11|12),(14.04|16.04|18.04|20.04|22.04)] \
-#          -DSDE_VERSION=(900|911|933|954|975|991|9112|9133)
+#          -DOS_VERSION=[(8|9|10|11|12),(1404|1604|1804|2004|2204)] \
+#          -DSDE_VERSION=(900|911|933|954|975|991|9112|9133) \
+#          -DTRIFT-DRIVER=on \
+#          -DLASER_ON=off
+#
+# The defaut value of variables listed below if none of them passed by cmake CLI:
+# OS_NAME=Debian, OS_VERSION=9, SDE_VERSION=9133, THRIFT-DRIVER=on, LASER_ON=off.
 #
 message(STATUS "Supported -DOS_NAME=(Debian|Ubuntu)")
-message(STATUS "Supported -DOS_VERSION=[(8|9|10|11|12),(14.04|16.04|18.04|20.04|22.04)]")
+message(STATUS "Supported -DOS_VERSION=[(8|9|10|11|12),(1404|1604|1804|2004|2204)]")
 message(STATUS "Supported -DSDE_VERSION=(900|911|933|954|975|991|9112|9133)")
 cmake_host_system_information(RESULT HOST_NAME QUERY HOSTNAME)
 message(STATUS "${HOST_NAME}")
 
 if(NOT DEFINED SDE_VERSION)
   # Default SDE_VERSION
-  set(SDE_VERSION 9130)
+  set(SDE_VERSION 9133)
 endif()
 
 if(NOT DEFINED OS_VERSION)
@@ -61,13 +56,23 @@ endif()
 message(STATUS "Giving -DOS_NAME=${OS_NAME}")
 message(STATUS "Giving -DOS_VERSION=${OS_VERSION}")
 message(STATUS "Giving -DSDE_VERSION=${SDE_VERSION}")
+message(STATUS "Giving -DTHRIFT_ENABLED=${THRIFT-DRIVER}")
+message(STATUS "Giving -DDEFAULT_LASER_ON=${LASER_ON}")
+message(STATUS "Giving -DASTERFUSION-DIAGS=${ASTERFUSION-DIAGS}")
+message(STATUS "Giving -DCOVERAGE=${COVERAGE}")
 
-# Please see drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
+# Please see drivers/include/bf_pltfm_types/bf_pltfm_types.h +34 for reference.
 add_definitions(-DOS_NAME=${OS_NAME})
 add_definitions(-DOS_VERSION=${OS_VERSION})
 add_definitions(-DSDE_VERSION=${SDE_VERSION})
 # Unused
 add_definitions(-DDEVICE_IS_ASIC)
+if (LASER_ON)
+  # Please see drivers/include/bf_qsfp/bf_qsfp.h +45 for reference.
+  add_definitions(-DDEFAULT_LASER_ON)
+  #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}     -DDEFAULT_LASER_ON")
+  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEFAULT_LASER_ON")
+endif()
 
 if(${SDE_VERSION} LESS 990)
   set(bfutils_lib "bfutils")
@@ -77,6 +82,18 @@ else()
   set(bfsys_lib "target_sys")
 endif()
 message(STATUS "Linking ${bfutils_lib} ${bfsys_lib}")
+
+set(private_lib "cgos")
+
+# to avoid empty variable.
+set(i2c_lib "m")
+if((${OS_NAME} STREQUAL "Debian") AND (${OS_VERSION} GREATER 9))
+  set(i2c_lib "i2c")
+endif()
+if((${OS_NAME} STREQUAL "Ubuntu") AND (${OS_VERSION} GREATER 1604))
+  set(i2c_lib "i2c")
+endif()
+message(STATUS "Linking ${i2c_lib}")
 
 if(FORCE32)
   set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -m32")
@@ -100,10 +117,7 @@ set(C_CXX_FLAGS "-Wall -Wextra -Werror -Wundef -Wshadow -Wno-missing-field-initi
 if(COVERAGE)
   set(C_CXX_FLAGS "${C_CXX_FLAGS} --coverage")
 endif()
-if(FORCE32)
-  set(CMAKE_C_FLAGS   "-m32")
-  set(CMAKE_CXX_FLAGS "-m32")
-endif()
+
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${C_CXX_FLAGS}")
 
@@ -197,7 +211,7 @@ add_library(asterfusionbf_driver_o OBJECT
 )
 add_library(asterfusionbf_driver SHARED $<TARGET_OBJECTS:asterfusionbf_driver_o>)
 set_target_properties(asterfusionbf_driver PROPERTIES VERSION 0.0.0 SOVERSION 0)
-target_link_libraries(asterfusionbf_driver ${bfsys_lib} curl usb-1.0 ${bfutils_lib} cgos)
+target_link_libraries(asterfusionbf_driver ${bfsys_lib} curl usb-1.0 ${bfutils_lib} ${private_lib})
 add_library(pltfm_driver_o OBJECT
   drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c
   drivers/src/bf_bd_cfg/bf_bd_cfg_intf_ucli.c
@@ -233,9 +247,9 @@ set_target_properties(pltfm_mgr PROPERTIES VERSION 0.0.0 SOVERSION 0)
 #thrift
 if (THRIFT-DRIVER)
   add_subdirectory(platforms/asterfusion-bf/thrift)
-  target_link_libraries(pltfm_mgr PUBLIC pltfm_mgr_thrift ${bfsys_lib} curl usb-1.0)
+  target_link_libraries(pltfm_mgr PUBLIC pltfm_mgr_thrift ${bfsys_lib} curl usb-1.0 ${private_lib})
 else()
-  target_link_libraries(pltfm_mgr PUBLIC ${bfsys_lib} curl usb-1.0)
+  target_link_libraries(pltfm_mgr PUBLIC ${bfsys_lib} curl usb-1.0 ${private_lib})
 endif()
 
 add_library(asterfusion_bin_srcs_o OBJECT
@@ -254,14 +268,14 @@ add_executable(spi_i2c_util
   platforms/asterfusion-bf/tofino_spi_util/tofino_porting_spi.c
   $<TARGET_OBJECTS:asterfusion_bin_srcs_o>
 )
-target_link_libraries(spi_i2c_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} cgos)
+target_link_libraries(spi_i2c_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} ${private_lib} ${i2c_lib})
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/spi_i2c_util DESTINATION bin)
 
 add_executable(cp2112_util
   platforms/asterfusion-bf/cp2112_util/cp2112_util.c
   $<TARGET_OBJECTS:asterfusion_bin_srcs_o>
 )
-target_link_libraries(cp2112_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} cgos)
+target_link_libraries(cp2112_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} ${private_lib} ${i2c_lib})
 target_compile_options(cp2112_util PRIVATE -Wno-implicit-function-declaration -Wno-sign-compare)
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cp2112_util DESTINATION bin)
 
@@ -269,7 +283,7 @@ add_executable(uart_util
   platforms/asterfusion-bf/uart_util/uart_util.c
   $<TARGET_OBJECTS:asterfusion_bin_srcs_o>
 )
-target_link_libraries(uart_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} cgos)
+target_link_libraries(uart_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} ${private_lib} ${i2c_lib})
 target_compile_options(uart_util PRIVATE -Wno-implicit-function-declaration -Wno-sign-compare)
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/uart_util DESTINATION bin)
 
@@ -280,7 +294,7 @@ add_executable(syseeprom_util
   $<TARGET_OBJECTS:asterfusion_bin_srcs_o>
 )
 set_target_properties(syseeprom_util PROPERTIES COMPILE_FLAGS -DNO_MAIN)
-target_link_libraries(syseeprom_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} cgos)
+target_link_libraries(syseeprom_util ${bfsys_lib} usb-1.0 curl m ${bfutils_lib} ${private_lib} ${i2c_lib})
 target_compile_options(syseeprom_util PRIVATE -Wno-error)
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/syseeprom_util DESTINATION bin)
 

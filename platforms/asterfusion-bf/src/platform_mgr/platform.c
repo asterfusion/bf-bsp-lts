@@ -1858,7 +1858,18 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
         }
         fclose (fp);
     }
-    aim_printf (&uc->pvs, "    LogExt: %s\n", BF_DRIVERS_LOG_EXT);
+
+    long extended_log_bytes = 0;
+    FILE *xfp = fopen(BF_DRIVERS_LOG_EXT, "r");
+    if (xfp) {
+        fseek(xfp, 0L, SEEK_END);
+        extended_log_bytes = ftell(xfp);
+        fseek(xfp, 0L, SEEK_SET);
+        fclose(xfp);
+    }
+    double ksize = (double)extended_log_bytes/(1000 * 1000);
+    aim_printf (&uc->pvs, "    LogExt: %s (%.3f MB)\n",
+        BF_DRIVERS_LOG_EXT, ksize);
 
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
@@ -1939,14 +1950,17 @@ bf_pltfm_ucli_ucli__console__ (ucli_context_t
         }
     } else if (platform_type_equal (AFN_X308PT) ||
                platform_type_equal (AFN_X532PT) ||
-               platform_type_equal (AFN_X564PT)) {
+               platform_type_equal (AFN_X564PT) ||
+               platform_type_equal (AFN_X732QT)) {
         if (bf_pltfm_compare_bmc_ver("v3.1.0") < 0) {
             aim_printf (&uc->pvs, "Not supported on this BMC version yet! "
                                   "Please upgrade to v3.1.0 and above.\n");
             return 0;
         }
 
-        if (platform_type_equal (AFN_X532PT) || platform_type_equal (AFN_X564PT)) {
+        if (platform_type_equal (AFN_X532PT) ||
+            platform_type_equal (AFN_X564PT) ||
+            platform_type_equal (AFN_X732QT)) {
             has_dpu = false;
             has_ptp = false;
         } else {
@@ -2021,7 +2035,8 @@ bf_pltfm_ucli_ucli__bmc_ota__ (ucli_context_t
 
     if ((platform_type_equal (AFN_X308PT) ||
          platform_type_equal (AFN_X532PT) ||
-         platform_type_equal (AFN_X564PT)) &&
+         platform_type_equal (AFN_X564PT) ||
+         platform_type_equal (AFN_X732QT)) &&
         (bf_pltfm_compare_bmc_ver("v3.1.0") >= 0)) {
         aim_printf (&uc->pvs, "\nThere could be port link risk when upgrade BMC online.\n");
 

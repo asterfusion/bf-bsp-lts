@@ -152,6 +152,20 @@ int bf_sfp_get_eth_ext_compliance (int port,
     return 0;
 }
 
+int bf_sfp_get_cable_length_copper (int port, uint8_t* cable_len)
+{
+    uint8_t cable_length;
+
+    if (port > bf_plt_max_sfp) {
+        return -1;
+    }
+
+    cable_length = bf_sfp_info_arr[port].idprom[18];
+
+    *cable_len = cable_length;
+    return 0;
+}
+
 bool bf_sfp_get_dom_support (int port)
 {
     if (port > bf_plt_max_sfp) {
@@ -459,28 +473,26 @@ int bf_sfp_type_get (int port,
 
     /* Do not support copper at this moment.
      * by tsihang, 2021-07-29. */
-#if 0
+    /* Support copper since 2024-06-14. */
     uint8_t cable_len;
-    if (bf_sfp_field_read_onebank (port,
-                                   LENGTH_CBLASSY, 0, 0, 1, &cable_len) <
-        0) {
+    if (bf_sfp_get_cable_length_copper (port,
+                                        &cable_len) != 0) {
         return -1;
     }
     switch (cable_len) {
         case 0:
-            *qsfp_type = BF_PLTFM_QSFP_CU_LOOP;
+            *sfp_type = BF_PLTFM_QSFP_CU_LOOP;
             return 0;
         case 1:
-            *qsfp_type = BF_PLTFM_QSFP_CU_1_M;
+            *sfp_type = BF_PLTFM_QSFP_CU_1_M;
             return 0;
         case 2:
-            *qsfp_type = BF_PLTFM_QSFP_CU_2_M;
+            *sfp_type = BF_PLTFM_QSFP_CU_2_M;
             return 0;
         default:
-            *qsfp_type = BF_PLTFM_QSFP_CU_3_M;
+            *sfp_type = BF_PLTFM_QSFP_CU_3_M;
             return 0;
     }
-#endif
     return 0;
 }
 
@@ -1386,3 +1398,4 @@ int bf_sfp_rxlos_debounce_set (int port,
     bf_sfp_info_arr[port].rxlos_debounce_cnt = count;
     return 0;
 }
+

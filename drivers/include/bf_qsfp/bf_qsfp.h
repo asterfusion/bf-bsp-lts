@@ -32,8 +32,16 @@ extern "C" {
  * remote for some kind of cases. Also, this feature can be implemented
  * to a transceiver as well by clearing flags BF_TRANS_CTRLMASK_LASER_OFF
  * in /etc/transceiver-cases.conf if you know its Vendor and PN.
- * .
- * by tsihang, 2023/09/01. */
+ *
+ * by tsihang, 2023/09/01.
+ *
+ *
+ * This macro can be optionally given by CMake CLI with '-DLASER_ON=on'
+ * To be highlighted, please make clean & make install to make sure all sources
+ * fully compiled after -DLASER_ON flags changed.
+ *
+ * by tsihang, 2024/06/17.
+ */
 //#define DEFAULT_LASER_ON
 
 /* Control word added by tsihang for /etc/transceiver-cases.conf, 2023/05/05. */

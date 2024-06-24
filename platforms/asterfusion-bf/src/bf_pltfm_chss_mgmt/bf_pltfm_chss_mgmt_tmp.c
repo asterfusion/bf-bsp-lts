@@ -40,7 +40,7 @@
 #define BMC_CMD_SENSOR_TMP_GET 0x04
 #define BMC_CMD_SENSOR_TMP_SET 0x04
 
-static float pipe_temp_max = 0.0;
+static float max_pipe_temp_C = 0.0;
 static bf_pltfm_temperature_info_t bmc_tmp_data;
 static bf_pltfm_switch_temperature_info_t
 switch_tmp_data[MAX_SWITCH_SENSORS];
@@ -447,18 +447,6 @@ __bf_pltfm_chss_mgmt_temperature_get_x732q__ (
     int err = BF_PLTFM_COMM_FAILED, ret;
 
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
-        // Write highest asic temperature first
-        if (bf_pltfm_compare_bmc_ver("v1.0.2") >= 0 &&
-            pipe_temp_max > 0.0) {
-            wr_buf[0] = 0x01;
-            wr_buf[1] = (uint8_t) pipe_temp_max;
-            bf_pltfm_bmc_uart_write_read (
-                    BMC_CMD_SENSOR_TMP_SET, wr_buf, 2, rd_buf,
-                    (128 - 1),
-                    BMC_COMM_INTERVAL_US);
-        }
-
-        // Read temperature of all sensors
         wr_buf[0] = 0xAA;
         wr_buf[1] = 0xAA;
         ret = bf_pltfm_bmc_uart_write_read (
@@ -481,6 +469,37 @@ __bf_pltfm_chss_mgmt_temperature_get_x732q__ (
         tmp->tmp6 = (float)rd_buf[6];
 
         err = BF_PLTFM_SUCCESS;
+    }
+
+    return err;
+}
+
+static bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_temperature_set_x732q__ ()
+{
+    uint8_t wr_buf[2];
+    uint8_t rd_buf[128];
+    int err = BF_PLTFM_COMM_FAILED, ret;
+
+    if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
+        /* Send highest asic temperature to BMC if HW ver is 1.0.*/
+        if (platform_subtype_equal(V1P0) && max_pipe_temp_C > 0.0) {
+            wr_buf[0] = 0x01;
+            wr_buf[1] = (uint8_t) max_pipe_temp_C;
+            ret = bf_pltfm_bmc_uart_write_read (
+                    BMC_CMD_SENSOR_TMP_SET, wr_buf, 2, rd_buf,
+                    (128 - 1),
+                    BMC_COMM_INTERVAL_US);
+            /* We expect read len to be 1 and read val to be 0x01.
+             * Otherwise, something must have gone wrong if read len is not 1.
+             * Furthermore, temperature greater than 0x80 will not be accepted by BMC,
+             * And the read val will be 0x00 in that case.*/
+            if ((ret == 1) && (rd_buf[0] == 0x01)) {
+                err = BF_PLTFM_SUCCESS;
+            }
+        } else {
+            err = BF_PLTFM_SUCCESS;
+        }
     }
 
     return err;
@@ -544,33 +563,34 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
     uint32_t timeout = 0;
     uint32_t num_pipes = 0;
     uint32_t logical_pipe;
-    float pipe_temp;
+    float pipe_temp_C;
     bf_dev_port_t dev_port;
     bf_status_t err;
 
     clr_stemp_info (tmp);
     if (bf_pm_intf_is_device_family_tofino2(dev_id)) {
-        pipe_temp_max = 0.0;
+        max_pipe_temp_C = 0.0;
         lld_sku_get_num_active_pipes(dev_id, &num_pipes);
         for (logical_pipe = 0; logical_pipe < num_pipes; logical_pipe++) {
             dev_port = MAKE_DEV_PORT(logical_pipe, 8);
             if (BF_SUCCESS !=
                 bf_tof2_serdes_fw_temperature_get (
-                    dev_id, dev_port, &pipe_temp)) {
+                    dev_id, dev_port, &pipe_temp_C)) {
                 LOG_ERROR ("Error in reading pipe%d temperature of tofino2 asic.", logical_pipe);
             } else {
-                // LOG_DEBUG ("Read tofino2 asic pipe%d temperature: %.1fC", logical_pipe, pipe_temp);
-                pipe_temp_max = MAX(pipe_temp, pipe_temp_max);
-                /* Write to cache. */
+                // LOG_DEBUG ("Read tofino2 asic pipe%d temperature: %.1fC", logical_pipe, pipe_temp_C);
+                max_pipe_temp_C = MAX(pipe_temp_C, max_pipe_temp_C);
+                /* Convert temp from C to mC and write to cache. */
                 sensor = (int)logical_pipe;
-                tmp->main_sensor = tmp->remote_sensor = (uint32_t)pipe_temp;
+                tmp->main_sensor = tmp->remote_sensor = (uint32_t)(pipe_temp_C * 1000.0);
                 cpy_stemp_info (&switch_tmp_data[sensor %
                                                 MAX_SWITCH_SENSORS], tmp);
-                // Tell caller the highest temp current.
-                tmp->main_sensor = tmp->remote_sensor = (uint32_t)pipe_temp_max;
+                // Tell caller the highest temp current in mC.
+                tmp->main_sensor = tmp->remote_sensor = (uint32_t)(max_pipe_temp_C * 1000.0);
             }
         }
-        return BF_PLTFM_SUCCESS;
+        // Tell BMC the highest temperature of asic pipes
+        return __bf_pltfm_chss_mgmt_temperature_set_x732q__();
     }
 
     if (BF_SUCCESS !=

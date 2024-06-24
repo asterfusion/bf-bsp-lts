@@ -66,5 +66,5 @@ else
 EOF
 fi
 
-exec autoreconf -fi -v
+#exec autoreconf -fi -v
 

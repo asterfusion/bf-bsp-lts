@@ -296,7 +296,7 @@ sfp_module_tx_disable_x7 (
         goto end;
     }
 
-    val = ((val0 << 1) & 2) | ((val0 >> 1) & 1);
+    val = val0;
     /* dis->off_b is a bit mask in dis->off. */
     if (disable) {
         /* disable Tx control bit is active high */

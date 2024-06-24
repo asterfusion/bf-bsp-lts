@@ -3194,6 +3194,8 @@ bool bf_qsfp_get_chan_tx_bias (int port,
                                qsfp_channel_t *chn)
 {
     uint8_t data[16];
+    uint8_t scaleValue;
+    double scale;
     int i;
     int chmask = bf_qsfp_chmask_get (port);
 
@@ -3216,17 +3218,36 @@ bool bf_qsfp_get_chan_tx_bias (int port,
 
     /* Update cache. */
     if (bf_qsfp_is_cmis (port)) {
-        /* TBD */
+        /* CMIS */
+        /* Support for CMIS since 2024-06-19. */
+        bf_qsfp_module_read (
+            port, QSFP_BANKNA, QSFP_PAGE1, 160, 1,
+            &scaleValue);
+
+        scale = pow(2.0, (scaleValue >> 3) & 3);
+
+        for (i = 0; i < 16; i++) {
+            bf_qsfp_info_arr[port].page17[i + 170 - MAX_QSFP_PAGE_SIZE] = data[i];
+        }
+
+        for (i = 0; i < bf_qsfp_get_media_ch_cnt(port) &&
+             i < MAX_CHAN_PER_CONNECTOR;
+             i++) {
+            uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
+                                                    1];
+            chn[i].sensors.tx_bias.value = scale * (131.0 * val) / 65535;
+            chn[i].sensors.tx_bias._isset.value = true;
+        }
     } else {
         /* SFF-8636 */
         /* Currently only update the first eight bytes to support SFF-8636.
          * Support for CMIS will be added in the future.
          * by sunzheng, 2023-08-04. */
-        for (i=0; i < 8; i++) {
+        for (i = 0; i < 8; i++) {
             bf_qsfp_info_arr[port].idprom[i + 42] = data[i];
         }
 
-        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
+        for (i = 0; i < bf_qsfp_get_media_ch_cnt(port) &&
              i < MAX_CHAN_PER_CONNECTOR;
              i++) {
             uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
@@ -3262,23 +3283,26 @@ bool bf_qsfp_get_chan_tx_pwr (int port,
         return false;
     }
 
+    for (i = 0; i < bf_qsfp_get_media_ch_cnt(port) &&
+         i < MAX_CHAN_PER_CONNECTOR;
+         i++) {
+        uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
+                                                1];
+        /* Convert to dBm. */
+        chn[i].sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
+        chn[i].sensors.tx_pwr._isset.value = true;
+    }
+
     /* Update cache. */
     if (bf_qsfp_is_cmis (port)) {
-        /* TBD */
+        /* CMIS */
+        for (i = 0; i < 16; i++) {
+            bf_qsfp_info_arr[port].page17[i + 154 - MAX_QSFP_PAGE_SIZE] = data[i];
+        }
     } else {
         /* SFF-8636 */
         for (i=0; i < 8; i++) {
             bf_qsfp_info_arr[port].idprom[i + 50] = data[i];
-        }
-
-        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-             i < MAX_CHAN_PER_CONNECTOR;
-             i++) {
-            uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
-                                                    1];
-            /* Convert to dBm. */
-            chn[i].sensors.tx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
-            chn[i].sensors.tx_pwr._isset.value = true;
         }
     }
     return true;
@@ -3308,25 +3332,29 @@ bool bf_qsfp_get_chan_rx_pwr (int port,
         return false;
     }
 
+    for (i = 0; i < bf_qsfp_get_media_ch_cnt(port) &&
+         i < MAX_CHAN_PER_CONNECTOR;
+         i++) {
+        uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
+                                                1];
+        /* Convert to dBm. */
+        chn[i].sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
+        chn[i].sensors.rx_pwr._isset.value = true;
+    }
+
     /* Update cache. */
     if (bf_qsfp_is_cmis (port)) {
-        /* TBD */
+        /* CMIS */
+        for (i = 0; i < 16; i++) {
+            bf_qsfp_info_arr[port].page17[i + 186 - MAX_QSFP_PAGE_SIZE] = data[i];
+        }
     } else {
         /* SFF-8636 */
         for (i=0; i < 8; i++) {
             bf_qsfp_info_arr[port].idprom[i + 34] = data[i];
         }
-
-        for (i = 0; i < bf_qsfp_info_arr[port].num_ch &&
-             i < MAX_CHAN_PER_CONNECTOR;
-             i++) {
-            uint16_t val = data[i * 2] << 8 | data[ (i * 2) +
-                                                    1];
-            /* Convert to dBm. */
-            chn[i].sensors.rx_pwr.value = ((val == 0) ? (-40 * 1.0) : (get_pwr (val)));
-            chn[i].sensors.rx_pwr._isset.value = true;
-        }
     }
+
     return true;
 }
 

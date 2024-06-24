@@ -1148,8 +1148,9 @@ void *health_mntr_init (void *arg)
         }
 
         if ((platform_type_equal (AFN_X532PT) ||
-            platform_type_equal (AFN_X564PT) ||
-            platform_type_equal (AFN_X308PT)) &&
+             platform_type_equal (AFN_X564PT) ||
+             platform_type_equal (AFN_X308PT) ||
+             platform_type_equal (AFN_X732QT)) &&
             (bf_pltfm_compare_bmc_ver("v3.0.0") >= 0)) {
 
             if (unlikely (! (flags & AF_PLAT_MNTR_CTRL))) {

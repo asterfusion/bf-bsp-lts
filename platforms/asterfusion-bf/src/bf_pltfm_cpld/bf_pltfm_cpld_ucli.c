@@ -452,20 +452,16 @@ static void bf_pltfm_cpld_decode_x732q (ucli_context_t *uc) {
     aim_printf (&uc->pvs, "%3s   %3s   %4s\n", "---", "---", "----");
 
     for (i = 0; i < 2; i ++) {
-        uint8_t val;
         aim_printf (&uc->pvs, "         Y%02d", i + 1);
 
         st_ctx_st = sfp_ctx[i].st;
 
         st_ctx = &st_ctx_st->rx_los;
-        val = buf[st_ctx->cpld_sel - 1][st_ctx->off];
-        aim_printf (&uc->pvs, "%3s   ", (((val << 1) & 8) | ((val >> 1) & 4)) & (1 << st_ctx->off_b) ? "*" : " ");
+        aim_printf (&uc->pvs, "%3s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? "*" : " ");
         st_ctx = &st_ctx_st->pres;
-        val = buf[st_ctx->cpld_sel - 1][st_ctx->off];
-        aim_printf (&uc->pvs, "%3s   ", (((val << 1) & 2) | ((val >> 1) & 1)) & (1 << st_ctx->off_b) ? " " : "*");
+        aim_printf (&uc->pvs, "%3s   ", buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? " " : "*");
         st_ctx = &st_ctx_st->tx_dis;
-        val = buf[st_ctx->cpld_sel - 1][st_ctx->off];
-        aim_printf (&uc->pvs, "%4s\n",  (((val << 1) & 2) | ((val >> 1) & 1)) & (1 << st_ctx->off_b) ? " " : "*");
+        aim_printf (&uc->pvs, "%4s\n",  buf[st_ctx->cpld_sel - 1][st_ctx->off] & (1 << st_ctx->off_b) ? " " : "*");
     }
 
     aim_printf (&uc->pvs, "\n");
