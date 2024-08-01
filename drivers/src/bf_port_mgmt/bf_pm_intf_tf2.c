@@ -710,6 +710,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
     int module_chan, rc;
     bool rx_los_flag, rx_lol_flag, rx_lol_sup, rx_los_sup;
     int delay_ms = 0;
+    bf_pm_port_dir_e dir_mode = PM_PORT_DIR_DEFAULT;
 
     if ((!icfg) || (!intf) || (!qsfp_info)) return;
 
@@ -717,9 +718,10 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
     port_hdl.chnl_id = icfg->channel;
     next_st = st = pm_intf_fsm_st[port_hdl.conn_id][port_hdl.chnl_id];
 
+    bf_pm_port_direction_get (icfg->dev_id, &port_hdl, &dir_mode);
     // handle qsfp-removal in any state
     if ((!bf_bd_is_this_port_internal(icfg->conn_id, icfg->channel)) &&
-            (!qsfp_info->is_present) && !bf_pltfm_pm_is_ha_mode()) {
+            (!qsfp_info->is_present) && !bf_pltfm_pm_is_ha_mode() && (dir_mode != PM_PORT_DIR_TX_ONLY)) {
         bf_pm_handle_intf_disable(icfg, intf, qsfp_info);
         // since fsm-runs only on admin-enabled, move state to init
         if (icfg->admin_up) {
@@ -738,6 +740,9 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
             next_st = PM_INTF_FSM_MEDIA_DETECTED;
         } else if (bf_pltfm_pm_is_ha_mode()) {
             next_st = PM_INTF_FSM_HA_WAIT_LINK_ST;
+        } else if((!qsfp_info->is_present) && (dir_mode == PM_PORT_DIR_TX_ONLY)){
+            bf_pal_pm_front_port_ready_for_bringup(icfg->dev_id, &port_hdl, true);
+            next_st = PM_INTF_FSM_WAIT_LINK_ST;
         }
         break;
     case PM_INTF_FSM_MEDIA_DETECTED:
@@ -785,8 +790,21 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
             bf_pm_pltfm_front_port_eligible_for_autoneg(
                 icfg->dev_id, &port_hdl, false);
             bf_pal_pm_front_port_ready_for_bringup(icfg->dev_id, &port_hdl, true);
+            bf_pm_port_direction_get (icfg->dev_id, &port_hdl, &dir_mode);
             if (!bf_pltfm_pm_is_ha_mode()) {
-                next_st = PM_INTF_FSM_WAIT_SERDES_TX_INIT;
+                if (dir_mode == PM_PORT_DIR_TX_ONLY) {
+                    module_chan =
+                        bf_bd_first_conn_ch_get(port_hdl.conn_id) + port_hdl.chnl_id;
+                    // Tell the qsfp_ch_fsm that its ok to enable the lanes in this link.
+                    // Loop through all lanes since we only run the pm_intf_fsm
+                    // for head channels
+                    for (ch = 0; ch < icfg->intf_nlanes; ch++) {
+                        qsfp_fsm_ch_enable(icfg->dev_id, port_hdl.conn_id, module_chan + ch);
+                    }
+                    next_st = PM_INTF_FSM_WAIT_LINK_ST;
+                } else {
+                    next_st = PM_INTF_FSM_WAIT_SERDES_TX_INIT;
+                }
             } else {
                 // Wait for link-state notification from SDK for next action
                 next_st = PM_INTF_FSM_HA_WAIT_LINK_ST;
@@ -830,9 +848,14 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
     case PM_INTF_FSM_WAIT_SERDES_TX_INIT:
         // Wait for the SERDES TX init to complete
         // This state is only used for optical cables
-        bf_pm_port_serdes_tx_ready_get(
-            icfg->dev_id, &port_hdl, &asic_serdes_tx_ready);
+        bf_pm_port_direction_get (icfg->dev_id, &port_hdl, &dir_mode);
 
+        if (dir_mode == PM_PORT_DIR_RX_ONLY) {
+            asic_serdes_tx_ready = true;
+        } else {
+            bf_pm_port_serdes_tx_ready_get(
+                icfg->dev_id, &port_hdl, &asic_serdes_tx_ready);
+        }
         if (!asic_serdes_tx_ready) {  // keep waiting
             break;
         }
@@ -920,7 +943,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         next_st = PM_INTF_FSM_LINK_UP;
         break;
     case PM_INTF_FSM_WAIT_MEDIA_RX_LOS:
-        if (!bf_pltfm_pm_is_ha_mode()) {
+        if ((!bf_pltfm_pm_is_ha_mode()) && qsfp_info->is_present) {
             rx_los_sup = false;
             rx_los_flag = true;
             module_chan =
@@ -947,7 +970,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         }
         break;
     case PM_INTF_FSM_WAIT_MEDIA_RX_LOL:
-        if (!bf_pltfm_pm_is_ha_mode()) {
+        if ((!bf_pltfm_pm_is_ha_mode()) && qsfp_info->is_present) {
             rx_lol_sup = false;
             rx_lol_flag = true;
             module_chan =
@@ -970,7 +993,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         }
         break;
     case PM_INTF_FSM_SET_RX_READY:
-        if (!bf_pltfm_pm_is_ha_mode()) {
+        if ((!bf_pltfm_pm_is_ha_mode()) && qsfp_info->is_present) {
             /* If Rx not ready, bf_pm_fsm_run will keep in BF_PM_FSM_ST_WAIT_SIGNAL_OK state. */
             bf_pm_port_serdes_rx_ready_for_bringup_set(
                 icfg->dev_id, &port_hdl, true);

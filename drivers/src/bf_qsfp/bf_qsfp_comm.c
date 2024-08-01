@@ -663,6 +663,8 @@ cmis_app_host_if_speed_map[] = {
     {HOST_TYPE_100GBASE_CR2,      BF_SPEED_100G, "100GBASE-CR2     2 x 26.5625Gbd PAM4"},
     {HOST_TYPE_200GBASE_CR4,      BF_SPEED_200G, "200GBASE-CR4     4 x 26.5625Gbd PAM4"},
     {HOST_TYPE_400GBASE_CR8,      BF_SPEED_400G, "400GBASE-CR8     8 x 26.5625Gbd PAM4"},
+    {HOST_TYPE_IB_EDR,            BF_SPEED_400G, "IB EDR  1,2,4,8,12 x 25.78125Gbd NRZ"}, /* by SunZheng, 2024/07/02. */
+    {HOST_TYPE_IB_HDR,            BF_SPEED_100G, "IB HDR  1,2,4,8,12 x 26.5625Gbd PAM4"}, /* by SunZheng, 2024/07/02. */
     {HOST_TYPE_CAUI_4_C2M_NO_FEC, BF_SPEED_100G, "CAUI-4 NO FEC    4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/01/23. */
     {HOST_TYPE_CAUI_4_C2M_RS_FEC, BF_SPEED_100G, "CAUI-4 RS FEC    4 x 25.78125Gbd NRZ"}, /* by Hang Tsi, 2024/02/26. */
     {HOST_TYPE_100GBASE_CR1,      BF_SPEED_100G, "100GBASE-CR1     1 x 53.125GBd PAM4"},
@@ -4809,7 +4811,7 @@ static int cmis_calc_application_count (int port,
             bf_qsfp_field_read_onebank (port,
                                         APSEL9_HOST_ID,
                                         0,
-                                        ((*app_count - 9) * BYTES_PER_APP),
+                                        ((*app_count - 8) * BYTES_PER_APP),
                                         1,
                                         &host_id);
             (*app_count)++;
@@ -6790,6 +6792,8 @@ const char *bf_cmis_get_media_type_string (
                     return "400G-SR8";
                 case QSFPDD_400GBASE_SR4:
                     return "400G-SR4";
+                case QSFPDD_200GBASE_SR4:
+                    return "200G-SR4";
             }
             break;
         case MEDIA_TYPE_SMF:
@@ -7754,7 +7758,8 @@ void bf_pltfm_qsfp_load_conf ()
 
         length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Asterfusion", "14060165-1", 0x00030000);
         fwrite (entry, 1, length, fp);
-
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "XSL", "OM3660FX102", 0x00010000);
+        fwrite (entry, 1, length, fp);
         fflush(fp);
     }
 

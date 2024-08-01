@@ -7,9 +7,9 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-option(LASER_ON           "Force default laser enabled when modules plugged-in" OFF)
 option(THRIFT-DRIVER      "Build with thrift support" ON)
-option(ASTERFUSION-DIAGS  "Build Asterfusion Diags" OFF)
+option(LASER_ON           "Build for forcely enabling laser when modules plugged-in" OFF)
+option(ASTERFUSION-DIAGS  "Build Asterfusion Diags <TBD>" OFF)
 option(FORCE32            "Force a 32bit compile on 64bit" OFF)
 option(COVERAGE           "Build with gcov" OFF)
 
@@ -211,7 +211,7 @@ add_library(asterfusionbf_driver_o OBJECT
 )
 add_library(asterfusionbf_driver SHARED $<TARGET_OBJECTS:asterfusionbf_driver_o>)
 set_target_properties(asterfusionbf_driver PROPERTIES VERSION 0.0.0 SOVERSION 0)
-target_link_libraries(asterfusionbf_driver ${bfsys_lib} curl usb-1.0 ${bfutils_lib} ${private_lib})
+target_link_libraries(asterfusionbf_driver ${bfsys_lib} curl usb-1.0 ${bfutils_lib} ${private_lib} ${i2c_lib})
 add_library(pltfm_driver_o OBJECT
   drivers/src/bf_bd_cfg/bf_bd_cfg_intf.c
   drivers/src/bf_bd_cfg/bf_bd_cfg_intf_ucli.c
@@ -300,13 +300,13 @@ install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/syseeprom_util DESTINATION bin)
 
 include_directories(platforms/asterfusion-bf/diags)
 if(ASTERFUSION-DIAGS)
-  add_library(accton_mav_diags SHARED
-    platforms/asterfusion-bf/diags/mavericks/diag_server.c
-    platforms/asterfusion-bf/diags/mavericks/diag_handler.c
-    platforms/asterfusion-bf/diags/mavericks/diag_ucli.c
+  add_library(asterfusion_diags SHARED
+    platforms/asterfusion-bf/diags/xt/diag_server.c
+    platforms/asterfusion-bf/diags/xt/diag_handler.c
+    platforms/asterfusion-bf/diags/xt/diag_ucli.c
   )
-  install(FILES platforms/asterfusion-bf/diags/mavericks/swutil DESTINATION bin)
-  configure_file(platforms/asterfusion-bf/diags/mavericks/targets/tofino/mav_diag.conf.in tofino/mav_diag.conf)
+  install(FILES platforms/asterfusion-bf/diags/xt/swutil DESTINATION bin)
+  configure_file(platforms/asterfusion-bf/diags/xt/targets/tofino/mav_diag.conf.in tofino/mav_diag.conf)
   install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tofino DESTINATION share/p4/targets)
 endif()
 install(PROGRAMS platforms/asterfusion-bf/utils/tofino_pci_bringup.sh DESTINATION bin)
@@ -320,10 +320,11 @@ install(PROGRAMS platforms/asterfusion-bf/utils/xt-clean.sh DESTINATION bin)
 install(PROGRAMS platforms/asterfusion-bf/utils/xt-diags.sh DESTINATION bin)
 install(PROGRAMS platforms/asterfusion-bf/utils/xt-setup.sh DESTINATION bin)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/src/board-maps/
-  DESTINATION share/platforms/board-maps/accton
+# It is also done to install pltfm_bd_map_*.json to $SDE_INSTALL/share/platforms/board-maps/asterfusion by autogen.sh.
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/src/platform_mgr/
+  DESTINATION share/platforms/board-maps/asterfusion
   FILES_MATCHING
-  PATTERN "board_lane_map*.json"
+  PATTERN "pltfm_bd_map_*.json"
   PATTERN "*.py" EXCLUDE
   PATTERN "*.csv" EXCLUDE
 )

@@ -7,7 +7,6 @@ Table of Contents
   - [Build BSP](#build-bsp)
     - [Clone repo](#clone-repo)
     - [Build BSP via CMake](#build-bsp-via-cmake)
-    - [Build BSP via an Outdated Way](#build-bsp-via-an-outdated-way)
   - [Launch](#launch)
     - [Generate Launching Variables](#generate-launching-variables)
     - [Launch X-T Platforms](#launch-x-t-platforms)
@@ -87,10 +86,9 @@ root@localhost:~# cd bf-bsp-lts
 root@localhost:~/bf-bsp-lts#
 ```
 
-There're `2 ways` to build BSP.
 
 #### <a name="build-bsp-via-cmake"></a>Build BSP via CMake
-The `1st` (also recommended) one is by cmake:
+The proccedure of building bsp by cmake is texted below:
 ```
 root@localhost:~/bf-bsp-lts# ./autogen.sh
 root@localhost:~/bf-bsp-lts# mkdir build && cd build/
@@ -113,34 +111,13 @@ The defaut value of supported variables are listed below if none of them passed 
 
 `LASER_ON=off`
 
-#### <a name="build-bsp-via-an-outdated-way"></a>Build BSP via an Outdated Way
-
-Skip to `Generate Configuration Variables` if `1st` building method is choosed. Otherwise, the `2nd` one, which will be disabled at `the end of July 2024`, is:
-
-Optionally changes to fit your SDE manually:
-```
-root@localhost:~/bf-bsp-lts# vi drivers/include/bf_pltfm_types/bf_pltfm_types.h +34
-Modify SDE_VERSION  to value '990','9110','9120'or '9130' ...
-```
-TIPS: In order to be compatible with different SDE versions and different base systems, we have introduced two macro variables in the BSP, one is `SDE_VERSION` and the other is `OS_VERSION`.
-They are defined in `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h`. Amend `SDE_VERSION` to the one you're using.
-
-
-Build and Install
-```
-root@localhost:~/bf-bsp-lts# ./autogen.sh
-root@localhost:~/bf-bsp-lts# ./configure --prefix=$SDE_INSTALL --enable-thrift
-root@localhost:~/bf-bsp-lts# make -j7 install
-```
-
-To be highlighted, during the evolution of SDE, the installation paths of the third party dependencies have been changed, so did the generated dependencies. Therefore, a minor changes in bsp sources must be done to accommodate those changes. For SDE version equal with  or higher than `9.9.x`, the changes as following:
-```
-root@localhost:~# mkdir /usr/local/include
-root@localhost:~# ln -s $SDE_INSTALL/include/thrift/ /usr/local/include/thrift
-```
-
-
 Finally, `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all headers exposed by bsp will be installed to `$SDE_INSTALL/include`.
+
+TIPS: In order to be compatible with different SDE versions and different base systems, we have introduced two macro variables in the BSP, one is `SDE_VERSION` and the other is `OS_VERSION`.
+They are defined in `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h`.
+
+
+
 
 ### <a name="launch"></a>Launch
 
