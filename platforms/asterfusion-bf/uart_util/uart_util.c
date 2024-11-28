@@ -115,7 +115,7 @@ int main (int argc, char **argv)
         int sec = 30;
 
         ret = bf_pltfm_bmc_uart_util_write_read (ctx, 0x0D, wr_buf,
-                                    2, rd_buf, 128 - 1, 500000);
+                                    2, rd_buf, 128 - 1, 700000);
         if ((ret != 4) || (rd_buf[0] != 3) ) {
             fprintf (stdout, "read failed<%d>\n", ret);
         } else {
@@ -149,7 +149,7 @@ int main (int argc, char **argv)
                     sleep(sec);
 
                     ret = bf_pltfm_bmc_uart_util_write_read (ctx, 0x0D, wr_buf,
-                                                2, rd_buf, 128 - 1, 500000);
+                                                2, rd_buf, 128 - 1, 700000);
                     if ((ret != 4) || (rd_buf[0] != 3) ) {
                         fprintf (stdout, "read failed<%d>\n", ret);
                     } else {
@@ -170,7 +170,7 @@ int main (int argc, char **argv)
         }
 
         ret = bf_pltfm_bmc_uart_util_write_read (ctx, cmd, wr_buf,
-                                    wr_len, rd_buf, 128 - 1, 500000);
+                                    wr_len, rd_buf, 128 - 1, 700000);
         if (ret < 0) {
             fprintf (stdout, "read failed<%d>\n", ret);
         } else {

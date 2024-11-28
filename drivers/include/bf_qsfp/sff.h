@@ -72,6 +72,7 @@ typedef enum {
     LENGTH_OM2,
     LENGTH_OM1,
     LENGTH_CBLASSY,
+    CONTROL_ADVERTISEMENT,
     VENDOR_NAME,     /* QSFP Vendor Name (ASCII) */
     VENDOR_OUI,      /* QSFP Vendor IEEE company ID */
     PART_NUMBER,     /* Part NUmber provided by QSFP vendor (ASCII) */
@@ -119,6 +120,17 @@ typedef enum {
     DATAPATH_CFG_STATUS,
     FLAG_SUPPORT,
     LN1_ACTIVE_SET,
+    LASER_FREQ_SUPPORT,     /* Pg4  128          */
+    LASER_FREQ_GRIDS,       /* Pg4  130-189      */
+    LASER_FREQ_SPACING,     /* Pg18 128-135[7:4] */
+    LASER_FREQ_CH_NUM,      /* Pg18 136-151      */
+    FINE_TUNING_SUPPORT,    /* Pg4  129          */
+    FINE_TUNING_RESOLUTION, /* Pg4  190-191      */
+    FINE_TUNING_OFFSETS,    /* Pg4  192-195      */
+    FINE_TUNING_ENABLE,     /* Pg18 136-151[0]   */
+    FINE_TUNING_OFFSET,     /* Pg18 152-167      */
+    LASER_FREQ,             /* Pg18 168-199      */
+    LASER_TUNING_STATUS,    /* Pg18 222-229[1]   */
 
     /* SFP-specific Fields */
     /* 0xA0 Address Fields */
@@ -223,16 +235,40 @@ typedef enum {
 } Qsfp_bank;
 
 typedef enum {
-    QSFP_PAGE0_LOWER = -1,
-    QSFP_PAGE0_UPPER,
-    QSFP_PAGE1,
-    QSFP_PAGE2,
-    QSFP_PAGE3,
-    QSFP_PAGE16 = 16,
-    QSFP_PAGE17 = 17,
-    QSFP_PAGE18 = 18,
-    QSFP_PAGE19 = 19,
-    QSFP_PAGE47 = 47,
+    QSFP_PAGE0_LOWER = -1, // page 00h lower
+    QSFP_PAGE0_UPPER,      // page 00h upper
+
+    QSFP_PAGE1,            // page 01h
+    QSFP_PAGE2,            // page 02h
+    QSFP_PAGE3,            // page 03h
+    QSFP_PAGE4,            // page 04h
+
+    QSFP_PAGE16 = 16,      // page 10h
+    QSFP_PAGE17,           // page 11h
+    QSFP_PAGE18,           // page 12h
+    QSFP_PAGE19,           // page 13h
+    QSFP_PAGE20,           // page 14h
+    QSFP_PAGE21,           // page 15h
+    QSFP_PAGE22,           // page 16h
+    QSFP_PAGE23,           // page 17h
+
+    QSFP_PAGE32 = 32,      // page 20h
+    QSFP_PAGE33,           // page 21h
+    QSFP_PAGE34,           // page 22h
+    QSFP_PAGE35,           // page 23h
+    QSFP_PAGE36,           // page 24h
+    QSFP_PAGE37,           // page 25h
+    QSFP_PAGE38,           // page 26h
+    QSFP_PAGE39,           // page 27h
+    QSFP_PAGE40,           // page 28h
+    QSFP_PAGE41,           // page 29h
+    QSFP_PAGE42,           // page 2Ah
+    QSFP_PAGE43,           // page 2Bh
+
+    QSFP_PAGE44,           // page 2Ch
+    QSFP_PAGE45,           // page 2Dh
+
+    QSFP_PAGE47 = 47,      // page 2Fh
 
     /* for SFP */
     SFP_A0 = -1,
@@ -431,6 +467,8 @@ typedef enum {
     HOST_TYPE_200GAUI_2_L_C2M = 0x4E,
     HOST_TYPE_400GAUI_4_S_C2M = 0x4F,
     HOST_TYPE_400GAUI_4_L_C2M = 0x50,
+    HOST_TYPE_800GAUI_8_S_C2M = 0x51,
+    HOST_TYPE_800GAUI_8_L_C2M = 0x52,
 } Host_type_interface_code;
 
 // MMF Interface ID referring to SFF8024 Table 4.6 in Chapter 4.6
@@ -512,6 +550,12 @@ typedef enum {
     MEDIA_TYPE_SMF_400GBASE_LR4_6 = 0x43,
     MEDIA_TYPE_SMF_100GBASE_ZR = 0x44,
 
+    // OpenZR+
+    MEDIA_TYPE_SMF_ZR400_OFEC_16QAM = 0x46,
+    MEDIA_TYPE_SMF_ZR300_OFEC_8QAM = 0x47,
+    MEDIA_TYPE_SMF_ZR200_OFEC_QPSK = 0x48,
+    MEDIA_TYPE_SMF_ZR100_OFEC_QPSK = 0x49,
+
     MEDIA_TYPE_SMF_100G_LR1_20 = 0x4A,
     MEDIA_TYPE_SMF_100G_ER1_30 = 0x4B,
     MEDIA_TYPE_SMF_100G_ER1_40 = 0x4C,
@@ -531,17 +575,21 @@ typedef enum {
     QSFPDD_400GBASE_DR4 = MEDIA_TYPE_SMF_400GBASE_DR4,
     QSFPDD_400GBASE_FR4 = MEDIA_TYPE_SMF_400GBASE_FR4,
     QSFPDD_400GBASE_LR4 = MEDIA_TYPE_SMF_400G_LR4_10,
+    QSFPDD_400GBASE_ZR400 = MEDIA_TYPE_SMF_ZR400_OFEC_16QAM,
 } Module_SMF_media_interface_code;
 
 // Passive Copper/Loopback Interface ID referring to SFF8024 Table 4.8 in Chapter 4.6
 // SFF-8024 Rev 4.9 Page 29
 typedef enum {
+    MEDIA_PASSIVE_UNDEF = 0x0,
+    MEDIA_PASSIVE_COPPER_CBL = 0x1,
     MEDIA_PASSIVE_LOOPBACK = 0xBF,
 } Media_Passive_cbl_interface_code;
 
 // Active Copper/Loopback Interface ID referring to SFF8024 Table 4.9 in Chapter 4.6
 // SFF-8024 Rev 4.9 Page 29
 typedef enum {
+    MEDIA_ACTIVE_CBL_UNDEF = 0x0,
     MEDIA_ACTIVE_CBL_BER_12 = 0x1,
     MEDIA_ACTIVE_CBL_BER_5 = 0x2,
     MEDIA_ACTIVE_CBL_BER_4 = 0x3,

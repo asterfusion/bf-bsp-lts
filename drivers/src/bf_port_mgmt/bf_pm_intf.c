@@ -1732,8 +1732,11 @@ bf_pltfm_status_t bf_pltfm_pm_init (
     if (platform_is_hw()) {
         if ((init_mode != BF_DEV_WARM_INIT_FAST_RECFG) &&
             (init_mode != BF_DEV_WARM_INIT_HITLESS)) {
-            /* edit by tsihang, 2019.8.1 */
-            qsfp_deassert_all_reset_pins();
+            /* No need to assert reset all ports on TF2. By SunZheng, 2024.11.20 */
+            if (!bf_pm_intf_is_device_family_tofino2(dev_id)) {
+                /* edit by tsihang, 2019.8.1 */
+                qsfp_deassert_all_reset_pins();
+            }
         }
         rc = bf_sys_timer_create (&qsfp_fsm_timer,
                                   QSFP_FSM_TMR_PERIOD_MS,

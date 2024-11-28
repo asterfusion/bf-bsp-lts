@@ -1354,6 +1354,159 @@ void printDdm_for_cmis (ucli_context_t *uc,
     }
 }
 
+void printVdm_for_cmis (ucli_context_t *uc,
+                        unsigned int port)
+{
+    cmis_vdm_info_t vdm_info;
+    uint8_t vdm_groups_pages[MAX_QSFP_PAGE_SIZE * 12] = {0};
+    uint8_t vdm_flags_page[MAX_QSFP_PAGE_SIZE] = {0};
+    uint8_t vdm_masks_page[MAX_QSFP_PAGE_SIZE] = {0};
+
+    // non-zero retval means vdm unsupported
+    if (0 != bf_cmis_get_vdm_pages (port,
+                                    vdm_groups_pages,
+                                    vdm_flags_page,
+                                    vdm_masks_page)) {
+        return;
+    }
+
+    aim_printf (
+        &uc->pvs, "CMIS VDM Info for module on port %d\n", port);
+    aim_printf (&uc->pvs,
+            "%10s %15s %17s %16s %16s %15s %16s %15s %15s %14s\n",
+            "-------",
+            "--------------",
+            "----------------",
+            "---------------",
+            "---------------",
+            "--------------",
+            "---------------",
+            "--------------",
+            "--------------",
+            "-------------");
+    aim_printf (&uc->pvs,
+            "%10s %15s %17s %16s %16s %15s %16s %15s %15s %14s\n",
+            "Port/Ch",
+            "Value",
+            "High Alarm Thres",
+            "Low Alarm Thres",
+            "High Warn Thres",
+            "Low Warn Thres",
+            "High Alarm Trig",
+            "Low Alarm Trig",
+            "High Warn Trig",
+            "Low Warn Trig");
+
+    /*
+    By SunZheng, 2024-11-06.
+      Refer to CMIS 5.1 Table 8-153 for detailed support adv.
+      Odd Adress:
+      VDM observable type ID, real-time monitored value in Page + 4
+      Even Address:
+      Bit 7-4: Threshold set ID in Page + 8, in group of 8 bytes, 16 sets/page
+      Bit 3-0: n. Monitored lane n+1
+    */
+    uint8_t type_id;
+    uint8_t last_type_id = 0;
+    uint8_t lane, thres_id;
+    uint8_t msb_val, lsb_val;
+    uint8_t msb_ha, lsb_ha;
+    uint8_t msb_la, lsb_la;
+    uint8_t msb_hw, lsb_hw;
+    uint8_t msb_lw, lsb_lw;
+    double val;
+    double ha_val, la_val;
+    double hw_val, lw_val;
+    bool ha_trig, la_trig;
+    bool hw_trig, lw_trig;
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0, k = 0; j <= MAX_QSFP_PAGE_SIZE; j += 2, k++) {
+            type_id = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * i + j + 1];
+            if (0 == bf_cmis_get_vdm_observable_types(port,
+                                                      type_id,
+                                                      &vdm_info)) {
+                // Print each observable_type only once by checking last_type_id
+                if (last_type_id != type_id) {
+                    aim_printf (&uc->pvs,
+                            "%10s %15s %17s %16s %16s %15s %16s %15s %15s %14s\n",
+                            "-------",
+                            "--------------",
+                            "----------------",
+                            "---------------",
+                            "---------------",
+                            "--------------",
+                            "---------------",
+                            "--------------",
+                            "--------------",
+                            "-------------");
+                    aim_printf (&uc->pvs,
+                            "   %s %s\n",
+                            vdm_info.observable_type,
+                            vdm_info.unit);
+                }
+
+                // Find the corresponding address and fetch the value
+                lane = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * i + j] & 0xf;
+                thres_id = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * i + j] >> 4;
+                msb_val = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 4) + j];
+                lsb_val = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 4) + j + 1];
+                msb_ha = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8];
+                lsb_ha = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 1];
+                msb_la = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 2];
+                lsb_la = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 3];
+                msb_hw = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 4];
+                lsb_hw = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 5];
+                msb_lw = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 6];
+                lsb_lw = vdm_groups_pages[MAX_QSFP_PAGE_SIZE * (i + 8) + thres_id * 8 + 7];
+
+                // Print VDM values, thresholds, warning/alarm flags
+                if (strcmp(vdm_info.data_type, "S16") == 0) {
+                    val = (int16_t)((msb_val << 8) | lsb_val) * vdm_info.unit_scale;
+                    ha_val = (int16_t)((msb_ha << 8) | lsb_ha) * vdm_info.unit_scale;
+                    la_val = (int16_t)((msb_la << 8) | lsb_la) * vdm_info.unit_scale;
+                    hw_val = (int16_t)((msb_hw << 8) | lsb_hw) * vdm_info.unit_scale;
+                    lw_val = (int16_t)((msb_lw << 8) | lsb_lw) * vdm_info.unit_scale;
+                } else if (strcmp(vdm_info.data_type, "U16") == 0) {
+                    val = (uint16_t)((msb_val << 8) | lsb_val) * vdm_info.unit_scale;
+                    ha_val = (uint16_t)((msb_ha << 8) | lsb_ha) * vdm_info.unit_scale;
+                    la_val = (uint16_t)((msb_la << 8) | lsb_la) * vdm_info.unit_scale;
+                    hw_val = (uint16_t)((msb_hw << 8) | lsb_hw) * vdm_info.unit_scale;
+                    lw_val = (uint16_t)((msb_lw << 8) | lsb_lw) * vdm_info.unit_scale;
+                } else if (strcmp(vdm_info.data_type, "F16") == 0) {
+                    uint16_t val_u16 = (uint16_t)((msb_val << 8) | lsb_val);
+                    uint16_t ha_val_u16 = (uint16_t)((msb_ha << 8) | lsb_ha);
+                    uint16_t la_val_u16 = (uint16_t)((msb_la << 8) | lsb_la);
+                    uint16_t hw_val_u16 = (uint16_t)((msb_hw << 8) | lsb_hw);
+                    uint16_t lw_val_u16 = (uint16_t)((msb_lw << 8) | lsb_lw);
+
+                    val = (val_u16 & 0x7ff) * pow(10, ((val_u16 >> 11) & 0x1f) - 24);
+                    ha_val = (ha_val_u16 & 0x7ff) * pow(10, ((ha_val_u16 >> 11) & 0x1f) - 24);
+                    la_val = (la_val_u16 & 0x7ff) * pow(10, ((la_val_u16 >> 11) & 0x1f) - 24);
+                    hw_val = (hw_val_u16 & 0x7ff) * pow(10, ((hw_val_u16 >> 11) & 0x1f) - 24);
+                    lw_val = (lw_val_u16 & 0x7ff) * pow(10, ((lw_val_u16 >> 11) & 0x1f) - 24);
+                } else {
+                    continue;
+                }
+                ha_trig = (vdm_flags_page[i * 32 + k] >> ((k % 2) * 4)) & 0x1;
+                la_trig = (vdm_flags_page[i * 32 + k] >> ((k % 2) * 4 + 1)) & 0x1;
+                hw_trig = (vdm_flags_page[i * 32 + k] >> ((k % 2) * 4 + 2)) & 0x1;
+                lw_trig = (vdm_flags_page[i * 32 + k] >> ((k % 2) * 4 + 3)) & 0x1;
+
+                aim_printf (&uc->pvs,
+                        "      %2d/%d %15.2f %17.2f %16.2f %16.2f %15.2f %16s %15s %15s %14s\n",
+                        port, lane, val, ha_val, la_val, hw_val, lw_val,
+                        ha_trig ? "true" : "false", la_trig ? "true" : "false",
+                        hw_trig ? "true" : "false", lw_trig ? "true" : "false");
+
+                // Update the latest parsed type id
+                last_type_id = type_id;
+            }
+        }
+    }
+    aim_printf (&uc->pvs, "\n");
+}
+
 void printThreshold (ucli_context_t *uc,
                      unsigned int port)
 {
@@ -1558,7 +1711,7 @@ bf_pltfm_ucli_ucli__qsfp_get_ddm (ucli_context_t
             memset (buf, 0, sizeof (buf));
             // TBD - use onebank to get flags
             bf_qsfp_module_read (
-                port, QSFP_BANK0, QSFP_PAGE0_LOWER, 0,
+                port, QSFP_BANKNA, QSFP_PAGE0_LOWER, 0,
                 MAX_QSFP_PAGE_SIZE_255, buf);
             printDdm (uc, port, buf);
         }
@@ -2476,11 +2629,10 @@ bf_pltfm_ucli_ucli__qsfp_dump_info (
     }
 
     // TBD - use onebank to get flags
-    bf_qsfp_module_read (port, QSFP_BANK0,
+    bf_qsfp_module_read (port, QSFP_BANKNA,
                          QSFP_PAGE0_LOWER, 0, 128, buf);
-    bf_qsfp_module_read (
-        port, QSFP_BANK0, QSFP_PAGE0_UPPER, 128, 128,
-        buf + MAX_QSFP_PAGE_SIZE);
+    bf_qsfp_module_read (port, QSFP_BANKNA,
+                         QSFP_PAGE0_UPPER, 128, 128, buf + MAX_QSFP_PAGE_SIZE);
 
     aim_printf (&uc->pvs, "## MODULE STATUS\n");
     aim_printf (&uc->pvs, "Status: 0x%02x 0x%02x\n",
@@ -2792,13 +2944,12 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
     } else {
         aim_printf (&uc->pvs, "FAILED\n");
     }
-
     aim_printf (&uc->pvs, "\n");
 
     qsfp_cable_t qsfp_cable;
     bool is_passive_cu;
     is_passive_cu = bf_qsfp_is_passive_cu (port);
-    char media_type_str[41];
+    char media_type_str[46];
     bf_qsfp_get_media_type_str (port, media_type_str);
     aim_printf (&uc->pvs, "%-30s = %s\n",
                 "Media type", media_type_str);
@@ -2852,6 +3003,38 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
     }
     aim_printf (&uc->pvs, "\n");
 
+    /* returns the nominal wavelength and the wavelength tolerance */
+    double nominal, tolerance;
+    if ((!is_passive_cu) &&
+        (bf_qsfp_get_wavelength_info (port,
+                                      &nominal,
+                                      &tolerance))) {
+        aim_printf (&uc->pvs,
+                    "%-30s = %.2f nm\n",
+                    "Nominal wavelength",
+                    nominal);
+        aim_printf (&uc->pvs,
+                    "%-30s = ±%.3f nm\n",
+                    "Wavelength tolerance",
+                    tolerance);
+    }
+    bool ctrl_flag, tune_flag;
+    /* returns the wavelength controllable and tramsmitter tunable flags */
+    if ((is_cmis) && (!is_passive_cu) &&
+        bf_qsfp_get_wavelength_flags (port,
+                                      &ctrl_flag,
+                                      &tune_flag)) {
+        aim_printf (&uc->pvs,
+                    "%-30s = %s\n",
+                    "Wavelength control",
+                    (ctrl_flag ? "Active control" : "Not supported"));
+        aim_printf (&uc->pvs,
+                    "%-30s = %s\n",
+                    "Wavelength tunable",
+                    (tune_flag ? "True" : "False"));
+        aim_printf (&uc->pvs, "\n");
+    }
+
     /* returns the active and inactive firmware versions */
     uint8_t active_ver_major, active_ver_minor;
     uint8_t inactive_ver_major, inactive_ver_minor;
@@ -2882,8 +3065,8 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
                     "Hardware version",
                     hw_ver_major,
                     hw_ver_minor);
+        aim_printf (&uc->pvs, "\n");
     }
-    aim_printf (&uc->pvs, "\n");
 
     aim_printf (&uc->pvs, "## SUPPORTED ");
     if (is_cmis) {
@@ -2896,22 +3079,22 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
     if ((is_cmis) && (!is_passive_cu)) {
         aim_printf (&uc->pvs,
                     "%s  %s\n",
-                    "--------------- Host interface -----------------",
-                    "--------------- Media interface ----------------");
+                    "------------------- Host interface -------------------",
+                    "------------------- Media interface ------------------");
     } else {
         aim_printf (
             &uc->pvs, "%s\n",
-            "-------------- Host interface --------------");
+            "---------------- Host interface -----------------");
     }
 
     if (is_cmis) {
         aim_printf (&uc->pvs, "%-7s", "ApSel");
     }
-    aim_printf (&uc->pvs, "%-40s%-4s",
+    aim_printf (&uc->pvs, "%-46s%-4s",
                 "Standard supported", "Lns");
     if ((is_cmis) && (!is_passive_cu)) {
         aim_printf (&uc->pvs,
-                    "%-4s  %-40s%-4s%s",
+                    "%-4s  %-46s%-4s%s",
                     "Mask",
                     "Standard supported",
                     "Lns",
@@ -2939,14 +3122,14 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
                 aim_printf (&uc->pvs, "%-7d", cur_app + 1);
             }
             aim_printf (&uc->pvs,
-                        "%-40s%-4d",
+                        "%-46s%-4d",
                         app_info[cur_app].host_if_id_str,
                         app_info[cur_app].host_lane_cnt);
             if ((is_cmis) && (!is_passive_cu)) {
                 aim_printf (&uc->pvs, "0x%02X",
                             app_info[cur_app].host_lane_assign_mask);
                 aim_printf (&uc->pvs,
-                            "  %-40s%-4d",
+                            "  %-46s%-4d",
                             app_info[cur_app].media_if_id_str,
                             app_info[cur_app].media_lane_cnt);
                 aim_printf (
@@ -4195,6 +4378,190 @@ bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_period_set (
 }
 
 static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_wavelength_get (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-wavelength-get", 1, "<port>");
+
+    int port;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+
+    port = atoi (uc->pargs->args[0]);
+
+    if (port < 1 || port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                    max_port);
+        return 0;
+    }
+
+    if (!bf_qsfp_is_present (port)) {
+        aim_printf (&uc->pvs, "Module not present on port %d\n",
+                    port);
+        return 0;
+    }
+
+    bool is_cmis = bf_qsfp_is_cmis (port);
+    bool is_passive_cu = bf_qsfp_is_passive_cu (port);
+    aim_printf (&uc->pvs,
+                "====================\n");
+    aim_printf (&uc->pvs,
+                "Info for Wavelength:\n");
+    aim_printf (&uc->pvs,
+                "====================\n");
+
+    double nominal, tolerance;
+    if ((!is_passive_cu) &&
+        (bf_qsfp_get_wavelength_info (port,
+                                      &nominal,
+                                      &tolerance))) {
+        aim_printf (&uc->pvs,
+                    "%-21s = %.2f nm\n",
+                    "Nominal wavelength",
+                    nominal);
+        aim_printf (&uc->pvs,
+                    "%-21s = ±%.3f nm\n",
+                    "Wavelength tolerance",
+                    tolerance);
+        aim_printf (&uc->pvs, "\n");
+    }
+
+    bool ctrl_flag, tune_flag;
+    if ((is_cmis) && (!is_passive_cu) &&
+        bf_qsfp_get_wavelength_flags (port,
+                                      &ctrl_flag,
+                                      &tune_flag)) {
+        aim_printf (&uc->pvs,
+                    "%-21s = %s\n",
+                    "Wavelength control",
+                    (ctrl_flag ? "Active control" : "Not supported"));
+        aim_printf (&uc->pvs,
+                    "%-21s = %s\n",
+                    "Wavelength tunable",
+                    (tune_flag ? "True" : "False"));
+    }
+
+    if (tune_flag) {
+        qsfp_laser_info_t laser_info;
+        bf_cmis_get_laser_info (port, &laser_info);
+
+        aim_printf (&uc->pvs,
+                    "%-21s = %s\n",
+                    "Wavelength tuning",
+                    (laser_info.tuning_set ? "Enabled" : "Disabled"));
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs,
+                    "Wavelength DDM:\n");
+        aim_printf (&uc->pvs,
+                    "%10s %17s\n",
+                    "-------",
+                    "---------------");
+        aim_printf (&uc->pvs,
+                    "%10s %17s\n",
+                    "Port/Ch",
+                    "Wavelength (nm)");
+        aim_printf (&uc->pvs,
+                    "%10s %17s\n",
+                    "-------",
+                    "---------------");
+
+        uint8_t max_ch = bf_qsfp_get_media_ch_cnt (port);
+        double wavelength_nm;
+        for (int ch = 0; ch < max_ch; ch++) {
+            bf_cmis_module_wavelength_get (port,
+                                           ch,
+                                           &wavelength_nm);
+            aim_printf (&uc->pvs,
+                        "      %d/%d %17.2f\n",
+                        port, ch, wavelength_nm);
+        }
+        aim_printf (&uc->pvs, "\n");
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_wavelength_set (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-wavelength-set", 2,
+        "<port> <wavelength(nm) in range 1528.77-1567.13>");
+
+    int port;
+    bool ctrl_flag, tune_flag;
+    double wavelength;
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+
+    port = atoi (uc->pargs->args[0]);
+    wavelength = atof (uc->pargs->args[1]);
+
+    if (port < 1 || port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                    max_port);
+        return 0;
+    }
+
+    if (!bf_qsfp_is_present (port)) {
+        aim_printf (&uc->pvs, "Module not present on port %d\n",
+                    port);
+        return 0;
+    }
+
+    if (!bf_qsfp_is_cmis (port)) {
+        aim_printf (&uc->pvs, "Wavelength setting unsupported for module on port %d\n",
+                    port);
+        return 0;
+    }
+
+    bf_qsfp_get_wavelength_flags (port, &ctrl_flag, &tune_flag);
+    if (!tune_flag) {
+        aim_printf (&uc->pvs, "Wavelength setting unsupported for module on port %d\n",
+                    port);
+        return 0;
+    }
+
+    if (bf_cmis_module_wavelength_set(port, wavelength)) {
+        aim_printf (&uc->pvs, "Wavelength setting failed for module on port %d\n",
+                    port);
+    } else {
+        aim_printf (&uc->pvs,
+                    "Wavelength set to %.2f nm (%.3f GHz) for module on port %d, "
+                    "re-enable the port to take effect\n",
+                    wavelength, LIGHT_SPEED / wavelength, port);
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_wavelength_clear (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+        "qsfp-wavelength-clear", 1, "<port>");
+
+    int port = atoi (uc->pargs->args[0]);
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+
+    if (port < 1 || port > max_port) {
+        aim_printf (&uc->pvs, "port must be 1-%d\n",
+                    max_port);
+        return 0;
+    }
+
+    bf_cmis_module_wavelength_clear (port);
+    aim_printf (&uc->pvs,
+                "Wavelength setting cleared for port %d, "
+                "re-enable the port to take effect\n",
+                port);
+
+    return 0;
+}
+
+static ucli_status_t
 bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_log_enable (
     ucli_context_t *uc)
 {
@@ -4211,6 +4578,76 @@ bf_pltfm_ucli_ucli__qsfp_mgmnt_temper_monit_log_enable (
         } else {
             bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_MNTR_QSFP_REALTIME_DDM_LOG;
         }
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__qsfp_get_vdm (ucli_context_t
+                                  *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+        "get-vdm", -1,
+        "[sport] [dport]");
+
+    int max_port = bf_qsfp_get_max_qsfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
+    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
+    /*
+    Assuming module on port 1, 2 supports VDM whilst the one on port 3 does not.
+    Sample output:
+
+    bf-sde> get-vdm 1 3
+    CMIS VDM Info for module on port 1
+       -------  --------------  ----------------  ---------------  ---------------  --------------  ---------------  --------------  --------------  -------------
+       Port/Ch           Value  High Alarm Thres  Low Alarm Thres  High Warn Thres  Low Warn Thres  High Alarm Trig  Low Alarm Trig  High Warn Trig  Low Warn Trig
+       -------  --------------  ----------------  ---------------  ---------------  --------------  ---------------  --------------  --------------  -------------
+       eSNR Media Input [dB]
+           1/1            7.57           255.996          255.996          255.996         255.996            false           false           false          false
+           1/2            7.14           255.996          255.996          255.996         255.996            false           false           false          false
+           1/3            7.51           255.996          255.996          255.996         255.996            false           false           false          false
+           1/4            6.56           255.996          255.996          255.996         255.996            false           false           false          false
+       -------  --------------  ----------------  ---------------  ---------------  --------------  ---------------  --------------  --------------  -------------
+       eSNR Host Input [dB]
+           1/1               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/2               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/3               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/4               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/5               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/6               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/7               0           255.996          255.996          255.996         255.996            false           false           false          false
+           1/8               0           255.996          255.996          255.996         255.996            false           false           false          false
+       ...
+
+    CMIS VDM Info for module on port 2
+       -------  --------------  ----------------  ---------------  ---------------  --------------  ---------------  --------------  --------------  -------------
+       Port/Ch           Value  High Alarm Thres  Low Alarm Thres  High Warn Thres  Low Warn Thres  High Alarm Trig  Low Alarm Trig  High Warn Trig  Low Warn Trig
+       -------  --------------  ----------------  ---------------  ---------------  --------------  ---------------  --------------  --------------  -------------
+       ...
+
+    */
+    for (port = first_port; port <= last_port; port++) {
+        if (!bf_qsfp_is_present (port) ||
+            (!bf_qsfp_is_optical (port))) {
+            continue;
+        }
+
+        if (!bf_qsfp_is_cmis (port)) {
+            continue;
+        }
+
+        printVdm_for_cmis(uc, port);
     }
 
     return 0;
@@ -4288,6 +4725,10 @@ bf_pltfm_qsfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__qsfp_db,
     bf_pltfm_ucli_ucli__qsfp_map,
     bf_pltfm_ucli_ucli__qsfp_rxlos_debounce_set,
+    bf_pltfm_ucli_ucli__qsfp_wavelength_get,
+    bf_pltfm_ucli_ucli__qsfp_wavelength_set,
+    bf_pltfm_ucli_ucli__qsfp_wavelength_clear,
+    bf_pltfm_ucli_ucli__qsfp_get_vdm,
     NULL,
 };
 

@@ -185,6 +185,7 @@ static void qsfp_module_fsm_complete_update2 (
 typedef enum {
     CMISand8636_TMR_t_reset_init = 1,  // really only 2us
     CMISand8636_TMR_t_reset = 2000,    // all times in ms
+    CMISand8636_TMR_t_sw_reset = 1000, // is 1000ms sufficient?
     CMISand8636_TMR_Toff_LPMode = 300,
     CMISand8636_TMR_ton_txdis = 100,
     CMISand8636_TMR_toff_txdis = 400,
@@ -200,6 +201,7 @@ typedef enum {
     QSFP_FSM_ST_INSERTED,
     // states requiring fixed delays
     QSFP_FSM_ST_WAIT_T_RESET,      // 2000ms
+    QSFP_FSM_ST_WAIT_T_SW_RESET,   // 1000ms
     QSFP_FSM_ST_WAIT_TON_TXDIS,    //  100ms
     QSFP_FSM_ST_WAIT_TOFF_TXDIS,
     QSFP_FSM_ST_WAIT_LOWPWR,
@@ -218,6 +220,7 @@ static char *qsfp_fsm_st_to_str[] = {
     "QSFP_FSM_ST_REMOVED         ",
     "QSFP_FSM_ST_INSERTED        ",
     "QSFP_FSM_ST_WAIT_T_RESET    ",
+    "QSFP_FSM_ST_WAIT_T_SW_RESET ",
     "QSFP_FSM_ST_WAIT_TON_TXDIS  ",
     "QSFP_FSM_ST_WAIT_TOFF_TXDIS ",
     "QSFP_FSM_ST_WAIT_LOWPWR     ",
@@ -235,6 +238,7 @@ static char *qsfp_fsm_st_to_str[] = {
 typedef enum {
     QSFP_CH_FSM_ST_DISABLED = 0,
     QSFP_CH_FSM_ST_ENABLING,        // kick off enable sequence
+    QSFP_CH_FSM_ST_TUNE_LASER,
     QSFP_CH_FSM_ST_APPSEL,
     QSFP_CH_FSM_ST_APPLY_DPINIT,
     QSFP_CH_FSM_ST_ENA_CDR,         // 300ms (Luxtera PSM4)
@@ -248,6 +252,7 @@ typedef enum {
 static char *qsfp_fsm_ch_en_st_to_str[] = {
     "QSFP_CH_FSM_ST_DISABLED        ",
     "QSFP_CH_FSM_ST_ENABLING        ",
+    "QSFP_CH_FSM_ST_TUNE_LASER      ",
     "QSFP_CH_FSM_ST_APPSEL          ",
     "QSFP_CH_FSM_ST_APPLY_DPINIT    ",
     "QSFP_CH_FSM_ST_ENA_CDR         ",
@@ -627,7 +632,7 @@ static int bf_fsm_qsfp_rd2(
   int rc;
 
   // bank 0 hard-coded for now
-  rc = bf_qsfp_module_read(module, 0, page, offset, len, buf);
+  rc = bf_qsfp_module_read(module, QSFP_BANK0, page, offset, len, buf);
 
   // LOG_DEBUG("QSFP    %2d : Rd : pg=%2d : offset=%2d : len=%3d :
   // data[0]=%02x",
@@ -1241,6 +1246,26 @@ static void qsfp_fsm_reset_assert (int conn_id)
     rc = bf_qsfp_reset (conn_id, true);
     if (rc != 0) {
         LOG_WARNING ("QSFP    %2d : Error <%d> asserting resetL",
+                   conn_id, rc);
+    }
+}
+
+/*****************************************************************
+ *
+ *****************************************************************/
+static void qsfp_fsm_sw_reset_assert (
+    int conn_id)
+{
+    int rc;
+
+    if (bf_qsfp_is_fsm_logging(conn_id)) {
+        LOG_DEBUG ("QSFP    %2d : SWRESETL = true",
+               conn_id);
+    }
+    // de-assert resetL
+    rc = bf_qsfp_assert_software_reset (conn_id);
+    if (rc != 0) {
+        LOG_WARNING ("QSFP    %2d : Error <%d> asserting sw-resetL",
                    conn_id, rc);
     }
 }
@@ -2301,7 +2326,17 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             qsfp_fsm_reset_de_assert (conn_id);
 
             next_st = QSFP_FSM_ST_WAIT_TON_TXDIS;
+            if (ctrlmask & BF_TRANS_CTRLMASK_REQUIRE_SOFTWARE_RST) {
+                next_st = QSFP_FSM_ST_WAIT_T_SW_RESET;
+            }
             delay_ms = CMISand8636_TMR_t_reset;
+            break;
+
+        case QSFP_FSM_ST_WAIT_T_SW_RESET:
+            qsfp_fsm_sw_reset_assert (conn_id);
+
+            next_st = QSFP_FSM_ST_WAIT_TON_TXDIS;
+            delay_ms = CMISand8636_TMR_t_sw_reset;
             break;
 
         case QSFP_FSM_ST_WAIT_TON_TXDIS:
@@ -3172,6 +3207,102 @@ static bool qsfp_fsm_ch_cmis_is_dp_config_error(bf_dev_id_t dev_id,
     return false;
 }
 
+/**************************************************************
+ * Determine if QSFP laser frequency tuning is supported or not
+ * by SunZheng, 2024/09/29.
+ **************************************************************/
+static bool qsfp_fsm_cmis_is_laser_tuning_supported (bf_dev_id_t dev_id,
+        int conn_id) {
+    uint8_t readval;
+
+    /* By SunZheng, 2024/11/26.
+       Get transmitter tuning support flag.
+       No need to go further if this evaluates to false. */
+    if (bf_qsfp_field_read_onebank (conn_id,
+                                    CONTROL_ADVERTISEMENT,
+                                    0,
+                                    0,
+                                    1,
+                                    &readval) < 0) {
+        LOG_ERROR ("QSFP    %2d : Error getting CMIS transmitter tuning support status",
+                   conn_id);
+        return false;
+    }
+
+    if (!((readval >> 6) & 0x1)) {
+        return false;
+    }
+
+    /* By SunZheng, 2024/11/26.
+       Get all supported laser frequencies.
+       At least one frequency should be suppported.
+       Otherwise there's no need to go further. */
+    if (bf_qsfp_field_read_onebank (conn_id,
+                                    LASER_FREQ_SUPPORT,
+                                    0,
+                                    0,
+                                    1, 
+                                    &readval)) {
+        LOG_ERROR ("QSFP    %2d : Error getting CMIS laser supported frequencies",
+                   conn_id);
+        return false;
+    }
+
+    if (!(readval & 0xff)) {
+        return false;
+    }
+
+    return true;
+}
+
+/**************************************************************
+ * Determine if QSFP laser frequency tuning in progress or not
+ * by SunZheng, 2024/09/29.
+ **************************************************************/
+static bool qsfp_fsm_ch_cmis_is_laser_tuning_inprog (bf_dev_id_t dev_id,
+        int conn_id,
+        int ch) {
+    /* Get per-lane laser frequency tuning status from pg18 222-229[1] */
+    uint8_t readval;
+
+    // Laser tuning status
+    if (!bf_qsfp_field_read_onebank (conn_id,
+                                     LASER_TUNING_STATUS,
+                                     (1 << ch),
+                                     ch << 1,
+                                     1,
+                                     &readval)) {
+        // LOG_DEBUG ("QSFPCSM %2d/%d : CMIS LASER_TUNING_STATUS read val=0x%02x",
+        //            conn_id, ch, readval);
+        return false;
+    }
+
+    if (!((readval >> 1) & 0x1)) {
+        return false;
+    }
+
+    return true;
+}
+
+/******************************************************
+ * sets the laser frequency for the indicated channel
+ * only use for CMIS modules
+ ******************************************************/
+static int qsfp_fsm_ch_cmis_tune_laser_frequency (bf_dev_id_t dev_id,
+        int conn_id,
+        int ch,
+        uint32_t delay_ms) {
+    /* Write tune laser frequency of each lane */
+    int rc = bf_cmis_set_module_laser_frequency (conn_id, ch);
+
+    if (rc != 0) {
+        LOG_ERROR ("QSFPCSM %2d/%d : CMIS laser frequency tuning failed <%d>", 
+                   conn_id, ch, rc);
+    }
+
+    return rc;
+}
+
 /*****************************************************************
  * This routine is only used in Tofino 1 implementations
  *****************************************************************/
@@ -3590,9 +3721,55 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
             delay_ms = 0;
             break;
         }
-        delay_ms = 0;  // no need to wait after this
+
+        if (bf_qsfp_is_cmis(conn_id) && (memmap_format >= MMFORMAT_CMIS4P0)) {
+            if (qsfp_fsm_cmis_is_laser_tuning_supported (dev_id, conn_id)) {
+                next_st = QSFP_CH_FSM_ST_TUNE_LASER;
+                delay_ms = 0;
+                next_substate = 0;
+                break;
+            }
+        }
+
         next_st = QSFP_CH_FSM_ST_APPSEL;
+        delay_ms = 0;
         next_substate = 0;
+        break;
+    case QSFP_CH_FSM_ST_TUNE_LASER:
+        if (!(bf_qsfp_is_cmis(conn_id) && (memmap_format >= MMFORMAT_CMIS4P0))) {
+            delay_ms = 0;  // no need to wait after this
+            next_st = QSFP_CH_FSM_ST_APPSEL;
+            next_substate = 0;
+            break;
+        }
+        switch (next_substate) {
+        case 0:
+            // Tune laser frequency of each lane if needed
+            qsfp_fsm_ch_cmis_tune_laser_frequency (dev_id, conn_id, ch, 20);
+            delay_ms = 0;  // wait in the next substate
+            next_substate++;
+            break;
+        case 1:
+            if (memmap_format == MMFORMAT_CMIS4P0) {
+                delay_ms = 500;
+                next_st = QSFP_CH_FSM_ST_APPSEL;
+                next_substate = 0;
+                break;
+            }
+
+            // For MMFMT > CMIS 4.0, wait until tuning done
+            if (qsfp_fsm_ch_cmis_is_laser_tuning_inprog (dev_id, conn_id, ch)) {
+                LOG_DEBUG ("QSFPCSM %2d/%d : laser frequency tuning still in progress...",
+                        conn_id, ch);
+                delay_ms = 100;
+                break;
+            }
+
+            delay_ms = 0;
+            next_st = QSFP_CH_FSM_ST_APPSEL;
+            next_substate = 0;
+            break;
+        }
         break;
     case QSFP_CH_FSM_ST_APPSEL:
         // update the selected Application for CMIS modules
@@ -4280,6 +4457,7 @@ bf_pltfm_status_t qsfp_fsm (bf_dev_id_t dev_id)
         if ((qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_IDLE) &&
                 (qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_INSERTED) &&
                 (qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_WAIT_T_RESET) &&
+                (qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_WAIT_T_SW_RESET) &&
                 (qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_WAIT_TON_TXDIS) &&
                 (qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_WAIT_TON_LPMODE) &&
                 (qsfp_state[conn_id].fsm_st != QSFP_FSM_ST_LPMODE) &&

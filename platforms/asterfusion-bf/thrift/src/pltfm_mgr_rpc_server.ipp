@@ -365,46 +365,160 @@ class pltfm_mgr_rpcHandler : virtual public pltfm_mgr_rpcIf {
       iop.code = sts;
       throw iop;
     }
-    sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE1, (buf + 256));
+    sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE1, (buf + 128 + MAX_QSFP_PAGE_SIZE));
     if (sts != BF_SUCCESS) {
       InvalidPltfmMgrOperation iop;
       iop.code = sts;
       throw iop;
     }
     if (bf_qsfp_is_cmis(port_num)) {
-      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE2, (buf + 384));
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE2, (buf + 128 + MAX_QSFP_PAGE_SIZE * 2));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE3, (buf + 128 + MAX_QSFP_PAGE_SIZE * 3));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE4, (buf + 128 + MAX_QSFP_PAGE_SIZE * 4));
       if (sts != BF_SUCCESS) {
         InvalidPltfmMgrOperation iop;
         iop.code = sts;
         throw iop;
       }
       // Banked Pages
-      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE17, (buf + 2304));
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE17, (buf + 128 + MAX_QSFP_PAGE_SIZE * 17));
       if (sts != BF_SUCCESS) {
         InvalidPltfmMgrOperation iop;
         iop.code = sts;
         throw iop;
       }
-      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE18, (buf + 2432));
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE18, (buf + 128 + MAX_QSFP_PAGE_SIZE * 18));
       if (sts != BF_SUCCESS) {
         InvalidPltfmMgrOperation iop;
         iop.code = sts;
         throw iop;
       }
-      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE19, (buf + 2560));
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE20, (buf + 128 + MAX_QSFP_PAGE_SIZE * 20));
       if (sts != BF_SUCCESS) {
         InvalidPltfmMgrOperation iop;
         iop.code = sts;
         throw iop;
       }
-      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE47, (buf + 6144));
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE21, (buf + 128 + MAX_QSFP_PAGE_SIZE * 21));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE22, (buf + 128 + MAX_QSFP_PAGE_SIZE * 22));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE23, (buf + 128 + MAX_QSFP_PAGE_SIZE * 23));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE32, (buf + 128 + MAX_QSFP_PAGE_SIZE * 32));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE33, (buf + 128 + MAX_QSFP_PAGE_SIZE * 33));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE34, (buf + 128 + MAX_QSFP_PAGE_SIZE * 34));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE35, (buf + 128 + MAX_QSFP_PAGE_SIZE * 35));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE36, (buf + 128 + MAX_QSFP_PAGE_SIZE * 36));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE37, (buf + 128 + MAX_QSFP_PAGE_SIZE * 37));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE38, (buf + 128 + MAX_QSFP_PAGE_SIZE * 38));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE39, (buf + 128 + MAX_QSFP_PAGE_SIZE * 39));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE40, (buf + 128 + MAX_QSFP_PAGE_SIZE * 40));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE41, (buf + 128 + MAX_QSFP_PAGE_SIZE * 41));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE42, (buf + 128 + MAX_QSFP_PAGE_SIZE * 42));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE43, (buf + 128 + MAX_QSFP_PAGE_SIZE * 43));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE44, (buf + 128 + MAX_QSFP_PAGE_SIZE * 44));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE45, (buf + 128 + MAX_QSFP_PAGE_SIZE * 45));
+      if (sts != BF_SUCCESS) {
+        InvalidPltfmMgrOperation iop;
+        iop.code = sts;
+        throw iop;
+      }
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE47, (buf + 128 + MAX_QSFP_PAGE_SIZE * 47));
       if (sts != BF_SUCCESS) {
         InvalidPltfmMgrOperation iop;
         iop.code = sts;
         throw iop;
       }
     } else {
-      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE3, (buf + 512));
+      sts = bf_qsfp_get_cached_info(port_num, QSFP_PAGE3, (buf + 128 + MAX_QSFP_PAGE_SIZE * 3));
       if (sts != BF_SUCCESS) {
         InvalidPltfmMgrOperation iop;
         iop.code = sts;

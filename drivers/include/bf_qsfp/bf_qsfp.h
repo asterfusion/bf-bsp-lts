@@ -58,6 +58,7 @@ extern "C" {
 #define BF_TRANS_CTRLMASK_FORCELY_APPLY_DPINIT  (1 << 24) // The bit starts from here should never been seen in /etc/transceiver-cases.conf.
 #define BF_TRANS_CTRLMASK_IGNORE_DPAPPLY_STATE  (1 << 25)
 #define BF_TRANS_CTRLMASK_REQUIRE_HIGH_PWR_INIT (1 << 26)
+#define BF_TRANS_CTRLMASK_REQUIRE_SOFTWARE_RST  (1 << 27)
 
 /* Cached state for [q]sfp_info[port].trans_state.
  * To be clarified, the belowing runtime state will not be updated
@@ -76,6 +77,10 @@ extern "C" {
 // high enough, then debouncing can be avoided.
 
 /* As per SFF-8436, QSFP+ 10 Gbs 4X PLUGGABLE TRANSCEIVER spec */
+
+// For laser-tuning function
+#define LASER_BASE_FREQ   193100.0
+#define LIGHT_SPEED       299792458.0
 
 enum {
     /* Size of page read from QSFP via I2C */
@@ -162,8 +167,8 @@ typedef struct {
 typedef struct {
     uint8_t host_if_id;
     uint8_t media_if_id;
-    char host_if_id_str[41];
-    char media_if_id_str[41];
+    char host_if_id_str[46];
+    char media_if_id_str[46];
     uint8_t host_lane_cnt;
     uint8_t media_lane_cnt;
     uint8_t host_lane_assign_mask;
@@ -190,6 +195,23 @@ typedef struct {
     char datapath_state_str_short[5];
     bool data_path_deinit_bit;
 } qsfp_datapath_state_info_t;  // per lane
+
+// For ZR module laser frequency tuning support
+typedef struct {
+    bool tuning_set;
+    uint8_t freq_grid_spac;
+    int16_t freq_grid_ch;
+    int16_t fine_tuning_off;
+} qsfp_laser_info_t;
+
+typedef struct {
+    uint8_t type_id;
+    char observable_type[60];
+    char instance_type[10];
+    char data_type[4];
+    double unit_scale;
+    char unit[8];
+} cmis_vdm_info_t;
 
 typedef enum {
     qsfp,
@@ -293,6 +315,7 @@ int bf_qsfp_get_transceiver_lpmode (
 /* get presence status mask of QSFPs */
 int bf_qsfp_set_transceiver_lpmode (int port,
                                     bool lpmode);
+int bf_qsfp_assert_software_reset (int port);
 /* Performs a read-modify-write to a single-byte bitfield in qsfp memory */
 int bf_qsfp_bitfield_rmw (
     int port, Sff_field field, uint host_chmask,
@@ -379,6 +402,21 @@ int bf_qsfp_get_threshold_rx_pwr (int port,
                                   qsfp_threshold_level_t *thresh);
 int bf_qsfp_get_threshold_tx_bias (int port,
                                    qsfp_threshold_level_t *thresh);
+/* returns the nominal wavelength and the wavelength tolerance */
+bool bf_qsfp_get_wavelength_info (int port,
+                                  double *nominal,
+                                  double *tolerance);
+/* returns the wavelength controllable and tramsmitter tunable flags */
+bool bf_qsfp_get_wavelength_flags (int port,
+                                   bool *ctrl_flag,
+                                   bool *tune_flag);
+int bf_cmis_get_vdm_observable_types(int port,
+                                     uint8_t type_id,
+                                     cmis_vdm_info_t *vdm_info);
+int bf_cmis_get_vdm_pages (int port,
+                           uint8_t *vdm_groups_pages,
+                           uint8_t *vdm_flags_page,
+                           uint8_t *vdm_masks_page);
 /* returns the active and inactive firmware versions */
 bool bf_qsfp_get_firmware_ver (int port,
                                uint8_t *active_ver_major,
@@ -536,6 +574,17 @@ int bf_cmis_get_module_state (int port,
                               bool *intl_deasserted);
 const char* bf_cmis_get_module_state_str(int port,
         Module_State state);
+/* laser frequency tuning function */
+int bf_cmis_module_wavelength_get (int port,
+                                   int ch,
+                                   double *wavelength);
+int bf_cmis_module_wavelength_set (int port,
+                                   double wavelength);
+int bf_cmis_module_wavelength_clear (int port);
+int bf_cmis_set_module_laser_frequency (int port,
+                                        int channel);
+int bf_cmis_get_laser_info (int port,
+                            qsfp_laser_info_t *laser_info);
 int bf_cmis_get_module_fault_cause (int port,
                               Module_Fault_Cause *module_fault);
 const char *bf_cmis_get_module_fault_cause_str (int port,

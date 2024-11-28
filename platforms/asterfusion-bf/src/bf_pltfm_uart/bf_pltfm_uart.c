@@ -312,7 +312,7 @@ uart_send (struct bf_pltfm_uart_ctx_t *ctx,
     size_t l = 0;
     int rc = 0;
 
-    if (tx_len > 2) {
+    if ((tx_len > 2) && ( tx_len != 20)) {
         LOG_ERROR (
             "%s[%d], "
             "uart.send(%s)"
@@ -338,6 +338,10 @@ uart_send (struct bf_pltfm_uart_ctx_t *ctx,
         l = sprintf ((char *)&buf[0],
                      "uart_0x%02x_0x%02x_0x%02x",
                      cmd, tx_buf[0], tx_buf[1]);
+    } else if (tx_len == 20) {
+        l = sprintf ((char *)&buf[0],
+                     "uart_0x%02x_0x%02x_%s",
+                     cmd, tx_buf[0], &tx_buf[1]);
     }
 
     tx_crc (buf, &l);
@@ -376,7 +380,7 @@ end:
 }
 
 static bool
-no_return_cmd (unsigned char cmd)
+no_return_cmd (unsigned char cmd, unsigned char para)
 {
     /*
      * Skip setting.
@@ -385,13 +389,15 @@ no_return_cmd (unsigned char cmd)
      * 9  = Reboot BMC.
      * 10 = Payload shutdown or reboot.
      * 12 = Config WDT.
+     * 14-02 = Set BMC time
      * 15 = cp2112/superio selecttion.
      * 16 = cp2112 hard reset.
      * 33 = redirect console.
      */
     if ((cmd == 3)  || (cmd == 7)  || (cmd == 9)  ||
         (cmd == 10) || (cmd == 12) || (cmd == 15) ||
-        (cmd == 16) || (cmd == 33)) {
+        (cmd == 16) || (cmd == 33) ||
+       ((cmd == 14) && (para == 2))) {
         return true;
     }
 
@@ -438,7 +444,7 @@ int bf_pltfm_bmc_uart_write_read (
         goto end;
     }
 
-    if (no_return_cmd (cmd)) {
+    if (no_return_cmd (cmd, tx_buf[0])) {
         rc = 0;
     } else {
         /* Wait for data ready. */
@@ -699,7 +705,7 @@ int bf_pltfm_bmc_uart_util_write_read (
         goto end;
     }
 
-    if (no_return_cmd (cmd)) {
+    if (no_return_cmd (cmd, tx_buf[0])) {
         rc = 0;
     } else {
         /* Wait for data ready. */

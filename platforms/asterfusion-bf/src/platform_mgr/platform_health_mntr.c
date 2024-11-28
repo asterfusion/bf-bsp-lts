@@ -22,6 +22,7 @@
 #include <bf_pltfm_sfp.h>
 #include <bf_pltfm_uart.h>
 #include <pltfm_types.h>
+#include <time.h>
 
 /* Local header includes */
 #include "platform_priv.h"
@@ -718,6 +719,39 @@ static void bf_pltfm_onlp_mntr_tofino_temperature (void)
 }
 #endif
 
+bf_pltfm_status_t
+__bf_pltfm_chss_mgmt_bmc_data_time_decode__ (uint8_t* p_src)
+{
+    int ret = BF_PLTFM_SUCCESS;
+
+    uint8_t len  = p_src[0];
+    uint8_t type = p_src[1];
+
+    time_t cme_now = 0;
+    time_t bmc_now = 0;
+    struct tm *cme_time;
+
+    uint8_t wr_buf[21] = {0x02};
+    uint8_t rd_buf[128];
+
+    if ((type != 5) || (len != 5))  {
+        return BF_PLTFM_INVALID_ARG;
+    }
+
+    time(&cme_now);
+    memcpy ((uint8_t*)&bmc_now, &p_src[2], 4);
+
+    if (fabs(difftime(cme_now, bmc_now)) > 120.0) {
+        cme_time = gmtime(&cme_now);
+        strftime((char *)&wr_buf[1], 20, "%Y-%m-%d-%H-%M-%S", cme_time);
+        ret = bf_pltfm_bmc_uart_write_read (
+                0x0E, wr_buf, 20, rd_buf, (128 - 1),
+                BMC_COMM_INTERVAL_US * 2);
+    }
+
+    return ret;
+}
+
 /* If BMC upgraded, the channel for BMC has changed to uart. */
 bf_pltfm_status_t
 __bf_pltfm_chss_mgmt_bmc_data_get__ ()
@@ -750,6 +784,9 @@ __bf_pltfm_chss_mgmt_bmc_data_get__ ()
                     break;
                 case 4:
                     err |= __bf_pltfm_chss_mgmt_bmc_data_vrail_decode__(rd_ptr);
+                    break;
+                case 5:
+                    err |= __bf_pltfm_chss_mgmt_bmc_data_time_decode__(rd_ptr);
                     break;
             }
             ret -= *rd_ptr + 1;
