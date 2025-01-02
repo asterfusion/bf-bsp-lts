@@ -128,8 +128,11 @@ static void led_cond_convert_to_color_x732q (bf_led_condition_t led_cond,
             break;
 
         case BF_LED_PORT_LINKUP_400G:
-            /* Red at 400G */
-            led_col = BF_MAV_PORT_LED_RED;
+            /* By SunZheng, 2024.12.26
+               200G & 400G share the same color - Light Green */
+            /* Light Green at 400G */
+            led_col = BF_MAV_PORT_LED_BLUE |
+                      BF_MAV_PORT_LED_GREEN;
             break;
 
         /* Test only */

@@ -4151,8 +4151,13 @@ static int set_qsfp_idprom (int port)
         }
         return -1;
     }
-    if ((id == QSFP) || (id == QSFP_PLUS) ||
-        (id == QSFP_28)) {
+    if ((id == SFP) || (id == SFP_PLUS) ||
+        (id == SFP_28)) {
+        bf_qsfp_info_arr[port].memmap_format =
+            MMFORMAT_SFF8472;
+        bf_qsfp_info_arr[port].num_ch = 1;
+    } else if ((id == QSFP) || (id == QSFP_PLUS) ||
+               (id == QSFP_28)) {
         bf_qsfp_info_arr[port].memmap_format =
             MMFORMAT_SFF8636;
         bf_qsfp_info_arr[port].num_ch = 4;

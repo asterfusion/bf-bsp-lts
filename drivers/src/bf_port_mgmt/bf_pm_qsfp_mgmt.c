@@ -3911,7 +3911,12 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
             // CMIS hardware init - nothing to do
             next_substate++;  // fall through
         case 1:             // Step 1 -  wait for initialization to complete
-            if (memmap_format == MMFORMAT_SFF8636) {
+            if (memmap_format == MMFORMAT_SFF8472) {
+                delay_ms = 0;
+                next_st = QSFP_CH_FSM_ST_ENA_OPTICAL_TX;
+                next_substate = 0;
+                break;
+            } else if (memmap_format == MMFORMAT_SFF8636) {
                 if (bf_pm_intf_is_device_family_tofino(dev_id)) {
                     // for some reason, need to read twice to clear latched faults
                     // Tofino 1 flag handling method only
@@ -4058,7 +4063,11 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
             }
             break;
         case 1:  // step 1 - wait for the transmitters to be enabled
-            if ((memmap_format == MMFORMAT_SFF8636) ||
+            if (memmap_format == MMFORMAT_SFF8472) {
+                next_st = QSFP_CH_FSM_ST_NOTIFY_ENABLED;
+                next_substate = 0;
+                break;
+            } else if ((memmap_format == MMFORMAT_SFF8636) ||
                     (memmap_format == MMFORMAT_CMIS3P0)) {
                 // CMIS state machine did not comprehend optics readiness until
                 // CMIS4.0. Calculate the delay needed for the optics to stabilize

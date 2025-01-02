@@ -21,6 +21,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #ifndef EQ
 #define EQ(a, b) (!(((a) > (b)) - ((a) < (b))))
 #endif
@@ -158,6 +159,8 @@ extern "C" {
  * by tsihang, 2022-06-02. */
 #define LOG_DIR_PREFIX  "/var/asterfusion"
 #define BF_DRIVERS_LOG_EXT LOG_DIR_PREFIX"/bf_drivers_ext.log"
+#define AF_LOG_MAX_NUM  50
+#define AF_LOG_MAX_SIZE 9 * 1024 * 1024
 #define AF_LOG_MSG_SIZE 512
 #define AF_LOG_EXT(...)                                                         \
     do {                                                                        \
@@ -198,6 +201,59 @@ extern "C" {
             }                                                                   \
             fprintf (bf_pltfm_mgr_ctx()->extended_log_hdl, "%s\n", ____info);   \
             fflush (bf_pltfm_mgr_ctx()->extended_log_hdl);                      \
+            struct stat file_stat;                                              \
+            stat (BF_DRIVERS_LOG_EXT, &file_stat);                              \
+            if (file_stat.st_size > AF_LOG_MAX_SIZE) {                          \
+                char rfile[512] = {0};                                          \
+                time_t tmpcal_ptr;                                              \
+                time(&tmpcal_ptr);                                              \
+                fclose (bf_pltfm_mgr_ctx()->extended_log_hdl);                  \
+                bf_pltfm_mgr_ctx()->extended_log_hdl = NULL;                    \
+                sprintf (rfile, "%s.%lu", BF_DRIVERS_LOG_EXT, tmpcal_ptr);      \
+                rename (BF_DRIVERS_LOG_EXT, rfile);                             \
+                DIR *dir;                                                       \
+                struct dirent *ptr;                                             \
+                if ((dir = opendir (LOG_DIR_PREFIX)) == NULL) {                 \
+                    LOG_ERROR ("Open /var/asterfusion failed!");                \
+                    break;                                                      \
+                }                                                               \
+                int i, j, file_num = 0;                                         \
+                long int tmp, tmpcal[AF_LOG_MAX_NUM + 5];                       \
+                while ((ptr = readdir (dir)) != NULL) {                         \
+                    if ((strcmp (ptr->d_name, ".") == 0) ||                     \
+                        (strcmp (ptr->d_name, "..") == 0)) {                    \
+                        continue;                                               \
+                    } else if (ptr->d_type == 8) {                              \
+                        if ((ptr->d_name != NULL) &&                            \
+                            (strstr(ptr->d_name, "bf_drivers_ext") != NULL)) {  \
+                            sprintf (rfile, "%s/%s",                            \
+                                     LOG_DIR_PREFIX, ptr->d_name);              \
+                            stat (rfile, &file_stat);                           \
+                            tmpcal[file_num++] = file_stat.st_ctime;            \
+                            if (file_num >= AF_LOG_MAX_NUM + 5) {               \
+                                break;                                          \
+                            }                                                   \
+                        }                                                       \
+                    }                                                           \
+                }                                                               \
+                closedir(dir);                                                  \
+                if (file_num > AF_LOG_MAX_NUM) {                                \
+                    for (i = 0; i < file_num - 1; ++i) {                        \
+                        for (j = 0; j < file_num - 1 - i; ++j) {                \
+                            if (tmpcal[j] < tmpcal[j + 1]) {                    \
+                                tmp = tmpcal[j];                                \
+                                tmpcal[j] = tmpcal[j + 1];                      \
+                                tmpcal[j + 1] = tmp;                            \
+                            }                                                   \
+                        }                                                       \
+                    }                                                           \
+                    for (i = AF_LOG_MAX_NUM; i < file_num; i++) {               \
+                        sprintf (rfile, "%s.%lu",                               \
+                                 BF_DRIVERS_LOG_EXT, tmpcal[i]);                \
+                        remove (rfile);                                         \
+                    }                                                           \
+                }                                                               \
+            }                                                                   \
         }                                                                       \
     } while (0);
 
