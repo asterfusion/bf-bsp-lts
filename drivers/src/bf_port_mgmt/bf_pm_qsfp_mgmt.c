@@ -3290,8 +3290,7 @@ static bool qsfp_fsm_ch_cmis_is_laser_tuning_inprog (bf_dev_id_t dev_id,
  ******************************************************/
 static int qsfp_fsm_ch_cmis_tune_laser_frequency (bf_dev_id_t dev_id,
         int conn_id,
-        int ch,
-        uint32_t delay_ms) {
+        int ch) {
     /* Write tune laser frequency of each lane */
     int rc = bf_cmis_set_module_laser_frequency (conn_id, ch);
 
@@ -3744,12 +3743,29 @@ static void qsfp_channel_fsm_run2(bf_dev_id_t dev_id, int conn_id, int ch) {
         }
         switch (next_substate) {
         case 0:
+            // deinit datapath
+            wr_coalesce_err =
+                qsfp_fsm_ch_cmis_datapath_deinit(dev_id, conn_id, ch);
+            if (wr_coalesce_err == 0) {  // successfully added to queue
+                delay_ms = 0;              // wait in the next substate
+                next_substate++;
+            }
+            break;
+        case 1:
+            // laser tuning only happens in dpdeactivated state
+            if (!qsfp_fsm_ch_cmis_is_state_dpdeactivated(dev_id, conn_id, ch)) {
+                break;  // keep waiting
+            }
+            delay_ms = 0;
+            next_substate++;
+            break;
+        case 2:
             // Tune laser frequency of each lane if needed
-            qsfp_fsm_ch_cmis_tune_laser_frequency (dev_id, conn_id, ch, 20);
+            qsfp_fsm_ch_cmis_tune_laser_frequency (dev_id, conn_id, ch);
             delay_ms = 0;  // wait in the next substate
             next_substate++;
             break;
-        case 1:
+        case 3:
             if (memmap_format == MMFORMAT_CMIS4P0) {
                 delay_ms = 500;
                 next_st = QSFP_CH_FSM_ST_APPSEL;

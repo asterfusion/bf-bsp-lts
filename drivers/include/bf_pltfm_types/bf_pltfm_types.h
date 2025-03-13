@@ -343,6 +343,7 @@ typedef enum bf_pltfm_board_id_e {
     AFN_BD_ID_X312PT_V4P0 = 0x3124,
     AFN_BD_ID_X312PT_V5P0 = 0x3125,
     AFN_BD_ID_X732QT_V1P0 = 0x7320,  /* Since Dec 2023. */
+    AFN_BD_ID_X732QT_V1P1 = 0x7321,  /* Since Jan 2025. */
     /* HC36Y24C-T and its subtype. */
     AFN_BD_ID_HC36Y24C_V1P0 = 0x2400,
     AFN_BD_ID_HC36Y24C_V1P1 = 0x2401,

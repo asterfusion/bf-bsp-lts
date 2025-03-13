@@ -135,6 +135,11 @@ static pltfm_bd_map_t pltfm_board_maps[] = {
         NULL,                    /* Load from json. */
         0                         /* Cacluated from json. */
     },
+    {
+        AFN_BD_ID_X732QT_V1P1,   /* Since Jan 2025. */
+        NULL,                    /* Load from json. */
+        0                         /* Cacluated from json. */
+    },
 };
 
 /******************************************************************************
@@ -243,6 +248,10 @@ int platform_name_get_str (char *name,
         case AFN_BD_ID_X732QT_V1P0:
             snprintf (name, name_size,
                       "AFN_BD_ID_X732QT_V1P0");
+            break;
+        case AFN_BD_ID_X732QT_V1P1:
+            snprintf (name, name_size,
+                      "AFN_BD_ID_X732QT_V1P1");
             break;
         default:
             snprintf (name, name_size, "Unknown");
@@ -609,7 +618,8 @@ bf_pltfm_status_t platform_bd_init(void) {
     char *pathvar;
 
     if (platform_type_equal(AFN_X732QT)) {
-        if (platform_subtype_equal(V1P0)) {
+        if (platform_subtype_equal(V1P0) ||
+            platform_subtype_equal(V1P1)) {
             pathvar = getenv("SDE_INSTALL");
             if (!pathvar) {
                 /* On SONiC, the syncd container has no env var called SDE_INSTALL.

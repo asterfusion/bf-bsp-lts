@@ -105,6 +105,7 @@ static pltfm_cpld_path_t pltfm_cpld_path[] = {
     {AFN_X308PT, V2P0, VIA_CP2112, VIA_CGOS},
     {AFN_X308PT, V3P0, VIA_CP2112, VIA_CGOS},
     {AFN_X732QT, V1P0, VIA_CP2112, VIA_CP2112},
+    {AFN_X732QT, V1P1, VIA_CP2112, VIA_CP2112},
 };
 
 pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
@@ -271,7 +272,8 @@ static void bf_pltfm_parse_hwversion (const char *str,
         }
     } else if (platform_type_equal (AFN_X732QT)) {
         /* 0x31. */
-        if (subtype != V1P0) {
+        if (subtype != V1P0 &&
+            subtype != V1P1) {
             find = false;
         }
     } else if (platform_type_equal (AFN_HC36Y24C)) {
@@ -703,8 +705,7 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
         }
     } else if (platform_type_equal (AFN_X308PT) ||
                platform_type_equal (AFN_X532PT) ||
-               platform_type_equal (AFN_X564PT) ||
-               platform_type_equal (AFN_X732QT)) {
+               platform_type_equal (AFN_X564PT)) {
         if (is_HVXXX || is_ADV15XX || is_S02XXX) {
             access_cpld_through_cp2112();
         } else if (is_CG15XX){
@@ -718,6 +719,8 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
                 access_cpld_through_superio();
             }
         }
+    } else if (platform_type_equal (AFN_X732QT)) {
+        access_cpld_through_cp2112();
     }
     // Other initializations(Fan, etc.) go here
 

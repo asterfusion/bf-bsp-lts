@@ -77,6 +77,7 @@ int bf_pltfm_qsfp_init (void *arg)
         (board_id == AFN_BD_ID_X308PT_V1P1) ||
         (board_id == AFN_BD_ID_X308PT_V2P0) ||
         (board_id == AFN_BD_ID_X308PT_V3P0) ||
+        (board_id == AFN_BD_ID_X732QT_V1P1) ||
         (board_id == AFN_BD_ID_HC36Y24C_V1P0)) {
         qsfp_hndl[CP2112_ID_2] =
             bf_pltfm_cp2112_get_handle (CP2112_ID_2);
@@ -141,6 +142,7 @@ static int mav_qsfp_param_get (unsigned int
         (board_id == AFN_BD_ID_X308PT_V2P0) ||
         (board_id == AFN_BD_ID_X308PT_V3P0) ||
         (board_id == AFN_BD_ID_X732QT_V1P0) ||
+        (board_id == AFN_BD_ID_X732QT_V1P1) ||
         (board_id == AFN_BD_ID_HC36Y24C_V1P0)) {
         if (module < 1 ||
             module > (BF_MAV_SUB_PORT_CNT * 2 + 1)) {

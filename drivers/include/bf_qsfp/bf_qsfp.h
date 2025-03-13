@@ -575,6 +575,11 @@ int bf_cmis_get_module_state (int port,
 const char* bf_cmis_get_module_state_str(int port,
         Module_State state);
 /* laser frequency tuning function */
+int bf_cmis_module_frequency_set (int port,
+                                  uint8_t grid_spac,
+                                  double frequency);
+bool bf_cmis_module_is_grid_spac_support (int port,
+                                          uint8_t grid_spac);
 int bf_cmis_module_wavelength_get (int port,
                                    int ch,
                                    double *wavelength);

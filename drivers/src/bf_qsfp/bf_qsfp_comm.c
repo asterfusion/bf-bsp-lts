@@ -719,14 +719,17 @@ typedef struct {
 
 /* This array should be expandable for new freq grids in the future */
 static freq_grid_info_t freq_grid_info[] = {
-    {"100GHz",   100.0,     1, 5,  5 * 4, 5 << 4,},
-    {"75GHz",    75.0,      3, 7,  7 * 4, 7 << 4,},
-    {"50GHz",    50.0,      1, 4,  4 * 4, 4 << 4,},
-    {"33GHz",    100.0 / 3, 1, 6,  6 * 4, 6 << 4,},
-    {"25GHz",    25.0,      1, 3,  3 * 4, 3 << 4,},
-    {"12.5GHz",  12.5,      1, 2,  2 * 4, 2 << 4,},
-    {"6.25GHz",  6.25,      1, 1,  1 * 4, 1 << 4,},
-    {"3.125GHz", 3.125,     1, 0,  0 * 4, 0 << 4,},
+    // freq_grid_desc   freq_increment ch_increment freq_grid_bit    freq_grid_off   freq_grid_spac
+    {"100GHz",   100.0,     1, 0b0101, 5 * 4, 5 << 4,},
+    {"75GHz",    75.0,      3, 0b0111, 7 * 4, 7 << 4,},
+    {"50GHz",    50.0,      1, 0b0100, 4 * 4, 4 << 4,},
+    {"33GHz",    100.0 / 3, 1, 0b0110, 6 * 4, 6 << 4,},
+    {"25GHz",    25.0,      1, 0b0011, 3 * 4, 3 << 4,},
+    {"12.5GHz",  12.5,      1, 0b0010, 2 * 4, 2 << 4,},
+    {"6.25GHz",  6.25,      1, 0b0001, 1 * 4, 1 << 4,},
+    {"3.125GHz", 3.125,     1, 0b0000, 0 * 4, 0 << 4,},
+    /* 0b1000 - 0b1110 Reserved */
+    /* 0b1111 Not available */
 };
 
 // For reference: CMIS 5.1 8.16.1.2
@@ -7462,6 +7465,228 @@ const char* bf_cmis_get_datapath_config_state_str(int port,
     return qsfp_dp_config_str[state % asize];
 }
 
+/* By SunZheng, 2025/02/10. */
+int bf_cmis_module_frequency_set (int port,
+                                  uint8_t grid_spac,
+                                  double frequency) {
+    int rc;
+    bool ctrl_flag, tune_flag;
+    uint8_t readval[2];
+    uint8_t freq_grids[60];          // data of supported frequency grids
+    uint8_t fine_tuning_data[6];     // fine-tuning resolution, low/high offset
+    uint8_t freq_grid_bit,           // bit offset of frequency grid support flag
+            freq_grid_off,           // byte offset of laser capability
+            freq_grid_spac;          // frequency grid spacing value to apply
+    int16_t ch_increment,            // channel increment for each frequency grid
+            freq_grid_ch;            // frequency grid channel value to apply
+    int16_t freq_grid_ch_low,        // lowest channel value for each frequency grid
+            freq_grid_ch_high;       // highest channel value for each frequency grid
+    int16_t fine_tuning_off_low,      // lowest offset value for fine-tuning
+            fine_tuning_off_high,     // highest offset value for fine-tuning
+            fine_tuning_res,         // fine-tuning resolution *how to use this? TBD*
+            fine_tuning_off;         // fine-tuning offset value to apply
+
+    /* Frequency: Unit in THz
+       Convert frequency from THz to GHz first.
+    */
+    frequency *= 1000.0;
+
+    if (!bf_qsfp_is_cmis(port)) {
+        LOG_ERROR ("QSFP    %2d : wavelength setting unsupported for this module",
+                   port);
+        return -1;
+    }
+
+    bf_qsfp_get_wavelength_flags (port, &ctrl_flag, &tune_flag);
+    if (!tune_flag) {
+        LOG_ERROR ("QSFP    %2d : wavelength setting unsupported for this module",
+                   port);
+        return -1;
+    }
+
+    // Frequency tuning support
+    rc = bf_qsfp_field_read_onebank (port,
+                                     LASER_FREQ_SUPPORT,
+                                     0,
+                                     0,
+                                     1, 
+                                     &readval[0]);
+    if (rc) {
+        LOG_ERROR ("QSFP    %2d : rc=%d wavelength setting failed for this module",
+                   port, rc);
+        return -1;
+    }
+
+    // Fine-tuning support
+    rc = bf_qsfp_field_read_onebank (port,
+                                     FINE_TUNING_SUPPORT,
+                                     0,
+                                     0,
+                                     1, 
+                                     &readval[1]);
+    if (rc) {
+        LOG_ERROR ("QSFP    %2d : rc=%d wavelength setting failed for this module",
+                   port, rc);
+        return -1;
+    }
+
+    // Frequency grids
+    rc = bf_qsfp_field_read_onebank (port,
+                                     LASER_FREQ_GRIDS,
+                                     0,
+                                     0,
+                                     60, 
+                                     freq_grids);
+    if (rc) {
+        LOG_ERROR ("QSFP    %2d : rc=%d wavelength setting failed for this module",
+                   port, rc);
+        return -1;
+    }
+
+    // Fine-tuning resolution
+    rc = bf_qsfp_field_read_onebank (port,
+                                     FINE_TUNING_RESOLUTION,
+                                     0,
+                                     0,
+                                     2, 
+                                     &fine_tuning_data[0]);
+    if (rc) {
+        LOG_ERROR ("QSFP    %2d : rc=%d wavelength setting failed for this module",
+                   port, rc);
+        return -1;
+    }
+
+    // Fine-tuning resolution
+    rc = bf_qsfp_field_read_onebank (port,
+                                     FINE_TUNING_OFFSETS,
+                                     0,
+                                     0,
+                                     4, 
+                                     &fine_tuning_data[2]);
+    if (rc) {
+        LOG_ERROR ("QSFP    %2d : rc=%d wavelength setting failed for this module",
+                   port, rc);
+        return -1;
+    }
+
+    /* Check if there're any supported grids.
+       This should be modified if the supported grids
+       Get expanded in the future. */
+    if (!(readval[0] & 0xff)) {
+        LOG_ERROR ("QSFP    %2d : wavelength setting unsupported for this module",
+                   port);
+        return -1;
+    }
+
+    double freq_increment, ch_frequency;
+    double fine_tuning_freq;
+    char *freq_grid_desc;
+    bool found = false;
+    for (int i = 0; i < ARRAY_LENGTH(freq_grid_info); i++) {
+        freq_grid_desc = freq_grid_info[i].freq_grid_desc;
+        ch_increment = freq_grid_info[i].ch_increment;
+        freq_increment = freq_grid_info[i].freq_increment / ch_increment;
+        freq_grid_bit = freq_grid_info[i].freq_grid_bit;
+        freq_grid_off = freq_grid_info[i].freq_grid_off;
+        freq_grid_spac = freq_grid_info[i].freq_grid_spac;
+
+        /* Check if this spacing grid matches. */
+        if (freq_grid_bit != grid_spac) {
+            continue;
+        }
+        /* Check if this spacing grid is supported. */
+        if (!((readval[0] >> freq_grid_bit) & 0x1)) {
+            LOG_ERROR ("QSFP    %2d : unsupported frequency grid %s",
+                        port, freq_grid_desc);
+            goto done;
+        }
+
+        freq_grid_ch_low = (freq_grids[freq_grid_off + 0] << 8) | 
+                           freq_grids[freq_grid_off + 1];
+        freq_grid_ch_high = (freq_grids[freq_grid_off + 2] << 8) | 
+                            freq_grids[freq_grid_off + 3];
+        freq_grid_ch = (int16_t)((frequency - LASER_BASE_FREQ) / freq_increment);
+        if ((freq_grid_ch_low <= freq_grid_ch) && (freq_grid_ch <= freq_grid_ch_high)) {
+            ch_frequency = LASER_BASE_FREQ + freq_grid_ch * freq_increment;
+            found = true;
+            goto done;
+        }
+    }
+
+done:
+    if (!found) {
+        LOG_ERROR ("QSFP    %2d : unsupported frequency %.3f",
+                   port, frequency);
+        return -1;
+    }
+
+    LOG_DEBUG ("QSFP    %2d : "
+               "found supported frequency %.3f GHz, "
+               "channel num %d of %s grid spacing",
+               port, ch_frequency,
+               freq_grid_ch, freq_grid_desc);
+    bf_qsfp_info_arr[port].laser_info.tuning_set = true;
+
+    bf_qsfp_info_arr[port].laser_info.freq_grid_spac = freq_grid_spac;
+    bf_qsfp_info_arr[port].laser_info.freq_grid_ch = freq_grid_ch;
+
+    // Check if fine-tuning support
+    if ((readval[1] >> 7) & 0x1) {
+        fine_tuning_res = (fine_tuning_data[0] << 8) | fine_tuning_data[1];
+        fine_tuning_off_low = (fine_tuning_data[2] << 8) | fine_tuning_data[3];
+        fine_tuning_off_high = (fine_tuning_data[4] << 8) | fine_tuning_data[5];
+        if (fine_tuning_res != 0) {
+            fine_tuning_freq = frequency - ch_frequency;
+            fine_tuning_off = (int16_t)(fine_tuning_freq * (1000 / fine_tuning_res));
+            if ((fine_tuning_off_low <= fine_tuning_off) && (fine_tuning_off <= fine_tuning_off_high)) {
+                LOG_DEBUG ("QSFP    %2d : fine-tuning supported, "
+                        "frequency %.3f GHz matching offset %d",
+                        port, fine_tuning_freq, fine_tuning_off);
+                bf_qsfp_info_arr[port].laser_info.fine_tuning_off = fine_tuning_off;
+            } else {
+                LOG_DEBUG ("QSFP    %2d : skip fine-tuning due to offset out of range",
+                            port);
+            }
+        } else {
+            LOG_DEBUG ("QSFP    %2d : skip fine-tuning due to invalid resolution",
+                        port);
+        }
+    }
+
+    return 0;
+}
+
+/* By SunZheng, 2025/02/10. */
+bool bf_cmis_module_is_grid_spac_support (int port,
+                                          uint8_t grid_spac) {
+    /* Freq Grid Bit:
+      1. 0b0000 <=> 3.125GHz
+      2. 0b0001 <=> 6.25GHz
+      3. 0b0010 <=> 12.5GHz
+      4. 0b0011 <=> 25GHz
+      5. 0b0100 <=> 50GHz
+      6. 0b0101 <=> 100GHz
+      7. 0b0110 <=> 33GHz
+      8. 0b0111 <=> 75GHz
+    */
+    int rc;
+    uint8_t readval;
+    // Frequency tuning support
+    rc = bf_qsfp_field_read_onebank (port,
+                                     LASER_FREQ_SUPPORT,
+                                     0,
+                                     0,
+                                     1, 
+                                     &readval);
+    if (rc) {
+        LOG_ERROR ("QSFP    %2d : rc=%d supported grid spacing reading failed for this module",
+                   port, rc);
+        return false;
+    }
+
+    return (bool)((readval >> grid_spac) & 0b1);
+}
+
 /* By SunZheng, 2024/10/09. */
 int bf_cmis_module_wavelength_get (int port,
                                    int ch,
@@ -7506,7 +7731,9 @@ int bf_cmis_module_wavelength_set (int port,
             freq_grid_ch;            // frequency grid channel value to apply
     int16_t freq_grid_ch_low,        // lowest channel value for each frequency grid
             freq_grid_ch_high;       // highest channel value for each frequency grid
-    int16_t // fine_tuning_res,         // fine-tuning resolution *how to use this? TBD*
+    int16_t fine_tuning_off_low,      // lowest offset value for fine-tuning
+            fine_tuning_off_high,     // highest offset value for fine-tuning
+            fine_tuning_res,         // fine-tuning resolution *how to use this? TBD*
             fine_tuning_off;         // fine-tuning offset value to apply
 
     if (!bf_qsfp_is_cmis(port)) {
@@ -7619,7 +7846,7 @@ int bf_cmis_module_wavelength_set (int port,
             freq_low = LASER_BASE_FREQ + freq_grid_ch_low * freq_increment;
             freq_high = LASER_BASE_FREQ + freq_grid_ch_high * freq_increment;
 
-            if ((frequency > freq_low) && (frequency < freq_high)) {
+            if ((freq_low <= frequency) && (frequency <= freq_high)) {
                 for (int16_t ch = freq_grid_ch_low;
                      ch <= freq_grid_ch_high;
                      ch += ch_increment) {
@@ -7655,13 +7882,25 @@ done:
 
     // Check if fine-tuning support
     if ((readval[1] >> 7) & 0x1) {
-        fine_tuning_freq = frequency - ch_frequency;
-        // fine_tuning_res = (fine_tuning_data[0] << 8) | fine_tuning_data[1];
-        fine_tuning_off = (int16_t)(fine_tuning_freq * 1000);
-        LOG_DEBUG ("QSFP    %2d : fine-tuning supported, "
-                   "frequency %.3f GHz matching offset %d",
-                   port, fine_tuning_freq, fine_tuning_off);
-        bf_qsfp_info_arr[port].laser_info.fine_tuning_off = fine_tuning_off;
+        fine_tuning_res = (fine_tuning_data[0] << 8) | fine_tuning_data[1];
+        fine_tuning_off_low = (fine_tuning_data[2] << 8) | fine_tuning_data[3];
+        fine_tuning_off_high = (fine_tuning_data[4] << 8) | fine_tuning_data[5];
+        if (fine_tuning_res != 0) {
+            fine_tuning_freq = frequency - ch_frequency;
+            fine_tuning_off = (int16_t)(fine_tuning_freq * (1000 / fine_tuning_res));
+            if ((fine_tuning_off_low <= fine_tuning_off) && (fine_tuning_off <= fine_tuning_off_high)) {
+                LOG_DEBUG ("QSFP    %2d : fine-tuning supported, "
+                        "frequency %.3f GHz matching offset %d",
+                        port, fine_tuning_freq, fine_tuning_off);
+                bf_qsfp_info_arr[port].laser_info.fine_tuning_off = fine_tuning_off;
+            } else {
+                LOG_DEBUG ("QSFP    %2d : skip fine-tuning due to offset out of range",
+                            port);
+            }
+        } else {
+            LOG_DEBUG ("QSFP    %2d : skip fine-tuning due to invalid resolution",
+                        port);
+        }
     }
 
     return 0;

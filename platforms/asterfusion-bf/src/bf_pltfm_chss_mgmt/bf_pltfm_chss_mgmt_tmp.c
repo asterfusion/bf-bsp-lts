@@ -483,7 +483,9 @@ __bf_pltfm_chss_mgmt_temperature_set_x732q__ ()
 
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_BMC_UART) {
         /* Send highest asic temperature to BMC if HW ver is 1.0.*/
-        if (platform_subtype_equal(V1P0) && max_pipe_temp_C > 0.0) {
+        if ((platform_subtype_equal(V1P0) ||
+             platform_subtype_equal(V1P1)) &&
+            max_pipe_temp_C > 0.0) {
             wr_buf[0] = 0x01;
             wr_buf[1] = (uint8_t) max_pipe_temp_C;
             ret = bf_pltfm_bmc_uart_write_read (

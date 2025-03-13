@@ -229,26 +229,49 @@ unselect_1st_layer_pca9548 (int module,
  * ensure a consistent state on i2c addressed devices
  */
 static int qsfp_init_sub_bus (
-    bf_pltfm_cp2112_device_ctx_t *hndl)
+    bf_pltfm_cp2112_device_ctx_t *hndl1,
+    bf_pltfm_cp2112_device_ctx_t *hndl2)
 {
     int i;
     int rc;
-    int max_pca9548_cnt = 0;
+    int hndl1_max_pca9548_cnt = 0;
+    int hndl2_max_pca9548_cnt = 0;
+    bf_pltfm_board_id_t board_id;
+    bf_pltfm_chss_mgmt_bd_type_get (&board_id);
 
     if (platform_type_equal (AFN_X532PT)) {
-        max_pca9548_cnt = 4;
+        hndl1_max_pca9548_cnt = 4;
+        hndl2_max_pca9548_cnt = 0;
     } else if (platform_type_equal (AFN_X564PT)) {
-        max_pca9548_cnt = 8;
+        hndl1_max_pca9548_cnt = 8;
+        hndl2_max_pca9548_cnt = 0;
     } else if (platform_type_equal (AFN_X308PT)) {
-        max_pca9548_cnt = 7;
+        hndl1_max_pca9548_cnt = 7;
+        hndl2_max_pca9548_cnt = 0;
     } else if (platform_type_equal (AFN_X732QT)) {
-        max_pca9548_cnt = 5;
+        if (board_id == AFN_BD_ID_X732QT_V1P0) {
+            hndl1_max_pca9548_cnt = 5;
+            hndl2_max_pca9548_cnt = 0;
+        } else if (board_id == AFN_BD_ID_X732QT_V1P1) {
+            hndl1_max_pca9548_cnt = 4;
+            hndl2_max_pca9548_cnt = 1;
+        }
     }
 
     /* Initialize all PCA9548 devices to select channel 0 */
-    for (i = 0; i < max_pca9548_cnt; i++) {
+    for (i = 0; i < hndl1_max_pca9548_cnt; i++) {
         rc = bf_pltfm_cp2112_write_byte (
-                 hndl, ADDR_SWITCH_32 + (i * 2), 0,
+                 hndl1, ADDR_SWITCH_32 + (i * 2), 0,
+                 DEFAULT_TIMEOUT_MS);
+        if (rc != BF_PLTFM_SUCCESS) {
+            LOG_ERROR ("Error in initializing the PCA9548 devices itr %d, "
+                       "addr 0x%02x", i, ADDR_SWITCH_32 + (i * 2));
+            //return -1;
+        }
+    }
+    for (i = hndl1_max_pca9548_cnt; i < hndl1_max_pca9548_cnt + hndl2_max_pca9548_cnt; i++) {
+        rc = bf_pltfm_cp2112_write_byte (
+                 hndl2, ADDR_SWITCH_32 + (i * 2), 0,
                  DEFAULT_TIMEOUT_MS);
         if (rc != BF_PLTFM_SUCCESS) {
             LOG_ERROR ("Error in initializing the PCA9548 devices itr %d, "
@@ -266,7 +289,7 @@ int bf_pltfm_init_cp2112_qsfp_bus (
     bf_pltfm_cp2112_device_ctx_t *hndl2)
 {
     if (hndl1 != NULL) {
-        if (qsfp_init_sub_bus (hndl1)) {
+        if (qsfp_init_sub_bus (hndl1, hndl2)) {
             return -1;
         }
     }
