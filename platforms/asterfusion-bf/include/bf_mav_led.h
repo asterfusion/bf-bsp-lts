@@ -67,9 +67,6 @@ typedef void (*led_convert_fun_ptr) (bf_led_condition_t,
 /* Light on/off LOC LED */
 int bf_pltfm_location_led_set (int on_off);
 
-/* Light on/off LOC LED */
-int bf_pltfm_location_led_set (int on_off);
-
 #ifdef INC_PLTFM_UCLI
 ucli_node_t *bf_pltfm_led_ucli_node_create (
     ucli_node_t *m);
