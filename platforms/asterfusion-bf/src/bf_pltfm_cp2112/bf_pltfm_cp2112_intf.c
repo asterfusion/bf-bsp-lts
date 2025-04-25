@@ -926,7 +926,7 @@ static int differentiate_cp2112_devices (
     }
 
     /* We can select correct channel by a detecting method for CGT CM,
-     * while we can not do that when ADV15xx installed.
+     * while we can not do that when ADV1xxx installed.
      * So here we have to point it case by case. */
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
         cp2112_id_map[CP2112_ID_1] = 1;

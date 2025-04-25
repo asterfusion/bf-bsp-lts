@@ -63,16 +63,19 @@
 #define OS_VERSION_LT(key) \
         LT(OS_VERSION, (key))
 
-#if SDE_VERSION_LT(930)
+#if SDE_VERSION_LT(940)
 #define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((dev), (phdl), (dp));
 #define bfn_pp_rx_set(devid,phdl,ln,policy)
 #define bfn_pp_tx_set(devid,phdl,ln,policy)
+#define bfn_pp_dbnc_set(devid,phdl,dbncv)
 #else
 #define FP2DP(dev,phdl,dp) bf_pm_port_front_panel_port_to_dev_port_get((phdl), &(dev), (dp));
 #define bfn_pp_rx_set(devid,phdl,ln,policy) \
     bf_pm_port_precoding_rx_set((devid),(phdl),(ln),(policy))
 #define bfn_pp_tx_set(devid,phdl,ln,policy) \
     bf_pm_port_precoding_tx_set((devid),(phdl),(ln),(policy))
+#define bfn_pp_dbnc_set(devid,phdl,dbncv) \
+    bf_pm_port_debounce_thresh_set((devid),(phdl),(dbncv))
 #endif
 
 #define bfn_fp2_dp FP2DP
@@ -98,6 +101,8 @@
     bf_spi_eeprom_wr((devid),(addr),(buf),(buf_size))
 #define bfn_spi_eeprom_rd(devid,sub_devid,addr,buf,buf_size) \
     bf_spi_eeprom_rd((devid),(addr),(buf),(buf_size))
+#define bfn_tf2_serdes_temp_get(devid,devpt,temp) \
+    0
 #else
 #define bfn_io_set_mode_i2c(devid,sub_devid,pin) bf_io_set_mode_i2c((devid),(sub_devid),(pin))
 #define bfn_i2c_set_clk(devid,sub_devid,pin,clk) bf_i2c_set_clk((devid),(sub_devid),(pin),(clk))
@@ -118,6 +123,8 @@
         bf_spi_eeprom_wr((devid),(sub_devid),(addr),(buf),(buf_size))
 #define bfn_spi_eeprom_rd(devid,sub_devid,addr,buf,buf_size) \
         bf_spi_eeprom_rd((devid),(sub_devid),(addr),(buf),(buf_size))
+#define bfn_tf2_serdes_temp_get(devid,devpt,temp) \
+        bf_tof2_serdes_fw_temperature_get((devid),(devpt),(temp))
 #endif
 
 

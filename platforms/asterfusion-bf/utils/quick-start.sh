@@ -13,7 +13,7 @@
 
 # You could get the version of current ONL via 'cat /etc/onl/rootfs/manifest.json'.
 # The following VERSION in quick-start.sh should never be changed by user.
-VERSION="24.0411"
+VERSION="25.0414"
 
 PKGS=/root/bfnplatform
 
@@ -22,6 +22,8 @@ default_iface="ma1"
 default_iface_ip="192.168.4.50"
 default_gateway="192.168.4.1"
 install_dir="/usr/local/sde"
+KERNEL_RELEASE=`uname -r`
+onl_kernel=`echo $KERNEL_RELEASE | cut -b 1-4`
 
 # y/Y, n/N
 persistent_cfgnet="y"
@@ -42,11 +44,11 @@ xt_platform='X312P-T'
 #    - install bsp-lts_Y.M-sde9u3_generic_amd64.deb
 #
 ################################################################
-bfnplatform_debs_bsp=("$PKGS/bsp-lts_24.02-sde9u9_generic_amd64.deb")
+bfnplatform_debs_bsp=("$PKGS/bsp-lts_25.03-sde9u9_generic_amd64.deb")
 # sde-x.y.z_1.**.deb for tof1 only
-bfnplatform_debs_sde=("$PKGS/sde-9.13.2_1.00-all_generic_amd64.deb")
+bfnplatform_debs_sde=("$PKGS/sde-9.13.3_1.00-all_generic_amd64.deb")
 # sde-x.y.z_2.**.deb for tof2 only
-bfnplatform_debs_sde_tof2=("$PKGS/sde-9.13.2_2.00-all_generic_amd64.deb")
+bfnplatform_debs_sde_tof2=("$PKGS/sde-9.13.3_2.00-2.4E0-4-all_generic_amd64.deb")
 
 ################################################################
 # Install dependencies. And should never forget to modify
@@ -70,25 +72,17 @@ bfnplatform_debs_sde_tof2=("$PKGS/sde-9.13.2_2.00-all_generic_amd64.deb")
 #    protobuf-cpp -3.15.8
 #    grpc-1.40.0
 ################################################################
-bfnplatform_debs_sde_common=("$PKGS/kdrv-9.13.2_1.00-all_4.14.151-OpenNetworkLinux_amd64.deb" 
-"$PKGS/p4c-9.13.2_1.00-all_generic_amd64.deb" 
+bfnplatform_debs_sde_common=("$PKGS/p4c-9.13.3_1.00-all_generic_amd64.deb" 
 "$PKGS/thrift_0.14.1_generic_amd64.deb" 
 "$PKGS/grpc_1.40.0-r1_generic_amd64.deb" 
-"$PKGS/protobuf-cpp_3.15.8_generic_amd64.deb" 
-"$PKGS/nct6779d_1.04-cme3000_4.14.151-OpenNetworkLinux_amd64.deb" 
-"$PKGS/cgos_1.06-congatech-d15xx_4.14.151-OpenNetworkLinux_amd64.deb" 
-"$PKGS/onl-kernel-4.14-lts-x86-64-all_1.0.0_amd64.deb")
+"$PKGS/protobuf-cpp_3.15.8_generic_amd64.deb")
 
 # LEGACY: For tof1 based X5/X3 only
-bfnplatform_debs_97x_bsp=("$PKGS/bsp-lts_24.02-sde9u3_generic_amd64.deb")
+bfnplatform_debs_97x_bsp=("$PKGS/bsp-lts_25.03-sde9u3_generic_amd64.deb")
 bfnplatform_debs_97x=("$PKGS/sde-9.7.4_1.00-all_generic_amd64.deb" 
-"$PKGS/kdrv-9.7.4_1.00-all_4.14.151-OpenNetworkLinux_amd64.deb" 
 "$PKGS/thrift_0.13.0_generic_amd64.deb" 
 "$PKGS/grpc_1.17.0-r1_generic_amd64.deb" 
-"$PKGS/protobuf-cpp_3.6.1_generic_amd64.deb" 
-"$PKGS/nct6779d_1.04-cme3000_4.14.151-OpenNetworkLinux_amd64.deb" 
-"$PKGS/cgos_1.06-congatech-d15xx_4.14.151-OpenNetworkLinux_amd64.deb" 
-"$PKGS/onl-kernel-4.14-lts-x86-64-all_1.0.0_amd64.deb")
+"$PKGS/protobuf-cpp_3.6.1_generic_amd64.deb")
 
 # bfnplatform_debs to be removed.
 # Never changed
@@ -100,8 +94,7 @@ bfnplatform_debs_breif=("sde-"
 "grpc" 
 "protobuf-cpp" 
 "nct6779d" 
-"cgos" 
-"onl-kernel-4.14-lts-x86-64-all")
+"cgos")
 
 friendly_exit()
 {
@@ -160,7 +153,6 @@ do_chkpltfm() {
 }
 
 do_instdebs() {
-
     if [ $# -lt 1 ]; then
         exit 0
     fi
@@ -181,7 +173,6 @@ do_instdebs() {
 }
 
 do_uninstdebs() {
-
     if [ $# -lt 1 ]; then
         exit 0
     fi
@@ -199,8 +190,8 @@ do_uninstdebs() {
     done
 }
 
-# Install bsp deb for a given sde that current installed.
-do_instbsp() {
+# Install drv deb for a given sde that current installed.
+do_instdrv() {
     sde=`dpkg -l | grep "sde-" | awk '{print $2}'`
     bsp=`find $PKGS | grep "bsp-*" | grep "9u3"`
     if [[ $sde =~ "9.13" ]]; then
@@ -213,14 +204,90 @@ do_instbsp() {
         echo "              bsp doesn't exist"
         echo ""
     fi
+
+    deb=$PKGS/nct6779d_1.04-cme3000_${KERNEL_RELEASE}_amd64.deb
+    echo "   Installing $deb"
+    dpkg -i $deb > /dev/null 2>&1
+    deb=$PKGS/cgos_1.06-congatech-d15xx_${KERNEL_RELEASE}_amd64.deb
+    echo "   Installing $deb"
+    dpkg -i $deb > /dev/null 2>&1
+    deb=$PKGS/kdrv-9.13.3_1.00-all_${KERNEL_RELEASE}_amd64.deb
+    echo "   Installing $deb"
+    dpkg -i $deb > /dev/null 2>&1
+
+    deb=$PKGS/onl-kernel-${onl_kernel}-lts-x86-64-all_1.0.0_amd64.deb
+    echo "   Installing $deb"
+    dpkg -i $deb > /dev/null 2>&1
+
+    deb=$PKGS/intel-ice-1.3.16.0.tgz
+    echo "   Installing $deb"
+    tar -xvf $PKGS/intel-ice-1.3.16.0.tgz
+    mkdir -p /lib/firmware/updates/ > /dev/null 2>&1 &&\
+    mv intel-ice-1.3.16.0 /lib/firmware/updates/intel > /dev/null 2>&1
 }
 
 next_step() {
-    clear
+    #clear
     echo "Next ..."
 }
 
 do_chkpltfm
+
+next_step
+echo ""
+echo ""
+echo ""
+echo "Configure Network ..."
+echo ""
+echo ""
+echo ""
+# SSH
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+
+res=$(find_iface $default_iface)
+if [ "$res"X == ""X ]; then
+    echo -e "   ${RED}No $default_iface found. ${RES}"
+    echo -e ""
+    echo -e ""
+    echo -e ""
+    ifconfig -a
+    echo -e "   ${RED}You must enable the mgmt interface via <ifconfig xxxx up> first before going to next. ${RES}"
+    exit
+fi
+
+if [ "$persistent_cfgnet"X == "n"X  ] || [ "$persistent_cfgnet"X == "N"X  ]; then
+    # Network
+    res=$(find_iface $default_iface_ip)
+    if [ "$res"X != ""X ]; then
+        echo -e "   ${RED}Already configured $default_iface $default_iface_ip.${RES}"
+    else
+        ifconfig $default_iface $default_iface_ip netmask 255.255.255.0
+        route add default gw $default_gateway
+    fi
+else
+    echo -e "   ${YELLOW}Performing Network(/etc/network/interfaces) ...${RES}"
+    res=$(cat /etc/network/interfaces | grep address | awk '{print $2}')
+    if [ "$res"X == ""X ]; then
+        echo "" >> /etc/network/interfaces
+        echo "" >> /etc/network/interfaces
+        echo "# The primary network interface" >> /etc/network/interfaces
+        echo "allow-hotplug $default_iface" >> /etc/network/interfaces
+        echo "auto $default_iface" >> /etc/network/interfaces
+        echo "iface $default_iface inet static" >> /etc/network/interfaces
+        echo "address $default_iface_ip" >> /etc/network/interfaces
+        echo "netmask 255.255.255.0" >> /etc/network/interfaces
+        echo "gateway $default_gateway" >> /etc/network/interfaces
+        echo "dns-nameserver 8.8.8.8" >> /etc/network/interfaces
+        echo "" >> /etc/network/interfaces
+        echo "" >> /etc/network/interfaces
+        /etc/init.d/networking restart
+        /etc/init.d/ssh restart
+        /etc/init.d/resolvconf restart
+    else
+         echo -e "   ${RED}Already configured $default_iface $res.${RES}"
+    fi
+fi
+echo -e "   ${YELLOW}Successfully.${RES}"
 
 next_step
 echo ""
@@ -256,12 +323,12 @@ else
    do_instdebs ${bfnplatform_debs_sde[*]}
 fi
 #do_instdebs ${bfnplatform_debs_bsp[*]}
-do_instbsp
+do_instdrv
 
 # Link onl-kernel
 ln -s \
- /usr/share/onl/packages/amd64/onl-kernel-4.14-lts-x86-64-all/mbuilds/ \
- /lib/modules/4.14.151-OpenNetworkLinux/build > /dev/null 2>&1
+ /usr/share/onl/packages/amd64/onl-kernel-${onl_kernel}-lts-x86-64-all/mbuilds/ \
+ /lib/modules/${KERNEL_RELEASE}/build > /dev/null 2>&1
 
 next_step
 echo ""
@@ -349,56 +416,6 @@ fi
 further_check
 #xt-cfgen.sh
 
-next_step
-echo ""
-echo ""
-echo ""
-echo "Configure Network ..."
-echo ""
-echo ""
-echo ""
-# SSH
-sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
-
-res=$(find_iface $default_iface)
-if [ "$res"X == ""X ]; then
-    echo -e "   ${RED}No $default_iface found.${RES}"
-    exit
-fi
-
-if [ "$persistent_cfgnet"X == "n"X  ] || [ "$persistent_cfgnet"X == "N"X  ]; then
-    # Network
-    res=$(find_iface $default_iface_ip)
-    if [ "$res"X != ""X ]; then
-        echo -e "   ${RED}Already configured $default_iface $default_iface_ip.${RES}"
-    else
-        ifconfig $default_iface $default_iface_ip netmask 255.255.255.0
-        route add default gw $default_gateway
-    fi
-else
-    echo -e "   ${YELLOW}Performing Network(/etc/network/interfaces) ...${RES}"
-    res=$(cat /etc/network/interfaces | grep address | awk '{print $2}')
-    if [ "$res"X == ""X ]; then
-        echo "" >> /etc/network/interfaces
-        echo "" >> /etc/network/interfaces
-        echo "# The primary network interface" >> /etc/network/interfaces
-        echo "allow-hotplug $default_iface" >> /etc/network/interfaces
-        echo "auto $default_iface" >> /etc/network/interfaces
-        echo "iface $default_iface inet static" >> /etc/network/interfaces
-        echo "address $default_iface_ip" >> /etc/network/interfaces
-        echo "netmask 255.255.255.0" >> /etc/network/interfaces
-        echo "gateway $default_gateway" >> /etc/network/interfaces
-        echo "dns-nameserver 8.8.8.8" >> /etc/network/interfaces
-        echo "" >> /etc/network/interfaces
-        echo "" >> /etc/network/interfaces
-        /etc/init.d/networking restart
-        /etc/init.d/ssh restart
-        /etc/init.d/resolvconf restart
-    else
-         echo -e "   ${RED}Already configured $default_iface $res.${RES}"
-    fi
-fi
-echo -e "   ${YELLOW}Successfully.${RES}"
 
 echo ""
 echo ""
@@ -441,6 +458,7 @@ echo -e ""
 echo -e "1. Reload variables via command <source ~/.bashrc>."
 echo -e "2. Run xt-cfgen.sh to generate $cfgfile"
 echo -e "3. Launch X-T via command <run_switchd.sh -p diag [--arch=tf2]>"
+echo -e "4. For d17xx CPU, a soft reboot is required as E800 ICE, the KR, driver requires PFs unloaded to take affect."
 echo ""
 echo ""
 echo ""

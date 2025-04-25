@@ -51,6 +51,7 @@ static struct x86_carrier_board_t x86_cb[] = {
     {"ADV1508",  ADV1508},
     {"ADV1527",  ADV1527},
     {"ADV1548",  ADV1548},
+    {"ADV1735",  ADV1735},
     {"S021508",  S021508},
     {"S021527",  S021527},
 };
@@ -59,6 +60,7 @@ static struct x86_carrier_board_t x86_cb[] = {
 /* A value 0x7F means a transitional scenarios for platforms with CG15xx using cgosdrv. */
 uint8_t bmc_i2c_bus = INVALID_BMC_I2C;
 unsigned char bmc_i2c_addr = 0x3e;
+uint32_t debounce_threshold = 0;
 
 static uint32_t bmc_comm_interval_us_for_312 = BMC_COMM_INTERVAL_US;
 
@@ -386,6 +388,31 @@ static void bf_pltfm_parse_uart(const char *str,
     uart_ctx.flags |= AF_PLAT_UART_ENABLE;
 }
 
+static void bf_pltfm_parse_debounce(const char *str,
+                                    size_t l)
+{
+    int i = 0;
+    char *c = NULL;
+
+    BUG_ON (str == NULL);
+
+    for (i = 0; i < (int)(l - 1); i ++) {
+        if (isspace (str[i])) {
+            continue;
+        }
+        if (isdigit (str[i])) {
+            c = (char *)&str[i];
+            break;
+        }
+    }
+
+    if (!c) {
+        return;
+    }
+
+    debounce_threshold = atoi(c);
+}
+
 static void access_cpld_through_cp2112()
 {
     /* Access CPLD through CP2112 */
@@ -580,6 +607,12 @@ void bf_pltfm_load_conf () {
                  * by tsihang, 2022-04-27. */
                 bf_pltfm_parse_uart (p + 5, strlen (p + 5));
             }
+            p = strstr (entry, "debounce:");
+            if (p) {
+                /* Whether indicated or not, this parameter only affects Tofino2.
+                 * by SunZheng, 2025-04-02. */
+                bf_pltfm_parse_debounce (p + 9, strlen (p + 9));
+            }
             memset (&entry[0], 0, lqe_valen);
         }
         fclose (fp);
@@ -706,7 +739,8 @@ bf_pltfm_status_t bf_pltfm_chss_mgmt_init()
     } else if (platform_type_equal (AFN_X308PT) ||
                platform_type_equal (AFN_X532PT) ||
                platform_type_equal (AFN_X564PT)) {
-        if (is_HVXXX || is_ADV15XX || is_S02XXX) {
+        // Assuming that ADV17XX is available on other platforms than X732Q-T.
+        if (is_HVXXX || is_ADV15XX || is_ADV17XX || is_S02XXX) {
             access_cpld_through_cp2112();
         } else if (is_CG15XX){
             cpld_path_e path = bf_pltfm_find_path_to_cpld();
@@ -762,5 +796,10 @@ bf_pltfm_status_t bf_pltfm_get_suboard_status (bool *dpu1_installed,
         *ptpx_installed = true;
     }
 
+    return BF_PLTFM_SUCCESS;
+}
+
+bf_pltfm_status_t bf_pltfm_get_debounce_threshold (uint32_t *dbnc_thres) {
+    *dbnc_thres = debounce_threshold;
     return BF_PLTFM_SUCCESS;
 }

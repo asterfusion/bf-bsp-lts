@@ -64,7 +64,7 @@ static char *pm_intf_fsm_st_to_str[] = {
 };
 
 /* TBD */
-#if SDE_VERSION_LT(900)
+#if SDE_VERSION_LT(920)
 /**
  * Identifies if a port/lane should use 1/(1+D) precoding or not
  */
@@ -436,6 +436,53 @@ static void bf_pm_intf_send_asic_precoding_info(bf_pm_intf_cfg_t *icfg,
     }
 }
 
+static void bf_pm_intf_restore_debounce_thresh(bf_pm_intf_cfg_t *icfg,
+        bf_pm_intf_t *intf,
+        bf_pm_qsfp_info_t *qsfp_info) {
+    bf_pal_front_port_handle_t port_hdl;
+    bf_dev_id_t dev_id;
+
+    if (!icfg || !intf || !qsfp_info) return;
+
+    dev_id = icfg->dev_id;
+    if ((!bf_pm_intf_is_device_family_tofino2(dev_id)) ||
+            bf_bd_is_this_port_internal(icfg->conn_id, icfg->channel)) {
+        return;
+    }
+
+    port_hdl.conn_id = icfg->conn_id;
+    port_hdl.chnl_id = icfg->channel;
+
+    port_hdl = port_hdl;
+    bfn_pp_dbnc_set(dev_id, &port_hdl, 0);
+}
+
+static void bf_pm_intf_set_debounce_thresh(bf_pm_intf_cfg_t *icfg,
+        bf_pm_intf_t *intf,
+        bf_pm_qsfp_info_t *qsfp_info) {
+    bf_pal_front_port_handle_t port_hdl;
+    bf_dev_id_t dev_id;
+    uint32_t debounce_value = bf_pltfm_pm_dbnc_thres_get();
+
+    if (!icfg || !intf || !qsfp_info) return;
+
+    dev_id = icfg->dev_id;
+    if ((!bf_pm_intf_is_device_family_tofino2(dev_id)) ||
+            bf_bd_is_this_port_internal(icfg->conn_id, icfg->channel)) {
+        return;
+    }
+
+    port_hdl.conn_id = icfg->conn_id;
+    port_hdl.chnl_id = icfg->channel;
+
+    port_hdl = port_hdl;
+    if ((!qsfp_info->is_optic) && (icfg->encoding == BF_PLTFM_ENCODING_PAM4)) {
+        if (!bf_pm_intf_is_qsfpdd_short(qsfp_info->qsfpdd_type)) {
+            bfn_pp_dbnc_set(dev_id, &port_hdl, debounce_value);
+        }
+    }
+}
+
 static void bf_pm_intf_fsm_next_run_time_set(struct timespec *next_run_time,
         int delay_ms) {
     struct timespec now;
@@ -785,6 +832,9 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
 
         bf_pm_intf_send_asic_precoding_info(icfg, intf, qsfp_info);
 
+        // restore debounce threshold
+        bf_pm_intf_restore_debounce_thresh(icfg, intf, qsfp_info);
+
         // enable SERDES TX
         if (qsfp_info->is_optic) {
             bf_pm_pltfm_front_port_eligible_for_autoneg(
@@ -994,6 +1044,8 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         break;
     case PM_INTF_FSM_SET_RX_READY:
         if ((!bf_pltfm_pm_is_ha_mode()) && qsfp_info->is_present) {
+            /* Set debounce threshold before set Rx ready. */
+            bf_pm_intf_set_debounce_thresh(icfg, intf, qsfp_info);
             /* If Rx not ready, bf_pm_fsm_run will keep in BF_PM_FSM_ST_WAIT_SIGNAL_OK state. */
             bf_pm_port_serdes_rx_ready_for_bringup_set(
                 icfg->dev_id, &port_hdl, true);

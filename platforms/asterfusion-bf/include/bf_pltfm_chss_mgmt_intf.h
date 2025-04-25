@@ -371,6 +371,8 @@ bf_pltfm_status_t pltfm_mgr_sensor_out_get (
 bf_pltfm_status_t bf_pltfm_get_suboard_status (bool *dpu1_installed,
     bool *dpu2_installed, bool *ptpx_installed);
 
+bf_pltfm_status_t bf_pltfm_get_debounce_threshold (uint32_t *dbnc_thres);
+
 #define BMC_COMM_INTERVAL_US    500000
 
 void bf_pltfm_start_312_i2c_wdt(void);
@@ -386,6 +388,7 @@ typedef enum COME_type {
     ADV1508,
     ADV1527,
     ADV1548,
+    ADV1735,
     S021508,
     S021527,
 } COME_type;
@@ -426,6 +429,10 @@ bf_pltfm_status_t bf_pltfm_compare_bmc_ver(char *cmp_ver);
     (global_come_type == ADV1508) ||\
     (global_come_type == ADV1527) ||\
     (global_come_type == ADV1548))
+
+/* Porting YH17XX. by SunZheng, 2025-03-31. */
+#define is_ADV17XX (\
+    (global_come_type == ADV1735))
 
 /* Porting S02XX. by tsihang, 2022-06-22. */
 #define is_S02XXX (\

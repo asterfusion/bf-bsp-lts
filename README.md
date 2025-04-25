@@ -11,14 +11,13 @@ Table of Contents
     - [Generate Launching Variables](#generate-launching-variables)
     - [Launch X-T Platforms](#launch-x-t-platforms)
     - [Launch X-T Platforms (Tofino2 based)](#launch-x-t-platforms-tofino2-based)
+    - [Neccessary changes to SDE for tof2 based X-T](#neccessary-changes-to-sde-for-tof2-based-x-t")
 - [State Machine](#state-machine)
 - [Q\&A](#qa)
 
 ## <a name="about-this-repository"></a>About This Repository
 
 Mainline  **ALL-in-ONE** repository for all Intel Tofino based **X-T Programmable Bare Metal Switch** powered by Asterfusion with Long Term Support.
-
-Disclaimer: The SDE for the Intel Tofino series of P4-programmable ASICs is currently only available under NDA from Intel. The users of this repository are assumed to be authorized to download and use the SDE. And also, we assume the users have build SDE successfully before working with this repository.
 
 Current supported **X-T Programmable Bare Metal Switch**:
   - `X308P-T`,  08x 100GbE QSFP28, 48x 25GbE SFP28 and last 4 of them can be configured as 1GbE.
@@ -49,6 +48,9 @@ Current supported **SDE**:
 The version number of a SDE consists of three Arabic numbers, `x.y.z`, where `x` is the major version, `y` is the minor version, and `z` is the sub-version under `y`.
 It's would be a LTS version when `y` is odd, otherwise it is a non-LTS version. It's worth mentioning that we build and run the code on the top of Debian and here only list the versions which we have adapted and tested, and this does not exclude or deny that the repository does not support other non-LTS SDE versions.
 
+Disclaimer: The SDE for the Intel Tofino series of P4-programmable ASICs is currently only available under NDA from Intel. The users of this repository are assumed to be authorized to download and use the SDE. And also, we assume the users have built SDE successfully before working with this repository. `Even though you may have heard that the SDE nowadays is an opened source on github/p4lang/open-p4studio, the ODMs, including Asterfusion at least, are not explicitly authorized to provide the SDE gotten from Intel, to end users.`
+
+免责声明: 英特尔Tofino P4可编程芯片的SDE需签署NDA协议获取。使用本仓库前，请确保您已获授权并完成SDE构建。`尽管您可能听说SDE已在github/p4lang/open-p4studio开源，但ODM厂商（至少包括Asterfusion）未被明确授权可向终端用户提供、分发、转售由英特尔官方提供的SDE.`
 
 ## <a name="special-dependency"></a>Special Dependency
 
@@ -99,24 +101,10 @@ root@localhost:~/bf-bsp-lts/build# cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake  
                                             -DSDE_VERSION=9133
 root@localhost:~/bf-bsp-lts/build# make -j15 install
 ```
-The defaut value of supported variables are listed below if none of them passed by CMake CLI:
-
-`OS_NAME=Debian`,
-
-`OS_VERSION=9`,
-
-`SDE_VERSION=9133`,
-
-`THRIFT-DRIVER=on`,
-
-`LASER_ON=off`
 
 Finally, `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libpltfm_mgr*` will be installed to `$SDE_INSTALL/lib`, and all headers exposed by bsp will be installed to `$SDE_INSTALL/include`.
 
-TIPS: In order to be compatible with different SDE versions and different base systems, we have introduced two macro variables in the BSP, one is `SDE_VERSION` and the other is `OS_VERSION`.
-They are defined in `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h`.
-
-
+In `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h` defines `SDE_VERSION` and `OS_VERSION` to have a better compatible to different SDEs. The default supported variables, which are  `OS_NAME=Debian`, `OS_VERSION=9`, `SDE_VERSION=9133`, `THRIFT-DRIVER=on`, `LASER_ON=off·， will be applied if none of them are passed via CMake CLI.
 
 
 ### <a name="launch"></a>Launch
@@ -158,6 +146,28 @@ Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino2/diag.conf
 ...
 ```
 *For Third-party integration, please copy $BSP/platforms/asterfusion-bf/src/platform_mgr/pltfm_bd_map_xxx.json to your $SDE_INSTALL/share/platforms/board-maps/asterfusion/ before running.*
+
+#### <a name="neccessary-changes-to-sde-for-tof2-based-x-t"></a>Neccessary changes to SDE for tof2 based X-T
+
+If you're running tofino2 based X-T bare metal switch and facing link issue with modules, please try to have this patch appiled to your SDE, which will significantly improve link stability.
+```
+diff --git a/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c b/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
+index a66d0e8..036488e 100644
+--- a/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
++++ b/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
+@@ -812,7 +812,11 @@ static bf_status_t bf_pm_fsm_ber_check_done(bf_dev_id_t dev_id,
+              dev_port,
+              ctr,
+              ber);
+-    if (ber > 1.0e-05) {
++    // BER of 1.0e-05 is a great challenge for most modules.
++    // Prefer to 2.4e-04 as it is defined by the spec.
++    //if (ber > 1.0e-05) {
++    if (ber > 2.4e-04) {
+       hi_ber = true;
+     }
+   }
+```
 
 ## <a name="state-machine"></a>State Machine
 

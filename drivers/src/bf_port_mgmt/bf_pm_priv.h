@@ -153,6 +153,7 @@ bf_status_t bf_pltfm_pm_media_type_get (
 bf_pltfm_status_t bf_pltfm_pm_ha_mode_set();
 bf_pltfm_status_t bf_pltfm_pm_ha_mode_clear();
 bool bf_pltfm_pm_is_ha_mode();
+uint32_t bf_pltfm_pm_dbnc_thres_get();
 
 #if defined(HAVE_SFP)
 bf_pm_sfp_info_t *bf_pltfm_get_pm_sfp_info_ptr (

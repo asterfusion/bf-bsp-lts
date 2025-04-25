@@ -217,6 +217,9 @@ if [[ $xt_cme =~ "SOM-5992" ]]; then
         default_cme='ADV1548'
     fi
 fi
+if [[ $xt_cme =~ "SOM-5993" ]]; then
+    default_cme='ADV1735'
+fi
 
 # If can not get CME type by dmidecode, then try to get CME type by uart.
 if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ] && [ "$default_cme"X == "CME3000"X ] ; then
@@ -237,6 +240,9 @@ if [ "$xt_platform"X != ""X ] && [ $enable_uart = 1 ] && [ "$default_cme"X == "C
         fi
         if [[ $xt_cme =~ "48" ]]; then
             default_cme='ADV1548'
+        fi
+        if [[ $xt_cme =~ "35" ]]; then
+            default_cme='ADV1735'
         fi
     fi
     if [[ $xt_cme =~ "S02" ]]; then
@@ -412,10 +418,11 @@ echo "#   2. CG1527"  >> $cfgfile
 echo "#   3. ADV1508" >> $cfgfile
 echo "#   4. ADV1527" >> $cfgfile
 echo "#   5. ADV1548" >> $cfgfile
-echo "#   6. S021508" >> $cfgfile
-echo "#   7. S021527" >> $cfgfile
-echo "#   8. CME3000" >> $cfgfile
-echo "#   9. CME7000" >> $cfgfile
+echo "#   6. ADV1735" >> $cfgfile
+echo "#   7. S021508" >> $cfgfile
+echo "#   8. S021527" >> $cfgfile
+echo "#   9. CME3000" >> $cfgfile
+echo "#   10. CME7000" >> $cfgfile
 echo $default_cme
 echo "com-e:"$default_cme >> $cfgfile
 echo "" >> $cfgfile
@@ -473,5 +480,13 @@ echo "# rpc-listen-point:lo" >> $cfgfile
 echo "# rpc-listen-point:10.240.4.50" >> $cfgfile
 echo "# rpc-listen-point:ma1" >> $cfgfile
 echo "rpc-listen-point:127.0.0.1" >> $cfgfile
+
+if [[ $xt_platform =~ "732" ]]; then
+    echo "" >> $cfgfile
+    echo "" >> $cfgfile
+    echo "# Threshold for the number of times the SDK debounces a port before it establishes the Link state." >> $cfgfile
+    echo "# The valid value of this parameter is an integer in the range 0-100 inclusive." >> $cfgfile
+    echo "debounce:100" >> $cfgfile
+fi
 
 echo "==========================            Done             ========================== "

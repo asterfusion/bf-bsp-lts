@@ -565,7 +565,7 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
     uint32_t timeout = 0;
     uint32_t num_pipes = 0;
     uint32_t logical_pipe;
-    float pipe_temp_C;
+    float pipe_temp_C = 0.0;
     bf_dev_port_t dev_port;
     bf_status_t err;
 
@@ -575,8 +575,9 @@ __bf_pltfm_chss_mgmt_switch_temperature_get__ (
         lld_sku_get_num_active_pipes(dev_id, &num_pipes);
         for (logical_pipe = 0; logical_pipe < num_pipes; logical_pipe++) {
             dev_port = MAKE_DEV_PORT(logical_pipe, 8);
+            dev_port = dev_port;
             if (BF_SUCCESS !=
-                bf_tof2_serdes_fw_temperature_get (
+                bfn_tf2_serdes_temp_get (
                     dev_id, dev_port, &pipe_temp_C)) {
                 LOG_ERROR ("Error in reading pipe%d temperature of tofino2 asic.", logical_pipe);
             } else {
