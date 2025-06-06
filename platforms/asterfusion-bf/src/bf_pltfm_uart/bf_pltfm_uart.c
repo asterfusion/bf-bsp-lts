@@ -312,7 +312,7 @@ uart_send (struct bf_pltfm_uart_ctx_t *ctx,
     size_t l = 0;
     int rc = 0;
 
-    if ((tx_len > 2) && ( tx_len != 20)) {
+    if ((tx_len > 2) && (cmd != 0x01) && (cmd != 0x0E)) {
         LOG_ERROR (
             "%s[%d], "
             "uart.send(%s)"
@@ -334,11 +334,19 @@ uart_send (struct bf_pltfm_uart_ctx_t *ctx,
         l = sprintf ((char *)&buf[0],
                      "uart_0x%02x_0x%02x", cmd,
                      tx_buf[0]);
+    } else if ((tx_len == 2) && (cmd == 0x01) && (tx_buf[0] == 0x00) && (tx_buf[1] == 0x01)) {
+        l = sprintf ((char *)&buf[0],
+                     "uart_0x%02x_0x%02x_0x%02x",
+                     cmd, tx_buf[0], tx_buf[1]);
+    } else if ((tx_len == 2) && (cmd == 0x01) && (tx_buf[1] != 0xaa)) {
+        l = sprintf ((char *)&buf[0],
+                     "uart_0x%02x_0x%02x_%s",
+                     cmd, tx_buf[0], &tx_buf[1]);
     } else if (tx_len == 2) {
         l = sprintf ((char *)&buf[0],
                      "uart_0x%02x_0x%02x_0x%02x",
                      cmd, tx_buf[0], tx_buf[1]);
-    } else if (tx_len == 20) {
+    } else {
         l = sprintf ((char *)&buf[0],
                      "uart_0x%02x_0x%02x_%s",
                      cmd, tx_buf[0], &tx_buf[1]);

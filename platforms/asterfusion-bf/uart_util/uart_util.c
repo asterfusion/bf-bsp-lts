@@ -69,7 +69,7 @@ int main (int argc, char **argv)
     struct bf_pltfm_uart_ctx_t *ctx = &uart_ctx;
     uint8_t rd_buf[128] = {0};
     uint8_t cmd = 0x00;
-    uint8_t wr_buf[2] = {0xAA, 0xAA};
+    uint8_t wr_buf[64] = {0xAA, 0xAA};
     uint8_t wr_len = 0;
     int i;
 
@@ -160,6 +160,119 @@ int main (int argc, char **argv)
                     fprintf (stdout, "Failed.\n");
                 }
             }
+        }
+    } else if (memcmp (argv[2], "eeprom", 6) == 0) {
+        uint8_t board_ver[128] = {0};
+        uint8_t bmc_ver[128] = {0};
+
+        if ((argc < 4) || (argc > 5)) {
+            fprintf (stdout, "\nUsage:\n");
+            fprintf (stdout, "Read eeprom TLV:   uart_util /dev/ttyS1 eeprom <0x21~0x34>\n");
+            fprintf (stdout, "Update eeprom TLV: uart_util /dev/ttyS1 eeprom <0x21~0x34> <xxxxx>\n\n");
+            return 0;
+        }
+
+        // check board and BMC version
+        if (argc == 5) {
+            // get Main Board Version
+            cmd = 0x01;
+            wr_buf[0] = 0x31;
+            wr_buf[1] = 0xAA;
+            wr_len = 2;
+            ret = bf_pltfm_bmc_uart_util_write_read (ctx, cmd, wr_buf,
+                                                    wr_len, board_ver, 128 - 1, 700000);
+            if (ret < 0) {
+                fprintf (stdout, "Read Main Board Version failed<%d>\n", ret);
+                return 0;
+            }
+
+            // get BMC Version
+            cmd = 0x0D;
+            wr_buf[0] = 0xAA;
+            wr_buf[1] = 0xAA;
+            wr_len = 2;
+            ret = bf_pltfm_bmc_uart_util_write_read (ctx, cmd, wr_buf,
+                                                    wr_len, bmc_ver, 128 - 1, 700000);
+            if (ret < 0) {
+                fprintf (stdout, "Read BMC Version failed<%d>\n", ret);
+                return 0;
+            }
+
+            fprintf (stdout, "Main Board Version: %s\n", board_ver);
+            fprintf (stdout, "BMC Version: V%d.%d.%d\n", bmc_ver[1], bmc_ver[2], bmc_ver[3]);
+
+            if (((memcmp (board_ver, "APNS320T-A1-V2.0", 16) == 0) ||
+                (memcmp (board_ver, "APNS320T-B1-V1.1", 16) == 0)) &&
+                (bmc_ver[1] == 3) && (bmc_ver[2] == 3) && (bmc_ver[3] ==2)) {
+
+            } else {
+                fprintf (stdout, "Not support!\n");
+                return 0;
+            }
+        }
+
+        // unlock
+        if (argc == 5) {
+            memset(wr_buf, 0x00, sizeof(wr_buf));
+            cmd = 0x01;
+            wr_buf[0] = 0x00;
+            strcpy((char *)&wr_buf[1], "Aster0");
+            wr_len = 7;
+            ret = bf_pltfm_bmc_uart_util_write_read (ctx, cmd, wr_buf,
+                                                    wr_len, rd_buf, 128 - 1, 700000);
+            if (ret < 0) {
+                fprintf (stdout, "Unlock failed<%d>\n", ret);
+                return 0;
+            }
+        }
+
+        // read/write
+        memset(wr_buf, 0x00, sizeof(wr_buf));
+        cmd = 0x01;
+        wr_buf[0] = (uint8_t)strtol (argv[3], NULL, 16);
+        if (argc == 4) {
+            wr_buf[1] = 0xaa;
+            wr_len = 2;
+        } else if (argc == 5) {
+            memcpy((void*)&wr_buf[1], (const void *)argv[4], (size_t)strlen(argv[4]));
+            wr_len = strlen(argv[4]) + 1;
+        }
+
+        if ((wr_buf[0] < 0x21) || (wr_buf[0] > 0x34)) {
+            fprintf (stdout, "\nUsage:\n");
+            fprintf (stdout, "Read eeprom TLV:   uart_util /dev/ttyS1 eeprom <0x21~0x34>\n");
+            fprintf (stdout, "Update eeprom TLV: uart_util /dev/ttyS1 eeprom <0x21~0x34> <xxxxx>\n\n");
+            return 0;
+        }
+
+        ret = bf_pltfm_bmc_uart_util_write_read (ctx, cmd, wr_buf,
+                                                 wr_len, rd_buf, 128 - 1, 700000);
+        if ((ret < 0) && (argc == 4)) {
+            fprintf (stdout, "Read failed<%d>\n", ret);
+        } else {
+            if (ret == 0) {
+                /* Maybe no return cmd executed. */
+            } else {
+                for (i = 0; i < ret; i ++) {
+                    if (need_converto_char (cmd)) {
+                        fprintf (stdout, "%c", rd_buf[i]);
+                    } else {
+                        fprintf (stdout, "%x ", rd_buf[i]);
+                    }
+                }
+                fprintf (stdout, "\n");
+            }
+        }
+
+        // lock
+        if (argc == 5) {
+            cmd = 0x01;
+            wr_buf[0] = 0x00;
+            wr_buf[1] = 0x01;
+            wr_len = 2;
+            bf_pltfm_bmc_uart_util_write_read (ctx, cmd, wr_buf,
+                                               wr_len, rd_buf, 128 - 1, 700000);
+            fprintf (stdout, "EEPROM TLV update successfully completed!\n");
         }
     } else {
         cmd = (uint8_t)strtol (argv[2], NULL, 16);

@@ -455,8 +455,12 @@ static int sfp_fsm_poll_los (bf_dev_id_t dev_id,
             if (platform_type_equal(AFN_X312PT) &&
                 1/* TBD, sfp_pres_mask is truely set */ &&
                 1/* TBD, error occured during PCA9548*/) {
-                bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_HA_MODE;
-                return 0;
+                uint32_t lower_mask, upper_mask;
+                if (bf_sfp_get_transceiver_pres (&lower_mask,
+                                                 &upper_mask) != 0) {
+                    bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_HA_MODE;
+                    return 0;
+                }
             }
             // Detect and latch the removal
             // state, so that can sfp-scan handle the rest.

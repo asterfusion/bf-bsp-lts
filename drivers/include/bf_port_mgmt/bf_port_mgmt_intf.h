@@ -494,6 +494,8 @@ void bf_pltfm_pm_qsfp_simulate_all_removed (void);
 
 void qsfp_luxtera_lpbk (int conn_id,
                         bool near_lpbk);
+void qsfp_luxtera_hipwr (int conn_id,
+                         bool is_cmis);
 
 void bf_pm_qsfp_luxtera_state_capture (
     int conn_id, uint8_t arr_0x3k[0x3000]);

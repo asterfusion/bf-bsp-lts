@@ -59,6 +59,7 @@ extern "C" {
 #define BF_TRANS_CTRLMASK_IGNORE_DPAPPLY_STATE  (1 << 25)
 #define BF_TRANS_CTRLMASK_REQUIRE_HIGH_PWR_INIT (1 << 26)
 #define BF_TRANS_CTRLMASK_REQUIRE_SOFTWARE_RST  (1 << 27)
+#define BF_TRANS_CTRLMASK_REQUIRE_HIGH_PWR_MODE (1 << 28)
 
 /* Cached state for [q]sfp_info[port].trans_state.
  * To be clarified, the belowing runtime state will not be updated

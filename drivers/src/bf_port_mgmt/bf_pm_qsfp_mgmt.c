@@ -1850,6 +1850,12 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
         return -1;
     }
 
+    // skip trigger quick removal action until everything goes right.
+    if (platform_type_equal(AFN_X312PT) &&
+        (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_HA_MODE)) {
+        return 0;
+    }
+
     // CPLD told us this module is absent.
     // Donot move FSM until removal is hanlded
     //if (!bf_qsfp_is_present (conn_id)) {
@@ -1879,10 +1885,23 @@ static int qsfp_fsm_poll_los (bf_dev_id_t dev_id,
     }
 
     if (rc) {
+        // skip trigger quick removal action and disable chassis monitor.
+        // requires maunally op via command chassis-ctrlmask-set if everything goes right.
+        // Query the QSFP library for the qsfp presence mask
+        if (platform_type_equal(AFN_X312PT)) {
+            uint32_t lower_mask, upper_mask, cpu_mask;
+            if (bf_qsfp_get_transceiver_pres (&lower_mask,
+                                              &upper_mask, &cpu_mask) != 0) {
+                bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_HA_MODE;
+                return 0;
+            }
+        }
+
         /* Added by tsihang, 2023-03-21. */
         // Detect and latch the removal
         // state, so that can qsfp-scan handle the rest.
-        if (!qsfp_state[conn_id].qsfp_quick_removed) {
+        if (!platform_type_equal(AFN_X312PT) &&
+            !qsfp_state[conn_id].qsfp_quick_removed) {
             bool is_present = 0;
             bf_qsfp_detect_transceiver (conn_id, &is_present);
             if (!is_present) {
@@ -2295,11 +2314,12 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             }
             qsfp_state[conn_id].qsfp_quick_removed = false;
 
+            // checks for QSFPs with "special" requirements
+            qsfp_fsm_identify_model_requirements (conn_id);
+            bf_qsfp_ctrlmask_get(conn_id, &ctrlmask);
+
             if (is_optical) {
                 int ch;
-
-                // checks for QSFPs with "special" requirements
-                qsfp_fsm_identify_model_requirements (conn_id);
 
                 // set initial state for each of the 4 channel FSMs
                 for (ch = 0; ch < CHANNEL_COUNT; ch++) {
@@ -2313,6 +2333,12 @@ static void qsfp_module_fsm_run (bf_dev_id_t
             } else {
                 LOG_WARNING ("QSFP    %2d : NOT OPTICAL ...",
                              conn_id);
+                /* Trigger high power mode. */
+                if (ctrlmask & BF_TRANS_CTRLMASK_REQUIRE_HIGH_PWR_MODE) {
+                    LOG_WARNING ("QSFP    %2d : trigger high power mode for module ...",
+                                 conn_id);
+                    qsfp_luxtera_hipwr (conn_id, bf_qsfp_is_cmis(conn_id));
+                }
                 if (bf_pm_intf_is_device_family_tofino(dev_id)) {
                     qsfp_fsm_notify_bf_pltfm (dev_id, conn_id);
                 }
@@ -4872,6 +4898,93 @@ void qsfp_luxtera_lpbk (int conn_id,
     LOG_WARNING ("QSFP    %2d : loopback mode <%s> set.",
                  conn_id,
                  near_lpbk ? "NEAR/ELEC." : "FAR/OPTICAL");
+}
+
+/*****************************************************************
+ *
+ *****************************************************************/
+void qsfp_luxtera_hipwr (int conn_id,
+                         bool is_cmis)
+{
+    uint8_t pwd[] = {0x00, 0x00, 0x10, 0x11};
+    uint8_t wr[] = {0x10, 0x10, 0x10, 0x00};
+    uint8_t rd[] = {0x00, 0x00, 0x00, 0x00};
+    uint8_t pwr_class = 0x08, output_enb = 0x01;
+    uint8_t pg0 = 0x0, pg2 = 0x2;
+    int rc;
+
+    if (!is_cmis) {
+        rc = bf_fsm_qsfp_wr2 (conn_id, pg0, 0x7b, 4, pwd);
+        if (rc) {
+            LOG_WARNING (
+                "QSFP    %2d : Error <%d> Setting pwd for high power mode",
+                conn_id, rc);
+            return;
+        }
+    }
+
+    if (is_cmis) {
+        rc = bf_fsm_qsfp_wr2 (conn_id, pg0, 0xc8, 1,
+                              &pwr_class);
+    } else {
+        rc = bf_fsm_qsfp_wr2 (conn_id, pg2, 0x8b, 1,
+                              &output_enb);
+        rc = bf_fsm_qsfp_wr2 (conn_id, pg2, 0x82, 4,
+                              wr);
+    }
+    if (rc) {
+        LOG_WARNING ("QSFP    %2d : Error <%d> Setting high power mode",
+                     conn_id,
+                     rc);
+        return;
+    }
+
+    if (is_cmis) {
+        rc = bf_fsm_qsfp_rd2 (conn_id, pg0, 0xc8, 1, &rd[0]);
+        if (rc) {
+            LOG_WARNING ("QSFP    %2d : Error <%d> Reading byte 0xC8 for high power mode",
+                        conn_id,
+                        rc);
+            return;
+        }
+        if (rd[0] != pwr_class) {
+            LOG_WARNING ("QSFP    %2d : Error <%d> Setting byte 0xC8 for high power mode",
+                        conn_id,
+                        rc);
+            return;
+        }
+    } else {
+        rc = bf_fsm_qsfp_rd2 (conn_id, pg2, 0x8b, 1, &rd[0]);
+        if (rc) {
+            LOG_WARNING ("QSFP    %2d : Error <%d> Reading byte 0x8B for high power mode",
+                        conn_id,
+                        rc);
+            return;
+        }
+        if (rd[0] != output_enb) {
+            LOG_WARNING ("QSFP    %2d : Error <%d> Setting byte 0x8B for high power mode",
+                        conn_id,
+                        rc);
+            return;
+        }
+        rc = bf_fsm_qsfp_rd2 (conn_id, pg2, 0x82, 4, &rd[0]);
+        if (rc) {
+            LOG_WARNING ("QSFP    %2d : Error <%d> Reading byte 0x8B for high power mode",
+                        conn_id,
+                        rc);
+            return;
+        }
+        if ((rd[0] != wr[0]) || 
+            (rd[1] != wr[1]) || 
+            (rd[2] != wr[2]) || 
+            (rd[3] != wr[3])) {
+            LOG_WARNING ("QSFP    %2d : Error <%d> Setting byte 0x82-0x85 for high power mode",
+                        conn_id,
+                        rc);
+            return;
+        }
+    }
+    LOG_DEBUG ("QSFP    %2d : High power mode set.", conn_id);
 }
 
 bool bf_pm_qsfp_is_luxtera (int conn_id)

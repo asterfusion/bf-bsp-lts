@@ -3017,6 +3017,7 @@ static int bf_pltfm_ucli_ucli__qsfp_module_show (
                     "%-30s = ±%.3f nm\n",
                     "Wavelength tolerance",
                     tolerance);
+        aim_printf (&uc->pvs, "\n");
     }
     bool ctrl_flag, tune_flag;
     /* returns the wavelength controllable and tramsmitter tunable flags */
@@ -4403,10 +4404,17 @@ bf_pltfm_ucli_ucli__qsfp_wavelength_get (
 
     bool is_cmis = bf_qsfp_is_cmis (port);
     bool is_passive_cu = bf_qsfp_is_passive_cu (port);
+    if (is_passive_cu) {
+        aim_printf (&uc->pvs,
+                    "Wavelength not available for module on port %d\n",
+                    port);
+        return 0;
+    }
+
     aim_printf (&uc->pvs,
                 "====================\n");
     aim_printf (&uc->pvs,
-                "Info for Wavelength:\n");
+                "Info for wavelength:\n");
     aim_printf (&uc->pvs,
                 "====================\n");
 
@@ -4439,6 +4447,7 @@ bf_pltfm_ucli_ucli__qsfp_wavelength_get (
                     "%-21s = %s\n",
                     "Wavelength tunable",
                     (tune_flag ? "True" : "False"));
+        aim_printf (&uc->pvs, "\n");
     }
 
     if (tune_flag) {

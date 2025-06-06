@@ -410,7 +410,7 @@ static void bf_pltfm_onlp_mntr_transceiver()
     int module;
     int max_sfp_modules;
     int max_qsfp_modules;
-    uint8_t buf[MAX_QSFP_PAGE_SIZE * 6] = {0};
+    uint8_t buf[MAX_QSFP_PAGE_SIZE * 4] = {0};
     uint32_t flags = bf_pltfm_mgr_ctx()->flags;
 
     struct qsfp_ctx_t *qsfp, *qsfp_ctx;
@@ -491,14 +491,6 @@ static void bf_pltfm_onlp_mntr_transceiver()
             }
         }
 
-        
-        /* Providing limited memory pages should be enough since
-           the claim is only for DDM information.
-           SFF8436 & SFF8636: LP00h + UP(00-03)h, 128 * 5
-           CMIS: LM + P(00-04)h, 128 * 6
-           Thus we need a buffer of at least size 128 * 6.
-           By SunZheng, 2025/04/11.
-        */
         if (bf_qsfp_get_cached_info (i,
                 QSFP_PAGE0_LOWER, buf)) {
             continue;
@@ -508,33 +500,13 @@ static void bf_pltfm_onlp_mntr_transceiver()
                 buf + MAX_QSFP_PAGE_SIZE)) {
             continue;
         }
-        if (bf_qsfp_get_cached_info (
-                i, QSFP_PAGE1,
-                buf + MAX_QSFP_PAGE_SIZE * 2)) {
-            continue;
-        }
-        if (bf_qsfp_get_cached_info (
-                i, QSFP_PAGE2,
-                buf + MAX_QSFP_PAGE_SIZE * 3)) {
-            continue;
-        }
-        if (bf_qsfp_get_cached_info (
-                i, QSFP_PAGE3,
-                buf + MAX_QSFP_PAGE_SIZE * 4)) {
-            continue;
-        }
+#if 0
         if (bf_qsfp_is_cmis (i)) {
-            if (bf_qsfp_get_cached_info (
-                    i, QSFP_PAGE4,
-                    buf + MAX_QSFP_PAGE_SIZE * 5)) {
-                continue;
-            }
-            onlp_save (path, (char *)buf,
-                       MAX_QSFP_PAGE_SIZE * 6);
-        } else {
-            onlp_save (path, (char *)buf,
-                       MAX_QSFP_PAGE_SIZE * 5);
+            continue;
         }
+#endif
+        onlp_save (path, (char *)buf,
+                   MAX_QSFP_PAGE_SIZE * 2);
     }
     sprintf (path, ONLP_LOG_QSFP_PRES_PATH,
              "presence");
@@ -601,12 +573,12 @@ static void bf_pltfm_onlp_mntr_transceiver()
             continue;
         }
         if (bf_sfp_get_cached_info (i, 1,
-                                    buf + MAX_QSFP_PAGE_SIZE) ) {
+                                    buf + 2 * MAX_QSFP_PAGE_SIZE) ) {
             continue;
         }
         /* $ hexdump /var/asterfusion/qsfp_10_eeprom is helpful. */
         onlp_save (path, (char *)buf,
-                   MAX_QSFP_PAGE_SIZE * 2);
+                   MAX_QSFP_PAGE_SIZE * 4);
     }
     sprintf (path, ONLP_LOG_SFP_PRES_PATH,
              "presence");
