@@ -22,6 +22,7 @@
 #include <bf_pm/bf_pm_intf.h>
 #include <bf_pltfm.h>
 #include <bf_pltfm_ext_phy.h>
+#include "bf_pltfm_chss_mgmt_intf.h"
 #include "bf_pm_priv.h"
 
 static bf_pm_intf_t intf_obj[MAX_CONNECTORS][MAX_CHAN_PER_CONNECTOR];
@@ -462,7 +463,8 @@ static void bf_pm_intf_set_debounce_thresh(bf_pm_intf_cfg_t *icfg,
         bf_pm_qsfp_info_t *qsfp_info) {
     bf_pal_front_port_handle_t port_hdl;
     bf_dev_id_t dev_id;
-    uint32_t debounce_value = bf_pltfm_pm_dbnc_thres_get();
+    uint32_t debounce_value = 0;
+    bf_pltfm_get_debounce_threshold(&debounce_value);
 
     if (!icfg || !intf || !qsfp_info) return;
 
@@ -476,10 +478,8 @@ static void bf_pm_intf_set_debounce_thresh(bf_pm_intf_cfg_t *icfg,
     port_hdl.chnl_id = icfg->channel;
 
     port_hdl = port_hdl;
-    if ((!qsfp_info->is_optic) && (icfg->encoding == BF_PLTFM_ENCODING_PAM4)) {
-        if (!bf_pm_intf_is_qsfpdd_short(qsfp_info->qsfpdd_type)) {
+    if (icfg->encoding == BF_PLTFM_ENCODING_PAM4) {
             bfn_pp_dbnc_set(dev_id, &port_hdl, debounce_value);
-        }
     }
 }
 
@@ -835,6 +835,9 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         // restore debounce threshold
         bf_pm_intf_restore_debounce_thresh(icfg, intf, qsfp_info);
 
+        // Set debounce threshold for PAM4
+        bf_pm_intf_set_debounce_thresh(icfg, intf, qsfp_info);
+
         // enable SERDES TX
         if (qsfp_info->is_optic) {
             bf_pm_pltfm_front_port_eligible_for_autoneg(
@@ -940,6 +943,7 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
             intf->rxlos_debounce_cntr =
                 bf_qsfp_rxlos_debounce_get(port_hdl.conn_id);
             next_st = PM_INTF_FSM_SET_RX_READY;
+            next_st = PM_INTF_FSM_WAIT_MEDIA_RX_LOS; // by tsihang, 2025/07/28.
             break;
         }
 
@@ -1044,8 +1048,6 @@ static void bf_pm_interface_fsm_run(bf_pm_intf_cfg_t *icfg,
         break;
     case PM_INTF_FSM_SET_RX_READY:
         if ((!bf_pltfm_pm_is_ha_mode()) && qsfp_info->is_present) {
-            /* Set debounce threshold before set Rx ready. */
-            bf_pm_intf_set_debounce_thresh(icfg, intf, qsfp_info);
             /* If Rx not ready, bf_pm_fsm_run will keep in BF_PM_FSM_ST_WAIT_SIGNAL_OK state. */
             bf_pm_port_serdes_rx_ready_for_bringup_set(
                 icfg->dev_id, &port_hdl, true);

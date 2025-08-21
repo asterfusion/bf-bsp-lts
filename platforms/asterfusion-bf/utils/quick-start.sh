@@ -13,7 +13,7 @@
 
 # You could get the version of current ONL via 'cat /etc/onl/rootfs/manifest.json'.
 # The following VERSION in quick-start.sh should never be changed by user.
-VERSION="25.0414"
+VERSION="25.0811"
 
 PKGS=/root/bfnplatform
 
@@ -44,11 +44,11 @@ xt_platform='X312P-T'
 #    - install bsp-lts_Y.M-sde9u3_generic_amd64.deb
 #
 ################################################################
-bfnplatform_debs_bsp=("$PKGS/bsp-lts_25.03-sde9u9_generic_amd64.deb")
+bfnplatform_debs_bsp=("$PKGS/bsp-lts_25.08-sde9u9_generic_amd64.deb")
 # sde-x.y.z_1.**.deb for tof1 only
 bfnplatform_debs_sde=("$PKGS/sde-9.13.3_1.00-all_generic_amd64.deb")
 # sde-x.y.z_2.**.deb for tof2 only
-bfnplatform_debs_sde_tof2=("$PKGS/sde-9.13.3_2.00-2.4E0-4-all_generic_amd64.deb")
+bfnplatform_debs_sde_tof2=("$PKGS/sde-9.13.3_2.01-2.4E0-4-all_generic_amd64.deb")
 
 ################################################################
 # Install dependencies. And should never forget to modify
@@ -78,7 +78,7 @@ bfnplatform_debs_sde_common=("$PKGS/p4c-9.13.3_1.00-all_generic_amd64.deb"
 "$PKGS/protobuf-cpp_3.15.8_generic_amd64.deb")
 
 # LEGACY: For tof1 based X5/X3 only
-bfnplatform_debs_97x_bsp=("$PKGS/bsp-lts_25.03-sde9u3_generic_amd64.deb")
+bfnplatform_debs_97x_bsp=("$PKGS/bsp-lts_25.08-sde9u3_generic_amd64.deb")
 bfnplatform_debs_97x=("$PKGS/sde-9.7.4_1.00-all_generic_amd64.deb" 
 "$PKGS/thrift_0.13.0_generic_amd64.deb" 
 "$PKGS/grpc_1.17.0-r1_generic_amd64.deb" 

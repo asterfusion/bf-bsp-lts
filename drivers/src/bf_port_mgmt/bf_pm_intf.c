@@ -85,8 +85,6 @@ static uint32_t
 qsfp_quick_rmv_pres_mask[3];  // 0->lower mask, 1->upper mask
 // 2->cpu port mask
 
-static uint32_t bf_pltfm_pm_dbnc_thres = 0;
-
 static int bf_pm_num_qsfp = 0;
 static int bf_pm_num_mac  = 0;
 
@@ -1708,9 +1706,6 @@ bf_pltfm_status_t bf_pltfm_pm_init (
     bf_pm_num_qsfp = bf_qsfp_get_max_qsfp_ports();
     bf_pm_num_mac  = platform_num_ports_get ();
 
-    /* Port debounce threshold. */
-    bf_pltfm_get_debounce_threshold (&bf_pltfm_pm_dbnc_thres);
-
     for (conn_id = 0; conn_id < bf_pm_num_qsfp;
          conn_id++) {
         qsfp_info_clear (conn_id);
@@ -1987,9 +1982,4 @@ bf_pm_qsfp_info_t *bf_pltfm_get_pm_qsfp_info_ptr (
     int connector)
 {
     return &pm_qsfp_info_arr[connector];
-}
-
-uint32_t bf_pltfm_pm_dbnc_thres_get()
-{
-    return bf_pltfm_pm_dbnc_thres;
 }

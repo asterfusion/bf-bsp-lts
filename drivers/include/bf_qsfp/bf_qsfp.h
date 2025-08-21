@@ -634,16 +634,8 @@ double bf_qsfp_get_cached_module_temper (
 
 int bf_qsfp_get_cdr_support (int port,
                          bool *rx_cdr_support, bool *tx_cdr_support);
-int bf_qsfp_get_rx_cdr_ctrl_support (int port,
-                       bool *rx_cdr_ctrl_support);
 int bf_qsfp_get_rxtx_cdr_ctrl_state (int port,
                          uint8_t *cdr_ctrl_state);
-int bf_qsfp_get_tx_cdr_ctrl_support (int port,
-                       bool *tx_cdr_ctrl_support);
-int bf_qsfp_get_rx_cdr_lol_support (int port,
-                      bool *rx_cdr_lol_support);
-int bf_qsfp_get_tx_cdr_lol_support (int port,
-                      bool *tx_cdr_lol_support);
 void bf_qsfp_print_ddm (int conn_id, qsfp_global_sensor_t *trans, qsfp_channel_t *chnl);
 
 int bf_qsfp_ctrlmask_set (int port,

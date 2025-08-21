@@ -152,9 +152,24 @@ Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino2/diag.conf
 If you're running tofino2 based X-T bare metal switch and facing link issue with modules, please try to have this patch appiled to your SDE, which will significantly improve link stability.
 ```
 diff --git a/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c b/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
-index a66d0e8..036488e 100644
+index a66d0e8d..79f65cc5 100644
 --- a/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
 +++ b/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
+@@ -228,12 +228,12 @@ static bf_status_t bf_pm_fsm_wait_rx_signal(bf_dev_id_t dev_id,
+     if (rc != BF_SUCCESS) return BF_INVALID_ARG;
+     if (!sig_detect || !phy_ready) return BF_NOT_READY;
+   }
+-
++#if 0
+   /* reset serdes to force re-adapt */
+   for (ln = 0; ln < num_lanes; ln++) {
+     bf_tof2_serdes_lane_reset_set(dev_id, dev_port, ln);
+   }
+-
++#endif
+   bf_port_signal_detect_time_set(dev_id, dev_port);
+   return BF_SUCCESS;
+ }
 @@ -812,7 +812,11 @@ static bf_status_t bf_pm_fsm_ber_check_done(bf_dev_id_t dev_id,
               dev_port,
               ctr,

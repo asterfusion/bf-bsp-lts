@@ -8375,70 +8375,6 @@ int bf_qsfp_get_cdr_support (int port,
    return 0;
 }
 
-/* TF1, by tsihang 2023-05-10. */
-int bf_qsfp_get_rx_cdr_ctrl_support (int port,
-                         bool *rx_cdr_ctrl_support)
-{
-   int rc;
-   uint8_t readval[3];
-
-   if (port > bf_plt_max_qsfp) {
-       return 0;
-   }
-
-   if (bf_qsfp_is_passive_cu (port)) {
-       *rx_cdr_ctrl_support = false;
-       return 0;
-   }
-
-   if (bf_qsfp_is_sff8636 (port)) {
-       rc = bf_qsfp_field_read_onebank (
-                port, OPTIONS, 0, 0, sizeof (readval),
-                readval);
-       if (rc == 0) {
-           *rx_cdr_ctrl_support = (readval[1] >> 6) & 0x1;
-       } else {
-           return -1;
-       }
-   } else {
-       *rx_cdr_ctrl_support = false;
-   }
-
-   return 0;
-}
-
-/* TF1, by tsihang 2023-05-10. */
-int bf_qsfp_get_tx_cdr_ctrl_support (int port,
-                       bool *tx_cdr_ctrl_support)
-{
-   int rc;
-   uint8_t readval[3];
-
-   if (port > bf_plt_max_qsfp) {
-       return 0;
-   }
-
-   if (bf_qsfp_is_passive_cu (port)) {
-       *tx_cdr_ctrl_support = false;
-       return 0;
-   }
-
-   if (bf_qsfp_is_sff8636 (port)) {
-       rc = bf_qsfp_field_read_onebank (
-                port, OPTIONS, 0, 0, sizeof (readval),
-                readval);
-       if (rc == 0) {
-           *tx_cdr_ctrl_support = (readval[1] >> 7) & 0x1;
-       } else {
-           return -1;
-       }
-   } else {
-       *tx_cdr_ctrl_support = false;
-   }
-
-   return 0;
-}
-
 /* SFF-8636 only, by tsihang 2023-05-10. */
 int bf_qsfp_get_rxtx_cdr_ctrl_state (int port,
                          uint8_t *cdr_ctrl_state)
@@ -8469,67 +8405,6 @@ int bf_qsfp_get_rxtx_cdr_ctrl_state (int port,
         *cdr_ctrl_state = 0xFF;
     }
 
-    return 0;
-}
-
-/* TF1, by tsihang 2023-05-10. */
-int bf_qsfp_get_rx_cdr_lol_support (int port,
-                      bool *rx_cdr_lol_support)
-{
-    int rc;
-    uint8_t readval[3];
-
-    if (port > bf_plt_max_qsfp) {
-        return 0;
-    }
-
-    if (bf_qsfp_is_passive_cu (port)) {
-        *rx_cdr_lol_support = false;
-        return 0;
-    }
-
-    if (bf_qsfp_is_sff8636 (port)) {
-      rc = bf_qsfp_field_read_onebank (
-               port, OPTIONS, 0, 0, sizeof (readval),
-               readval);
-      if (rc == 0) {
-          *rx_cdr_lol_support = (readval[1] >> 4) & 0x1;
-      } else {
-          return -1;
-      }
-    } else {
-      *rx_cdr_lol_support = false;
-    }
-    return 0;
-}
-/* TF1, by tsihang 2023-05-10. */
-int bf_qsfp_get_tx_cdr_lol_support (int port,
-                    bool *tx_cdr_lol_support)
-{
-    int rc;
-    uint8_t readval[3];
-
-    if (port > bf_plt_max_qsfp) {
-        return 0;
-    }
-
-    if (bf_qsfp_is_passive_cu (port)) {
-        *tx_cdr_lol_support = false;
-        return 0;
-    }
-
-    if (bf_qsfp_is_sff8636 (port)) {
-      rc = bf_qsfp_field_read_onebank (
-               port, OPTIONS, 0, 0, sizeof (readval),
-               readval);
-      if (rc == 0) {
-          *tx_cdr_lol_support = (readval[1] >> 5) & 0x1;
-      } else {
-          return -1;
-      }
-    } else {
-      *tx_cdr_lol_support = false;
-    }
     return 0;
 }
 
