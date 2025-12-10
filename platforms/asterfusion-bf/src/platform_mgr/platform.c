@@ -1804,6 +1804,8 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
         aim_printf (&uc->pvs, "    CPLD%d : %s\n",
                     (each_element + 1), fmt);
     }
+    bool dpu1_status, dpu2_status, ptpx_status;
+    bf_pltfm_get_suboard_status (&dpu1_status, &dpu2_status, &ptpx_status);
     aim_printf (&uc->pvs, "Max DPUs  : ");
     if (platform_type_equal(AFN_X532PT) ||
         platform_type_equal(AFN_X564PT) ||
@@ -1813,8 +1815,6 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
     } else {
         aim_printf (&uc->pvs, "%2d\n",
                 bf_pltfm_mgr_ctx()->dpu_count);
-        bool dpu1_status, dpu2_status, ptpx_status;
-        bf_pltfm_get_suboard_status (&dpu1_status, &dpu2_status, &ptpx_status);
         aim_printf (&uc->pvs, "    DPU1  : %s\n",
                     dpu1_status ? "Present" : "Absent");
         aim_printf (&uc->pvs, "    DPU2  : %s\n",
@@ -1825,6 +1825,12 @@ bf_pltfm_ucli_ucli__bsp__ (ucli_context_t
                         ptpx_status ? "Present" : "Absent");
         }
         aim_printf (&uc->pvs, "\n");
+    }
+    if (platform_type_equal(AFN_X732QT) &&
+        platform_subtype_equal(V2P0)) {
+        aim_printf (&uc->pvs, "     PTP  : %s(clk=%s)\n",
+                    ptpx_status ? "Present" : "Absent",
+                    bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CLK_SMU ? "CLK_PTP" : "CLK_CRYSTAL");
     }
 
     bf_pltfm_get_bmc_ver (&fmt[0], false);
@@ -2637,7 +2643,8 @@ void bf_pltfm_platform_exit (void *arg)
      * by tsihang, 2022-04-27. */
     if (platform_type_equal (AFN_X564PT) ||
         platform_type_equal (AFN_X532PT) ||
-        platform_type_equal (AFN_X308PT)) {
+        platform_type_equal (AFN_X308PT) ||
+        platform_type_equal (AFN_X732QT)) {
         if (bf_pltfm_cp2112_de_init()) {
             LOG_ERROR ("pltfm_mgr: Error while de-initializing pltfm mgr CP2112.");
         }

@@ -47,8 +47,8 @@ extern bool sfp_lookup1 (IN uint32_t
 
 /* access is 0 based index. */
 static struct sfp_ctx_st_t sfp_st_x732q[] = {
-    {{BF_MAV_SYSCPLD1, 0x11, BIT (0)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (0)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (2)}},
-    {{BF_MAV_SYSCPLD1, 0x11, BIT (1)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (1)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (3)}}
+    {{BF_MAV_SYSCPLD1, 0x11, BIT (1)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (1)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (3)}},
+    {{BF_MAV_SYSCPLD1, 0x11, BIT (0)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (0)}, {BF_MAV_SYSCPLD1, 0x0c, BIT (2)}}
 };
 
 /* Following panel order and 0 based index */

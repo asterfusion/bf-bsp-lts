@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <dvm/bf_dma_types.h>
 #include <dvm/bf_drv_intf.h>
+#include <lld/bf_ts_if.h>
 #include <bf_pltfm_types/bf_pltfm_types.h>
 #include <bf_pltfm_cp2112_intf.h>
 #include <bf_pltfm_chss_mgmt_intf.h>
@@ -480,6 +481,20 @@ static void bf_pltfm_cpld_decode_x732q (ucli_context_t *uc) {
 
     aim_printf (&uc->pvs, "\n");
     aim_printf (&uc->pvs, "\n");
+
+    if (platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "PTP module\n");
+        aim_printf (&uc->pvs, "            ");
+        aim_printf (&uc->pvs, "----------\n");
+
+        aim_printf (&uc->pvs, "%11s%6s\n", "PRES",      (buf[0][24] & 0x01) == 0x01 ? "" : "*");
+        aim_printf (&uc->pvs, "%11s%9s\n", "CLK SRC",   (buf[0][25] & 0x03) == 0x02 ? "CRYSTAL" : "  PTP  ");
+        aim_printf (&uc->pvs, "%11s%7s\n", "BARE SYNC", (buf[0][26] & 0x02) == 0x02 ? "ENB" : "DIS");
+
+        aim_printf (&uc->pvs, "\n");
+        aim_printf (&uc->pvs, "\n");
+    }
 }
 
 /** read bytes from slave's register by cp2112.
@@ -940,6 +955,10 @@ int bf_pltfm_syscpld_reset()
         offset = 0x0C;
         val = 0x5f;
         // CPLD3,CPLD4,CPLD5 reset timing=1000ms
+    } else if (platform_type_equal (AFN_X732QT)) {
+        // No entry to reset cpld.
+    } else {
+        return 0;
     }
 
     rc = bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD1,
@@ -980,7 +999,11 @@ int bf_pltfm_syscpld_reset()
         val &= ~ (1 << 3);
         /* !reset cpld3 */
         val &= ~ (1 << 4);
-    } else { }
+    } else if (platform_type_equal (AFN_X732QT)) {
+        // No entry to reset cpld.
+    } else {
+        return 0;
+    }
 
     rc = bf_pltfm_cpld_write_byte (BF_MAV_SYSCPLD1,
                     offset, val);
@@ -1430,6 +1453,86 @@ int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version, bool forced)
     return 0;
 }
 
+// for X732Q-T-V2.0 only
+int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source) {
+    bf_status_t bf_status = 0;
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0))
+       goto finish;
+
+    if (clk_source == CLK_SMU) {
+        // absent = ptp absent ? see 0x18
+        // source selected ? see 0x19
+        if(bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED) {
+            if (bf_pltfm_cpld_write_byte (1, 0x19, 0x01)) {
+                fprintf (stdout, "\nFailed to write CPLD.\n");
+                return -1;
+            }
+            bf_pltfm_mgr_ctx()->flags |= AF_PLAT_CTRL_CLK_SMU;
+        }
+    } else {
+        // source selected ? see 0x19
+        if (bf_pltfm_cpld_write_byte (1, 0x19, 0x02)) {
+            fprintf (stdout, "\nFailed to write CPLD.\n");
+            return -1;
+        }
+        bf_pltfm_mgr_ctx()->flags &= ~AF_PLAT_CTRL_CLK_SMU;
+    }
+
+finish:
+    fprintf (stdout, "\nCLK=%s\n\n",
+            (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CLK_SMU) ? "CLK_SMU" : "CLK_CRYSTAL");
+    return bf_status;
+}
+
+int bf_pltfm_tx_rst_pulse()
+{
+    bf_status_t bf_status = false;
+    uint8_t bsync_ctrl, val = 0;
+
+    if(!(bf_pltfm_mgr_ctx()->flags &
+            AF_PLAT_CTRL_CLK_SMU)) {
+        goto finish;
+    }
+
+    // 0x1A[1] is not neccessary if bsync_tx_rst_pulse is triggered by software.
+
+    // bsync_tx_rst_pulse, see 0x1A[0]
+    bsync_ctrl = 0x03;
+    if (bf_pltfm_cpld_write_byte (1, 0x1A, bsync_ctrl)) {
+        fprintf (stdout, "\nFailed to write CPLD.\n");
+        return -1;
+    }
+    if (bf_pltfm_cpld_read_byte (1, 0x1A, &val)) {
+        fprintf (stdout, "\nFailed to write CPLD.\n");
+        return -1;
+    }
+    if (bsync_ctrl != val) {
+        fprintf(stdout, "%d %x != %x\n", __LINE__, bsync_ctrl, val);
+    }
+
+    //bf_sys_usleep (500);
+
+    bsync_ctrl = 0x02;
+    if (bf_pltfm_cpld_write_byte (1, 0x1A, bsync_ctrl)) {
+        fprintf (stdout, "\nFailed to write CPLD.\n");
+        return -1;
+    }
+    if (bf_pltfm_cpld_read_byte (1, 0x1A, &val)) {
+        fprintf (stdout, "\nFailed to write CPLD.\n");
+        return -1;
+    }
+    if (bsync_ctrl != val) {
+        fprintf(stdout, "%d %x != %x\n", __LINE__, bsync_ctrl, val);
+    }
+
+    bf_status = 0;
+
+finish:
+    return bf_status;
+}
+
 int bf_pltfm_syscpld_init()
 {
     fprintf (stdout,
@@ -1487,6 +1590,180 @@ int bf_pltfm_syscpld_init()
         fprintf (stdout, "CPLD%d : %s\n", (each_element + 1), ver);
     }
 
+    uint8_t absent;
+    if (platform_type_equal (AFN_X732QT) &&
+        platform_subtype_equal (V2P0)) {
+        if (bf_pltfm_cpld_read_byte (1, 0x18, &absent)) {
+             fprintf (stdout, "\nFailed to read CPLD.\n");
+             return -1;
+        }
+        if(! absent) {
+            bf_pltfm_mgr_ctx()->flags |= AF_PLAT_MNTR_PTPX_INSTALLED;
+
+            // enable bsync_ctrl.
+            if (bf_pltfm_cpld_write_byte (1, 0x1A, 0x02)) {
+                fprintf (stdout, "\nFailed to write CPLD.\n");
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__set_clk (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "set-clk", 1, "set-clk <crystal/ptp>");
+
+    if (!memcmp(uc->pargs->args[0], "crystal", strlen("crystal"))) {
+        if (bf_pltfm_set_clk(CLK_CRYSTAL) == 0) {
+        }
+    } else if (!memcmp(uc->pargs->args[0], "ptp", strlen("ptp"))) {
+        if (bf_pltfm_set_clk(CLK_SMU) == 0) {
+        }
+    } else {
+        aim_printf (&uc->pvs,
+                    "Usage: set-clk <crystal/ptp>.\n");
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__tx_rst_pulse (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "tx-rst-pulse", 0, "tx-rst-pulse");
+
+	bf_pltfm_tx_rst_pulse();
+
+    uint64_t devts_cnt_set= 0;
+    uint64_t devts_cnt    = 0;
+    uint64_t devts_off    = 0;
+    uint32_t devts_inc    = 0;
+
+    uint64_t bsync_cnt_set= 0;
+    uint64_t bsync_cnt    = 0;
+    uint32_t bsync_inc= 0;
+    uint32_t bsync_inc_f   = 0;
+    uint32_t bsync_inc_f_d = 0;
+
+    bf_ts_global_ts_value_get(0, &devts_cnt_set);
+    bf_ts_global_baresync_ts_get(0, &devts_cnt, &bsync_cnt);
+    bf_ts_global_ts_offset_get(0, &devts_off);
+    bf_ts_global_ts_inc_value_get(0, &devts_inc);
+    bf_ts_baresync_reset_value_get(0, &bsync_cnt_set);
+    if(platform_type_equal(AFN_X732QT)) {
+#if SDE_VERSION_GT(9131)
+    bf_tof2_ts_baresync_increment_get(0, &bsync_inc, &bsync_inc_f, &bsync_inc_f_d);
+#endif
+    }
+
+    bool devts_enb, bsync_enb;
+    uint32_t x = 0, y = 0;
+    bf_ts_baresync_state_get(0, &x, &y, &bsync_enb);
+    bf_ts_global_ts_state_get(0, &devts_enb);
+    (void)devts_enb;
+    (void)bsync_enb;
+    (void)x;
+    (void)y;
+    aim_printf (&uc->pvs, "devts_enb %d : bsync_enb %d\n", devts_enb, bsync_enb);
+
+
+    aim_printf (&uc->pvs, "devts_cnt_set %16lu : bsync_cnt_set %16lu, %u (%u %u) : devts_cnt %16lu : bsync_cnt %16lu\n",
+                        devts_cnt_set, bsync_cnt_set, bsync_inc, bsync_inc_f, bsync_inc_f_d, devts_cnt, bsync_cnt);
+
+    return 0;
+}
+// debug only
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__bsync (
+    ucli_context_t *uc)
+{
+    uint8_t ctrl = 0;
+    bool bsync_enb;
+    uint32_t x = 0, y = 0;
+
+    UCLI_COMMAND_INFO (uc, "bsync", 1, " <0/1> 0: disable , 1: enable");
+
+    ctrl = atoi (uc->pargs->args[0]);
+
+    bf_ts_baresync_state_get(0, &x, &y, &bsync_enb);
+
+    if(ctrl) {
+        bsync_enb = true;
+    } else {
+        bsync_enb = false;
+    }
+
+    bf_ts_baresync_state_set(0, x, y, bsync_enb);
+
+    aim_printf (&uc->pvs, "bsync    %s\n",
+                bsync_enb ?
+                "enabled" : "disabled");
+    return 0;
+}
+// debug only
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__devts (
+    ucli_context_t *uc)
+{
+    uint8_t ctrl = 0;
+    bool devts_enb;
+
+    UCLI_COMMAND_INFO (uc, "devts", 1, " <0/1> 0: disable , 1: enable");
+
+    ctrl = atoi (uc->pargs->args[0]);
+
+    bf_ts_global_ts_state_get(0, &devts_enb);
+
+    if(ctrl) {
+        devts_enb = true;
+    } else {
+        devts_enb = false;
+    }
+
+    bf_ts_global_ts_state_set(0, devts_enb);
+
+    aim_printf (&uc->pvs, "devts    %s\n",
+                devts_enb ?
+                "enabled" : "disabled");
+    return 0;
+}
+
+// debug only
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__devts_cnt (
+    ucli_context_t *uc)
+{
+    uint64_t devts_cnt_set = 0;
+
+    UCLI_COMMAND_INFO (uc, "devts-cnt", 1, " <uint64_t>");
+
+    devts_cnt_set = strtoul (uc->pargs->args[0], NULL, 10);
+
+    bf_ts_global_ts_value_set(0, devts_cnt_set);
+
+    aim_printf (&uc->pvs, "devts_cnt    %lu\n", devts_cnt_set);
+    return 0;
+}
+
+// debug only
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__bsync_cnt (
+    ucli_context_t *uc)
+{
+    uint64_t bsync_cnt_set = 0;
+
+    UCLI_COMMAND_INFO (uc, "bsync-cnt", 1, " <uint64_t>");
+
+    bsync_cnt_set = strtoul (uc->pargs->args[0], NULL, 10);
+
+    bf_ts_baresync_reset_value_set(0, bsync_cnt_set);
+
+    aim_printf (&uc->pvs, "bsync_set    %lu\n", bsync_cnt_set);
     return 0;
 }
 
@@ -1614,6 +1891,17 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__read_cpld,
     bf_pltfm_cpld_ucli_ucli__write_cpld,
     bf_pltfm_cpld_ucli_ucli__decode_cpld,
+
+    // ptp on x732q-t-ptp.
+    bf_pltfm_cpld_ucli_ucli__set_clk,
+    bf_pltfm_cpld_ucli_ucli__tx_rst_pulse,
+
+    // debug
+    bf_pltfm_cpld_ucli_ucli__bsync,
+    bf_pltfm_cpld_ucli_ucli__devts,
+    bf_pltfm_cpld_ucli_ucli__devts_cnt,
+    bf_pltfm_cpld_ucli_ucli__bsync_cnt,
+
     NULL
 };
 

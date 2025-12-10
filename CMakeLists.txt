@@ -17,16 +17,16 @@ option(COVERAGE           "Build with gcov" OFF)
 # Pass OS_NAME/OS_VERSION/SDE_VERSION by cmake CLI. Take belowing as an example:
 # cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake -DCMAKE_INSTALL_PREFIX=$SDE_INSTALL \
 #          -DOS_NAME=(Debian|Ubuntu)                                     \
-#          -DOS_VERSION=[(8|9|10|11|12),(1404|1604|1804|2004|2204)] \
+#          -DOS_VERSION=[(9|10|11|12),(1604|1804|2004|2204)] \
 #          -DSDE_VERSION=(900|911|933|954|975|991|9112|9133) \
-#          -DTRIFT-DRIVER=on \
+#          -DTHRIFT-DRIVER=on \
 #          -DLASER_ON=off
 #
 # The defaut value of variables listed below if none of them passed by cmake CLI:
 # OS_NAME=Debian, OS_VERSION=9, SDE_VERSION=9133, THRIFT-DRIVER=on, LASER_ON=off.
 #
 message(STATUS "Supported -DOS_NAME=(Debian|Ubuntu)")
-message(STATUS "Supported -DOS_VERSION=[(8|9|10|11|12),(1404|1604|1804|2004|2204)]")
+message(STATUS "Supported -DOS_VERSION=[(9|10|11|12),(1604|1804|2004|2204)]")
 message(STATUS "Supported -DSDE_VERSION=(900|911|933|954|975|991|9112|9133)")
 cmake_host_system_information(RESULT HOST_NAME QUERY HOSTNAME)
 message(STATUS "${HOST_NAME}")

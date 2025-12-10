@@ -954,6 +954,73 @@ bf_pltfm_ucli_ucli__sfp_get_ddm (ucli_context_t
     return 0;
 }
 
+static void sfp_type_to_display_get (
+    bf_pltfm_sfp_type_t sfp_type,
+    char *str,
+    int len)
+{
+    switch (sfp_type) {
+        case BF_PLTFM_QSFP_CU_0_5_M:
+            strcpy (str, "Copper 0.5 m");
+            break;
+        case BF_PLTFM_QSFP_CU_1_M:
+            strcpy (str, " Copper 1 m ");
+            break;
+        case BF_PLTFM_QSFP_CU_2_M:
+            strcpy (str, " Copper 2 m ");
+            break;
+        case BF_PLTFM_QSFP_CU_3_M:
+            strcpy (str, " Copper 3 m ");
+            break;
+        case BF_PLTFM_QSFP_CU_LOOP:
+            strcpy (str, " Copper Loop");
+            break;
+        case BF_PLTFM_QSFP_OPT:
+            strcpy (str, "   Optical  ");
+            break;
+        default:
+            strcpy (str, "   Unknown  ");
+    }
+    str[len - 1] = '\0';
+}
+
+static ucli_status_t
+bf_pltfm_ucli_ucli__sfp_type_show (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc,
+        "sfp-type", -1,
+        "[sport] [dport]");
+
+    bf_pltfm_sfp_type_t sfp_type = BF_PLTFM_QSFP_UNKNOWN;
+    char display_sfp_type[13];
+    int max_port = bf_sfp_get_max_sfp_ports();
+    int port, first_port = 1, last_port = max_port;
+
+    if (uc->pargs->count > 0) {
+        port = atoi (uc->pargs->args[0]);
+        first_port = last_port = port;
+        /* only parse first 2 args. */
+        if (uc->pargs->count > 1) {
+            last_port = atoi (uc->pargs->args[1]);
+        }
+    }
+    BF_UCLI_PORT_VALID(port, first_port, last_port, max_port, "port");
+
+    for (port = first_port; port <= last_port;
+         port++) {
+        if (bf_sfp_type_get (port, &sfp_type) != 0) {
+            sfp_type = BF_PLTFM_QSFP_UNKNOWN;
+        }
+        sfp_type_to_display_get (
+            sfp_type, display_sfp_type,
+            sizeof (display_sfp_type));
+        aim_printf (&uc->pvs, "port %d %s\n", port,
+                    display_sfp_type);
+    }
+    return 0;
+}
+
 static ucli_status_t
 bf_pltfm_ucli_ucli__sfp_db (ucli_context_t
                             *uc)
@@ -1368,6 +1435,7 @@ bf_pltfm_sfp_ucli_ucli_handlers__[] = {
     bf_pltfm_ucli_ucli__sfp_show,
     bf_pltfm_ucli_ucli__sfp_summary,
     bf_pltfm_ucli_ucli__sfp_get_ddm,
+    bf_pltfm_ucli_ucli__sfp_type_show,
     bf_pltfm_ucli_ucli__sfp_db,
     bf_pltfm_ucli_ucli__sfp_map,
     bf_pltfm_ucli_ucli__sfp_fsm,

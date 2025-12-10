@@ -92,6 +92,9 @@ class pltfm_pm_rpcHandler : virtual public pltfm_pm_rpcIf {
       case AFN_BD_ID_X732QT_V1P1:
         bd = pltfm_pm_board_type_t::AFN_BD_ID_X732QT_V1P1;
         break;
+      case AFN_BD_ID_X732QT_V2P0:
+        bd = pltfm_pm_board_type_t::AFN_BD_ID_X732QT_V2P0;
+        break;
       case AFN_BD_ID_HC36Y24C_V1P0:
         bd = pltfm_pm_board_type_t::AFN_BD_ID_HC36Y24C_V1P0;
         break;

@@ -79,6 +79,7 @@ enum pltfm_pm_board_type_t {
     /* AFN_X732Q-T and its subtype. */
     AFN_BD_ID_X732QT_V1P0 = 0x7320,  /* Since Dec 2023. */
     AFN_BD_ID_X732QT_V1P1 = 0x7321,  /* Since Jan 2025. */
+    AFN_BD_ID_X732QT_V2P0 = 0x7322,  /* Since Dec 2025. */
     /* HC36Y24C-T and its subtype. */
     AFN_BD_ID_HC36Y24C_V1P0 = 0x2400,
     AFN_BD_ID_HC36Y24C_V1P1 = 0x2401,

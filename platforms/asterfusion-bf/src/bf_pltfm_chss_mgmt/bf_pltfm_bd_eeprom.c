@@ -70,6 +70,7 @@ static struct bf_pltfm_board_ctx_t bd_ctx[] = {
 
     {AFN_BD_ID_X732QT_V1P0, "APNS1280T2-A1-V1.0", AFN_X732QT, V1P0},
     {AFN_BD_ID_X732QT_V1P1, "APNS1280T2-A1-V1.1", AFN_X732QT, V1P1},
+    {AFN_BD_ID_X732QT_V2P0, "APNS1280T2-A1-V2.0", AFN_X732QT, V2P0},
     /* More AFN_X732QT board id. */
     {AFN_BD_ID_HC36Y24C_V1P0, "Hello this is AFN_HC36Y24C", AFN_HC36Y24C, V1P0},
 

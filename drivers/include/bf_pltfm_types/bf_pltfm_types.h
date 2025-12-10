@@ -351,6 +351,7 @@ typedef enum bf_pltfm_board_id_e {
     AFN_BD_ID_X312PT_V5P0 = 0x3125,
     AFN_BD_ID_X732QT_V1P0 = 0x7320,  /* Since Dec 2023. */
     AFN_BD_ID_X732QT_V1P1 = 0x7321,  /* Since Jan 2025. */
+    AFN_BD_ID_X732QT_V2P0 = 0x7322,  /* Since Dec 2025. */
     /* HC36Y24C-T and its subtype. */
     AFN_BD_ID_HC36Y24C_V1P0 = 0x2400,
     AFN_BD_ID_HC36Y24C_V1P1 = 0x2401,
@@ -407,6 +408,11 @@ typedef struct bf_pltfm_port_info_t {
     uint32_t conn_id;
     uint32_t chnl_id;
 } bf_pltfm_port_info_t;
+
+typedef enum bf_pltfm_clk_source_ {
+    CLK_CRYSTAL = 1, // Default
+    CLK_SMU     = 2, // PTP
+}bf_pltfm_clk_source;
 
 /*
  * Identifies an error code
@@ -479,6 +485,7 @@ typedef struct pltfm_mgr_info_s {
 #define AF_PLAT_MNTR_DPU2_INSTALLED         (1 << 21)
 #define AF_PLAT_MNTR_PTPX_INSTALLED         (1 << 22)
 #define AF_PLAT_CTRL_HA_MODE                (1 << 23)// current for x312p-t only
+#define AF_PLAT_CTRL_CLK_SMU                (1 << 24)
 
 #define AF_PLAT_CTRL_CP2112_RELAX   (1 << 28)   /* current for x732q-t only. */
 #define AF_PLAT_CTRL_I2C_RELAX      (1 << 29)   /* current for x312p-t only.
@@ -528,6 +535,9 @@ static inline bf_pltfm_status_t bf_pltfm_bd_type_get_priv (
     *subtype = bf_pltfm_mgr_ctx()->pltfm_subtype;
     return BF_PLTFM_SUCCESS;
 }
+
+int bf_pltfm_tx_rst_pulse();
+int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source);
 
 #ifdef __cplusplus
 }

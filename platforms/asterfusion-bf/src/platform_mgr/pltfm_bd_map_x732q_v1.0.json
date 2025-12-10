@@ -1,6 +1,6 @@
 {
     "board_id": "x732q",
-    "enable_debug_log": "1",
+    "enable_debug_log": "0",
     "board_lane_map_entry": [
         {
             "Internal_port": "No",

@@ -14,7 +14,9 @@
 #include <lld/lld_sku.h>
 #include <port_mgr/bf_port_if.h>
 #include <port_mgr/bf_serdes_if.h>
+#if SDE_VERSION_GT(930)
 #include <port_mgr/bf_tof2_serdes_if.h>
+#endif
 #include <port_mgr/port_mgr_intf.h>
 #include <bf_pltfm.h>
 #include "pltfm_types.h"

@@ -255,6 +255,9 @@ static int qsfp_init_sub_bus (
         } else if (board_id == AFN_BD_ID_X732QT_V1P1) {
             hndl1_max_pca9548_cnt = 4;
             hndl2_max_pca9548_cnt = 1;
+        } else if (board_id == AFN_BD_ID_X732QT_V2P0) {
+            hndl1_max_pca9548_cnt = 4;
+            hndl2_max_pca9548_cnt = 1;
         }
     }
 

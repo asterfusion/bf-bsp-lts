@@ -108,6 +108,7 @@ static pltfm_cpld_path_t pltfm_cpld_path[] = {
     {AFN_X308PT, V3P0, VIA_CP2112, VIA_CGOS},
     {AFN_X732QT, V1P0, VIA_CP2112, VIA_CP2112},
     {AFN_X732QT, V1P1, VIA_CP2112, VIA_CP2112},
+    {AFN_X732QT, V2P0, VIA_CP2112, VIA_CP2112},
 };
 
 pltfm_mgr_info_t *bf_pltfm_mgr_ctx()
@@ -275,7 +276,8 @@ static void bf_pltfm_parse_hwversion (const char *str,
     } else if (platform_type_equal (AFN_X732QT)) {
         /* 0x31. */
         if (subtype != V1P0 &&
-            subtype != V1P1) {
+            subtype != V1P1 &&
+            subtype != V2P0) {
             find = false;
         }
     } else if (platform_type_equal (AFN_HC36Y24C)) {
@@ -290,7 +292,7 @@ static void bf_pltfm_parse_hwversion (const char *str,
             type, subtype);
     } else {
         fprintf (stdout,
-                 "Exiting due to the sub version of current platform is unrecognized\n");
+                 "Exiting due to the sub version of current platform is unrecognized-%d-%d\n", type, subtype);
         LOG_ERROR(
                  "Exiting due to the sub version of current platform is unrecognized\n");
         exit (0);

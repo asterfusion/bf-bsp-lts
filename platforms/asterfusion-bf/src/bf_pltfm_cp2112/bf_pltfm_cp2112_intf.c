@@ -971,7 +971,7 @@ static bf_pltfm_status_t bf_pltfm_cp2112_open (
     if (platform_type_equal (AFN_X532PT) ||
         (platform_type_equal (AFN_X564PT) && (platform_subtype_equal (V1P2) || platform_subtype_equal (V2P0))) ||
         platform_type_equal (AFN_X308PT) ||
-        (platform_type_equal (AFN_X732QT) && platform_subtype_equal (V1P1)) ||
+        (platform_type_equal (AFN_X732QT) && (platform_subtype_equal (V1P1) || platform_subtype_equal (V2P0))) ||
         platform_type_equal (AFN_HC36Y24C)) {
         g_max_cp2112_num = 2;
     } else if (platform_type_equal (AFN_X312PT) ||
@@ -1449,6 +1449,7 @@ bf_pltfm_cp2112_device_ctx_t
         (bd_id == AFN_BD_ID_X308PT_V3P0) ||
         (bd_id == AFN_BD_ID_X732QT_V1P0) ||
         (bd_id == AFN_BD_ID_X732QT_V1P1) ||
+        (bd_id == AFN_BD_ID_X732QT_V2P0) ||
         (bd_id == AFN_BD_ID_HC36Y24C_V1P0)) {
         if ((cp2112_id != CP2112_ID_2) &&
             (cp2112_id != CP2112_ID_1)) {

@@ -11,7 +11,7 @@ Table of Contents
     - [Generate Launching Variables](#generate-launching-variables)
     - [Launch X-T Platforms](#launch-x-t-platforms)
     - [Launch X-T Platforms (Tofino2 based)](#launch-x-t-platforms-tofino2-based)
-    - [Neccessary changes to SDE for tof2 based X-T](#neccessary-changes-to-sde-for-tof2-based-x-t")
+    - [Neccessary changes to SDE for tof2 based X-T](#neccessary-changes-to-sde-for-tof2-based-x-t)
 - [State Machine](#state-machine)
 - [Q\&A](#qa)
 
@@ -20,10 +20,10 @@ Table of Contents
 Mainline  **ALL-in-ONE** repository for all Intel Tofino based **X-T Programmable Bare Metal Switch** powered by Asterfusion with Long Term Support.
 
 Current supported **X-T Programmable Bare Metal Switch**:
-  - `X308P-T`,  08x 100GbE QSFP28, 48x 25GbE SFP28 and last 4 of them can be configured as 1GbE.
+  - `X308P-T`,  08x 100GbE QSFP28, 48x 25GbE SFP28 and last 4 of them can be configured as 1GbE. *PTP* is an option.
   - `X564P-T`,  64x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which can be configured as 1GbE.
   - `X532P-T`,  32x 100GbE QSFP28, and auxiliary 2x 25GbE SFP28 which can be configured as 1GbE.
-  - `X732Q-T`,  32x 400GbE QSFP56-DD, and auxiliary 2x 25GbE SFP28 which can be configured as 1GbE.
+  - `X732Q-T`,  32x 400GbE QSFP56-DD, and auxiliary 2x 25GbE SFP28 which can be configured as 1GbE. *PTP* is an option.
   - `X312P-T`,  12x 100GbE QSFP28, 48x 25GbE SFP28, and auxiliary 2x 25GbE SFP28 which can be configured as 1GbE.
 
 ![X-T](docs/programmable-bare-metals.jpg "Figure 1: X-T Programmable Bare Metal Switch Family")
@@ -43,7 +43,7 @@ Current supported **SDE**:
   - `9.7.x`.
   - `9.9.x`.
   - `9.11.x`.
-  - `9.13.x`.
+  - `9.13.x (recommended for X732Q-T)`.
 
 The version number of a SDE consists of three Arabic numbers, `x.y.z`, where `x` is the major version, `y` is the minor version, and `z` is the sub-version under `y`.
 It's would be a LTS version when `y` is odd, otherwise it is a non-LTS version. It's worth mentioning that we build and run the code on the top of Debian and here only list the versions which we have adapted and tested, and this does not exclude or deny that the repository does not support other non-LTS SDE versions.
@@ -54,14 +54,12 @@ Disclaimer: The SDE for the Intel Tofino series of P4-programmable ASICs is curr
 
 ## <a name="special-dependency"></a>Special Dependency
 
-There're some differences on hardware design between `X5-T` and `X3-T`. To this `all-in-one` repository, the full special dependencies are needed to be compiled and installed.
-
-Here are the special dependencies:
+The full special dependencies are required to be compiled and installed before starting this repository:
 
   - `nct6779d`, which only required by `X312P-T`.
   - `cgoslx`, which required by `X5-T` (earlier HW).
 
-Please install the dependencies from sources before trying bsp. You can find sources in [github](https://github.com/asterfusion).
+The `X-T Programmable Bare Metal` user manual, in Chapter 10.26.1, describes where to find and how to install them from source.
 
 ## <a name="quick-start"></a>Quick Start
 
@@ -69,7 +67,7 @@ Please install the dependencies from sources before trying bsp. You can find sou
 Intel Tofino SDK Variables
 
 *x and y are appropriate values to fit your SDE.*
-```
+```bash
 root@localhost:~# vi ~/.bashrc
 export SDE=/root/bf-sde-9.x.y
 export SDE_INSTALL=$SDE/install
@@ -82,7 +80,7 @@ root@localhost:# source ~/.bashrc
 
 #### <a name="clone-repo"></a>Clone repo
 
-```
+```bash
 root@localhost:~# git clone https://github.com/asterfusion/bf-bsp-lts.git
 root@localhost:~# cd bf-bsp-lts
 root@localhost:~/bf-bsp-lts#
@@ -91,7 +89,7 @@ root@localhost:~/bf-bsp-lts#
 
 #### <a name="build-bsp-via-cmake"></a>Build BSP via CMake
 The proccedure of building bsp by cmake is texted below:
-```
+```bash
 root@localhost:~/bf-bsp-lts# ./autogen.sh
 root@localhost:~/bf-bsp-lts# mkdir build && cd build/
 root@localhost:~/bf-bsp-lts/build# cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake  \
@@ -106,6 +104,19 @@ Finally, `libasterfusionbf*`, `libplatform_thrift*`, `libpltfm_driver*`, `libplt
 
 In `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h` defines `SDE_VERSION` and `OS_VERSION` to have a better compatible to different SDEs. The default supported variables, which are  `OS_NAME=Debian`, `OS_VERSION=9`, `SDE_VERSION=9133`, `THRIFT-DRIVER=on`, `LASER_ON=off·， will be applied if none of them are passed via CMake CLI.
 
+If you are going to use different OS, this recommended **OS** list would help:
+
+  - Debian `(9|10|11|12)`.
+  - Ubuntu `(18.04|20.04|22.04)`.
+
+Taking Ubuntu 22.04 and SDE 9.13.4 as example, the options pass to CMake are like below:
+```bash
+root@localhost:~/bf-bsp-lts/build# cmake .. -DCMAKE_MODULE_PATH=`pwd`/../cmake  \
+                                            -DCMAKE_INSTALL_PREFIX=$SDE_INSTALL \
+                                            -DOS_NAME=Ubuntu                    \
+                                            -DOS_VERSION=2204                   \
+                                            -DSDE_VERSION=9134
+```
 
 ### <a name="launch"></a>Launch
 
@@ -113,7 +124,7 @@ In `$BSP/drivers/include/bf_pltfm_types/bf_pltfm_type.h` defines `SDE_VERSION` a
 
 BSP requires a set of variable entries before launch. Those entries are generated by `xt-cfgen.sh` and written to `/etc/platform.conf`.
 
-```
+```bash
 root@localhost:~# xt-cfgen.sh
 Notice: Start detecting and make sure that the switchd is not running
 Loading bf_kdrv ...
@@ -129,7 +140,7 @@ Done
 #### <a name="launch-x-t-platforms"></a>Launch X-T Platforms
 A p4 prog named `diags.p4` is intergrated by default, you can launch it freely.
 
-```
+```bash
 root@localhost:~# run_switchd.sh -p diag
 Using SDE /usr/local/sde/bf-sde-9.x.y
 Using SDE_INSTALL /usr/local/sde
@@ -139,7 +150,7 @@ Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino/diag.conf
 ```
 
 #### <a name="launch-x-t-platforms-tofino2-based"></a>Launch X-T Platforms (Tofino2 based)
-```
+```bash
 root@localhost:~# run_switchd.sh -p diag --arch tf2
 ...
 Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino2/diag.conf
@@ -149,8 +160,8 @@ Using TARGET_CONFIG_FILE /usr/local/sde/share/p4/targets/tofino2/diag.conf
 
 #### <a name="neccessary-changes-to-sde-for-tof2-based-x-t"></a>Neccessary changes to SDE for tof2 based X-T
 
-If you're running tofino2 based X-T bare metal switch and facing link issue with modules, please try to have this patch appiled to your SDE, which will significantly improve link stability.
-```
+If you're running tofino2 based X-T Programmable Bare Metal and facing link issue with modules, please try to have this patch appiled to your SDE (recommended for SDE *9.13.x*), which will significantly improve link stability.
+```bash
 diff --git a/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c b/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
 index a66d0e8d..79f65cc5 100644
 --- a/pkgsrc/bf-drivers/src/bf_pm/port_fsm/tof2_fsm/bf_pm_fsm_dfe.c
