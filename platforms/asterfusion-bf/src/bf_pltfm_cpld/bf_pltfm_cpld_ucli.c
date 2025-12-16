@@ -1645,19 +1645,21 @@ bf_pltfm_cpld_ucli_ucli__tx_rst_pulse (
     uint32_t devts_inc    = 0;
 
     uint64_t bsync_cnt_set= 0;
-    uint64_t bsync_cnt    = 0;
-    uint32_t bsync_inc= 0;
-    uint32_t bsync_inc_f   = 0;
-    uint32_t bsync_inc_f_d = 0;
+    uint64_t bsync_cnt_cap= 0;
+    uint32_t bsync_inc    = 0;
+    uint32_t bsync_inc_f  = 0;
+    uint32_t bsync_inc_f_d= 0;
 
     bf_ts_global_ts_value_get(0, &devts_cnt_set);
-    bf_ts_global_baresync_ts_get(0, &devts_cnt, &bsync_cnt);
     bf_ts_global_ts_offset_get(0, &devts_off);
     bf_ts_global_ts_inc_value_get(0, &devts_inc);
     bf_ts_baresync_reset_value_get(0, &bsync_cnt_set);
+
+    bf_ts_global_baresync_ts_get(0, &devts_cnt, &bsync_cnt_cap);
+
     if(platform_type_equal(AFN_X732QT)) {
 #if SDE_VERSION_GT(9131)
-    bf_tof2_ts_baresync_increment_get(0, &bsync_inc, &bsync_inc_f, &bsync_inc_f_d);
+        bf_tof2_ts_baresync_increment_get(0, &bsync_inc, &bsync_inc_f, &bsync_inc_f_d);
 #endif
     }
 
@@ -1673,7 +1675,7 @@ bf_pltfm_cpld_ucli_ucli__tx_rst_pulse (
 
 
     aim_printf (&uc->pvs, "devts_cnt_set %16lu : bsync_cnt_set %16lu, %u (%u %u) : devts_cnt %16lu : bsync_cnt %16lu\n",
-                        devts_cnt_set, bsync_cnt_set, bsync_inc, bsync_inc_f, bsync_inc_f_d, devts_cnt, bsync_cnt);
+                        devts_cnt_set, bsync_cnt_set, bsync_inc, bsync_inc_f, bsync_inc_f_d, devts_cnt, bsync_cnt_cap);
 
     return 0;
 }
@@ -1765,6 +1767,34 @@ bf_pltfm_cpld_ucli_ucli__bsync_cnt (
 
     aim_printf (&uc->pvs, "bsync_set    %lu\n", bsync_cnt_set);
     return 0;
+}
+
+// For TOF2 PTP, by Hang Tsi, 2025/12/15
+static ucli_status_t bf_pltfm_cpld_ucli_ucli__clkobs_strength_set__(
+    ucli_context_t *uc) {
+
+  int dev_id;
+  int drive_strength;
+
+  UCLI_COMMAND_INFO(uc,
+                    "clkobs_strength_set",
+                    2,
+                    "Set drive strength "
+                    "<dev> <strength: 0-15>");
+
+  dev_id = 0;
+  drive_strength = strtol(uc->pargs->args[1], NULL, 0);
+
+  if(drive_strength < 0 || drive_strength > 15)
+    return -1;
+  (void)dev_id;
+  (void)drive_strength;
+#if SDE_VERSION_GT(9131)
+  if (bf_port_clkobs_drive_strength_set(dev_id, drive_strength) != BF_SUCCESS) {
+    return -1;
+  }
+#endif
+  return 0;
 }
 
 static ucli_status_t
@@ -1895,6 +1925,7 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     // ptp on x732q-t-ptp.
     bf_pltfm_cpld_ucli_ucli__set_clk,
     bf_pltfm_cpld_ucli_ucli__tx_rst_pulse,
+    bf_pltfm_cpld_ucli_ucli__clkobs_strength_set__,
 
     // debug
     bf_pltfm_cpld_ucli_ucli__bsync,

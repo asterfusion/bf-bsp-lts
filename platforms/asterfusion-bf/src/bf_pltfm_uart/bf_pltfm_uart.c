@@ -256,17 +256,19 @@ recv (struct bf_pltfm_uart_ctx_t *ctx,
     unsigned char *rx_buf, size_t rx_len)
 {
     ssize_t rc = 0, rerr = 0;
+    uint8_t uart_rx[512];
 
     while (1) {
-        rerr = read (ctx->fd, (void *)(rx_buf+rc), rx_len);
+        rerr = read (ctx->fd, (void *)(uart_rx+rc), rx_len);
         if (rerr <= 0) {
             break;
         }
         rc += rerr;
     }
     tcflush (ctx->fd, TCIOFLUSH);
-    if (rc >= 0) {
+    if ((rc >= 0) && (rc < 128)) {
         /* Success. */
+        memcpy(rx_buf, uart_rx, rc);
     } else if (rc == -1) {
         LOG_ERROR (
             "%s[%d], "

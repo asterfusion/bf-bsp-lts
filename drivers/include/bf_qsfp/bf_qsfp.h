@@ -53,6 +53,7 @@ extern "C" {
 #define BF_TRANS_CTRLMASK_IGNORE_RX_LOS         (1 << 16) // start here for tof2 QSFP-DD
 #define BF_TRANS_CTRLMASK_IGNORE_RX_LOL         (1 << 17)
 #define BF_TRANS_CTRLMASK_FSM_LOG_ENA           (1 << 18) // More detailed log for a given port, disabled by default and
+#define BF_TRANS_CTRLMASK_TRY_DOM               (1 << 19)
 // enabled via command "bf-sde> [qsfp|sfp] ctrlmask-set 0x4****". This feature helps to reduce log in bf_drivers.log.
 // Any new logic implementation should consider of this.
 #define BF_TRANS_CTRLMASK_FORCELY_APPLY_DPINIT  (1 << 24) // The bit starts from here should never been seen in /etc/transceiver-cases.conf.

@@ -168,11 +168,27 @@ int bf_sfp_get_cable_length_copper (int port, uint8_t* cable_len)
 
 bool bf_sfp_get_dom_support (int port)
 {
+    bool yes = false;
+
     if (port > bf_plt_max_sfp) {
-        return false;
+        goto finish;
     }
 
-    return SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom);
+    // idprom indicates ?
+    if(SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+        yes = true;
+        goto finish;
+    }
+
+    // further check for special cases if idprom doesn't indicate it.
+    // It seems DOM isn't indicated in A0h[92], but the DOM may be supported
+    if(bf_sfp_info_arr[port].ctrlmask & BF_TRANS_CTRLMASK_TRY_DOM) {
+        yes = true;
+        goto finish;
+    }
+
+finish:
+    return yes;
 }
 
 /** return sfp presence information
@@ -372,13 +388,9 @@ int bf_sfp_module_write (
 /* Quite important. by tsihang. */
 static int bf_sfp_set_idprom (int port)
 {
-    sff_eeprom_t *se;
     uint8_t id;
     int rc = -1;
 
-    if (port > bf_plt_max_sfp) {
-        return -1;
-    }
     if (!bf_sfp_info_arr[port].present) {
         LOG_ERROR (" SFP    %02d: IDProm set failed as SFP is not present",
                    port);
@@ -392,21 +404,6 @@ static int bf_sfp_set_idprom (int port)
         return rc;
     }
 
-    se = &bf_sfp_sff_eeprom[port];
-    memset (se, 0, sizeof (sff_eeprom_t));
-    rc = sff_eeprom_parse (se,
-                           bf_sfp_info_arr[port].idprom);
-    /* sff_eeprom_parse is quite an importand API for most sfp.
-     * but it is still not ready for all kind of sfps.
-     * so override the failure here and keep tracking.
-     * by tsihang, 2022-06-17. */
-#if 0
-    if (!se->identified) {
-        LOG_ERROR (" SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>",
-                   port, rc);
-        return rc;
-    }
-#endif
     id = bf_sfp_info_arr[port].idprom[0];
     if ((id == SFP) || (id == SFP_PLUS) ||
         (id == SFP_28)) {
@@ -414,6 +411,37 @@ static int bf_sfp_set_idprom (int port)
         bf_sfp_info_arr[port].memmap_format =
             MMFORMAT_SFF8472;
     }
+
+
+    sff_eeprom_t *se = &bf_sfp_sff_eeprom[port];
+    sff_info_t *sff = &se->info;
+    memset (se, 0, sizeof (sff_eeprom_t));
+    rc = sff_eeprom_parse (se, bf_sfp_info_arr[port].idprom);
+    /* sff_eeprom_parse is quite an importand API for most sfp.
+     * but it is still not ready for all kind of sfps.
+     * so override the failure here and keep tracking.
+     * by tsihang, 2022-06-17. */
+    //if (!se->identified) {
+    //    LOG_ERROR (" SFP    %02d: IDProm set failed as SFP is not decodable <rc=%d>",
+    //               port, rc);
+    //    return rc;
+    //}
+
+    /* load from /etc/transceiver-cases.conf. */
+    uint32_t ctrlmask = 0, ctrlmask0 = 0;
+    if (bf_qsfp_tc_entry_find ((char *)sff->vendor,
+            (char *)sff->model, NULL, &ctrlmask, false) == 0) {
+        bf_sfp_ctrlmask_get(port, &ctrlmask0);
+        ctrlmask |= ctrlmask0;
+        bf_sfp_ctrlmask_set(port, ctrlmask);
+    }
+
+    //if(!strncmp(sff->vendor, "Asterfusion", 5) &&
+    //    !strncmp(sff->model, "TSST1000H1", 9)) {
+    //    bf_sfp_info_arr[port].ctrlmask |= BF_TRANS_CTRLMASK_TRY_DOM;
+    //}
+
+    bf_sfp_sff_info_show (port, sff);
 
     // change dirty
     bf_sfp_info_arr[port].cache_dirty = false;
@@ -516,9 +544,12 @@ void bf_sfp_debug_clear_all_presence_bits (void)
  */
 int bf_sfp_update_cache (int port)
 {
+    int rc = 0;
+
     if (port > bf_plt_max_sfp) {
         return -1;
     }
+
     bf_sfp_idprom_clr (port);
 
     if (!bf_sfp_info_arr[port].present) {
@@ -557,18 +588,11 @@ int bf_sfp_update_cache (int port)
         bf_sfp_info_arr[port].passive_cu = false;
     }
 
-    sff_dom_info_t sdi;
-    sff_eeprom_t *se;
-    sff_info_t *sff;
-    se = &bf_sfp_sff_eeprom[port];
-    sff = &se->info;
-
     // now that we know the memory map format, we can selectively read the
     // locations that are static into our cache.
     /* How to check whether there's A2h or not ?
      * by tsihang, 2021-07-29. */
-    if (SFF8472_DOM_SUPPORTED (
-            bf_sfp_info_arr[port].idprom)) {
+    if (bf_sfp_get_dom_support(port)) {
         if (bf_pltfm_sfp_read_module (port,
                                       MAX_SFP_PAGE_SIZE, MAX_SFP_PAGE_SIZE,
                                       bf_sfp_info_arr[port].a2h)) {
@@ -578,19 +602,14 @@ int bf_sfp_update_cache (int port)
         }
     }
 
-    sff_dom_info_get (&sdi, sff,
-                      bf_sfp_info_arr[port].idprom,
-                      bf_sfp_info_arr[port].a2h);
     LOG_DEBUG (
-        " SFP    %2d : Spec %s : %s : %s : %s", port,
+        " SFP    %2d : Spec %s : %s : %s : %s <rc=%d>", port,
         bf_sfp_is_sff8472 (port)    ? "SFF-8472" : "Unknown",
         bf_sfp_is_passive_cu (port) ? "Passive copper" : "Active/Optical",
         bf_sfp_is_flat_mem (port)   ? "Flat" : "Paged",
-        "Update cache complete");
-    bf_sfp_sff_info_show (port, sff);
+        "Update cache complete", rc);
 
     return 0;
-
 }
 
 /** get sfp info ptr
@@ -687,7 +706,7 @@ bool bf_sfp_get_chan_temp (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
-    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+    if (! bf_sfp_get_dom_support(port)) {
         return -1;
     }
 
@@ -725,7 +744,7 @@ bool bf_sfp_get_chan_volt (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
-    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+    if (! bf_sfp_get_dom_support(port)) {
         return -1;
     }
 
@@ -763,7 +782,7 @@ bool bf_sfp_get_chan_tx_bias (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
-    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+    if (! bf_sfp_get_dom_support(port)) {
         return -1;
     }
 
@@ -796,7 +815,7 @@ bool bf_sfp_get_chan_tx_pwr (int port,
    }
 
    /* A2h, what should we do if there's no A2h ? */
-   if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+   if (! bf_sfp_get_dom_support(port)) {
        return -1;
    }
 
@@ -829,7 +848,7 @@ bool bf_sfp_get_chan_rx_pwr (int port,
     }
 
     /* A2h, what should we do if there's no A2h ? */
-    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+    if (! bf_sfp_get_dom_support(port)) {
         return -1;
     }
 
@@ -860,7 +879,7 @@ bool bf_sfp_update_optional_status (int port)
     }
 
     /* A2h, what should we do if there's no A2h ? */
-    if (!SFF8472_DOM_SUPPORTED (bf_sfp_info_arr[port].idprom)) {
+    if (! bf_sfp_get_dom_support(port)) {
         return -1;
     }
 

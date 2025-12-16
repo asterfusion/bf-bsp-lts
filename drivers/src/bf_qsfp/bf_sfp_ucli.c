@@ -66,7 +66,7 @@ static char *bf_sfp_ctrlmask_str[] = {
     "BF_TRANS_CTRLMASK_IGNORE_RX_LOS    ",//(1 << 16)
     "BF_TRANS_CTRLMASK_IGNORE_RX_LOL    ",//(1 << 17)
     "BF_TRANS_CTRLMASK_FSM_LOG_ENA      ",//(1 << 18)
-    "                                   ",
+    "BF_TRANS_CTRLMASK_TRY_DOM          ",//(1 << 19)
     "                                   ",
     "                                   ",
     "                                   ",
@@ -157,10 +157,6 @@ bool bf_sfp_get_spec_rev_str (uint8_t *idprom,
                               char *rev_str)
 {
     uint8_t rev = idprom[94];
-    if (!SFF8472_DOM_SUPPORTED (idprom)) {
-        /* Not SFF-8472 ? */
-        return false;
-    }
 
     switch (rev) {
         case 0x0:
@@ -206,13 +202,11 @@ bf_sfp_dump_info (ucli_context_t
                                  *uc, int port, uint8_t *idprom)
 {
     uint8_t *a0h, *a2h;
-    sff_info_t *sff;
-    sff_eeprom_t *se, eeprom;
+    sff_eeprom_t sff_eeprom, *se = &sff_eeprom;
+    sff_info_t *sff = &se->info;
     sff_dom_info_t sdi;
     int rc;
 
-    se = &eeprom;
-    sff = &se->info;
     memset (se, 0, sizeof (sff_eeprom_t));
     rc = sff_eeprom_parse (se, idprom);
     if (!se->identified) {
@@ -267,7 +261,7 @@ bf_sfp_dump_info (ucli_context_t
 
     aim_printf (&uc->pvs, "%-30s = ",
               "Memory map format");
-    if (sdi.spec == SFF_DOM_SPEC_SFF8472) {
+    if(bf_sfp_is_sff8472(port)) {
         aim_printf (&uc->pvs, "SFF-8472\n");
     } else {
         aim_printf (&uc->pvs, "Unknown\n");
@@ -631,8 +625,8 @@ bf_pltfm_ucli_ucli__sfp_dump_info (ucli_context_t
     }
 
     /* A2h, what should we do if there's no A2h ? */
-    if (SFF8472_DOM_SUPPORTED (
-            idprom)) {
+    //if (SFF8472_DOM_SUPPORTED(idprom))
+    {
         rc = bf_pltfm_sfp_read_module (port,
                                       MAX_SFP_PAGE_SIZE, MAX_SFP_PAGE_SIZE,
                                       idprom + MAX_SFP_PAGE_SIZE);
@@ -701,16 +695,18 @@ bf_pltfm_ucli_ucli__sfp_show_module (
         return 0;
     }
 
-    /* A2h */
-    rc = bf_sfp_get_cached_info (port, 1,
-                                 idprom + MAX_SFP_PAGE_SIZE);
-    if (rc) {
-        aim_printf (&uc->pvs,
-                    "Unknown module : %2d\n",
-                    port);
-        return 0;
+    /* A2h, what should we do if there's no A2h ? */
+    //if (SFF8472_DOM_SUPPORTED(idprom))
+    {
+        rc = bf_sfp_get_cached_info (port, 1,
+                                     idprom + MAX_SFP_PAGE_SIZE);
+        if (rc) {
+            aim_printf (&uc->pvs,
+                        "Unknown module : %2d\n",
+                        port);
+            return 0;
+        }
     }
-
     return bf_sfp_dump_info (uc, port, idprom);
 }
 
@@ -721,9 +717,8 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
     int port;
     int rc;
     uint8_t *a0h, *a2h;
-    sff_info_t *sff;
-    sff_eeprom_t *se, eeprom;
-    sff_dom_info_t sdi;
+    sff_eeprom_t sff_eeprom, *se = &sff_eeprom;
+    sff_info_t *sff = &se->info;
     uint8_t idprom[MAX_SFP_PAGE_SIZE * 2 + 1] = {0};
 
     UCLI_COMMAND_INFO (uc, "info", 0, "info");
@@ -768,8 +763,6 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
             return 0;
         }
 
-        se = &eeprom;
-        sff = &se->info;
         memset (se, 0, sizeof (sff_eeprom_t));
         rc = sff_eeprom_parse (se, idprom);
         if (!se->identified) {
@@ -785,7 +778,7 @@ bf_pltfm_ucli_ucli__sfp_summary (ucli_context_t
 
         a0h = idprom;
         a2h = idprom + MAX_SFP_PAGE_SIZE;
-        sff_dom_info_get (&sdi, sff, a0h, a2h);
+        (void)a2h;
 
         /* print lower page data */
         aim_printf (&uc->pvs, " %2d:  ", port);
@@ -1009,6 +1002,10 @@ bf_pltfm_ucli_ucli__sfp_type_show (
 
     for (port = first_port; port <= last_port;
          port++) {
+        if (!bf_sfp_is_present (port)) {
+            continue;
+        }
+
         if (bf_sfp_type_get (port, &sfp_type) != 0) {
             sfp_type = BF_PLTFM_QSFP_UNKNOWN;
         }

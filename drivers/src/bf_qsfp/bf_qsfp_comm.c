@@ -8748,6 +8748,8 @@ void bf_pltfm_qsfp_load_conf ()
         fwrite (entry, 1, length, fp);
         length = sprintf (entry, "%-16s   %-16s   %-8x\n", "OEM", "TSQD13L052D4D1", 0x08000000);
         fwrite (entry, 1, length, fp);
+        length = sprintf (entry, "%-16s   %-16s   %-8x\n", "Asterfusion", "TSST1000H1", 0x80000);
+        fwrite (entry, 1, length, fp);
         fflush(fp);
     }
 

@@ -3322,6 +3322,10 @@ bf_pltfm_ucli_ucli__qsfp_type_show (
 
     for (port = first_port; port <= last_port;
          port++) {
+        if (!bf_qsfp_is_present (port)) {
+            continue;
+        }
+
         if (bf_qsfp_type_get (port, &qsfp_type) != 0) {
             qsfp_type = BF_PLTFM_QSFP_UNKNOWN;
         }
