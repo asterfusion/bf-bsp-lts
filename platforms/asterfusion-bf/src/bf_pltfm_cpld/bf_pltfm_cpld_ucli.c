@@ -1452,6 +1452,57 @@ int bf_pltfm_get_cpld_ver (uint8_t cpld_index, char *version, bool forced)
 
     return 0;
 }
+// Not thread-safe.
+static void bf_pltfm_read_devts_bsync() {
+    uint64_t devts_cnt_cap= 0;
+    uint64_t devts_cnt_set= 0;
+    uint64_t devts_off_set= 0;
+    uint32_t devts_inc_set= 0;
+
+    uint64_t bsync_cnt_cap= 0;
+    uint64_t bsync_cnt_set= 0;
+    uint32_t bsync_inc_set= 0;
+    uint32_t bsync_inc_f  = 0;
+    uint32_t bsync_inc_f_d= 0;
+
+    bool devts_enb, bsync_enb;
+    uint32_t rst_cnt_thrs = 0, debounce_cnt = 0;
+
+    static uint64_t devts_cnt_cap_last, bsync_cnt_cap_last;
+
+    bf_ts_global_ts_value_get(0, &devts_cnt_set);
+    bf_ts_global_ts_offset_get(0, &devts_off_set);
+    bf_ts_global_ts_inc_value_get(0, &devts_inc_set);
+    (void)devts_off_set;
+    (void)devts_inc_set;
+
+    bf_ts_baresync_reset_value_get(0, &bsync_cnt_set);
+
+    if(platform_type_equal(AFN_X732QT)) {
+#if SDE_VERSION_GT(9131)
+        bf_tof2_ts_baresync_increment_get(0, &bsync_inc_set, &bsync_inc_f, &bsync_inc_f_d);
+#endif
+    }
+
+    (void)bsync_inc_f;
+    (void)bsync_inc_f_d;
+
+    bf_ts_global_baresync_ts_get(0, &devts_cnt_cap, &bsync_cnt_cap);
+
+    bf_ts_baresync_state_get(0, &rst_cnt_thrs, &debounce_cnt, &bsync_enb);
+    bf_ts_global_ts_state_get(0, &devts_enb);
+
+    fprintf(stdout, "\n%16s%16d\n", "bsync_enb", bsync_enb);
+    fprintf(stdout, "%16s%16u (F %u : D %u)   (rst %u : dbc %u)\n", "bsync_inc_set", bsync_inc_set, bsync_inc_f, bsync_inc_f_d, rst_cnt_thrs, debounce_cnt);
+    fprintf(stdout, "%16s%16lu, cap %16lu, incr %lu\n", "bsync_cnt_set", bsync_cnt_set, bsync_cnt_cap, bsync_cnt_cap - bsync_cnt_cap_last);
+
+    fprintf(stdout, "\n%16s%16d\n", "devts_enb", devts_enb);
+    fprintf(stdout, "%16s%16lu, cap %16lu, incr %lu\n", "devts_cnt_set", devts_cnt_set, devts_cnt_cap, devts_cnt_cap - devts_cnt_cap_last);
+
+    devts_cnt_cap_last = devts_cnt_cap;
+    bsync_cnt_cap_last = bsync_cnt_cap;
+}
+
 
 // for X732Q-T-V2.0 only
 int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source) {
@@ -1531,6 +1582,39 @@ int bf_pltfm_tx_rst_pulse()
 
 finish:
     return bf_status;
+}
+
+int bf_pltfm_read_ptp_reg(uint8_t page, uint8_t reg, uint8_t* value) {
+    int rc = 0;
+    uint8_t pca9548_addr = 0x74;
+    uint8_t ptp_addr = 0x58;
+
+    MASTER_I2C_LOCK;
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20)) {
+        fprintf (stdout, "\nFailed to select PTP.\n");
+        rc = -2;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_write_byte (ptp_addr, 0xFD, page)) {
+        fprintf (stdout, "\nFailed to select PTP reg page.\n");
+        rc = -2;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_read_block (ptp_addr, reg, value, 1)) {
+        fprintf (stdout, "\nFailed to read PTP reg.\n");
+        rc = -2;
+    }
+
+finish:
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00)) {
+        fprintf (stdout, "\nFailed to de-select PTP.\n");
+        rc = -2;
+    }
+
+    MASTER_I2C_UNLOCK;
+    return rc;
 }
 
 int bf_pltfm_syscpld_init()
@@ -1635,64 +1719,36 @@ static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__tx_rst_pulse (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "tx-rst-pulse", 0, "tx-rst-pulse");
+    uint32_t ctrl;
 
-	bf_pltfm_tx_rst_pulse();
+    UCLI_COMMAND_INFO (uc, "tx-rst-pulse", 1, " <ctrl, 0|1, 0: ignore, 1: Tx RST pulse one time>");
 
-    uint64_t devts_cnt_set= 0;
-    uint64_t devts_cnt    = 0;
-    uint64_t devts_off    = 0;
-    uint32_t devts_inc    = 0;
+    ctrl = strtoul (uc->pargs->args[0], NULL, 10);
 
-    uint64_t bsync_cnt_set= 0;
-    uint64_t bsync_cnt_cap= 0;
-    uint32_t bsync_inc    = 0;
-    uint32_t bsync_inc_f  = 0;
-    uint32_t bsync_inc_f_d= 0;
-
-    bf_ts_global_ts_value_get(0, &devts_cnt_set);
-    bf_ts_global_ts_offset_get(0, &devts_off);
-    bf_ts_global_ts_inc_value_get(0, &devts_inc);
-    bf_ts_baresync_reset_value_get(0, &bsync_cnt_set);
-
-    bf_ts_global_baresync_ts_get(0, &devts_cnt, &bsync_cnt_cap);
-
-    if(platform_type_equal(AFN_X732QT)) {
-#if SDE_VERSION_GT(9131)
-        bf_tof2_ts_baresync_increment_get(0, &bsync_inc, &bsync_inc_f, &bsync_inc_f_d);
-#endif
+    if(ctrl) {
+    	bf_pltfm_tx_rst_pulse();
     }
-
-    bool devts_enb, bsync_enb;
-    uint32_t x = 0, y = 0;
-    bf_ts_baresync_state_get(0, &x, &y, &bsync_enb);
-    bf_ts_global_ts_state_get(0, &devts_enb);
-    (void)devts_enb;
-    (void)bsync_enb;
-    (void)x;
-    (void)y;
-    aim_printf (&uc->pvs, "devts_enb %d : bsync_enb %d\n", devts_enb, bsync_enb);
-
-
-    aim_printf (&uc->pvs, "devts_cnt_set %16lu : bsync_cnt_set %16lu, %u (%u %u) : devts_cnt %16lu : bsync_cnt %16lu\n",
-                        devts_cnt_set, bsync_cnt_set, bsync_inc, bsync_inc_f, bsync_inc_f_d, devts_cnt, bsync_cnt_cap);
-
+    bf_pltfm_read_devts_bsync();
     return 0;
 }
+
 // debug only
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__bsync (
     ucli_context_t *uc)
 {
-    uint8_t ctrl = 0;
-    bool bsync_enb;
-    uint32_t x = 0, y = 0;
+    bool bsync_enb, z;
+    uint32_t ctrl = 0;
+    uint32_t rst_cnt_thrs = 0, debounce_cnt = 0, x = 0, y = 0;
 
-    UCLI_COMMAND_INFO (uc, "bsync", 1, " <0/1> 0: disable , 1: enable");
 
-    ctrl = atoi (uc->pargs->args[0]);
+    UCLI_COMMAND_INFO (uc, "bsync", 3, " <rst_cnt_thrs, 0~127> <debounce_cnt, 0~0xFFFFFF> <enb, 0|1, 0: disable, 1: enable>");
 
-    bf_ts_baresync_state_get(0, &x, &y, &bsync_enb);
+    rst_cnt_thrs = strtoul (uc->pargs->args[0], NULL, 10);
+    debounce_cnt = strtoul (uc->pargs->args[1], NULL, 10);
+    ctrl = strtoul (uc->pargs->args[2], NULL, 10);
+
+    bf_ts_baresync_state_get(0, &x, &y, &z);
 
     if(ctrl) {
         bsync_enb = true;
@@ -1700,11 +1756,17 @@ bf_pltfm_cpld_ucli_ucli__bsync (
         bsync_enb = false;
     }
 
-    bf_ts_baresync_state_set(0, x, y, bsync_enb);
+    if((int32_t)rst_cnt_thrs == -1)
+        rst_cnt_thrs = x;
+    if((int32_t)debounce_cnt == -1)
+        debounce_cnt = y;
+
+    bf_ts_baresync_state_set(0, rst_cnt_thrs, debounce_cnt, bsync_enb);
 
     aim_printf (&uc->pvs, "bsync    %s\n",
                 bsync_enb ?
                 "enabled" : "disabled");
+    bf_pltfm_read_devts_bsync();
     return 0;
 }
 // debug only
@@ -1712,12 +1774,12 @@ static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__devts (
     ucli_context_t *uc)
 {
-    uint8_t ctrl = 0;
+    uint32_t ctrl = 0;
     bool devts_enb;
 
     UCLI_COMMAND_INFO (uc, "devts", 1, " <0/1> 0: disable , 1: enable");
 
-    ctrl = atoi (uc->pargs->args[0]);
+    ctrl = strtoul (uc->pargs->args[0], NULL, 10);
 
     bf_ts_global_ts_state_get(0, &devts_enb);
 
@@ -1732,6 +1794,7 @@ bf_pltfm_cpld_ucli_ucli__devts (
     aim_printf (&uc->pvs, "devts    %s\n",
                 devts_enb ?
                 "enabled" : "disabled");
+    bf_pltfm_read_devts_bsync();
     return 0;
 }
 
@@ -1748,7 +1811,7 @@ bf_pltfm_cpld_ucli_ucli__devts_cnt (
 
     bf_ts_global_ts_value_set(0, devts_cnt_set);
 
-    aim_printf (&uc->pvs, "devts_cnt    %lu\n", devts_cnt_set);
+    bf_pltfm_read_devts_bsync();
     return 0;
 }
 
@@ -1765,7 +1828,7 @@ bf_pltfm_cpld_ucli_ucli__bsync_cnt (
 
     bf_ts_baresync_reset_value_set(0, bsync_cnt_set);
 
-    aim_printf (&uc->pvs, "bsync_set    %lu\n", bsync_cnt_set);
+    bf_pltfm_read_devts_bsync();
     return 0;
 }
 
@@ -1795,6 +1858,103 @@ static ucli_status_t bf_pltfm_cpld_ucli_ucli__clkobs_strength_set__(
   }
 #endif
   return 0;
+}
+
+// debug only
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__read_ptp (
+    ucli_context_t *uc)
+{
+    uint8_t buf[BUFSIZ];
+    uint16_t byte;
+    uint16_t ptp_reg_size = 256;
+    uint8_t pca9548_addr = 0x74;
+    uint8_t ptp_addr = 0x58;
+    uint8_t page, page_start, page_end;
+
+    UCLI_COMMAND_INFO (uc, "ptp-page", -1,
+                       "ptp-page <page(0xC0~0xCF)>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nnot supprot on this device!\n");
+        return 0;
+    }
+
+    if(! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+       return 0;
+    }
+
+    if (uc->pargs->count == 1) {
+        page_start = strtoul (uc->pargs->args[0], NULL, 0);
+        page_end = page_start;
+    } else {
+        page_start = 0xC0;
+        page_end = 0xCF;
+    }
+
+    MASTER_I2C_LOCK;
+    bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20);
+
+    for (page = page_start; page <= page_end; page++) {
+        bf_pltfm_cp2112_reg_write_byte(ptp_addr, 0xFD, page);
+
+        for (byte = 0; byte < ptp_reg_size; byte ++) {
+            bf_pltfm_cp2112_reg_read_block (ptp_addr, byte, &buf[byte], 1);
+        }
+
+        aim_printf (&uc->pvs, "\nPAGE: %02X ", page);
+        for (byte = 0; byte < ptp_reg_size; byte++) {
+            if ((byte % 16) == 0) {
+                aim_printf (&uc->pvs, "\n0x%02X : ", byte);
+            }
+            aim_printf (&uc->pvs, "%02x ", buf[byte]);
+        }
+        aim_printf (&uc->pvs, "\n");
+    }
+
+    bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00);
+    MASTER_I2C_UNLOCK;
+
+    aim_printf (&uc->pvs, "\n");
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__read_ptp_reg (
+    ucli_context_t *uc)
+{
+    uint8_t page, reg, reg_value;
+
+    UCLI_COMMAND_INFO (uc, "ptp-reg", 2,
+                       "ptp-reg <page> <reg>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nnot supprot on this device!\n");
+        return 0;
+    }
+
+    if(! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+       return 0;
+    }
+
+    if (uc->pargs->count < 2) {
+        aim_printf (&uc->pvs, "ptp-reg <page> <reg>");
+        return 0;
+    } else {
+        page = strtoul (uc->pargs->args[0], NULL, 0);
+        reg  = strtoul (uc->pargs->args[1], NULL, 0);
+    }
+
+    if (bf_pltfm_read_ptp_reg(page, reg, &reg_value) == 0) {
+        aim_printf (&uc->pvs, "PAGE=0x%02x, REG=0x%02x: 0x%02x", page, reg, reg_value);
+    }
+
+    return 0;
 }
 
 static ucli_status_t
@@ -1932,6 +2092,8 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__devts,
     bf_pltfm_cpld_ucli_ucli__devts_cnt,
     bf_pltfm_cpld_ucli_ucli__bsync_cnt,
+    bf_pltfm_cpld_ucli_ucli__read_ptp,
+    bf_pltfm_cpld_ucli_ucli__read_ptp_reg,
 
     NULL
 };

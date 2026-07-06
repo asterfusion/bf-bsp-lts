@@ -538,6 +538,8 @@ static inline bf_pltfm_status_t bf_pltfm_bd_type_get_priv (
 
 int bf_pltfm_tx_rst_pulse();
 int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source);
+int bf_pltfm_read_ptp_reg(uint8_t page, uint8_t reg, uint8_t* value);
+
 
 #ifdef __cplusplus
 }
