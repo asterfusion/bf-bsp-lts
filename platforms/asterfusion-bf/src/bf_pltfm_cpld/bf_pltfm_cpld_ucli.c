@@ -646,7 +646,7 @@ int unselect_cpld()
 
     if (platform_type_equal (AFN_X732QT)) {
         /* for X732Q, master pca9548 is 0x74 */
-        pca9548_addr = 0x74;
+        pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
     }
 
     if (bf_pltfm_mgr_ctx()->flags & AF_PLAT_CTRL_CPLD_CP2112) {
@@ -1504,6 +1504,89 @@ static void bf_pltfm_read_devts_bsync() {
 }
 
 
+const char* dpll_status_str(int dpllno, uint8_t s) {
+    (void)dpllno;
+    switch (s) {
+        case 0:     return "FreeRun";
+        case 1:     return "LockACQ";
+        case 2:     return "LockREC";
+        case 3:     return "Locked";
+        case 4:     return "Holdover";
+        case 5:     return "OpenLoop";
+        case 6:     return "Disabled";
+        default:    return "Unknown";
+    }
+}
+
+/**
+ * @brief Parse the raw 4-byte data returned from page C1 of the 8A34004 chip,
+ *        and calculate the actual physical layer observation clock frequency.
+ * @param le_bytes Pointer to a 4-byte little-endian array returned by the chip
+ *                 (e.g., 40 2b 7f 5e).
+ * @return double The computed real frequency value in MHz.
+ */
+double bf_pltfm_decode_obsclk_freq(int inputno, uint8_t *reg_000h_buf) {
+    uint64_t m_val = 0;
+    uint16_t n_val = 0;
+    (void)inputno;
+    m_val = ((uint64_t)reg_000h_buf[5] << 40) |
+            ((uint64_t)reg_000h_buf[4] << 32) |
+            ((uint64_t)reg_000h_buf[3] << 24) |
+            ((uint64_t)reg_000h_buf[2] << 16) |
+            ((uint64_t)reg_000h_buf[1] << 8)  |
+            ((uint64_t)reg_000h_buf[0]);
+
+    n_val = ((uint16_t)reg_000h_buf[7] << 8) | 
+            ((uint16_t)reg_000h_buf[6]);
+
+    if (n_val == 0) {
+        n_val = 1;
+    }
+    //fprintf(stdout, "m_val = %lu n_val=%u\n", m_val, n_val);
+    double freq_hz = (double)m_val / (double)n_val;
+
+    return freq_hz;
+}
+
+/**
+ * @brief Decodes the raw 5-byte data stream of STATUS.DPLL5_PHASE_STATUS into nanoseconds.
+ *
+ * @param reg_040h_buf Pointer to a 5-byte buffer containing raw data read
+ *                      sequentially from address 0xC140 (Offset 0x40 inside PAGE 0xC1).
+ * @return double The decoded residual phase offset error value in nanoseconds (ns).
+ */
+double bf_pltfm_decode_dpll_phase_status(int dpllno, uint8_t *reg_040h_buf) {
+// 1 LSB of the internal phase detector is exactly 1 UI * 2^-16.
+// For the nominal internal clock operating around 3.84GHz, 1 LSB = 3.970588 picoseconds (or 0.003970588 ns).
+#define DPLL_PHASE_RESOLUTION_NS 0.003970588
+
+    int64_t raw_val_40bit = 0;
+    (void)dpllno;
+
+    // 1. Construct the 40-bit integer from the 5-byte stream using Little-Endian order
+    // reg_040h_buf[0] is D0 (LSB), reg_040h_buf[4] is D4 (MSB)
+    raw_val_40bit = ((int64_t)reg_040h_buf[4] << 32) |
+                    ((int64_t)reg_040h_buf[3] << 24) |
+                    ((int64_t)reg_040h_buf[2] << 16) |
+                    ((int64_t)reg_040h_buf[1] << 8)  |
+                    ((int64_t)reg_040h_buf[0]);
+
+    // 2. Perform manual 40-bit signed Two's Complement Sign-Extension to 64-bit int64_t.
+    // Check if Bit 39 (the 40th bit, mask 0x8000000000) is set to 1 (indicating a negative value).
+    if (raw_val_40bit & 0x0000008000000000LL) {
+        // Sign-extend high 24 bits to 1s to properly register a negative integer in C
+        raw_val_40bit |= 0xFFFFFF0000000000LL;
+    } else {
+        // Enforce pure 40-bit boundary limits for clear positive integers
+        raw_val_40bit &= 0x000000FFFFFFFFFFLL;
+    }
+
+    // 3. Convert the signed scalar count into physical wall-time nanoseconds
+    double phase_ns = (double)raw_val_40bit * DPLL_PHASE_RESOLUTION_NS;
+
+    return phase_ns;
+}
+
 // for X732Q-T-V2.0 only
 int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source) {
     bf_status_t bf_status = 0;
@@ -1586,31 +1669,66 @@ finish:
 
 int bf_pltfm_read_ptp_reg(uint8_t page, uint8_t reg, uint8_t* value) {
     int rc = 0;
-    uint8_t pca9548_addr = 0x74;
+    uint8_t pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
     uint8_t ptp_addr = 0x58;
 
     MASTER_I2C_LOCK;
+    // Select channel 5 to access PTP module
     if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20)) {
         fprintf (stdout, "\nFailed to select PTP.\n");
-        rc = -2;
+        rc = -1;
         goto finish;
     }
-
+    
     if (bf_pltfm_cp2112_reg_write_byte (ptp_addr, 0xFD, page)) {
-        fprintf (stdout, "\nFailed to select PTP reg page.\n");
+        fprintf (stdout, "\nFailed to select PTP page.\n");
         rc = -2;
         goto finish;
     }
 
     if (bf_pltfm_cp2112_reg_read_block (ptp_addr, reg, value, 1)) {
         fprintf (stdout, "\nFailed to read PTP reg.\n");
-        rc = -2;
+        rc = -3;
     }
 
 finish:
     if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00)) {
         fprintf (stdout, "\nFailed to de-select PTP.\n");
+        rc = -4;
+    }
+
+    MASTER_I2C_UNLOCK;
+    return rc;
+}
+
+int bf_pltfm_write_ptp_reg(uint8_t page, uint8_t reg, uint8_t* value) {
+    int rc = 0;
+    uint8_t pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
+    uint8_t ptp_addr = 0x58;
+
+    MASTER_I2C_LOCK;
+    // Select channel 5 to access PTP module
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20)) {
+        fprintf (stdout, "\nFailed to select PTP.\n");
+        rc = -1;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_write_byte (ptp_addr, 0xFD, page)) {
+        fprintf (stdout, "\nFailed to select PTP page.\n");
         rc = -2;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_write_block (ptp_addr, reg, value, 1)) {
+        fprintf (stdout, "\nFailed to write PTP reg.\n");
+        rc = -3;
+    }
+
+finish:
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00)) {
+        fprintf (stdout, "\nFailed to de-select PTP.\n");
+        rc = -4;
     }
 
     MASTER_I2C_UNLOCK;
@@ -1861,23 +1979,25 @@ static ucli_status_t bf_pltfm_cpld_ucli_ucli__clkobs_strength_set__(
 }
 
 // debug only
+// https://www.renesas.com/en/products/8a34004?tab=documentation
+// I2C 2B Mode. See page 5 of REN_8A3xxxx=Family-Prog-Guide-v4p8p7_GDE_20210615.pdf
 static ucli_status_t
-bf_pltfm_cpld_ucli_ucli__read_ptp (
+bf_pltfm_cpld_ucli_ucli__ptp_page (
     ucli_context_t *uc)
 {
-    uint8_t buf[BUFSIZ];
+    uint8_t buf[BUFSIZ] = { 0 };
     uint16_t byte;
     uint16_t ptp_reg_size = 256;
-    uint8_t pca9548_addr = 0x74;
+    uint8_t pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
     uint8_t ptp_addr = 0x58;
     uint8_t page, page_start, page_end;
 
     UCLI_COMMAND_INFO (uc, "ptp-page", -1,
-                       "ptp-page <page(0xC0~0xCF)>");
+                       "ptp-page <page: 0xC0-0xCF>");
 
     if (! platform_type_equal (AFN_X732QT) ||
         ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nnot supprot on this device!\n");
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
         return 0;
     }
 
@@ -1897,6 +2017,7 @@ bf_pltfm_cpld_ucli_ucli__read_ptp (
     MASTER_I2C_LOCK;
     bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20);
 
+    // List all pages.
     for (page = page_start; page <= page_end; page++) {
         bf_pltfm_cp2112_reg_write_byte(ptp_addr, 0xFD, page);
 
@@ -1923,17 +2044,69 @@ bf_pltfm_cpld_ucli_ucli__read_ptp (
 }
 
 static ucli_status_t
-bf_pltfm_cpld_ucli_ucli__read_ptp_reg (
+bf_pltfm_cpld_ucli_ucli__ptp_reg(ucli_context_t *uc)
+{
+    uint8_t page, reg, val = 0, regval = 0;
+    bool write_op = false;
+
+    UCLI_COMMAND_INFO(uc, "ptp-reg", -1,
+                      "ptp-reg <page> <reg> [<val>]");
+
+    if (!platform_type_equal(AFN_X732QT) ||
+        !platform_subtype_equal(V2P0)) {
+        aim_printf(&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+
+    if (!(bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf(&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count == 2) {
+        write_op = false;
+    } else if (uc->pargs->count == 3) {
+        write_op = true;
+    } else {
+        aim_printf(&uc->pvs, "ptp-reg <page> <reg> [<val>]\n");
+        return 0;
+    }
+
+    page = strtoul(uc->pargs->args[0], NULL, 0);
+    reg  = strtoul(uc->pargs->args[1], NULL, 0);
+
+    if (write_op) {
+        val = strtoul(uc->pargs->args[2], NULL, 0);
+        if (bf_pltfm_read_ptp_reg(page, reg, &regval))
+            return 0;
+        if (bf_pltfm_write_ptp_reg(page, reg, &val))
+            return 0;
+        if (bf_pltfm_read_ptp_reg(page, reg, &val))
+            return 0;
+        aim_printf(&uc->pvs, "PAGE=0x%02x, REG=0x%02x: 0x%02x -> 0x%02x\n",
+                   page, reg, regval, val);
+    } else {
+        if (bf_pltfm_read_ptp_reg(page, reg, &regval))
+            return 0;
+        aim_printf(&uc->pvs, "PAGE=0x%02x, REG=0x%02x: 0x%02x\n",
+                   page, reg, regval);
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_summary (
     ucli_context_t *uc)
 {
-    uint8_t page, reg, reg_value;
+    uint8_t page, reg, regval, buf[BUFSIZ] = { 0 };
 
-    UCLI_COMMAND_INFO (uc, "ptp-reg", 2,
-                       "ptp-reg <page> <reg>");
+    UCLI_COMMAND_INFO (uc, "ptp-summary", -1,
+                       "Summary the PTP module configuration and status");
 
     if (! platform_type_equal (AFN_X732QT) ||
         ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nnot supprot on this device!\n");
+        aim_printf (&uc->pvs, "\nNot supprot on this device!\n");
         return 0;
     }
 
@@ -1942,17 +2115,58 @@ bf_pltfm_cpld_ucli_ucli__read_ptp_reg (
        return 0;
     }
 
-    if (uc->pargs->count < 2) {
-        aim_printf (&uc->pvs, "ptp-reg <page> <reg>");
-        return 0;
-    } else {
-        page = strtoul (uc->pargs->args[0], NULL, 0);
-        reg  = strtoul (uc->pargs->args[1], NULL, 0);
-    }
+    page = 0xC0;
+    reg  = 0x14;
+    /* Production ID */
+    uint16_t product_id = 0;
+    bf_pltfm_read_ptp_reg(page, reg + 0x1E, &regval);
+    product_id = regval;
+    bf_pltfm_read_ptp_reg(page, reg + 0x1F, &regval);
+    product_id |= regval << 8;
+    aim_printf (&uc->pvs, "GENERAL_STATUS.PRODUCT_ID  : %2x\n", product_id);
+    /* Release Number */
+    uint8_t major, minor;
+    bf_pltfm_read_ptp_reg(page, reg + 0x10, &major);
+    bf_pltfm_read_ptp_reg(page, reg + 0x11, &minor);
+    aim_printf (&uc->pvs, "GENERAL_STATUS.RELEASE     : %x.%x.%d\n", (major >> 1), minor, (major & 0x01));
 
-    if (bf_pltfm_read_ptp_reg(page, reg, &reg_value) == 0) {
-        aim_printf (&uc->pvs, "PAGE=0x%02x, REG=0x%02x: 0x%02x", page, reg, reg_value);
+    /* Configuration */
+    page = 0xC1;
+    reg  = 0xB0;
+    for (int offset = 0; offset < 8; offset ++) {
+        bf_pltfm_read_ptp_reg(page, reg + offset, &buf[offset]);
     }
+    aim_printf (&uc->pvs, "INPUT_0.IN_FREQ(OBSCLK 0)  : %.6f\n", bf_pltfm_decode_obsclk_freq(0, buf));
+    page = 0xC1;
+    reg  = 0xC0;
+    for (int offset = 0; offset < 8; offset ++) {
+        bf_pltfm_read_ptp_reg(page, reg + offset, &buf[offset]);
+    }
+    aim_printf (&uc->pvs, "INPUT_1.IN_FREQ(OBSCLK 1)  : %.6f\n", bf_pltfm_decode_obsclk_freq(1, buf));
+
+    /* Status of DPLL5 (SyncE / Frequency) */
+    page = 0xC0;
+    reg  = 0x3C;
+    bf_pltfm_read_ptp_reg(page, reg + 0x27, &regval);
+    aim_printf (&uc->pvs, "STATUS.DPLL5_REF_STAT.INPUT: %2x\n", regval);
+    bf_pltfm_read_ptp_reg(page, reg + 0x1D, &regval);
+    aim_printf (&uc->pvs, "STATUS.DPLL5_STATUS        : %2x, %s\n", regval, dpll_status_str(5, regval & 0x0F));
+    for (int offset = 0; offset < 5; offset ++) {
+        bf_pltfm_read_ptp_reg(page, reg + 0x104 + offset, &buf[offset]);
+    }
+    aim_printf (&uc->pvs, "STATUS.DPLL5_PHASE_STATUS  : %.6f\n", bf_pltfm_decode_dpll_phase_status(5, buf));
+
+    /* Status of DPLL6 (PTP / Phase / Time-of-Day) */
+    page = 0xC0;
+    reg  = 0x3C;
+    bf_pltfm_read_ptp_reg(page, reg + 0x28, &regval);
+    aim_printf (&uc->pvs, "STATUS.DPLL6_REF_STAT.INPUT: %2x\n", regval);
+    bf_pltfm_read_ptp_reg(page, reg + 0x1E, &regval);
+    aim_printf (&uc->pvs, "STATUS.DPLL6_STATUS        : %2x, %s\n", regval, dpll_status_str(6, regval & 0x0F));
+    for (int offset = 0; offset < 5; offset ++) {
+        bf_pltfm_read_ptp_reg(page, reg + 0x10C + offset, &buf[offset]);
+    }
+    aim_printf (&uc->pvs, "STATUS.DPLL6_PHASE_STATUS  : %.6f\n", bf_pltfm_decode_dpll_phase_status(6, buf));
 
     return 0;
 }
@@ -2092,8 +2306,9 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__devts,
     bf_pltfm_cpld_ucli_ucli__devts_cnt,
     bf_pltfm_cpld_ucli_ucli__bsync_cnt,
-    bf_pltfm_cpld_ucli_ucli__read_ptp,
-    bf_pltfm_cpld_ucli_ucli__read_ptp_reg,
+    bf_pltfm_cpld_ucli_ucli__ptp_page,
+    bf_pltfm_cpld_ucli_ucli__ptp_reg,
+    bf_pltfm_cpld_ucli_ucli__ptp_summary,
 
     NULL
 };

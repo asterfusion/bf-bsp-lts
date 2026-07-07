@@ -25,7 +25,9 @@
 extern "C" {
 #endif
 
-#define BF_MAV_MASTER_PCA9548_ADDR  0x70
+#define BF_MAV_MASTER_PCA9548_ADDR      0x70
+#define BF_MAV_MASTER_PCA9548_ADDR70    BF_MAV_MASTER_PCA9548_ADDR
+#define BF_MAV_MASTER_PCA9548_ADDR74    0x74
 
 extern bf_sys_rmutex_t master_i2c_lock;
 #define MASTER_I2C_LOCK   \
