@@ -1572,6 +1572,42 @@ finish:
     return rc;
 }
 
+int bf_pltfm_write_ptp_reg_burst(uint8_t page, uint8_t reg, uint8_t *value, size_t l) {
+    int rc = 0;
+    uint8_t pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
+    uint8_t ptp_addr = 0x58;
+
+    MASTER_I2C_LOCK;
+    // Select channel 5 to access PTP module
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20)) {
+        fprintf (stdout, "\nFailed to select PTP.\n");
+        rc = -1;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_write_byte (ptp_addr, 0xFD, page)) {
+        fprintf (stdout, "\nFailed to select PTP page.\n");
+        rc = -2;
+        goto finish;
+    }
+
+    for (size_t i = 0; i < l; i++) {
+        if (bf_pltfm_cp2112_reg_write_byte(ptp_addr, reg, value[i]) < 0) {
+            fprintf (stdout, "\nFailed to write PTP reg.\n");
+            return -3;
+        }
+    }
+
+finish:
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00)) {
+        fprintf (stdout, "\nFailed to de-select PTP.\n");
+        rc = -4;
+    }
+
+    MASTER_I2C_UNLOCK;
+    return rc;
+}
+
 // for X732Q-T-V2.0 only
 int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source) {
     bf_status_t bf_status = 0;
@@ -2013,10 +2049,10 @@ bf_pltfm_cpld_ucli_ucli__ptp_reg(ucli_context_t *uc)
 }
 
 static ucli_status_t
-bf_pltfm_cpld_ucli_ucli__ptp_summary (
+bf_pltfm_cpld_ucli_ucli__ptp (
     ucli_context_t *uc)
 {
-    UCLI_COMMAND_INFO (uc, "ptp-summary", -1,
+    UCLI_COMMAND_INFO (uc, "ptp", -1,
                        "Summary the PTP module configuration and status");
 
     if (! platform_type_equal (AFN_X732QT) ||
@@ -2042,7 +2078,8 @@ bf_pltfm_cpld_ucli_ucli__ptp_summary (
 
     /* Configuration of INPUT_0 and INPUT_1 */
     double input_0 = 0.0, input_1 = 0.0;
-    bf_ptp_get_input_freq(&input_0, &input_1);
+    bf_ptp_get_input_freq(0, &input_0);
+    bf_ptp_get_input_freq(1, &input_1);
     aim_printf (&uc->pvs, "INPUT_0.IN_FREQ(OBSCLK 0)  : %.6f\n", input_0);
     aim_printf (&uc->pvs, "INPUT_1.IN_FREQ(OBSCLK 1)  : %.6f\n", input_1);
     aim_printf (&uc->pvs, "\n");
@@ -2078,6 +2115,12 @@ bf_pltfm_cpld_ucli_ucli__ptp_summary (
 
     bf_ptp_get_dpll5_phase(&dpll5_phase);
     aim_printf (&uc->pvs, "DPLL_PHASE_5               : %d\n", dpll5_phase);
+
+    bool dpll5_sync_en = false;
+    uint8_t dpll5_sync_src = 0;
+    bf_ptp_get_dpll_tod_sync_cfg(5, &dpll5_sync_en, &dpll5_sync_src);
+    aim_printf (&uc->pvs, "DPLL_5.DPLL_TOD_SYNC_CFG   : %s, ToD Source: ToD%d\n", 
+                dpll5_sync_en ? "Enabled" : "Disabled", dpll5_sync_src);
     aim_printf (&uc->pvs, "\n");
 
 
@@ -2104,8 +2147,56 @@ bf_pltfm_cpld_ucli_ucli__ptp_summary (
 
     bf_ptp_get_dpll6_phase(&dpll6_phase);
     aim_printf (&uc->pvs, "DPLL_PHASE_6               : %d\n", dpll6_phase);
+
+    bool dpll6_sync_en = false;
+    uint8_t dpll6_sync_src = 0;
+    bf_ptp_get_dpll_tod_sync_cfg(6, &dpll6_sync_en, &dpll6_sync_src);
+    aim_printf (&uc->pvs, "DPLL_6.DPLL_TOD_SYNC_CFG   : %s, ToD Source: ToD%d\n", 
+                dpll6_sync_en ? "Enabled" : "Disabled", dpll6_sync_src);
     aim_printf (&uc->pvs, "\n");
 
+    aim_printf(&uc->pvs, "\n=========================================================================================================\n");
+    aim_printf(&uc->pvs, "                        8A34004 TIMING PLANE: TIME-OF-DAY (ToD) MULTI-AXIS MATRIX                       \n");
+    aim_printf(&uc->pvs, "=========================================================================================================\n");
+    aim_printf(&uc->pvs, "IDX |   CLOCK HEART    | ENABLE |   PPS MODE   | OUT_SYNC |  WRITE_CNTR  |      CAPTURED WALL-TIME (ToD)   \n");
+    aim_printf(&uc->pvs, "---------------------------------------------------------------------------------------------------------\n");
+    for (uint8_t idx = 0; idx < 4; idx++) {
+        uint8_t clk_src = 0;
+        uint8_t write_counter = 0;
+        bool enabled = false, even_pps = false, sync_disabled = false;
+        uint32_t seconds = 0, nanoseconds = 0;
+
+        /* Step A API: Fetch live driving clock source (DPLL linkage) */
+        if (bf_ptp_get_tod_clk_src(idx, &clk_src) != 0) {
+            clk_src = 0;
+        }
+
+        /* Step B API: Fetch main engine configuration switches */
+        if (bf_ptp_get_tod_cfg(idx, &enabled, &even_pps, &sync_disabled) != 0) {
+            enabled = false; even_pps = false; sync_disabled = false;
+        }
+
+        /* Step C API: Fetch historical write completion metrics from CB block */
+        if (bf_ptp_get_tod_write_counter(idx, &write_counter) != 0) {
+            write_counter = 0;
+        }
+
+        /* Step D API: Execute atomic 10-byte burst snapshot capture across CC block */
+        if (bf_ptp_get_tod_time(idx, &seconds, &nanoseconds) != 0) {
+            seconds = 0; nanoseconds = 0;
+        }
+
+        /* Step E: Stream the fully resolved telemetry metrics row to the CLI */
+        aim_printf(&uc->pvs, " %d  |  Driven by DPLL%d |  %-5s | %-12s | %-8s |    0x%02X    | %u.%09u sec\n",
+                   idx,
+                   clk_src,
+                   enabled ? "TRUE" : "FALSE",
+                   even_pps ? "2-Sec even" : "1-Sec std",
+                   sync_disabled ? "DISABLE" : "ENABLE",
+                   write_counter,
+                   seconds, nanoseconds);
+    }
+    aim_printf (&uc->pvs, "\n");
 
     return 0;
 }
@@ -2247,7 +2338,7 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__bsync_cnt,
     bf_pltfm_cpld_ucli_ucli__ptp_page,
     bf_pltfm_cpld_ucli_ucli__ptp_reg,
-    bf_pltfm_cpld_ucli_ucli__ptp_summary,
+    bf_pltfm_cpld_ucli_ucli__ptp,
 
     NULL
 };
