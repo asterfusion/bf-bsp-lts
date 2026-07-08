@@ -172,6 +172,30 @@ static const ptp_reg_desc_t g_8a34004_register_map[] = {
     { "DPLL_5.DPLL_TOD_SYNC_CFG",    0xC5, 0x00, 0x31,  1, REG_PERM_RW },
     { "DPLL_6.DPLL_TOD_SYNC_CFG",    0xC5, 0x38, 0x31,  1, REG_PERM_RW },
     { "DPLL_7.DPLL_TOD_SYNC_CFG",    0xC5, 0x80, 0x31,  1, REG_PERM_RW },
+
+    /* DPLL OPERATION MODE REGISTERS (DPLL_n.DPLL_MODE) */
+    { "DPLL_0.DPLL_MODE",            0xC3, 0xB0, 0x37,  1, REG_PERM_RW },
+    { "DPLL_1.DPLL_MODE",            0xC4, 0x00, 0x37,  1, REG_PERM_RW },
+    { "DPLL_2.DPLL_MODE",            0xC4, 0x38, 0x37,  1, REG_PERM_RW },
+    { "DPLL_3.DPLL_MODE",            0xC4, 0x80, 0x37,  1, REG_PERM_RW },
+    { "DPLL_4.DPLL_MODE",            0xC4, 0xB8, 0x37,  1, REG_PERM_RW },
+    { "DPLL_7.DPLL_MODE",            0xC5, 0x80, 0x37,  1, REG_PERM_RW },
+
+    /* DPLL GLOBAL STATUS REGISTERS (STATUS.DPLLn_STATUS) */
+    { "STATUS.DPLL0_STATUS",         0xC0, 0x3C, 0x18,  1, REG_PERM_R  },
+    { "STATUS.DPLL1_STATUS",         0xC0, 0x3C, 0x19,  1, REG_PERM_R  },
+    { "STATUS.DPLL2_STATUS",         0xC0, 0x3C, 0x1A,  1, REG_PERM_R  },
+    { "STATUS.DPLL3_STATUS",         0xC0, 0x3C, 0x1B,  1, REG_PERM_R  },
+    { "STATUS.DPLL4_STATUS",         0xC0, 0x3C, 0x1C,  1, REG_PERM_R  },
+    { "STATUS.DPLL7_STATUS",         0xC0, 0x3C, 0x1F,  1, REG_PERM_R  },
+
+    /* DPLL REFERENCE STATUS REGISTERS (STATUS.DPLLn_REF_STAT) */
+    { "STATUS.DPLL0_REF_STAT",       0xC0, 0x3C, 0x22,  1, REG_PERM_R  },
+    { "STATUS.DPLL1_REF_STAT",       0xC0, 0x3C, 0x23,  1, REG_PERM_R  },
+    { "STATUS.DPLL2_REF_STAT",       0xC0, 0x3C, 0x24,  1, REG_PERM_R  },
+    { "STATUS.DPLL3_REF_STAT",       0xC0, 0x3C, 0x25,  1, REG_PERM_R  },
+    { "STATUS.DPLL4_REF_STAT",       0xC0, 0x3C, 0x26,  1, REG_PERM_R  },
+    { "STATUS.DPLL7_REF_STAT",       0xC0, 0x3C, 0x29,  1, REG_PERM_R  },
 };
 
 #define BF_8A34004_REG_MAP_SIZE (sizeof(g_8a34004_register_map) / sizeof(ptp_reg_desc_t))
@@ -197,6 +221,45 @@ const char* dpll_status_str(int dpll_index, uint8_t reg_byte) {
         default:    return "Unknown";
     }
 }
+
+static inline
+const char* dpll_refclk_str(uint8_t reg_byte)
+{
+    switch (reg_byte) {
+        case 0x00: return "CLK0           ";
+        case 0x01: return "CLK1           ";
+        case 0x02: return "CLK2           ";
+        case 0x03: return "CLK3           ";
+        case 0x04: return "CLK4           ";
+        case 0x05: return "CLK5           ";
+        case 0x06: return "CLK6           ";
+        case 0x07: return "CLK7           ";
+        case 0x08: return "CLK8           ";
+        case 0x09: return "CLK9           ";
+        case 0x0A: return "CLK10          ";
+        case 0x0B: return "CLK11          ";
+        case 0x0C: return "CLK12          ";
+        case 0x0D: return "CLK13          ";
+        case 0x0E: return "CLK14          ";
+        case 0x0F: return "CLK15          ";
+        case 0x10: return "WRPhaseInput   ";
+        case 0x11: return "WRFreqInput    ";
+        case 0x12: return "XO_DPLL        ";
+        case 0x13: return "CLK19(DPLL0)   ";
+        case 0x14: return "CLK20(DPLL1)   ";
+        case 0x15: return "CLK11(DPLL2)   ";
+        case 0x16: return "CLK22(DPLL3)   ";
+        case 0x17: return "CLK23(DPLL4)   ";
+        case 0x18: return "CLK24(DPLL5)   ";
+        case 0x19: return "CLK25(DPLL6)   ";
+        case 0x1A: return "CLK26(DPLL7)   ";
+        case 0x1B: return "CLK27(SYSDPLL) ";
+        case 0x1C: return "CLK28          ";
+        case 0x1F: return "NoReference    ";
+        default:   return "Unknown        ";
+    }
+}
+
 // Operation mode
 static inline
 const char* dpll_mode_op_str(uint8_t reg_byte) {
@@ -204,21 +267,21 @@ const char* dpll_mode_op_str(uint8_t reg_byte) {
 
     switch (pll_mode) {
         case 0:
-            return "PLL mode (Closed Loop)";
+            return "PLL(Closed)";
         case 1:
-            return "Write Phase Mode (PTP Phase Steering)";
+            return "WritePhase";
         case 2:
-            return "Write Frequency Mode (SyncE FFO Steering)";
+            return "WriteFreq";
         case 3:
-            return "GPIO inc/dec mode";
+            return "GPIOSteer";
         case 4:
-            return "Synthesizer Mode";
+            return "Synthesizer";
         case 5:
-            return "Phase Measurement Mode";
+            return "PhaseMeasure";
         case 6:
-            return "Disabled Mode (Reduced Phase Noise)";
+            return "Disabled";
         default:
-            return "Reserved / Unknown Mode";
+            return "Reserved";
     }
 }
 // State Machine Mode
@@ -230,13 +293,13 @@ const char* dpll_mode_sm_str(uint8_t reg_byte) {
         case 0:
             return "Automatic";
         case 1:
-            return "Force Lock";
+            return "ForceLock";
         case 2:
-            return "Force freerun";
+            return "ForceFreerun";
         case 3:
-            return "Force holdover";
+            return "ForceHoldover";
         default:
-            return "Reserved / Unknown SM Mode";
+            return "Reserved";
     }
 }
 static inline
@@ -625,7 +688,7 @@ int bf_ptp_get_dpll_phase_status(uint8_t dpll_idx, double *phase_ns) {
     uint8_t burst_buf[BUFSIZ] = { 0 };
     char name_buf[32];
 
-    if ((dpll_idx != 5 && dpll_idx != 6) || !phase_ns) {
+    if (dpll_idx > 7 || !phase_ns) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_PHASE_STATUS", dpll_idx);
@@ -746,7 +809,7 @@ int bf_ptp_get_dpll_mode(uint8_t dpll_idx, uint8_t *mode_val) {
     uint8_t reg_byte = 0;
     char name_buf[32];
 
-    if ((dpll_idx != 5 && dpll_idx != 6) || !mode_val) {
+    if (dpll_idx > 7 || !mode_val) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_MODE", dpll_idx);
@@ -775,7 +838,7 @@ int bf_ptp_get_dpll_ref_stat(uint8_t dpll_idx, uint8_t *ref_stat) {
     uint8_t reg_byte = 0;
     char name_buf[32];
 
-    if ((dpll_idx != 5 && dpll_idx != 6) || !ref_stat) {
+    if (dpll_idx > 7 || !ref_stat) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_REF_STAT", dpll_idx);
@@ -804,7 +867,7 @@ int bf_ptp_get_dpll_status(uint8_t dpll_idx, uint8_t *status) {
     uint8_t reg_byte = 0;
     char name_buf[32];
 
-    if ((dpll_idx != 5 && dpll_idx != 6) || !status) {
+    if (dpll_idx > 7 || !status) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_STATUS", dpll_idx);
@@ -901,105 +964,6 @@ int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_idx, bool enable_sync, uint8_t tod
     usleep(200); /* Latch settle stall */
 
     return 0;
-}
-
-/**
- * @brief Retrieves the live tracking reference status of DPLL5.
- * 
- * @param ref_stat Output pointer populated with the upstream physical CLK channel index.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll5_ref_stat(uint8_t *ref_stat) {
-    return bf_ptp_get_dpll_ref_stat(5, ref_stat);
-}
-
-/**
- * @brief Retrieves the core state machine lock configuration of DPLL5.
- * 
- * @param status Output pointer populated with the raw state machine byte token.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll5_status(uint8_t *status) {
-    return bf_ptp_get_dpll_status(5, status);
-}
-
-/**
- * @brief Atomically extracts and decodes the 40-bit residual sub-ns phase offset error of DPLL5.
- * 
- * @param phase_ns Output pointer populated with the decoded absolute phase error in nanoseconds.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll5_phase_status(double *phase_ns) {
-    return bf_ptp_get_dpll_phase_status(5, phase_ns);
-}
-
-/**
- * @brief Retrieves the current operational operational configuration mode byte of DPLL5.
- * 
- * @param mode_val Output pointer populated with the raw operational mode control byte.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll5_mode(uint8_t *mode_val) {
-    return bf_ptp_get_dpll_mode(5, mode_val);
-}
-
-/**
- * @brief Extracts the active 32-bit signed phase command offset applied to DPLL5.
- * 
- * @param out_phase_cmd Output pointer populated with the integer command value in hardware steps.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll5_phase(int32_t *out_phase_cmd) {
-    return bf_ptp_get_dpll_phase(5, out_phase_cmd);
-}
-
-/**
- * @brief Retrieves the live tracking reference status of DPLL6 (PTP Engine).
- * 
- * @param ref_stat Output pointer populated with the upstream physical CLK channel index.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll6_ref_stat(uint8_t *ref_stat) {
-    return bf_ptp_get_dpll_ref_stat(6, ref_stat);
-}
-
-/**
- * @brief Retrieves the core state machine lock configuration of DPLL6.
- * 
- * @param status Output pointer populated with the raw state machine byte token.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll6_status(uint8_t *status) {
-    return bf_ptp_get_dpll_status(6, status);
-}
-
-/**
- * @brief Atomically extracts and decodes the 40-bit residual sub-ns phase offset error of DPLL6.
- * 
- * @param phase_ns Output pointer populated with the decoded absolute phase error in nanoseconds.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll6_phase_status(double *phase_ns) {
-    return bf_ptp_get_dpll_phase_status(6, phase_ns);
-}
-
-/**
- * @brief Retrieves the current operational configuration mode byte of DPLL6.
- * 
- * @param mode_val Output pointer populated with the raw operational mode control byte.
- * @return int 0 on success; -1 if the registry mapping lookup fails.
- */
-static inline
-int bf_ptp_get_dpll6_mode(uint8_t *mode_val) {
-    return bf_ptp_get_dpll_mode(6, mode_val);
 }
 
 /**
@@ -1253,7 +1217,9 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) 
 
     /* 1. HARDWARE SNAPSHOT LATCH: Instantly freeze the live running clock counters into shadow cache */
     snprintf(name_buf, sizeof(name_buf), "TOD_READ_%d.READ_TRIGGER", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) return -1;
+    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+        return -2;
+    }
     
     /* Write 0x01 to execute the hardware snapshot freeze */
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
@@ -1264,7 +1230,9 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) 
 
     /* 2. Reset coordinates back to the start of the locked 10-byte time array */
     snprintf(name_buf, sizeof(name_buf), "TOD_READ_%d.SUB_NANOSECONDS", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) return -1;
+    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+        return -3;
+    }
     uint8_t page = REGPAGE(regdesc);
     uint8_t addr = REGADDR(regdesc);
 
@@ -1272,7 +1240,7 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) 
     for (int offset = 0; offset < 10; offset++) {
         if (bf_pltfm_read_ptp_reg(page, addr + offset,
                 &burst_buf[offset]) < 0) {
-            return -3;
+            return -4;
         }
     }
 
@@ -1329,7 +1297,9 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns) {
 
     /* 4. Write all 10 bytes starting from SUB_NANOSECONDS using burst write */
     snprintf(name_buf, sizeof(name_buf), "TOD_WRITE_%d.SUB_NANOSECONDS", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) return -2;
+    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+        return -2;
+    }
 
     if (bf_pltfm_write_ptp_reg_burst(REGPAGE(regdesc), REGADDR(regdesc),
             burst_buf, 10) < 0) {
@@ -1338,7 +1308,9 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns) {
 
     /* 5. HARDWARE WRITE COMMIT TRIGGER: Commit the preloaded values into the active counters */
     snprintf(name_buf, sizeof(name_buf), "TOD_WRITE_%d.WRITE_TRIGGER", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) return -4;
+    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+        return -4;
+    }
 
     /* Write 0x01 (Absolute TOD, Immediate Trigger) */
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
