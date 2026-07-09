@@ -12,6 +12,15 @@
 
 #include <stdint.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+
+#define AFN_8A34004_MAX_DPLL    8
+#define AFN_8A34004_MAX_TOD     4
+
+#define MAX_DPLL_ENTRIES        (16 + 1)
+#define MAX_TOD_ENTRIES         (16 + 1)
 
 // Register Access Permissions
 typedef enum {
@@ -31,174 +40,196 @@ typedef struct {
 } ptp_reg_desc_t;
 #define __ptp_reg_desc_init_val__ { NULL, 0, 0, 0, 0, REG_PERM_R }
 
-// System-wide 8A34004 Functional Register Matrix Array Definition
-static const ptp_reg_desc_t g_8a34004_register_map[] = {    
-    /* ========================================================================= */
-    /* 1. GLOBAL HARDWARE REVISION & ID ENTITIES                                 */
-    /* ========================================================================= */
-    { "GENERAL_STATUS.PRODUCT_ID_L", 0xC0, 0x14, 0x1E, 1, REG_PERM_R  },
-    { "GENERAL_STATUS.PRODUCT_ID_H", 0xC0, 0x14, 0x1F, 1, REG_PERM_R  },
-    { "GENERAL_STATUS.RELEASE_MAJOR",0xC0, 0x14, 0x10, 1, REG_PERM_R  },
-    { "GENERAL_STATUS.RELEASE_MINOR",0xC0, 0x14, 0x11, 1, REG_PERM_R  },
-    { "HW_REVISION.REV_ID",          0x81, 0x80, 0x7A, 1, REG_PERM_R  }, // Product revision validation target
+// System-wide 8A34004 Functional Register Matrix Array Definition - General Registers
+static const ptp_reg_desc_t g_8a34004_register_map_general[] = {
+    /* GLOBAL HARDWARE REVISION & ID ENTITIES */
+    { "GENERAL_STATUS.PRODUCT_ID_L",    0xC0, 0x14, 0x1E,  1, REG_PERM_R  },
+    { "GENERAL_STATUS.PRODUCT_ID_H",    0xC0, 0x14, 0x1F,  1, REG_PERM_R  },
+    { "GENERAL_STATUS.RELEASE_MAJOR",   0xC0, 0x14, 0x10,  1, REG_PERM_R  },
+    { "GENERAL_STATUS.RELEASE_MINOR",   0xC0, 0x14, 0x11,  1, REG_PERM_R  },
+    { "HW_REVISION.REV_ID",             0x81, 0x80, 0x7A,  1, REG_PERM_R  }, // Product revision validation target
 
-    /* ========================================================================= */
-    /* 2. ASTERFUSION CUSTOM HOLDOVER PROTECTION FLAGGING                       */
-    /* ========================================================================= */
-    { "SCRATCH.SCRATCH3",            0xCF, 0x50, 0x0E, 1, REG_PERM_RW },
+    /* ASTERFUSION CUSTOM HOLDOVER PROTECTION FLAGGING */
+    { "SCRATCH.SCRATCH3",               0xCF, 0x50, 0x0E,  1, REG_PERM_RW },
 
-    /* ========================================================================= */
-    /* 3. PHYSICAL LINE SYNCE INPUT CLOCK ARRAYS ((M/N) FRACTION FORM)          */
-    /* ========================================================================= */
-    { "INPUT_0.IN_FREQ",             0xC1, 0xB0, 0x00, 8, REG_PERM_RW }, /* OBSCLK 0: 6B M + 2B N */
-    { "INPUT_1.IN_FREQ",             0xC1, 0xC0, 0x00, 8, REG_PERM_RW }, /* OBSCLK 1: 6B M + 2B N */
+    /* PHYSICAL LINE SYNCE INPUT CLOCK ARRAYS ((M/N) FRACTION FORM) */
+    { "INPUT_0.IN_FREQ",                0xC1, 0xB0, 0x00,  8, REG_PERM_RW }, /* OBSCLK 0: 6B M + 2B N */
+    { "INPUT_1.IN_FREQ",                0xC1, 0xC0, 0x00,  8, REG_PERM_RW }, /* OBSCLK 1: 6B M + 2B N */
 
-    /* ========================================================================= */
-    /* 4. DPLL_5 TIMING METRICS & MODE CONTROL PIPELINE (SyncE / FREQUENCY)      */
-    /* ========================================================================= */
-    { "STATUS.DPLL5_REF_STAT",       0xC0, 0x3C, 0x27,  1, REG_PERM_R  },
-    { "STATUS.DPLL5_STATUS",         0xC0, 0x3C, 0x1D,  1, REG_PERM_R  },
-    { "STATUS.DPLL5_PHASE_STATUS",   0xC0, 0x3C, 0x104, 5, REG_PERM_R  }, /* 40-bit Signed sub-ns error */
-    { "DPLL_5.DPLL_MODE",            0xC5, 0x00, 0x37,  1, REG_PERM_RW }, /* Verified Mode Switch register */
-    { "DPLL_PHASE_5",                0xC8, 0x2C, 0x00,  4, REG_PERM_W  }, /* 32-bit Signed Phase command */
-    { "DPLL_FREQ_5",                 0xC8, 0x60, 0x00, 6, REG_PERM_RW }, /* 42-bit Signed Frequency FFO [D0-D5] */
-    { "DPLL_PHASE.EXEC_TRIGGER",     0xC8, 0x00, 0x0F, 1, REG_PERM_W  }, /* Global Phase trigger gate (Forces Pull-in) */
-
-    /* ========================================================================= */
-    /* 5. DPLL_6 TIMING METRICS & MODE CONTROL PIPELINE (PTP / PHASE / ToD)      */
-    /* ========================================================================= */
-    { "STATUS.DPLL6_REF_STAT",       0xC0, 0x3C, 0x28,  1, REG_PERM_R  },
-    { "STATUS.DPLL6_STATUS",         0xC0, 0x3C, 0x1E,  1, REG_PERM_R  },
-    { "STATUS.DPLL6_PHASE_STATUS",   0xC0, 0x3C, 0x10C, 5, REG_PERM_R  }, /* 40-bit Signed PTP phase error */
-    { "DPLL_6.DPLL_MODE",            0xC5, 0x38, 0x37,  1, REG_PERM_RW }, /* Verified Mode Switch register */
-    { "DPLL_PHASE_6",                0xC8, 0x30, 0x00,  4, REG_PERM_W  }, /* 32-bit Signed Phase command */
-    { "DPLL_FREQ_6",                 0xC8, 0x68, 0x00, 6, REG_PERM_RW }, /* 42-bit Signed Frequency FFO [D0-D5] */
-    { "DPLL_FREQ.EXEC_TRIGGER",      0xC8, 0x00, 0x3F, 1, REG_PERM_W  }, /* Global Frequency trigger gate */
-
-    /* ========================================================================= */
-    /* 6. FULL 4-CHANNEL TIME-OF-DAY (ToD) HARDWARE LATCH & RECOVERY MATRIX     */
-    /* ========================================================================= */
-    
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 0: TOD_0 MODULE (Base: 0xCC00, Typically driven by SyncE DPLL5)  */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_READ_0.SUB_NANOSECONDS", 0xCC, 0x00, 0x00, 2, REG_PERM_R  }, /* Sub-ns hardware latch [D0-D1] */
-    { "TOD_READ_0.NANOSECONDS",     0xCC, 0x00, 0x02, 4, REG_PERM_R  }, /* Nanoseconds array [D2-D5] */
-    { "TOD_READ_0.SECONDS",         0xCC, 0x00, 0x06, 4, REG_PERM_R  }, /* Unix Epoch Absolute Seconds [D6-D9] */
-    { "TOD_READ_0.READ_TRIGGER",    0xCC, 0x00, 0x0A, 1, REG_PERM_W  }, /* Hardware Snapshot trigger gate */
-
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 1: TOD_1 MODULE (Base: 0xCC10, Typically driven by PTP DPLL6)    */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_READ_1.SUB_NANOSECONDS", 0xCC, 0x10, 0x00, 2, REG_PERM_R  }, /* Sub-ns hardware latch [D0-D1] */
-    { "TOD_READ_1.NANOSECONDS",     0xCC, 0x10, 0x02, 4, REG_PERM_R  }, /* Nanoseconds array [D2-D5] */
-    { "TOD_READ_1.SECONDS",         0xCC, 0x10, 0x06, 4, REG_PERM_R  }, /* Unix Epoch Absolute Seconds [D6-D9] */
-    { "TOD_READ_1.READ_TRIGGER",    0xCC, 0x10, 0x0A, 1, REG_PERM_W  }, /* Hardware Snapshot trigger gate */
-
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 2: TOD_2 MODULE (Base: 0xCC20, Optional Auxiliary Channel)     */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_READ_2.SUB_NANOSECONDS", 0xCC, 0x20, 0x00, 2, REG_PERM_R  }, /* Sub-ns hardware latch [D0-D1] */
-    { "TOD_READ_2.NANOSECONDS",     0xCC, 0x20, 0x02, 4, REG_PERM_R  }, /* Nanoseconds array [D2-D5] */
-    { "TOD_READ_2.SECONDS",         0xCC, 0x20, 0x06, 4, REG_PERM_R  }, /* Unix Epoch Absolute Seconds [D6-D9] */
-    { "TOD_READ_2.READ_TRIGGER",    0xCC, 0x20, 0x0A, 1, REG_PERM_W  }, /* Hardware Snapshot trigger gate */
-
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 3: TOD_3 MODULE (Base: 0xCC30, Optional Auxiliary Channel)     */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_READ_3.SUB_NANOSECONDS", 0xCC, 0x30, 0x00, 2, REG_PERM_R  }, /* Sub-ns hardware latch [D0-D1] */
-    { "TOD_READ_3.NANOSECONDS",     0xCC, 0x30, 0x02, 4, REG_PERM_R  }, /* Nanoseconds array [D2-D5] */
-    { "TOD_READ_3.SECONDS",         0xCC, 0x30, 0x06, 4, REG_PERM_R  }, /* Unix Epoch Absolute Seconds [D6-D9] */
-    { "TOD_READ_3.READ_TRIGGER",    0xCC, 0x30, 0x0A, 1, REG_PERM_W  }, /* Hardware Snapshot trigger gate */
-
-
-    /* ========================================================================= */
-    /* 7. FULL 4-CHANNEL TIME-OF-DAY (ToD) HARDWARE WRITE & CALIBRATION MATRIX  */
-    /* ========================================================================= */
-    
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 0: TOD_WRITE_0 MODULE (Base: 0xCB00, Maps to TOD_0 Absolute Time)*/
-    /* ------------------------------------------------------------------------- */
-    { "TOD_WRITE_0.SUB_NANOSECONDS", 0xCB, 0x00, 0x00, 2, REG_PERM_W  }, /* Sub-ns shadow preload [D0-D1] */
-    { "TOD_WRITE_0.NANOSECONDS",     0xCB, 0x00, 0x02, 4, REG_PERM_W  }, /* Nanoseconds preload array [D2-D5] */
-    { "TOD_WRITE_0.SECONDS",         0xCB, 0x00, 0x06, 4, REG_PERM_W  }, /* Unix Epoch Absolute Seconds [D6-D9] */
-    { "TOD_WRITE_0.WRITE_COUNTER",   0xCB, 0x00, 0x0C, 1, REG_PERM_R  }, /* Validates completed write counts */
-    { "TOD_WRITE_0.WRITE_TRIGGER",   0xCB, 0x00, 0x0F, 1, REG_PERM_W  }, /* Commit preloaded ToD into hardware */
-
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 1: TOD_WRITE_1 MODULE (Base: 0xCB10, Maps to TOD_1 / DPLL6 Axis) */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_WRITE_1.SUB_NANOSECONDS", 0xCB, 0x10, 0x00, 2, REG_PERM_W  }, 
-    { "TOD_WRITE_1.NANOSECONDS",     0xCB, 0x10, 0x02, 4, REG_PERM_W  }, 
-    { "TOD_WRITE_1.SECONDS",         0xCB, 0x10, 0x06, 4, REG_PERM_W  }, 
-    { "TOD_WRITE_1.WRITE_COUNTER",   0xCB, 0x10, 0x0C, 1, REG_PERM_R  }, 
-    { "TOD_WRITE_1.WRITE_TRIGGER",   0xCB, 0x10, 0x0F, 1, REG_PERM_W  },
-
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 2: TOD_WRITE_2 MODULE (Base: 0xCB20, Auxiliary Channel)          */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_WRITE_2.SUB_NANOSECONDS", 0xCB, 0x20, 0x00, 2, REG_PERM_W  }, 
-    { "TOD_WRITE_2.NANOSECONDS",     0xCB, 0x20, 0x02, 4, REG_PERM_W  }, 
-    { "TOD_WRITE_2.SECONDS",         0xCB, 0x20, 0x06, 4, REG_PERM_W  }, 
-    { "TOD_WRITE_2.WRITE_COUNTER",   0xCB, 0x20, 0x0C, 1, REG_PERM_R  }, 
-    { "TOD_WRITE_2.WRITE_TRIGGER",   0xCB, 0x20, 0x0F, 1, REG_PERM_W  },
-
-    /* ------------------------------------------------------------------------- */
-    /* INSTANCE 3: TOD_WRITE_3 MODULE (Base: 0xCB30, Auxiliary Channel)          */
-    /* ------------------------------------------------------------------------- */
-    { "TOD_WRITE_3.SUB_NANOSECONDS", 0xCB, 0x30, 0x00, 2, REG_PERM_W  }, 
-    { "TOD_WRITE_3.NANOSECONDS",     0xCB, 0x30, 0x02, 4, REG_PERM_W  }, 
-    { "TOD_WRITE_3.SECONDS",         0xCB, 0x30, 0x06, 4, REG_PERM_W  }, 
-    { "TOD_WRITE_3.WRITE_COUNTER",   0xCB, 0x30, 0x0C, 1, REG_PERM_R  }, 
-    { "TOD_WRITE_3.WRITE_TRIGGER",   0xCB, 0x30, 0x0F, 1, REG_PERM_W  },
-
-
-    /* ========================================================================= */
-    /* 8. CORRECTED 4-CHANNEL TIME-OF-DAY GLOBAL REGISTERS (TOD_n.TOD_CFG)      */
-    /* ========================================================================= */
-    { "TOD_0.TOD_CFG",               0xCB, 0x00, 0x00, 1, REG_PERM_RW }, /* Verified Throttle & Trigger for TOD_0 */
-    { "TOD_1.TOD_CFG",               0xCB, 0x10, 0x00, 1, REG_PERM_RW }, /* Verified Throttle & Trigger for TOD_1 (DPLL6) */
-    { "TOD_2.TOD_CFG",               0xCB, 0x20, 0x00, 1, REG_PERM_RW }, /* Verified Throttle & Trigger for TOD_2 */
-    { "TOD_3.TOD_CFG",               0xCB, 0x30, 0x00, 1, REG_PERM_RW }, /* Verified Throttle & Trigger for TOD_3 */
-
-    /* ========================================================================= */
-    /* 9. DPLL TOD SYNCHRONIZATION CONFIGURATION (DPLL_n.DPLL_TOD_SYNC_CFG)      */
-    /* ========================================================================= */
-    { "DPLL_0.DPLL_TOD_SYNC_CFG",    0xC3, 0xB0, 0x31,  1, REG_PERM_RW },
-    { "DPLL_1.DPLL_TOD_SYNC_CFG",    0xC4, 0x00, 0x31,  1, REG_PERM_RW },
-    { "DPLL_2.DPLL_TOD_SYNC_CFG",    0xC4, 0x38, 0x31,  1, REG_PERM_RW },
-    { "DPLL_3.DPLL_TOD_SYNC_CFG",    0xC4, 0x80, 0x31,  1, REG_PERM_RW },
-    { "DPLL_4.DPLL_TOD_SYNC_CFG",    0xC4, 0xB8, 0x31,  1, REG_PERM_RW },
-    { "DPLL_5.DPLL_TOD_SYNC_CFG",    0xC5, 0x00, 0x31,  1, REG_PERM_RW },
-    { "DPLL_6.DPLL_TOD_SYNC_CFG",    0xC5, 0x38, 0x31,  1, REG_PERM_RW },
-    { "DPLL_7.DPLL_TOD_SYNC_CFG",    0xC5, 0x80, 0x31,  1, REG_PERM_RW },
-
-    /* DPLL OPERATION MODE REGISTERS (DPLL_n.DPLL_MODE) */
-    { "DPLL_0.DPLL_MODE",            0xC3, 0xB0, 0x37,  1, REG_PERM_RW },
-    { "DPLL_1.DPLL_MODE",            0xC4, 0x00, 0x37,  1, REG_PERM_RW },
-    { "DPLL_2.DPLL_MODE",            0xC4, 0x38, 0x37,  1, REG_PERM_RW },
-    { "DPLL_3.DPLL_MODE",            0xC4, 0x80, 0x37,  1, REG_PERM_RW },
-    { "DPLL_4.DPLL_MODE",            0xC4, 0xB8, 0x37,  1, REG_PERM_RW },
-    { "DPLL_7.DPLL_MODE",            0xC5, 0x80, 0x37,  1, REG_PERM_RW },
-
-    /* DPLL GLOBAL STATUS REGISTERS (STATUS.DPLLn_STATUS) */
-    { "STATUS.DPLL0_STATUS",         0xC0, 0x3C, 0x18,  1, REG_PERM_R  },
-    { "STATUS.DPLL1_STATUS",         0xC0, 0x3C, 0x19,  1, REG_PERM_R  },
-    { "STATUS.DPLL2_STATUS",         0xC0, 0x3C, 0x1A,  1, REG_PERM_R  },
-    { "STATUS.DPLL3_STATUS",         0xC0, 0x3C, 0x1B,  1, REG_PERM_R  },
-    { "STATUS.DPLL4_STATUS",         0xC0, 0x3C, 0x1C,  1, REG_PERM_R  },
-    { "STATUS.DPLL7_STATUS",         0xC0, 0x3C, 0x1F,  1, REG_PERM_R  },
-
-    /* DPLL REFERENCE STATUS REGISTERS (STATUS.DPLLn_REF_STAT) */
-    { "STATUS.DPLL0_REF_STAT",       0xC0, 0x3C, 0x22,  1, REG_PERM_R  },
-    { "STATUS.DPLL1_REF_STAT",       0xC0, 0x3C, 0x23,  1, REG_PERM_R  },
-    { "STATUS.DPLL2_REF_STAT",       0xC0, 0x3C, 0x24,  1, REG_PERM_R  },
-    { "STATUS.DPLL3_REF_STAT",       0xC0, 0x3C, 0x25,  1, REG_PERM_R  },
-    { "STATUS.DPLL4_REF_STAT",       0xC0, 0x3C, 0x26,  1, REG_PERM_R  },
-    { "STATUS.DPLL7_REF_STAT",       0xC0, 0x3C, 0x29,  1, REG_PERM_R  },
+    { "DPLL_PHASE.EXEC_TRIGGER",        0xC8, 0x00, 0x0F,  1, REG_PERM_W  }, /* Global Phase trigger gate (Forces Pull-in) */
+    { "DPLL_FREQ.EXEC_TRIGGER",         0xC8, 0x00, 0x3F,  1, REG_PERM_W  }, /* Global Frequency trigger gate */
+    __ptp_reg_desc_init_val__
 };
 
-#define BF_8A34004_REG_MAP_SIZE (sizeof(g_8a34004_register_map) / sizeof(ptp_reg_desc_t))
+// System-wide 8A34004 Functional Register Matrix Array Definition - DPLL-Index-Based Registers
+// End with NULL
+static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MAX_DPLL_ENTRIES] = {
+    /* DPLL 0 */
+    {
+        { "DPLL_FREQ_0",                    0xC8, 0x38, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_0",                   0xC8, 0x18, 0x00, 4, REG_PERM_W  },
+        { "DPLL_0.DPLL_TOD_SYNC_CFG",       0xC3, 0xB0, 0x31, 1, REG_PERM_RW },
+        { "DPLL_0.DPLL_COMBO_SLAVE_CFG_0",  0xC3, 0xB0, 0x32, 1, REG_PERM_RW },
+        { "DPLL_0.DPLL_COMBO_SLAVE_CFG_1",  0xC3, 0xB0, 0x33, 1, REG_PERM_RW },
+        { "DPLL_0.DPLL_MODE",               0xC3, 0xB0, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL0_STATUS",            0xC0, 0x3C, 0x18, 1, REG_PERM_R  },
+        { "STATUS.DPLL0_REF_STAT",          0xC0, 0x3C, 0x22, 1, REG_PERM_R  },
+        { "STATUS.DPLL0_PHASE_STATUS",      0xC0, 0x3C, 0xDC, 5, REG_PERM_R  },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 1 */
+    {
+        { "DPLL_FREQ_1",                    0xC8, 0x40, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_1",                   0xC8, 0x1C, 0x00, 4, REG_PERM_W  },
+        { "DPLL_1.DPLL_TOD_SYNC_CFG",       0xC4, 0x00, 0x31, 1, REG_PERM_RW },
+        { "DPLL_1.DPLL_COMBO_SLAVE_CFG_0",  0xC4, 0x00, 0x32, 1, REG_PERM_RW },
+        { "DPLL_1.DPLL_COMBO_SLAVE_CFG_1",  0xC4, 0x00, 0x33, 1, REG_PERM_RW },
+        { "DPLL_1.DPLL_MODE",               0xC4, 0x00, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL1_STATUS",            0xC0, 0x3C, 0x19, 1, REG_PERM_R  },
+        { "STATUS.DPLL1_REF_STAT",          0xC0, 0x3C, 0x23, 1, REG_PERM_R  },
+        { "STATUS.DPLL1_PHASE_STATUS",      0xC0, 0x3C, 0xE4, 5, REG_PERM_R  },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 2 */
+    {
+        { "DPLL_FREQ_2",                    0xC8, 0x48, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_2",                   0xC8, 0x20, 0x00, 4, REG_PERM_W  },
+        { "DPLL_2.DPLL_TOD_SYNC_CFG",       0xC4, 0x38, 0x31, 1, REG_PERM_RW },
+        { "DPLL_2.DPLL_COMBO_SLAVE_CFG_0",  0xC4, 0x38, 0x32, 1, REG_PERM_RW },
+        { "DPLL_2.DPLL_COMBO_SLAVE_CFG_1",  0xC4, 0x38, 0x33, 1, REG_PERM_RW },
+        { "DPLL_2.DPLL_MODE",               0xC4, 0x38, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL2_STATUS",            0xC0, 0x3C, 0x1A, 1, REG_PERM_R  },
+        { "STATUS.DPLL2_REF_STAT",          0xC0, 0x3C, 0x24, 1, REG_PERM_R  },
+        { "STATUS.DPLL2_PHASE_STATUS",      0xC0, 0x3C, 0xEC, 5, REG_PERM_R  },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 3 */
+    {
+        { "DPLL_FREQ_3",                    0xC8, 0x50, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_3",                   0xC8, 0x24, 0x00, 4, REG_PERM_W  },
+        { "DPLL_3.DPLL_TOD_SYNC_CFG",       0xC4, 0x80, 0x31, 1, REG_PERM_RW },
+        { "DPLL_3.DPLL_COMBO_SLAVE_CFG_0",  0xC4, 0x80, 0x32, 1, REG_PERM_RW },
+        { "DPLL_3.DPLL_COMBO_SLAVE_CFG_1",  0xC4, 0x80, 0x33, 1, REG_PERM_RW },
+        { "DPLL_3.DPLL_MODE",               0xC4, 0x80, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL3_STATUS",            0xC0, 0x3C, 0x1B, 1, REG_PERM_R  },
+        { "STATUS.DPLL3_REF_STAT",          0xC0, 0x3C, 0x25, 1, REG_PERM_R  },
+        { "STATUS.DPLL3_PHASE_STATUS",      0xC0, 0x3C, 0xF4, 5, REG_PERM_R  },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 4 */
+    {
+        { "DPLL_FREQ_4",                    0xC8, 0x58, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_4",                   0xC8, 0x28, 0x00, 4, REG_PERM_W  },
+        { "DPLL_4.DPLL_TOD_SYNC_CFG",       0xC4, 0xB8, 0x31, 1, REG_PERM_RW },
+        { "DPLL_4.DPLL_COMBO_SLAVE_CFG_0",  0xC4, 0xB8, 0x32, 1, REG_PERM_RW },
+        { "DPLL_4.DPLL_COMBO_SLAVE_CFG_1",  0xC4, 0xB8, 0x33, 1, REG_PERM_RW },
+        { "DPLL_4.DPLL_MODE",               0xC4, 0xB8, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL4_STATUS",            0xC0, 0x3C, 0x1C, 1, REG_PERM_R  },
+        { "STATUS.DPLL4_REF_STAT",          0xC0, 0x3C, 0x26, 1, REG_PERM_R  },
+        { "STATUS.DPLL4_PHASE_STATUS",      0xC0, 0x3C, 0xFC, 5, REG_PERM_R  },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 5 */
+    {
+        { "DPLL_FREQ_5",                    0xC8, 0x60, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_5",                   0xC8, 0x2C, 0x00, 4, REG_PERM_W  },
+        { "DPLL_5.DPLL_TOD_SYNC_CFG",       0xC5, 0x00, 0x31, 1, REG_PERM_RW },
+        { "DPLL_5.DPLL_COMBO_SLAVE_CFG_0",  0xC5, 0x00, 0x32, 1, REG_PERM_RW },
+        { "DPLL_5.DPLL_COMBO_SLAVE_CFG_1",  0xC5, 0x00, 0x33, 1, REG_PERM_RW },
+        { "DPLL_5.DPLL_MODE",               0xC5, 0x00, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL5_STATUS",            0xC0, 0x3C, 0x1D, 1, REG_PERM_R  },
+        { "STATUS.DPLL5_REF_STAT",          0xC0, 0x3C, 0x27, 1, REG_PERM_R  },
+        { "STATUS.DPLL5_PHASE_STATUS",      0xC0, 0x3C, 0x104, 5, REG_PERM_R },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 6 */
+    {
+        { "DPLL_FREQ_6",                    0xC8, 0x68, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_6",                   0xC8, 0x30, 0x00, 4, REG_PERM_W  },
+        { "DPLL_6.DPLL_TOD_SYNC_CFG",       0xC5, 0x38, 0x31, 1, REG_PERM_RW },
+        { "DPLL_6.DPLL_COMBO_SLAVE_CFG_0",  0xC5, 0x38, 0x32, 1, REG_PERM_RW },
+        { "DPLL_6.DPLL_COMBO_SLAVE_CFG_1",  0xC5, 0x38, 0x33, 1, REG_PERM_RW },
+        { "DPLL_6.DPLL_MODE",               0xC5, 0x38, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL6_STATUS",            0xC0, 0x3C, 0x1E, 1, REG_PERM_R  },
+        { "STATUS.DPLL6_REF_STAT",          0xC0, 0x3C, 0x28, 1, REG_PERM_R  },
+        { "STATUS.DPLL6_PHASE_STATUS",      0xC0, 0x3C, 0x10C, 5, REG_PERM_R },
+        __ptp_reg_desc_init_val__
+    },
+    /* DPLL 7 */
+    {
+        { "DPLL_FREQ_7",                    0xC8, 0x70, 0x00, 6, REG_PERM_RW },
+        { "DPLL_PHASE_7",                   0xC8, 0x34, 0x00, 4, REG_PERM_W  },
+        { "DPLL_7.DPLL_TOD_SYNC_CFG",       0xC5, 0x80, 0x31, 1, REG_PERM_RW },
+        { "DPLL_7.DPLL_COMBO_SLAVE_CFG_0",  0xC5, 0x80, 0x32, 1, REG_PERM_RW },
+        { "DPLL_7.DPLL_COMBO_SLAVE_CFG_1",  0xC5, 0x80, 0x33, 1, REG_PERM_RW },
+        { "DPLL_7.DPLL_MODE",               0xC5, 0x80, 0x37, 1, REG_PERM_RW },
+        { "STATUS.DPLL7_STATUS",            0xC0, 0x3C, 0x1F, 1, REG_PERM_R  },
+        { "STATUS.DPLL7_REF_STAT",          0xC0, 0x3C, 0x29, 1, REG_PERM_R  },
+        { "STATUS.DPLL7_PHASE_STATUS",      0xC0, 0x3C, 0x114, 5, REG_PERM_R },
+        __ptp_reg_desc_init_val__
+    }
+};
+
+static const ptp_reg_desc_t g_8a34004_register_map_tod[AFN_8A34004_MAX_TOD][MAX_TOD_ENTRIES] = {
+    /* TOD 0 */
+    {
+        { "TOD_READ_0.SUB_NANOSECONDS",     0xCC, 0x00, 0x00,  2, REG_PERM_R  },
+        { "TOD_READ_0.NANOSECONDS",         0xCC, 0x00, 0x02,  4, REG_PERM_R  },
+        { "TOD_READ_0.SECONDS",             0xCC, 0x00, 0x06,  4, REG_PERM_R  },
+        { "TOD_READ_0.READ_TRIGGER",        0xCC, 0x00, 0x0A,  1, REG_PERM_W  },
+        { "TOD_WRITE_0.SUB_NANOSECONDS",    0xCB, 0x00, 0x00,  2, REG_PERM_W  },
+        { "TOD_WRITE_0.NANOSECONDS",        0xCB, 0x00, 0x02,  4, REG_PERM_W  },
+        { "TOD_WRITE_0.SECONDS",            0xCB, 0x00, 0x06,  4, REG_PERM_W  },
+        { "TOD_WRITE_0.WRITE_COUNTER",      0xCB, 0x00, 0x0C,  1, REG_PERM_R  },
+        { "TOD_WRITE_0.WRITE_TRIGGER",      0xCB, 0x00, 0x0F,  1, REG_PERM_W  },
+        { "TOD_0.TOD_CFG",                  0xCB, 0x00, 0x00,  1, REG_PERM_RW },
+        __ptp_reg_desc_init_val__
+    },
+    /* TOD 1 */
+    {
+        { "TOD_READ_1.SUB_NANOSECONDS",     0xCC, 0x10, 0x00,  2, REG_PERM_R  },
+        { "TOD_READ_1.NANOSECONDS",         0xCC, 0x10, 0x02,  4, REG_PERM_R  },
+        { "TOD_READ_1.SECONDS",             0xCC, 0x10, 0x06,  4, REG_PERM_R  },
+        { "TOD_READ_1.READ_TRIGGER",        0xCC, 0x10, 0x0A,  1, REG_PERM_W  },
+        { "TOD_WRITE_1.SUB_NANOSECONDS",    0xCB, 0x10, 0x00,  2, REG_PERM_W  },
+        { "TOD_WRITE_1.NANOSECONDS",        0xCB, 0x10, 0x02,  4, REG_PERM_W  },
+        { "TOD_WRITE_1.SECONDS",            0xCB, 0x10, 0x06,  4, REG_PERM_W  },
+        { "TOD_WRITE_1.WRITE_COUNTER",      0xCB, 0x10, 0x0C,  1, REG_PERM_R  },
+        { "TOD_WRITE_1.WRITE_TRIGGER",      0xCB, 0x10, 0x0F,  1, REG_PERM_W  },
+        { "TOD_1.TOD_CFG",                  0xCB, 0x10, 0x00,  1, REG_PERM_RW },
+        __ptp_reg_desc_init_val__
+    },
+    /* TOD 2 */
+    {
+        { "TOD_READ_2.SUB_NANOSECONDS",     0xCC, 0x20, 0x00,  2, REG_PERM_R  },
+        { "TOD_READ_2.NANOSECONDS",         0xCC, 0x20, 0x02,  4, REG_PERM_R  },
+        { "TOD_READ_2.SECONDS",             0xCC, 0x20, 0x06,  4, REG_PERM_R  },
+        { "TOD_READ_2.READ_TRIGGER",        0xCC, 0x20, 0x0A,  1, REG_PERM_W  },
+        { "TOD_WRITE_2.SUB_NANOSECONDS",    0xCB, 0x20, 0x00,  2, REG_PERM_W  },
+        { "TOD_WRITE_2.NANOSECONDS",        0xCB, 0x20, 0x02,  4, REG_PERM_W  },
+        { "TOD_WRITE_2.SECONDS",            0xCB, 0x20, 0x06,  4, REG_PERM_W  },
+        { "TOD_WRITE_2.WRITE_COUNTER",      0xCB, 0x20, 0x0C,  1, REG_PERM_R  },
+        { "TOD_WRITE_2.WRITE_TRIGGER",      0xCB, 0x20, 0x0F,  1, REG_PERM_W  },
+        { "TOD_2.TOD_CFG",                  0xCB, 0x20, 0x00,  1, REG_PERM_RW },
+        __ptp_reg_desc_init_val__
+    },
+    /* TOD 3 */
+    {
+        { "TOD_READ_3.SUB_NANOSECONDS",     0xCC, 0x30, 0x00,  2, REG_PERM_R  },
+        { "TOD_READ_3.NANOSECONDS",         0xCC, 0x30, 0x02,  4, REG_PERM_R  },
+        { "TOD_READ_3.SECONDS",             0xCC, 0x30, 0x06,  4, REG_PERM_R  },
+        { "TOD_READ_3.READ_TRIGGER",        0xCC, 0x30, 0x0A,  1, REG_PERM_W  },
+        { "TOD_WRITE_3.SUB_NANOSECONDS",    0xCB, 0x30, 0x00,  2, REG_PERM_W  },
+        { "TOD_WRITE_3.NANOSECONDS",        0xCB, 0x30, 0x02,  4, REG_PERM_W  },
+        { "TOD_WRITE_3.SECONDS",            0xCB, 0x30, 0x06,  4, REG_PERM_W  },
+        { "TOD_WRITE_3.WRITE_COUNTER",      0xCB, 0x30, 0x0C,  1, REG_PERM_R  },
+        { "TOD_WRITE_3.WRITE_TRIGGER",      0xCB, 0x30, 0x0F,  1, REG_PERM_W  },
+        { "TOD_3.TOD_CFG",                  0xCB, 0x30, 0x00,  1, REG_PERM_RW },
+        __ptp_reg_desc_init_val__
+    }
+};
+
+#define BF_8A34004_REG_MAP_GENERAL_SIZE (sizeof(g_8a34004_register_map_general) / sizeof(ptp_reg_desc_t))
 #define REGADDR(regdesc) ((regdesc).base + (regdesc).offset)
 #define REGPAGE(regdesc) ((regdesc).page)
 #define REGWIDB(regdesc) ((regdesc).width_bytes)
@@ -473,25 +504,66 @@ double decode_obsclk_freq(int input_index, uint8_t *reg_bytes) {
     return freq_hz;
 }
 
-/**
- * @brief Resolves paged timing register specifications from a descriptor string name.
- * 
- * @param name The target structural register path string (e.g., "STATUS.DPLL5_PHASE_STATUS")
- * @param out_desc Output pointer populated with the verified hardware properties.
- * @return int 0 if matched; -1 if the requested string is unknown.
- */
+static inline
+int bf_ptp_lookup_register_general(const char *name, ptp_reg_desc_t *out_desc) {
+    if (!name || !out_desc) return -1;
+
+    for (size_t i = 0; i < BF_8A34004_REG_MAP_GENERAL_SIZE; i++) {
+        if (strcmp(g_8a34004_register_map_general[i].name, name) == 0) {
+            *out_desc = g_8a34004_register_map_general[i];
+            return 0; // Target found
+        }
+    }
+    return -1;
+}
+
+static inline
+int bf_ptp_lookup_register_dpll(int dpll_index, const char *name, ptp_reg_desc_t *out_desc) {
+    if (dpll_index > 7 || !name || !out_desc) return -1;
+
+    for (size_t i = 0; i < MAX_DPLL_ENTRIES; i++) {
+        const ptp_reg_desc_t *reg = &g_8a34004_register_map_dpll[dpll_index][i];
+        if (reg->name == NULL)
+            break;
+        if (strcmp(reg->name, name) == 0) {
+            *out_desc = *reg;
+            return 0; // Target found
+        }
+    }
+    return -1;
+}
+
+static inline
+int bf_ptp_lookup_register_tod(int tod_index, const char *name, ptp_reg_desc_t *out_desc) {
+    if (tod_index > 3 || !name || !out_desc) return -1;
+
+    for (size_t i = 0; i < MAX_TOD_ENTRIES; i++) {
+        const ptp_reg_desc_t *reg = &g_8a34004_register_map_tod[tod_index][i];
+        if (reg->name == NULL)
+            break;
+        if (strcmp(reg->name, name) == 0) {
+            *out_desc = *reg;
+            return 0; // Target found
+        }
+    }
+    return -1;
+}
+
 static inline
 int bf_ptp_lookup_register(const char *name, ptp_reg_desc_t *out_desc) {
     if (!name || !out_desc) return -1;
 
-    for (size_t i = 0; i < BF_8A34004_REG_MAP_SIZE; i++) {
-        if (strcmp(g_8a34004_register_map[i].name, name) == 0) {
-            *out_desc = g_8a34004_register_map[i];
-            return 0; // Target found
-        }
+    if (bf_ptp_lookup_register_general(name, out_desc) == 0) return 0;
+
+    for (int dpll_index = 0; dpll_index < AFN_8A34004_MAX_DPLL; dpll_index++) {
+        if (bf_ptp_lookup_register_dpll(dpll_index, name, out_desc) == 0) return 0;
     }
 
-    return -1; // Unregistered address identifier
+    for (int tod_index = 0; tod_index < AFN_8A34004_MAX_TOD; tod_index++) {
+        if (bf_ptp_lookup_register_tod(tod_index, name, out_desc) == 0) return 0;
+    }
+
+    return -1;
 }
 
 /**
@@ -505,7 +577,7 @@ int bf_ptp_get_product_id(uint16_t *product_id) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
 
-    if (bf_ptp_lookup_register("GENERAL_STATUS.PRODUCT_ID_L",
+    if (bf_ptp_lookup_register_general("GENERAL_STATUS.PRODUCT_ID_L",
             &regdesc)) {
         return -1;
     }
@@ -516,7 +588,7 @@ int bf_ptp_get_product_id(uint16_t *product_id) {
     }
     *product_id = reg_byte;
 
-    if (bf_ptp_lookup_register("GENERAL_STATUS.PRODUCT_ID_H",
+    if (bf_ptp_lookup_register_general("GENERAL_STATUS.PRODUCT_ID_H",
             &regdesc)) {
         return -3;
     }
@@ -548,7 +620,7 @@ int bf_ptp_get_release_no(uint8_t *major, uint8_t *minor, uint8_t *rev) {
         return -1;
     }
 
-    if (bf_ptp_lookup_register("GENERAL_STATUS.RELEASE_MAJOR",
+    if (bf_ptp_lookup_register_general("GENERAL_STATUS.RELEASE_MAJOR",
             &regdesc)) {
         return -2;
     }
@@ -557,7 +629,7 @@ int bf_ptp_get_release_no(uint8_t *major, uint8_t *minor, uint8_t *rev) {
         return -3;
     }
 
-    if (bf_ptp_lookup_register("GENERAL_STATUS.RELEASE_MINOR",
+    if (bf_ptp_lookup_register_general("GENERAL_STATUS.RELEASE_MINOR",
             &regdesc)) {
         return -4;
     }
@@ -590,7 +662,7 @@ int bf_ptp_get_input_freq(int input_index, double *freq) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "INPUT_%d.IN_FREQ", input_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_general(name_buf, &regdesc)) {
         return -2;
     }
 
@@ -607,21 +679,21 @@ int bf_ptp_get_input_freq(int input_index, double *freq) {
 
 /**
  * @brief Sets the 32-bit signed phase command increment for DPLL5 or DPLL6.
- * @param dpll_idx Target dpll block index (Pass 5 or 6).
+ * @param dpll_index Target dpll block index (Pass 5 or 6).
  * @param phase_cmd Signed 32-bit phase target value.
  * @return int 0 on success; negative on hardware fault.
  */
 static inline
-int bf_ptp_set_dpll_phase(uint8_t dpll_idx, int32_t phase_cmd) {
+int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase_cmd) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[4];
     char name_buf[32];
 
-    if (dpll_idx != 5 && dpll_idx != 6) {
+    if (dpll_index != 5 && dpll_index != 6) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "DPLL_PHASE_%d", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_PHASE_%d", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -644,21 +716,21 @@ int bf_ptp_set_dpll_phase(uint8_t dpll_idx, int32_t phase_cmd) {
 /**
  * @brief Gets the 32-bit signed phase command increment currently cached or running in DPLL5 or DPLL6.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param out_phase_cmd Output pointer populated with the running 32-bit signed phase command.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_phase(uint8_t dpll_idx, int32_t *out_phase_cmd) {
+int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase_cmd) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[4];
     char name_buf[32];
 
-    if ((dpll_idx != 5 && dpll_idx != 6) || !out_phase_cmd) {
+    if ((dpll_index != 5 && dpll_index != 6) || !out_phase_cmd) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "DPLL_PHASE_%d", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_PHASE_%d", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -678,21 +750,21 @@ int bf_ptp_get_dpll_phase(uint8_t dpll_idx, int32_t *out_phase_cmd) {
 /**
  * @brief Atomically extracts and decodes the 40-bit residual sub-ns phase offset error of DPLL5 or DPLL6.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param phase_ns Output pointer populated with the decoded absolute phase error in nanoseconds.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_phase_status(uint8_t dpll_idx, double *phase_ns) {
+int bf_ptp_get_dpll_phase_status(uint8_t dpll_index, double *phase_ns) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[BUFSIZ] = { 0 };
     char name_buf[32];
 
-    if (dpll_idx > 7 || !phase_ns) {
+    if (dpll_index > 7 || !phase_ns) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_PHASE_STATUS", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_PHASE_STATUS", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -703,7 +775,7 @@ int bf_ptp_get_dpll_phase_status(uint8_t dpll_idx, double *phase_ns) {
             return -3;
         }
     }
-    *phase_ns = dpll_phase_status(dpll_idx, burst_buf);
+    *phase_ns = dpll_phase_status(dpll_index, burst_buf);
 
     return 0;
 }
@@ -712,22 +784,22 @@ int bf_ptp_get_dpll_phase_status(uint8_t dpll_idx, double *phase_ns) {
  * @brief Sets the 42-bit signed frequency micro-adjustment (FFO) for DPLL5 or DPLL6.
  *        Strictly implements Read-Modify-Write to safeguard the D5 [7:2] Reserved bits.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param freq_ffo_q53 Signed 42-bit frequency offset in units of 2^-53 (Q53 format).
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_set_dpll_freq(uint8_t dpll_idx, int64_t freq_ffo_q53) {
+int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[6];
     char name_buf[32];
     uint8_t original_d5 = 0;
 
-    if (dpll_idx != 5 && dpll_idx != 6) {
+    if (dpll_index != 5 && dpll_index != 6) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "DPLL_FREQ_%d", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_FREQ_%d", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -760,21 +832,21 @@ int bf_ptp_set_dpll_freq(uint8_t dpll_idx, int64_t freq_ffo_q53) {
 /**
  * @brief Gets the 42-bit signed frequency offset currently configured in DPLL5 or DPLL6.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param out_freq_ffo_q53 Output pointer populated with the signed 42-bit frequency offset in Q53 format.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_freq(uint8_t dpll_idx, int64_t *out_freq_ffo_q53) {
+int bf_ptp_get_dpll_freq(uint8_t dpll_index, int64_t *out_freq_ffo_q53) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[6];
     char name_buf[32];
 
-    if ((dpll_idx != 5 && dpll_idx != 6) || !out_freq_ffo_q53) {
+    if ((dpll_index != 5 && dpll_index != 6) || !out_freq_ffo_q53) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "DPLL_FREQ_%d", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_FREQ_%d", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -799,21 +871,21 @@ int bf_ptp_get_dpll_freq(uint8_t dpll_idx, int64_t *out_freq_ffo_q53) {
 /**
  * @brief Retrieves the current operational configuration mode byte of DPLL5 or DPLL6.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param mode_val Output pointer populated with the raw operational mode control byte.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_mode(uint8_t dpll_idx, uint8_t *mode_val) {
+int bf_ptp_get_dpll_mode(uint8_t dpll_index, uint8_t *mode_val) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
     char name_buf[32];
 
-    if (dpll_idx > 7 || !mode_val) {
+    if (dpll_index > 7 || !mode_val) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_MODE", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_MODE", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -828,21 +900,21 @@ int bf_ptp_get_dpll_mode(uint8_t dpll_idx, uint8_t *mode_val) {
 /**
  * @brief Retrieves the live tracking reference status of DPLL5 or DPLL6.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param ref_stat Output pointer populated with the upstream physical CLK channel index.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_ref_stat(uint8_t dpll_idx, uint8_t *ref_stat) {
+int bf_ptp_get_dpll_ref_stat(uint8_t dpll_index, uint8_t *ref_stat) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
     char name_buf[32];
 
-    if (dpll_idx > 7 || !ref_stat) {
+    if (dpll_index > 7 || !ref_stat) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_REF_STAT", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_REF_STAT", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -857,21 +929,21 @@ int bf_ptp_get_dpll_ref_stat(uint8_t dpll_idx, uint8_t *ref_stat) {
 /**
  * @brief Retrieves the core state machine lock configuration of DPLL5 or DPLL6.
  * 
- * @param dpll_idx Target DPLL block index (Pass 5 or 6).
+ * @param dpll_index Target DPLL block index (Pass 5 or 6).
  * @param status Output pointer populated with the raw state machine byte token.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_status(uint8_t dpll_idx, uint8_t *status) {
+int bf_ptp_get_dpll_status(uint8_t dpll_index, uint8_t *status) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
     char name_buf[32];
 
-    if (dpll_idx > 7 || !status) {
+    if (dpll_index > 7 || !status) {
         return -1;
     }
-    snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_STATUS", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "STATUS.DPLL%d_STATUS", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -887,23 +959,23 @@ int bf_ptp_get_dpll_status(uint8_t dpll_idx, uint8_t *status) {
 /**
  * @brief Retrieves the TOD synchronization configuration for DPLL_n.
  * 
- * @param dpll_idx Target DPLL block index (Valid range: 0 to 7).
+ * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
  * @param out_enabled Output pointer populated with the ToD sync enable status.
  * @param out_tod_source Output pointer populated with the ToD source index (0 to 3).
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_tod_sync_cfg(uint8_t dpll_idx, bool *out_enabled, uint8_t *out_tod_source) {
+int bf_ptp_get_dpll_tod_sync_cfg(uint8_t dpll_index, bool *out_enabled, uint8_t *out_tod_source) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
     char name_buf[64] = { 0 };
 
-    if (dpll_idx > 7 || !out_enabled || !out_tod_source) {
+    if (dpll_index > 7 || !out_enabled || !out_tod_source) {
         return -1;
     }
 
-    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_TOD_SYNC_CFG", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_TOD_SYNC_CFG", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -922,24 +994,24 @@ int bf_ptp_get_dpll_tod_sync_cfg(uint8_t dpll_idx, bool *out_enabled, uint8_t *o
  * @brief Modifies the TOD synchronization configuration for DPLL_n.
  *        Enforces Read-Modify-Write to protect RESERVED[7:3] bits.
  * 
- * @param dpll_idx Target DPLL block index (Valid range: 0 to 7).
+ * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
  * @param enable_sync Enables ToD synchronization.
  * @param tod_source The ToD source index to synchronize to (0 to 3).
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_idx, bool enable_sync, uint8_t tod_source) {
+int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_index, bool enable_sync, uint8_t tod_source) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t original_val = 0;
     uint8_t updated_val = 0;
     char name_buf[64] = { 0 };
 
-    if (dpll_idx > 7 || tod_source > 3) {
+    if (dpll_index > 7 || tod_source > 3) {
         return -1;
     }
 
-    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_TOD_SYNC_CFG", dpll_idx);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_TOD_SYNC_CFG", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -967,6 +1039,178 @@ int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_idx, bool enable_sync, uint8_t tod
 }
 
 /**
+ * @brief Retrieves the Combo Mode Slave Primary Source configuration for a given DPLL.
+ * 
+ * @param dpll_index DPLL index (0 to 7).
+ * @param out_pri_en Output pointer populated with the primary source enablement state.
+ * @param out_pri_filt Output pointer populated with the filtered DCO configuration state.
+ * @param out_pri_src_id Output pointer populated with the primary combo source DPLL index.
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_get_dpll_combo_slave_pri_cfg(uint8_t dpll_index, bool *out_pri_en, bool *out_pri_filt, uint8_t *out_pri_src_id) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t reg_byte = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || !out_pri_en || !out_pri_filt || !out_pri_src_id) {
+        return -1;
+    }
+
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_COMBO_SLAVE_CFG_0", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &reg_byte) < 0) {
+        return -3;
+    }
+
+    *out_pri_en = (reg_byte & 0x20) ? true : false;
+    *out_pri_filt = (reg_byte & 0x10) ? true : false;
+    *out_pri_src_id = reg_byte & 0x0F;
+
+    return 0;
+}
+
+/**
+ * @brief Configures the Combo Mode Slave Primary Source for a given DPLL.
+ *        Enforces Read-Modify-Write to protect RESERVED[7:6] bits.
+ * 
+ * @param dpll_index Target DPLL block index (0 to 7).
+ * @param pri_en Enable the primary combo source.
+ * @param pri_filt Select filtered configuration for the primary combo source.
+ * @param pri_src_id Primary combo source DPLL index (0 to 7).
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_set_dpll_combo_slave_pri_cfg(uint8_t dpll_index, bool pri_en, bool pri_filt, uint8_t pri_src_id) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t original_val = 0;
+    uint8_t updated_val = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || pri_src_id > 7) {
+        return -1;
+    }
+
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_COMBO_SLAVE_CFG_0", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &original_val) < 0) {
+        return -3;
+    }
+
+    /* Modify: keep [7:6] RESERVED bits untouched */
+    updated_val = original_val & 0xC0;
+    if (pri_en) {
+        updated_val |= 0x20;
+    }
+    if (pri_filt) {
+        updated_val |= 0x10;
+    }
+    updated_val |= (pri_src_id & 0x0F);
+
+    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            updated_val) < 0) {
+        return -4;
+    }
+
+    usleep(200); /* settle stall */
+    return 0;
+}
+
+/**
+ * @brief Retrieves the Combo Mode Slave Secondary Source configuration for a given DPLL.
+ * 
+ * @param dpll_index DPLL index (0 to 7).
+ * @param out_sec_en Output pointer populated with the secondary source enablement state.
+ * @param out_sec_filt Output pointer populated with the filtered configuration state.
+ * @param out_sec_src_id Output pointer populated with the secondary combo source DPLL index.
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_get_dpll_combo_slave_sec_cfg(uint8_t dpll_index, bool *out_sec_en, bool *out_sec_filt, uint8_t *out_sec_src_id) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t reg_byte = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || !out_sec_en || !out_sec_filt || !out_sec_src_id) {
+        return -1;
+    }
+
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_COMBO_SLAVE_CFG_1", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &reg_byte) < 0) {
+        return -3;
+    }
+
+    *out_sec_en = (reg_byte & 0x20) ? true : false;
+    *out_sec_filt = (reg_byte & 0x10) ? true : false;
+    *out_sec_src_id = reg_byte & 0x0F;
+
+    return 0;
+}
+
+/**
+ * @brief Configures the Combo Mode Slave Secondary Source for a given DPLL.
+ *        Enforces Read-Modify-Write to protect RESERVED[7:6] bits.
+ * 
+ * @param dpll_index Target DPLL block index (0 to 7).
+ * @param sec_en Enable the secondary combo source.
+ * @param sec_filt Select filtered configuration for the secondary combo source.
+ * @param sec_src_id Secondary combo source DPLL index (0 to 7).
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_set_dpll_combo_slave_sec_cfg(uint8_t dpll_index, bool sec_en, bool sec_filt, uint8_t sec_src_id) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t original_val = 0;
+    uint8_t updated_val = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || sec_src_id > 7) {
+        return -1;
+    }
+
+    snprintf(name_buf, sizeof(name_buf), "DPLL_%d.DPLL_COMBO_SLAVE_CFG_1", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &original_val) < 0) {
+        return -3;
+    }
+
+    /* Modify: keep [7:6] RESERVED bits untouched */
+    updated_val = original_val & 0xC0;
+    if (sec_en) {
+        updated_val |= 0x20;
+    }
+    if (sec_filt) {
+        updated_val |= 0x10;
+    }
+    updated_val |= (sec_src_id & 0x0F);
+
+    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            updated_val) < 0) {
+        return -4;
+    }
+
+    usleep(200); /* settle stall */
+    return 0;
+}
+
+/**
  * @brief Extracts the active 32-bit signed phase command offset applied to DPLL6.
  * 
  * @param out_phase_cmd Output pointer populated with the integer command value in hardware steps.
@@ -988,7 +1232,7 @@ int bf_ptp_commit_dpll_trigger(uint8_t trigger_type) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     const char *name_buf = (trigger_type == 0) ? "DPLL_PHASE.EXEC_TRIGGER" : "DPLL_FREQ.EXEC_TRIGGER";
 
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_general(name_buf, &regdesc)) {
         return -1;
     }
 
@@ -1038,7 +1282,7 @@ int bf_ptp_get_tod_clk_src_default(uint8_t tod_index, uint8_t *out_dpll_src) {
  *        Queries DPLL_n.DPLL_TOD_SYNC_CFG registers to locate which DPLL is actively synchronized
  *        with this ToD index.
  * 
- * @param tod_idx Target TOD instance index (Valid range: 0 to 3).
+ * @param tod_index Target TOD instance index (Valid range: 0 to 3).
  * @param out_dpll_src Output pointer populated with the driving DPLL index (Range: 0 to 7).
  * @return int 0 on success; -1 on lookup or parameter error; -2 on hardware I2C transaction failure.
  */
@@ -1052,11 +1296,11 @@ int bf_ptp_get_tod_clk_src(uint8_t tod_index, uint8_t *out_dpll_src) {
     }
 
     /* Scan DPLLs to locate DPLL_n actively synchronizing to this TOD index */
-    for (uint8_t dpll_idx = 0; dpll_idx < 8; dpll_idx++) {
-        if (bf_ptp_get_dpll_tod_sync_cfg(dpll_idx, &enabled, &tod_source) == 0) {
+    for (uint8_t dpll_index = 0; dpll_index < 8; dpll_index++) {
+        if (bf_ptp_get_dpll_tod_sync_cfg(dpll_index, &enabled, &tod_source) == 0) {
             if (enabled && (tod_source == tod_index)) {
-                *out_dpll_src = dpll_idx;
-                //fprintf(stdout, "Find default conf for ToD%d - DPLL%d ...\n", tod_index, dpll_idx);
+                *out_dpll_src = dpll_index;
+                //fprintf(stdout, "Find default conf for ToD%d - DPLL%d ...\n", tod_index, dpll_index);
                 return 0;
             }
         }
@@ -1070,7 +1314,7 @@ int bf_ptp_get_tod_clk_src(uint8_t tod_index, uint8_t *out_dpll_src) {
  * @brief Retrieves the historical write completion metrics from the specified TOD_WRITE_n module.
  *        Corresponds to StepC logic.
  * 
- * @param tod_idx Target TOD instance index (Valid range: 0 to 3).
+ * @param tod_index Target TOD instance index (Valid range: 0 to 3).
  * @param out_write_counter Output pointer populated with the raw hardware write count byte.
  * @return int 0 on success; -1 on lookup or parameter error; -2 on hardware I2C transaction failure.
  */
@@ -1086,11 +1330,11 @@ int bf_ptp_get_tod_write_counter(uint8_t tod_index, uint8_t *out_write_counter) 
 
     /* Dynamic string construction matching "TOD_WRITE_n.WRITE_COUNTER" within Page 0xCB */
     snprintf(name_buf, sizeof(name_buf), "TOD_WRITE_%d.WRITE_COUNTER", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
     }
 
-    /* Execute paged read targeting 0xCB0C + (tod_idx * 0x10) */
+    /* Execute paged read targeting 0xCB0C + (tod_index * 0x10) */
     if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
             &reg_byte) < 0) {
         return -3;
@@ -1122,7 +1366,7 @@ int bf_ptp_get_tod_cfg(uint8_t tod_index, bool *out_enabled, bool *out_even_pps,
 
     /* 1. Dynamic string construction matching "TOD_n.TOD_CFG" */
     snprintf(name_buf, sizeof(name_buf), "TOD_%d.TOD_CFG", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -1163,7 +1407,7 @@ int bf_ptp_set_tod_cfg(uint8_t tod_index, bool enable_tod, bool even_pps_mode, b
 
     /* 1. Dynamic string construction matching "TOD_n.TOD_CFG" */
     snprintf(name_buf, sizeof(name_buf), "TOD_%d.TOD_CFG", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -1217,7 +1461,7 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) 
 
     /* 1. HARDWARE SNAPSHOT LATCH: Instantly freeze the live running clock counters into shadow cache */
     snprintf(name_buf, sizeof(name_buf), "TOD_READ_%d.READ_TRIGGER", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
     }
     
@@ -1230,7 +1474,7 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) 
 
     /* 2. Reset coordinates back to the start of the locked 10-byte time array */
     snprintf(name_buf, sizeof(name_buf), "TOD_READ_%d.SUB_NANOSECONDS", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -3;
     }
     uint8_t page = REGPAGE(regdesc);
@@ -1297,7 +1541,7 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns) {
 
     /* 4. Write all 10 bytes starting from SUB_NANOSECONDS using burst write */
     snprintf(name_buf, sizeof(name_buf), "TOD_WRITE_%d.SUB_NANOSECONDS", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
     }
 
@@ -1308,7 +1552,7 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns) {
 
     /* 5. HARDWARE WRITE COMMIT TRIGGER: Commit the preloaded values into the active counters */
     snprintf(name_buf, sizeof(name_buf), "TOD_WRITE_%d.WRITE_TRIGGER", tod_index);
-    if (bf_ptp_lookup_register(name_buf, &regdesc)) {
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -4;
     }
 
@@ -1322,5 +1566,4 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns) {
 
     return 0;
 }
-
 #endif // AFN_8A34004_REGS_H

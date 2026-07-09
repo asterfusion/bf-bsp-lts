@@ -2099,7 +2099,7 @@ bf_pltfm_cpld_ucli_ucli__ptp (
                "IDX", "OPERATIONAL MODE", "STATE MACHINE LOCK", "REF CLK", "ToD SYNC", "ToD SRC", "PHASE ERROR (ns)");
     aim_printf(&uc->pvs, " %-3s | %-20s | %-18s | %-16s | %-8s | %-7s | %-25s\n",
                "---", "--------------------", "------------------", "----------------", "--------", "-------", "-------------------------");
-    for (uint8_t dpll_idx = 0; dpll_idx < 8; dpll_idx++) {
+    for (uint8_t dpll_index = 0; dpll_index < 8; dpll_index++) {
         uint8_t dpll_mode = 0;
         uint8_t dpll_status = 0;
         uint8_t dpll_ref = 0;
@@ -2107,27 +2107,27 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         uint8_t tod_src = 0;
         double phase_ns = 0.0;
 
-        if (bf_ptp_get_dpll_mode(dpll_idx, &dpll_mode) != 0) {
+        if (bf_ptp_get_dpll_mode(dpll_index, &dpll_mode) != 0) {
             dpll_mode = 0xFF;
         }
-        if (bf_ptp_get_dpll_status(dpll_idx, &dpll_status) != 0) {
+        if (bf_ptp_get_dpll_status(dpll_index, &dpll_status) != 0) {
             dpll_status = 0xFF;
         }
-        if (bf_ptp_get_dpll_ref_stat(dpll_idx, &dpll_ref) != 0) {
+        if (bf_ptp_get_dpll_ref_stat(dpll_index, &dpll_ref) != 0) {
             dpll_ref = 0xFF;
         }
-        if (bf_ptp_get_dpll_tod_sync_cfg(dpll_idx, &sync_en, &tod_src) != 0) {
+        if (bf_ptp_get_dpll_tod_sync_cfg(dpll_index, &sync_en, &tod_src) != 0) {
             sync_en = false;
             tod_src = 0xFF;
         }
-        if (bf_ptp_get_dpll_phase_status(dpll_idx, &phase_ns) != 0) {
+        if (bf_ptp_get_dpll_phase_status(dpll_index, &phase_ns) != 0) {
             phase_ns = 0.0;
         }
 
         const char *op_mode_str = dpll_mode_op_str(dpll_mode);
         const char *lock_str = "Unknown";
         if (dpll_status != 0xFF) {
-            lock_str = dpll_status_str(dpll_idx, dpll_status);
+            lock_str = dpll_status_str(dpll_index, dpll_status);
         }
 
         char dpll_idx_str[16];
@@ -2136,7 +2136,7 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         char tod_src_str[16];
         char phase_str[32];
 
-        snprintf(dpll_idx_str, sizeof(dpll_idx_str), "%d", dpll_idx);
+        snprintf(dpll_idx_str, sizeof(dpll_idx_str), "%d", dpll_index);
 
         if (dpll_ref == 0xFF) {
             snprintf(ref_str, sizeof(ref_str), "N/A");
@@ -2157,6 +2157,59 @@ bf_pltfm_cpld_ucli_ucli__ptp (
     }
     aim_printf(&uc->pvs, " %-3s | %-20s | %-18s | %-16s | %-8s | %-7s | %-25s\n",
                "---", "--------------------", "------------------", "----------------", "--------", "-------", "-------------------------");
+
+    aim_printf(&uc->pvs, "\n=================================================================================================================\n");
+    aim_printf(&uc->pvs, "                          8A34004 TIMING PLANE: DPLL COMBO SLAVE CONFIGURATION MATRIX                         \n");
+    aim_printf(&uc->pvs, "=================================================================================================================\n");
+    aim_printf(&uc->pvs, " %-3s | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
+               "IDX", "PRI SRC", "ENABLED", "FILTERED", "SEC SRC", "ENABLED", "FILTERED");
+    aim_printf(&uc->pvs, " %-3s | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
+               "---", "-------", "-------", "--------", "-------", "-------", "--------");
+    for (uint8_t dpll_index = 0; dpll_index < 8; dpll_index++) {
+        bool pri_en = false, pri_filt = false;
+        uint8_t pri_src = 0;
+        bool sec_en = false, sec_filt = false;
+        uint8_t sec_src = 0;
+
+        if (bf_ptp_get_dpll_combo_slave_pri_cfg(dpll_index, &pri_en, &pri_filt, &pri_src) != 0) {
+            pri_en = false; pri_filt = false; pri_src = 0xFF;
+        }
+        if (bf_ptp_get_dpll_combo_slave_sec_cfg(dpll_index, &sec_en, &sec_filt, &sec_src) != 0) {
+            sec_en = false; sec_filt = false; sec_src = 0xFF;
+        }
+
+        char pri_src_str[16];
+        char pri_en_str[16];
+        char pri_filt_str[16];
+        char sec_src_str[16];
+        char sec_en_str[16];
+        char sec_filt_str[16];
+
+        if (pri_src == 0xFF) {
+            snprintf(pri_src_str, sizeof(pri_src_str), "N/A");
+        } else if (pri_src == 0x08) {
+            snprintf(pri_src_str, sizeof(pri_src_str), "SYSDPLL");
+        } else {
+            snprintf(pri_src_str, sizeof(pri_src_str), "DPLL%d", pri_src);
+        }
+        snprintf(pri_en_str, sizeof(pri_en_str), "%s", pri_en ? "TRUE" : "FALSE");
+        snprintf(pri_filt_str, sizeof(pri_filt_str), "%s", pri_filt ? "TRUE" : "FALSE");
+
+        if (sec_src == 0xFF) {
+            snprintf(sec_src_str, sizeof(sec_src_str), "N/A");
+        } else if (sec_src == 0x08) {
+            snprintf(sec_src_str, sizeof(sec_src_str), "SYSDPLL");
+        } else {
+            snprintf(sec_src_str, sizeof(sec_src_str), "DPLL%d", sec_src);
+        }
+        snprintf(sec_en_str, sizeof(sec_en_str), "%s", sec_en ? "TRUE" : "FALSE");
+        snprintf(sec_filt_str, sizeof(sec_filt_str), "%s", sec_filt ? "TRUE" : "FALSE");
+
+        aim_printf(&uc->pvs, " %-3d | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
+                   dpll_index, pri_src_str, pri_en_str, pri_filt_str, sec_src_str, sec_en_str, sec_filt_str);
+    }
+    aim_printf(&uc->pvs, " %-3s | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
+               "---", "-------", "-------", "--------", "-------", "-------", "--------");
 
     aim_printf(&uc->pvs, "\n=================================================================================================================\n");
     aim_printf(&uc->pvs, "                          8A34004 TIMING PLANE: TIME-OF-DAY (ToD) MULTI-AXIS MATRIX                         \n");
@@ -2232,64 +2285,16 @@ bf_pltfm_cpld_ucli_ucli__ptp (
 }
 
 static ucli_status_t
-bf_pltfm_cpld_ucli_ucli__ptp_dpll6_tod (
+bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod (
     ucli_context_t *uc)
 {
+    uint32_t dpll_index = 0;
     uint32_t enable_val = 0;
     bool current_enabled = false;
     uint8_t tod_source = 1; /* Default to ToD1 as fallback */
 
-    UCLI_COMMAND_INFO (uc, "ptp-dpll6-tod", -1,
-                       "ptp-dpll6-tod <0|1>");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-
-    if (uc->pargs->count != 1) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll6-tod <0|1>\n");
-        return 0;
-    }
-
-    /* Retrieve current ToD source configuration from the chip first */
-    if (bf_ptp_get_dpll_tod_sync_cfg(6, &current_enabled, &tod_source) != 0) {
-        aim_printf (&uc->pvs, "Warning: Failed to retrieve DPLL6 ToD configuration, defaulting to ToD1.\n");
-        tod_source = 1;
-    }
-
-    enable_val = strtoul (uc->pargs->args[0], NULL, 0);
-    bool enable_sync = (enable_val != 0);
-
-    int rc = bf_ptp_set_dpll_tod_sync_cfg(6, enable_sync, tod_source);
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to configure DPLL6 ToD synchronization (error code: %d)\n", rc);
-    } else {
-        aim_printf (&uc->pvs, "Successfully %s ToD synchronization for DPLL6 (Source Preserved: ToD%d)\n",
-                    enable_sync ? "ENABLED" : "DISABLED", tod_source);
-    }
-
-    return 0;
-}
-
-static ucli_status_t
-bf_pltfm_cpld_ucli_ucli__ptp_tod_en (
-    ucli_context_t *uc)
-{
-    uint32_t tod_idx = 0;
-    uint32_t enable_val = 0;
-    bool current_enabled = false;
-    bool current_even_pps = false;
-    bool current_sync_disabled = false;
-
-    UCLI_COMMAND_INFO (uc, "ptp-tod-en", -1,
-                       "ptp-tod-en <tod_idx: 0~3> <0|1>");
+    UCLI_COMMAND_INFO (uc, "ptp-dpll-tod", -1,
+                       "ptp-dpll-tod <dpll_index: 0~7> <0|1>");
 
     if (! platform_type_equal (AFN_X732QT) ||
         ! platform_subtype_equal (V2P0)) {
@@ -2303,35 +2308,164 @@ bf_pltfm_cpld_ucli_ucli__ptp_tod_en (
     }
 
     if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-tod-en <tod_idx: 0~3> <0|1>\n");
+        aim_printf (&uc->pvs, "Usage: ptp-dpll-tod <dpll_index: 0~7> <0|1>\n");
         return 0;
     }
 
-    tod_idx = strtoul (uc->pargs->args[0], NULL, 0);
+    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
     enable_val = strtoul (uc->pargs->args[1], NULL, 0);
 
-    if (tod_idx > 3) {
-        aim_printf (&uc->pvs, "Invalid tod_idx: %d (Valid range: 0~3)\n", tod_idx);
+    if (dpll_index > 7) {
+        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
+        return 0;
+    }
+
+    /* Retrieve current ToD source configuration from the chip first */
+    if (bf_ptp_get_dpll_tod_sync_cfg((uint8_t)dpll_index, &current_enabled, &tod_source) != 0) {
+        aim_printf (&uc->pvs, "Warning: Failed to retrieve DPLL%d ToD configuration, defaulting to ToD%d.\n", dpll_index, dpll_index == 6 ? 1 : 0);
+        tod_source = (dpll_index == 6) ? 1 : 0;
+    }
+
+    bool enable_sync = (enable_val != 0);
+
+    int rc = bf_ptp_set_dpll_tod_sync_cfg((uint8_t)dpll_index, enable_sync, tod_source);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to configure DPLL%d ToD synchronization (error code: %d)\n", dpll_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully %s ToD synchronization for DPLL%d (Source Preserved: ToD%d)\n",
+                    enable_sync ? "ENABLED" : "DISABLED", dpll_index, tod_source);
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_tod_en (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 0;
+    uint32_t enable_val = 0;
+    bool current_enabled = false;
+    bool current_even_pps = false;
+    bool current_sync_disabled = false;
+
+    UCLI_COMMAND_INFO (uc, "ptp-tod-en", -1,
+                       "ptp-tod-en <tod_index: 0~3> <0|1>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count != 2) {
+        aim_printf (&uc->pvs, "Usage: ptp-tod-en <tod_index: 0~3> <0|1>\n");
+        return 0;
+    }
+
+    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    enable_val = strtoul (uc->pargs->args[1], NULL, 0);
+
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
         return 0;
     }
 
     /* Retrieve current ToD configuration from the chip first to preserve other fields */
-    if (bf_ptp_get_tod_cfg((uint8_t)tod_idx, &current_enabled, &current_even_pps, &current_sync_disabled) != 0) {
-        aim_printf (&uc->pvs, "Failed to retrieve current ToD%d configuration from the chip.\n", tod_idx);
+    if (bf_ptp_get_tod_cfg((uint8_t)tod_index, &current_enabled, &current_even_pps, &current_sync_disabled) != 0) {
+        aim_printf (&uc->pvs, "Failed to retrieve current ToD%d configuration from the chip.\n", tod_index);
         return 0;
     }
 
     bool enable_tod = (enable_val != 0);
 
-    int rc = bf_ptp_set_tod_cfg((uint8_t)tod_idx, enable_tod, current_even_pps, current_sync_disabled);
+    int rc = bf_ptp_set_tod_cfg((uint8_t)tod_index, enable_tod, current_even_pps, current_sync_disabled);
     if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to configure ToD%d state (error code: %d)\n", tod_idx, rc);
+        aim_printf (&uc->pvs, "Failed to configure ToD%d state (error code: %d)\n", tod_index, rc);
     } else {
         aim_printf (&uc->pvs, "Successfully %s ToD%d (PPS Mode: %s, Out Sync: %s)\n",
                     enable_tod ? "ENABLED" : "DISABLED",
-                    tod_idx,
+                    tod_index,
                     current_even_pps ? "2-Sec even" : "1-Sec std",
                     current_sync_disabled ? "DISABLE" : "ENABLE");
+    }
+
+    return 0;
+}
+
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
+    ucli_context_t *uc)
+{
+    uint32_t dpll_index = 0;
+    const char *source_type = NULL;
+    uint32_t enable_val = 0;
+    uint32_t filtered_val = 0;
+    uint32_t src_dpll_idx = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-dpll-combo", -1,
+                       "ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~7>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count != 5) {
+        aim_printf (&uc->pvs, "Usage: ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~7>\n");
+        return 0;
+    }
+
+    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
+    source_type = uc->pargs->args[1];
+    enable_val = strtoul (uc->pargs->args[2], NULL, 0);
+    filtered_val = strtoul (uc->pargs->args[3], NULL, 0);
+    src_dpll_idx = strtoul (uc->pargs->args[4], NULL, 0);
+
+    if (dpll_index > 7) {
+        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
+        return 0;
+    }
+
+    if (strcmp(source_type, "pri") != 0 && strcmp(source_type, "sec") != 0) {
+        aim_printf (&uc->pvs, "Invalid source type: '%s' (Must be 'pri' or 'sec')\n", source_type);
+        return 0;
+    }
+
+    if (src_dpll_idx > 7) {
+        aim_printf (&uc->pvs, "Invalid src_dpll_idx: %d (Valid range: 0~7)\n", src_dpll_idx);
+        return 0;
+    }
+
+    bool enable_sync = (enable_val != 0);
+    bool filtered = (filtered_val != 0);
+    int rc = 0;
+
+    if (strcmp(source_type, "pri") == 0) {
+        rc = bf_ptp_set_dpll_combo_slave_pri_cfg((uint8_t)dpll_index, enable_sync, filtered, (uint8_t)src_dpll_idx);
+    } else {
+        rc = bf_ptp_set_dpll_combo_slave_sec_cfg((uint8_t)dpll_index, enable_sync, filtered, (uint8_t)src_dpll_idx);
+    }
+
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to configure DPLL%d combo %s source (error code: %d)\n", dpll_index, source_type, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully configured DPLL%d combo %s source (Enabled: %s, Filtered: %s, Source: DPLL%d)\n",
+                    dpll_index, source_type,
+                    enable_sync ? "TRUE" : "FALSE",
+                    filtered ? "TRUE" : "FALSE",
+                    src_dpll_idx);
     }
 
     return 0;
@@ -2475,8 +2609,9 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__ptp_page,
     bf_pltfm_cpld_ucli_ucli__ptp_reg,
     bf_pltfm_cpld_ucli_ucli__ptp,
-    bf_pltfm_cpld_ucli_ucli__ptp_dpll6_tod,
+    bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_en,
+    bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo,
 
     NULL
 };
