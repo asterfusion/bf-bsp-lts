@@ -2399,6 +2399,52 @@ bf_pltfm_cpld_ucli_ucli__ptp_tod_en (
 }
 
 static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_tod_set (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 0;
+    uint32_t seconds = 0;
+    uint32_t nanoseconds = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-tod-set", -1,
+                       "ptp-tod-set <tod_index: 0~3> <seconds> <nanoseconds>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count != 3) {
+        aim_printf (&uc->pvs, "Usage: ptp-tod-set <tod_index: 0~3> <seconds> <nanoseconds>\n");
+        return 0;
+    }
+
+    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    seconds = strtoul (uc->pargs->args[1], NULL, 0);
+    nanoseconds = strtoul (uc->pargs->args[2], NULL, 0);
+
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_set_tod_time((uint8_t)tod_index, seconds, nanoseconds);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to set ToD%d time (error code: %d)\n", tod_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully set ToD%d to %u.%09u sec\n", tod_index, seconds, nanoseconds);
+    }
+
+    return 0;
+}
+
+static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
     ucli_context_t *uc)
 {
@@ -2409,7 +2455,7 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
     uint32_t src_dpll_idx = 0;
 
     UCLI_COMMAND_INFO (uc, "ptp-dpll-combo", -1,
-                       "ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~7>");
+                       "ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~8>");
 
     if (! platform_type_equal (AFN_X732QT) ||
         ! platform_subtype_equal (V2P0)) {
@@ -2423,7 +2469,7 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
     }
 
     if (uc->pargs->count != 5) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~7>\n");
+        aim_printf (&uc->pvs, "Usage: ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~8>\n");
         return 0;
     }
 
@@ -2443,8 +2489,8 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
         return 0;
     }
 
-    if (src_dpll_idx > 7) {
-        aim_printf (&uc->pvs, "Invalid src_dpll_idx: %d (Valid range: 0~7)\n", src_dpll_idx);
+    if (src_dpll_idx > 8) {
+        aim_printf (&uc->pvs, "Invalid src_dpll_idx: %d (Valid range: 0~8)\n", src_dpll_idx);
         return 0;
     }
 
@@ -2611,6 +2657,7 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__ptp,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_en,
+    bf_pltfm_cpld_ucli_ucli__ptp_tod_set,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo,
 
     NULL
