@@ -1934,6 +1934,8 @@ static ucli_status_t bf_pltfm_cpld_ucli_ucli__clkobs_strength_set__(
 // debug only
 // https://www.renesas.com/en/products/8a34004?tab=documentation
 // I2C 2B Mode. See page 5 of REN_8A3xxxx=Family-Prog-Guide-v4p8p7_GDE_20210615.pdf
+/* @brief Dump raw hex contents (256 bytes) of a PTP register page.
+ *        Page range: 0xC0..0xCF per Renesas 8A34004 paged-I2C protocol. */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_page (
     ucli_context_t *uc)
@@ -1996,6 +1998,10 @@ bf_pltfm_cpld_ucli_ucli__ptp_page (
     return 0;
 }
 
+/* @brief Read or write a single PTP register.
+ *        Parameter <reg> is the effective address (base + offset),
+ *        where base is the module start address and offset is the register within that module.
+ *        The 8A34004 paged-I2C maps this to physical address (page, base+offset). */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_reg(ucli_context_t *uc)
 {
@@ -2036,18 +2042,20 @@ bf_pltfm_cpld_ucli_ucli__ptp_reg(ucli_context_t *uc)
             return 0;
         if (bf_pltfm_read_ptp_reg(page, reg, &val))
             return 0;
-        aim_printf(&uc->pvs, "PAGE=0x%02x, REG=0x%02x VAL=0x%02x -> 0x%02x\n",
+        aim_printf(&uc->pvs, "PAGE=0x%02x REG=0x%02x VAL=0x%02x -> 0x%02x\n",
                    page, reg, regval, val);
     } else {
         if (bf_pltfm_read_ptp_reg(page, reg, &regval))
             return 0;
-        aim_printf(&uc->pvs, "PAGE=0x%02x, REG=0x%02x VAL=0x%02x\n",
+        aim_printf(&uc->pvs, "PAGE=0x%02x REG=0x%02x VAL=0x%02x\n",
                    page, reg, regval);
     }
 
     return 0;
 }
 
+/* @brief Print a comprehensive summary of the 8A34004 timing plane:
+ *        DPLL configuration/state matrix, combo slave matrix, and ToD multi-axis matrix. */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp (
     ucli_context_t *uc)
@@ -2092,79 +2100,70 @@ bf_pltfm_cpld_ucli_ucli__ptp (
     aim_printf (&uc->pvs, "SCRATCH.SCRATCH3           : %x\n", regval);
     aim_printf (&uc->pvs, "\n");
 
-    aim_printf(&uc->pvs, "\n============================================================================================================\n");
+    aim_printf(&uc->pvs, "\n=================================================================================================================\n");
     aim_printf(&uc->pvs, "                          8A34004 TIMING PLANE: DPLL CONFIGURATION & STATE MATRIX                         \n");
-    aim_printf(&uc->pvs, "============================================================================================================\n");
-    aim_printf(&uc->pvs, " %-3s | %-20s | %-18s | %-16s | %-8s | %-7s | %-25s\n",
-               "IDX", "OPERATIONAL MODE", "STATE MACHINE LOCK", "REF CLK", "ToD SYNC", "ToD SRC", "PHASE ERROR (ns)");
-    aim_printf(&uc->pvs, " %-3s | %-20s | %-18s | %-16s | %-8s | %-7s | %-25s\n",
-               "---", "--------------------", "------------------", "----------------", "--------", "-------", "-------------------------");
+    aim_printf(&uc->pvs, "-----------------------------------------------------------------------------------------------------------------\n");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-25s\n",
+               "DPLL#", "OPERATIONAL MODE", "LIVE STATE", "REF CLK", "ToD SYNC", "ToD SRC", "PHASE ERROR (ns)");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-25s\n",
+               "-----", "----------------", "----------------", "----------------", "--------", "--------", "-------------------------");
     for (uint8_t dpll_index = 0; dpll_index < 8; dpll_index++) {
-        uint8_t dpll_mode = 0;
+        uint8_t drv_mode = 0;
         uint8_t dpll_status = 0;
         uint8_t dpll_ref = 0;
         bool sync_en = false;
         uint8_t tod_src = 0;
         double phase_ns = 0.0;
 
-        if (bf_ptp_get_dpll_mode(dpll_index, &dpll_mode) != 0) {
-            dpll_mode = 0xFF;
+        if (bf_ptp_get_dpll_mode(dpll_index, &drv_mode) != 0) {
+            continue;
         }
         if (bf_ptp_get_dpll_status(dpll_index, &dpll_status) != 0) {
-            dpll_status = 0xFF;
+            continue;
         }
         if (bf_ptp_get_dpll_ref_stat(dpll_index, &dpll_ref) != 0) {
-            dpll_ref = 0xFF;
+            continue;
         }
         if (bf_ptp_get_dpll_tod_sync_cfg(dpll_index, &sync_en, &tod_src) != 0) {
-            sync_en = false;
-            tod_src = 0xFF;
+            continue;
         }
         if (bf_ptp_get_dpll_phase_status(dpll_index, &phase_ns) != 0) {
-            phase_ns = 0.0;
-        }
-
-        const char *op_mode_str = dpll_mode_op_str(dpll_mode);
-        const char *lock_str = "Unknown";
-        if (dpll_status != 0xFF) {
-            lock_str = dpll_status_str(dpll_index, dpll_status);
+            continue;
         }
 
         char dpll_idx_str[16];
-        char ref_str[16];
-        char sync_en_str[16];
-        char tod_src_str[16];
-        char phase_str[32];
+        char ref_str[16] = "---";
+        char sync_en_str[16] = "---";
+        char tod_src_str[16] = "---";
+        char phase_str[32] = "---";
+        const char *op_mode_str = "---";
+        const char *live_state_str = "---";
+        uint8_t pll_mode_check = (drv_mode >> 3) & 0x07;
 
         snprintf(dpll_idx_str, sizeof(dpll_idx_str), "%d", dpll_index);
-
-        if (dpll_ref == 0xFF) {
-            snprintf(ref_str, sizeof(ref_str), "N/A");
-        } else {
+        if (pll_mode_check != 6) {
+            op_mode_str = dpll_mode_op_str(drv_mode);
+            live_state_str = dpll_status_str(dpll_index, dpll_status);
             snprintf(ref_str, sizeof(ref_str), "%s", dpll_refclk_str(dpll_ref));
-        }
-        snprintf(sync_en_str, sizeof(sync_en_str), "%s", sync_en ? "ENABLED" : "DISABLED");
-
-        if (tod_src == 0xFF) {
-            snprintf(tod_src_str, sizeof(tod_src_str), "N/A");
-        } else {
+            snprintf(sync_en_str, sizeof(sync_en_str), "%s", sync_en ? "ENABLED" : "DISABLED");
             snprintf(tod_src_str, sizeof(tod_src_str), "ToD%d", tod_src);
+            snprintf(phase_str, sizeof(phase_str), "% .9f ns", phase_ns);
         }
-        snprintf(phase_str, sizeof(phase_str), "% .9f ns", phase_ns);
 
-        aim_printf(&uc->pvs, " %-3s | %-20s | %-18s | %-16s | %-8s | %-7s | %-25s\n",
-                   dpll_idx_str, op_mode_str, lock_str, ref_str, sync_en_str, tod_src_str, phase_str);
+        aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-25s\n",
+                   dpll_idx_str, op_mode_str, live_state_str, ref_str, sync_en_str, tod_src_str, phase_str);
     }
-    aim_printf(&uc->pvs, " %-3s | %-20s | %-18s | %-16s | %-8s | %-7s | %-25s\n",
-               "---", "--------------------", "------------------", "----------------", "--------", "-------", "-------------------------");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-25s\n",
+               "-----", "----------------", "----------------", "----------------", "--------", "--------", "-------------------------");
+
 
     aim_printf(&uc->pvs, "\n=================================================================================================================\n");
     aim_printf(&uc->pvs, "                          8A34004 TIMING PLANE: DPLL COMBO SLAVE CONFIGURATION MATRIX                         \n");
-    aim_printf(&uc->pvs, "=================================================================================================================\n");
-    aim_printf(&uc->pvs, " %-3s | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
-               "IDX", "PRI SRC", "ENABLED", "FILTERED", "SEC SRC", "ENABLED", "FILTERED");
-    aim_printf(&uc->pvs, " %-3s | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
-               "---", "-------", "-------", "--------", "-------", "-------", "--------");
+    aim_printf(&uc->pvs, "-----------------------------------------------------------------------------------------------------------------\n");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s\n",
+               "DPLL#", "PRIMARY COMBO", "ENABLED", "FILTERED", "SECONDARY COMBO", "ENABLED", "FILTERED");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s\n",
+               "-----", "----------------", "----------------", "----------------", "--------", "--------", "--------");
     for (uint8_t dpll_index = 0; dpll_index < 8; dpll_index++) {
         bool pri_en = false, pri_filt = false;
         uint8_t pri_src = 0;
@@ -2205,22 +2204,23 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         snprintf(sec_en_str, sizeof(sec_en_str), "%s", sec_en ? "TRUE" : "FALSE");
         snprintf(sec_filt_str, sizeof(sec_filt_str), "%s", sec_filt ? "TRUE" : "FALSE");
 
-        aim_printf(&uc->pvs, " %-3d | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
+        aim_printf(&uc->pvs, " %-5d | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s\n",
                    dpll_index, pri_src_str, pri_en_str, pri_filt_str, sec_src_str, sec_en_str, sec_filt_str);
     }
-    aim_printf(&uc->pvs, " %-3s | %-7s | %-7s | %-8s | %-7s | %-7s | %-8s\n",
-               "---", "-------", "-------", "--------", "-------", "-------", "--------");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s\n",
+               "-----", "----------------", "----------------", "----------------", "--------", "--------", "--------");
 
     aim_printf(&uc->pvs, "\n=================================================================================================================\n");
     aim_printf(&uc->pvs, "                          8A34004 TIMING PLANE: TIME-OF-DAY (ToD) MULTI-AXIS MATRIX                         \n");
-    aim_printf(&uc->pvs, "=================================================================================================================\n");
-    aim_printf(&uc->pvs, " %-3s | %-30s | %-6s | %-12s | %-7s | %-10s | %-25s\n",
-               "IDX", "CLOCK HEART", "ENABLE", "PPS MODE", "OUT_SYNC", "WRITE_CNTR", "CAPTURED WALL-TIME (ToD)");
-    aim_printf(&uc->pvs, " %-3s | %-30s | %-6s | %-12s | %-7s | %-10s | %-25s\n",
-               "---", "------------------------------", "------", "------------", "-------", "----------", "-------------------------");
+    aim_printf(&uc->pvs, "-----------------------------------------------------------------------------------------------------------------\n");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s | %-25s\n",
+               "ToD#", "DRIVEN BY", "ENABLED", "PPS MODE", "OUT_SYNC", "WR_CNTR", "RD_CNTR", "CAPTURED WALL-TIME (ToD)");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s | %-25s\n",
+               "-----", "----------------", "----------------", "----------------", "--------", "--------", "--------", "-------------------------");
     for (uint8_t idx = 0; idx < 4; idx++) {
         uint8_t clk_src = 0;
         uint8_t write_counter = 0;
+        uint8_t read_counter = 0;
         bool enabled = false, even_pps = false, sync_disabled = false;
         uint32_t seconds = 0, nanoseconds = 0;
 
@@ -2239,22 +2239,22 @@ bf_pltfm_cpld_ucli_ucli__ptp (
             write_counter = 0;
         }
 
+        if (bf_ptp_get_tod_read_counter(idx, &read_counter) != 0) {
+            read_counter = 0;
+        }
+
         /* Step D API: Execute atomic 10-byte burst snapshot capture across CC block */
         if (bf_ptp_get_tod_time(idx, &seconds, &nanoseconds) != 0) {
             seconds = 0; nanoseconds = 0;
         }
 
         /* Step E: Stream the fully resolved telemetry metrics row to the CLI */
+        /* Determine DPLL driving mode label for all DPLLs (not just 5/6) */
         const char *sync_mode_str = "PLL";
-        if (clk_src == 5 || clk_src == 6) {
-            uint8_t dpll_mode = 0;
-            if (bf_ptp_get_dpll_mode(clk_src, &dpll_mode) == 0) {
-                uint8_t pll_mode = (dpll_mode >> 3) & 0x07;
-                if (pll_mode == 1) {
-                    sync_mode_str = "PHASE";
-                } else if (pll_mode == 2) {
-                    sync_mode_str = "FREQ";
-                }
+        {
+            uint8_t drv_mode = 0;
+            if (bf_ptp_get_dpll_mode(clk_src, &drv_mode) == 0) {
+                sync_mode_str = dpll_mode_op_str(drv_mode);
             }
         }
 
@@ -2264,26 +2264,30 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         char pps_mode_str[32];
         char out_sync_str[16];
         char write_cnt_str[16];
+        char read_cnt_str[16];
         char tod_time_str[64];
 
         snprintf(idx_str, sizeof(idx_str), "%d", idx);
-        snprintf(clk_heart_buf, sizeof(clk_heart_buf), "Driven by DPLL%d (%s)", clk_src, sync_mode_str);
+        snprintf(clk_heart_buf, sizeof(clk_heart_buf), "DPLL%d (%s)", clk_src, sync_mode_str);
         snprintf(enabled_str, sizeof(enabled_str), "%s", enabled ? "TRUE" : "FALSE");
-        snprintf(pps_mode_str, sizeof(pps_mode_str), "%s", even_pps ? "2-Sec even" : "1-Sec std");
-        snprintf(out_sync_str, sizeof(out_sync_str), "%s", sync_disabled ? "DISABLE" : "ENABLE");
+        snprintf(pps_mode_str, sizeof(pps_mode_str), "%s", even_pps ? "2-Sec EVENT" : "1-Sec STD");
+        snprintf(out_sync_str, sizeof(out_sync_str), "%s", sync_disabled ? "DISABLED" : "ENABLED");
         snprintf(write_cnt_str, sizeof(write_cnt_str), "0x%02X", write_counter);
+        snprintf(read_cnt_str, sizeof(read_cnt_str), "0x%02X", read_counter);
         snprintf(tod_time_str, sizeof(tod_time_str), "%u.%09u sec", seconds, nanoseconds);
 
-        aim_printf(&uc->pvs, " %-3s | %-30s | %-6s | %-12s | %-7s | %-10s | %-25s\n",
-                   idx_str, clk_heart_buf, enabled_str, pps_mode_str, out_sync_str, write_cnt_str, tod_time_str);
+        aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s | %-25s\n",
+                   idx_str, clk_heart_buf, enabled_str, pps_mode_str, out_sync_str, write_cnt_str, read_cnt_str, tod_time_str);
     }
-    aim_printf(&uc->pvs, " %-3s | %-30s | %-6s | %-12s | %-7s | %-10s | %-25s\n",
-               "---", "------------------------------", "------", "------------", "-------", "----------", "-------------------------");
+    aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s | %-25s\n",
+               "-----", "----------------", "----------------", "----------------", "--------", "--------", "--------", "-------------------------");
     aim_printf (&uc->pvs, "\n");
 
     return 0;
 }
 
+/* @brief Enable or disable ToD synchronization on a specified DPLL block.
+ *        Preserves the current ToD source index so only the enable bit is toggled. */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod (
     ucli_context_t *uc)
@@ -2339,6 +2343,8 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod (
     return 0;
 }
 
+/* @brief Enable or disable a specified ToD instance.
+ *        Preserves the current PPS mode and output-sync configuration. */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_tod_en (
     ucli_context_t *uc)
@@ -2398,6 +2404,8 @@ bf_pltfm_cpld_ucli_ucli__ptp_tod_en (
     return 0;
 }
 
+/* @brief Set the absolute wall-clock time (seconds + nanoseconds) of a ToD instance.
+ *        Preloads sub-ns/ns/sec into the WRITE shadow registers then triggers the hardware commit. */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_tod_set (
     ucli_context_t *uc)
@@ -2444,6 +2452,8 @@ bf_pltfm_cpld_ucli_ucli__ptp_tod_set (
     return 0;
 }
 
+/* @brief Configure the primary or secondary combo slave source for a DPLL.
+ *        Controls enable, filtered mode, and source DPLL index (0-8, where 8 = SYSDPLL). */
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
     ucli_context_t *uc)
@@ -2512,6 +2522,84 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo (
                     enable_sync ? "TRUE" : "FALSE",
                     filtered ? "TRUE" : "FALSE",
                     src_dpll_idx);
+    }
+
+    return 0;
+}
+
+/* @brief Set the operational mode and state machine mode of a DPLL.
+ *        op_mode: pll|phase|freq|gpio|synth|pmeas|off;  sm_mode: auto|force_lock|force_frun|force_hldover. */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode (
+    ucli_context_t *uc)
+{
+    uint32_t dpll_index = 0;
+    const char *op_mode_str = NULL;
+    const char *sm_mode_str = NULL;
+    uint8_t op_mode = 0;
+    uint8_t sm_mode = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-dpll-mode", -1,
+                       "ptp-dpll-mode <dpll_index: 0~7> <op_mode: pll|phase|freq|gpio|synth|pmeas|off> <sm_mode: auto|force_lock|force_frun|force_hldover>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count != 3) {
+        aim_printf (&uc->pvs, "Usage: ptp-dpll-mode <dpll_index: 0~7> <op_mode: pll|phase|freq|gpio|synth|pmeas|off> <sm_mode: auto|force_lock|force_frun|force_hldover>\n");
+        return 0;
+    }
+
+    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
+    op_mode_str = uc->pargs->args[1];
+    sm_mode_str = uc->pargs->args[2];
+
+    if (dpll_index > 7) {
+        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
+        return 0;
+    }
+
+    /* Parse operational mode string */
+    if (strcmp(op_mode_str, "pll") == 0)       op_mode = 0;
+    else if (strcmp(op_mode_str, "phase") == 0) op_mode = 1;
+    else if (strcmp(op_mode_str, "freq") == 0)  op_mode = 2;
+    else if (strcmp(op_mode_str, "gpio") == 0)  op_mode = 3;
+    else if (strcmp(op_mode_str, "synth") == 0) op_mode = 4;
+    else if (strcmp(op_mode_str, "pmeas") == 0) op_mode = 5;
+    else if (strcmp(op_mode_str, "off") == 0)   op_mode = 6;
+    else {
+        aim_printf (&uc->pvs, "Invalid op_mode: '%s' (Valid: pll|phase|freq|gpio|synth|pmeas|off)\n", op_mode_str);
+        return 0;
+    }
+
+    /* Parse state machine mode string */
+    if (strcmp(sm_mode_str, "auto") == 0)          sm_mode = 0;
+    else if (strcmp(sm_mode_str, "force_lock") == 0)   sm_mode = 1;
+    else if (strcmp(sm_mode_str, "force_frun") == 0)   sm_mode = 2;
+    else if (strcmp(sm_mode_str, "force_hldover") == 0) sm_mode = 3;
+    else {
+        aim_printf (&uc->pvs, "Invalid sm_mode: '%s' (Valid: auto|force_lock|force_frun|force_hldover)\n", sm_mode_str);
+        return 0;
+    }
+
+    int rc = bf_ptp_set_dpll_mode((uint8_t)dpll_index, op_mode, sm_mode);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to set DPLL%d mode (error code: %d)\n", dpll_index, rc);
+    } else {
+        /* Build the full mode byte to feed back through the existing decoder helpers */
+        uint8_t full_mode_byte = (op_mode << 3) | sm_mode;
+        aim_printf (&uc->pvs, "Successfully set DPPL%d mode: OP=%s, SM=%s\n",
+                    dpll_index,
+                    dpll_mode_op_str(full_mode_byte),
+                    dpll_mode_sm_str(full_mode_byte));
     }
 
     return 0;
@@ -2659,6 +2747,7 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__ptp_tod_en,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_set,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo,
+    bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode,
 
     NULL
 };

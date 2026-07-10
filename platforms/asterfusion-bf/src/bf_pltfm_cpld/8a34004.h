@@ -247,8 +247,12 @@ static const ptp_reg_desc_t g_8a34004_register_map_tod[AFN_8A34004_MAX_TOD][MAX_
 };
 
 #define BF_8A34004_REG_MAP_GENERAL_SIZE (sizeof(g_8a34004_register_map_general) / sizeof(ptp_reg_desc_t))
-#define REGADDR(regdesc) ((regdesc).base + (regdesc).offset)
-#define REGPAGE(regdesc) ((regdesc).page)
+/* When base + offset exceeds 0xFF, the carry propagates into the page selector.
+ * REGPAGE adds the overflow carry so that registers with large module offsets
+ * (e.g. STATUS.DPLL0_PHASE_STATUS: base=0x3C + offset=0xDC = 0x118 -> page+1, addr=0x18)
+ * resolve to the correct hardware page and address. */
+#define REGADDR(regdesc) ((uint8_t)(((uint16_t)(regdesc).base + (regdesc).offset) & 0xFF))
+#define REGPAGE(regdesc) ((uint8_t)((regdesc).page + (((uint16_t)(regdesc).base + (regdesc).offset) >> 8)))
 #define REGWIDB(regdesc) ((regdesc).width_bytes)
 // 1 LSB of the internal phase detector is exactly 1 UI * 2^-16.
 // For the nominal internal clock operating around 3.84GHz, 1 LSB = 3.970588 picoseconds (or 0.003970588 ns).
@@ -266,14 +270,14 @@ const char* dpll_status_str(int dpll_index, uint8_t reg_byte) {
     (void)dpll_index;
     uint8_t s = (reg_byte  & 0x0F);
     switch (s) {
-        case 0:     return "FreeRun";
-        case 1:     return "LockACQ";
-        case 2:     return "LockREC";
-        case 3:     return "Locked";
-        case 4:     return "Holdover";
-        case 5:     return "OpenLoop";
-        case 6:     return "Disabled";
-        default:    return "N/A";
+        case 0:     return "FREE_RUN";
+        case 1:     return "LOCKACQ ";
+        case 2:     return "LOCKREC ";
+        case 3:     return "LOCKED  ";
+        case 4:     return "HLDOVER ";
+        case 5:     return "OPENLOOP";
+        case 6:     return "DISABLED";
+        default:    return "N/A     ";
     }
 }
 
@@ -303,12 +307,12 @@ const char* dpll_refclk_str(uint8_t reg_byte)
         case 0x0D: return "CLK13          ";
         case 0x0E: return "CLK14          ";
         case 0x0F: return "CLK15          ";
-        case 0x10: return "WRPhaseInput   ";
-        case 0x11: return "WRFreqInput    ";
+        case 0x10: return "WRPHASE_INPUT  ";
+        case 0x11: return "WRFREQ_INPUT   ";
         case 0x12: return "XO_DPLL        ";
         case 0x13: return "CLK19(DPLL0)   ";
         case 0x14: return "CLK20(DPLL1)   ";
-        case 0x15: return "CLK11(DPLL2)   ";
+        case 0x15: return "CLK21(DPLL2)   ";
         case 0x16: return "CLK22(DPLL3)   ";
         case 0x17: return "CLK23(DPLL4)   ";
         case 0x18: return "CLK24(DPLL5)   ";
@@ -316,7 +320,7 @@ const char* dpll_refclk_str(uint8_t reg_byte)
         case 0x1A: return "CLK26(DPLL7)   ";
         case 0x1B: return "CLK27(SYSDPLL) ";
         case 0x1C: return "CLK28          ";
-        case 0x1F: return "NO_REF         ";
+        case 0x1F: return "NOREF          ";
         default:   return "N/A            ";
     }
 }
@@ -333,19 +337,19 @@ const char* dpll_mode_op_str(uint8_t reg_byte) {
 
     switch (pll_mode) {
         case 0:
-            return "PLL(Closed)";
+            return "PLL";
         case 1:
-            return "WritePhase";
+            return "PHASE";
         case 2:
-            return "WriteFreq";
+            return "FREQ";
         case 3:
-            return "GPIOSteer";
+            return "GPIO";
         case 4:
-            return "Synthesizer";
+            return "SYNTH";
         case 5:
-            return "PhaseMeasure";
+            return "PMEAS";
         case 6:
-            return "Disabled";
+            return "OFF";
         default:
             return "N/A";
     }
@@ -363,15 +367,15 @@ const char* dpll_mode_sm_str(uint8_t reg_byte) {
 
     switch (sm_mode) {
         case 0:
-            return "Automatic";
+            return "AUTO         ";
         case 1:
-            return "ForceLock";
+            return "FORCE_LOCK   ";
         case 2:
-            return "ForceFreerun";
+            return "FORCE_FRUN   ";
         case 3:
-            return "ForceHoldover";
+            return "FORCE_HLDOVER";
         default:
-            return "N/A";
+            return "N/A          ";
     }
 }
 
@@ -430,103 +434,6 @@ double dpll_phase_status(int dpll_index, uint8_t *reg_bytes) {
     double phase_ns = (double)raw_val_40bit * DPLL_PHASE_RESOLUTION_NS;
 
     return phase_ns;
-}
-
-/**
- * @brief Programs the 32-bit signed phase increment to DPLL5 or DPLL6.
- *        Enforces atomic multi-byte burst writes and handles the mandatory latch triggers.
- *
- * @param dpll_index Target DPLL index (5 or 6).
- * @param phase_le32 Signed 32-bit phase increment value.
- * @return int 0 on success; negative on error.
- * @note Relates to DPLL_FREQ_n.DPLL_WR_PH registers.
- */
-static inline
-int dpll_write_phase(int dpll_index, int32_t phase_le32) {
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    uint8_t page = 0xC8, reg, offset = 0x00;
-
-    if(dpll_index == 5) {
-        reg = 0x2C;
-    } else if (dpll_index == 6) {
-        reg = 0x30;
-    } else {
-        return -1; // Invalid DPLL channel
-    }
-
-    /* DPLL_n.DPLL_MODE.PLL_MODE = write phase mode */
-
-    burst_buf[0] = (uint8_t)(phase_le32 & 0xFF);
-    burst_buf[1] = (uint8_t)((phase_le32 >> 8) & 0xFF);
-    burst_buf[2] = (uint8_t)((phase_le32 >> 16) & 0xFF);
-    burst_buf[3] = (uint8_t)((phase_le32 >> 24) & 0xFF);
-
-    for(int i = 0; i < 4; i ++) {
-        if (bf_pltfm_write_ptp_reg(page, reg + offset + i,
-                burst_buf[i]) < 0) {
-            return -2;
-        }
-    }
-
-    // Hard sleep required by Renesas firmware to let the micro-sequencer latch the phase shift safely
-    usleep(200);
-
-    // Phase Pull-in ?
-    return 0;
-}
-
-/**
- * @brief Programs the 42-bit signed frequency micro-adjustment to DPLL5 or DPLL6.
- *        Accepts a 64-bit parameter to protect high-bit data integrity boundaries.
- *
- * @param dpll_index Target DPLL index (5 or 6).
- * @param freq Signed 42-bit frequency adjustment value.
- * @return int 0 on success; negative on error.
- * @note Relates to DPLL_FREQ_n.DPLL_WR_FREQ registers.
- */
-static inline
-int dpll_write_freq(int dpll_index, int64_t freq) {
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    uint8_t page = 0xC8, reg, offset = 0x00, original_d5;
-
-    int64_t cleaned_freq = freq & 0x3FFFFFFFFFFLL;
-
-    if(dpll_index == 5) {
-        /* 0xC860 */
-        reg = 0x60;
-    } else if (dpll_index == 6) {
-        /* 0xC868 */
-        reg = 0x68;
-    } else {
-        return -1;
-    }
-
-    /* DPLL_n.DPLL_MODE.PLL_MODE = write frequency mode */
-
-    if (bf_pltfm_read_ptp_reg(page, offset + 5,
-            &original_d5) < 0) {
-        return -2;
-    }
-
-    // Map the entire 42-bit word across 6 continuous Little-Endian bytes (D0 to D5)
-    burst_buf[0] = (uint8_t)(cleaned_freq & 0xFF);         // D0
-    burst_buf[1] = (uint8_t)((cleaned_freq >> 8) & 0xFF);  // D1
-    burst_buf[2] = (uint8_t)((cleaned_freq >> 16) & 0xFF); // D2
-    burst_buf[3] = (uint8_t)((cleaned_freq >> 24) & 0xFF); // D3
-    burst_buf[4] = (uint8_t)((cleaned_freq >> 32) & 0xFF); // D4
-    burst_buf[5] = (original_d5 & 0xFC) | (uint8_t)((cleaned_freq >> 40) & 0x03);
-
-    for(int i = 0; i < 6; i ++) {
-        if (bf_pltfm_write_ptp_reg(page, reg + offset + i,
-                burst_buf[i]) < 0) {
-            return -3;
-        }
-    }
-
-    // Hard sleep required by Renesas firmware to let the micro-sequencer latch the phase shift safely
-    usleep(200);
-
-    return 0;
 }
 
 /**
@@ -746,8 +653,8 @@ int bf_ptp_get_release_no(uint8_t *major, uint8_t *minor, uint8_t *rev) {
 static inline
 int bf_ptp_get_input_freq(int input_index, double *freq) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (input_index != 0 && input_index != 1) {
         return -1;
@@ -769,17 +676,19 @@ int bf_ptp_get_input_freq(int input_index, double *freq) {
 }
 
 /**
- * @brief Sets the 32-bit signed phase command increment for DPLL_n.
- * 
+ * @brief Sets the 32-bit signed phase increment for DPLL_n.
+ *        Performs sequential per-byte writes over the 4-byte phase offset region
+ *        with a 200 µs micro-sequencer latch settlement stall.
+ *
  * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param phase_cmd Signed 32-bit phase target value.
+ * @param phase Signed 32-bit phase target value.
  * @return int 0 on success; negative on hardware fault.
  */
 static inline
-int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase_cmd) {
+int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7) {
         return -1;
@@ -789,10 +698,10 @@ int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase_cmd) {
         return -2;
     }
 
-    burst_buf[0] = (uint8_t)(phase_cmd & 0xFF);
-    burst_buf[1] = (uint8_t)((phase_cmd >> 8) & 0xFF);
-    burst_buf[2] = (uint8_t)((phase_cmd >> 16) & 0xFF);
-    burst_buf[3] = (uint8_t)((phase_cmd >> 24) & 0xFF);
+    burst_buf[0] = (uint8_t)(phase & 0xFF);
+    burst_buf[1] = (uint8_t)((phase >> 8) & 0xFF);
+    burst_buf[2] = (uint8_t)((phase >> 16) & 0xFF);
+    burst_buf[3] = (uint8_t)((phase >> 24) & 0xFF);
 
     if (bf_pltfm_write_ptp_reg_burst(REGPAGE(regdesc), REGADDR(regdesc),
             burst_buf, 4) < 0) {
@@ -806,19 +715,19 @@ int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase_cmd) {
 }
 
 /**
- * @brief Gets the 32-bit signed phase command increment currently cached or running in DPLL_n.
+ * @brief Gets the 32-bit signed phase increment currently cached or running in DPLL_n.
  * 
  * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param out_phase_cmd Output pointer populated with the running 32-bit signed phase command.
+ * @param out_phase Output pointer populated with the running 32-bit signed phase.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase_cmd) {
+int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
-    if ((dpll_index != 5 && dpll_index != 6) || !out_phase_cmd) {
+    if ((dpll_index != 5 && dpll_index != 6) || !out_phase) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "DPLL%d.PHASE", dpll_index);
@@ -834,7 +743,7 @@ int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase_cmd) {
         }
     }
 
-    *out_phase_cmd = dpll_phase_le32(burst_buf);
+    *out_phase = dpll_phase_le32(burst_buf);
 
     return 0;
 }
@@ -849,8 +758,8 @@ int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase_cmd) {
 static inline
 int bf_ptp_get_dpll_phase_status(uint8_t dpll_index, double *phase_ns) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !phase_ns) {
         return -1;
@@ -873,8 +782,10 @@ int bf_ptp_get_dpll_phase_status(uint8_t dpll_index, double *phase_ns) {
 }
 
 /**
- * @brief Sets the 42-bit signed frequency micro-adjustment (FFO) for DPLL_n.
- *        Strictly implements Read-Modify-Write to safeguard the D5 [7:2] Reserved bits.
+ * @brief Sets the 42-bit signed frequency micro-adjustment (FFO) to DPLL_n.
+ *        Enforces Read-Modify-Write on byte D5 to safeguard [7:2] Reserved bits,
+ *        then performs sequential per-byte writes over the 6-byte frequency offset region
+ *        with a 200 µs micro-sequencer latch settlement stall.
  * 
  * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
  * @param freq_ffo_q53 Signed 42-bit frequency offset in units of 2^-53 (Q53 format).
@@ -883,8 +794,8 @@ int bf_ptp_get_dpll_phase_status(uint8_t dpll_index, double *phase_ns) {
 static inline
 int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
     uint8_t original_d5 = 0;
 
     if (dpll_index > 7) {
@@ -931,8 +842,8 @@ int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53) {
 static inline
 int bf_ptp_get_dpll_freq(uint8_t dpll_index, int64_t *out_freq_ffo_q53) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !out_freq_ffo_q53) {
         return -1;
@@ -971,7 +882,7 @@ static inline
 int bf_ptp_get_dpll_mode(uint8_t dpll_index, uint8_t *mode_val) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !mode_val) {
         return -1;
@@ -990,6 +901,49 @@ int bf_ptp_get_dpll_mode(uint8_t dpll_index, uint8_t *mode_val) {
 }
 
 /**
+ * @brief Configures the operational mode and state machine mode of DPLL_n.
+ *        Enforces Read-Modify-Write to protect RESERVED[7:6] bits.
+ * 
+ * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
+ * @param op_mode Operational mode (0=PLL, 1=PHASE, 2=FREQ, 3=GPIO, 4=SYNTH, 5=PMEAS, 6=OFF).
+ * @param sm_mode State machine mode (0=AUTO, 1=FORCE_LOCK, 2=FORCE_FRUN, 3=FORCE_HLDOVER).
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_set_dpll_mode(uint8_t dpll_index, uint8_t op_mode, uint8_t sm_mode) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t original_val = 0;
+    uint8_t updated_val = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || op_mode > 6 || sm_mode > 3) {
+        return -1;
+    }
+    snprintf(name_buf, sizeof(name_buf), "DPLL%d.MODE", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    /* Read-Modify-Write to protect RESERVED[7:6] bits */
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &original_val) < 0) {
+        return -3;
+    }
+
+    updated_val = original_val & 0xC0; /* Preserve [7:6] */
+    updated_val |= (op_mode & 0x07) << 3; /* Inject PLL_MODE[5:3] */
+    updated_val |= (sm_mode & 0x07);       /* Inject SM_MODE[2:0] */
+
+    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            updated_val) < 0) {
+        return -4;
+    }
+
+    usleep(200); /* Latch settle stall */
+    return 0;
+}
+
+/**
  * @brief Retrieves the live tracking reference status of DPLL_n.
  * 
  * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
@@ -1000,7 +954,7 @@ static inline
 int bf_ptp_get_dpll_ref_stat(uint8_t dpll_index, uint8_t *ref_stat) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !ref_stat) {
         return -1;
@@ -1029,7 +983,7 @@ static inline
 int bf_ptp_get_dpll_status(uint8_t dpll_index, uint8_t *status) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !status) {
         return -1;
@@ -1060,7 +1014,7 @@ static inline
 int bf_ptp_get_dpll_tod_sync_cfg(uint8_t dpll_index, bool *out_enabled, uint8_t *out_tod_source) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !out_enabled || !out_tod_source) {
         return -1;
@@ -1096,7 +1050,7 @@ int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_index, bool enable_sync, uint8_t t
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t original_val = 0;
     uint8_t updated_val = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || tod_source > 3) {
         return -1;
@@ -1143,7 +1097,7 @@ static inline
 int bf_ptp_get_dpll_combo_slave_pri_cfg(uint8_t dpll_index, bool *out_pri_en, bool *out_pri_filt, uint8_t *out_pri_src_id) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !out_pri_en || !out_pri_filt || !out_pri_src_id) {
         return -1;
@@ -1181,7 +1135,7 @@ int bf_ptp_set_dpll_combo_slave_pri_cfg(uint8_t dpll_index, bool pri_en, bool pr
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t original_val = 0;
     uint8_t updated_val = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || pri_src_id > 8) {
         return -1;
@@ -1229,7 +1183,7 @@ static inline
 int bf_ptp_get_dpll_combo_slave_sec_cfg(uint8_t dpll_index, bool *out_sec_en, bool *out_sec_filt, uint8_t *out_sec_src_id) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || !out_sec_en || !out_sec_filt || !out_sec_src_id) {
         return -1;
@@ -1267,7 +1221,7 @@ int bf_ptp_set_dpll_combo_slave_sec_cfg(uint8_t dpll_index, bool sec_en, bool se
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t original_val = 0;
     uint8_t updated_val = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (dpll_index > 7 || sec_src_id > 8) {
         return -1;
@@ -1395,6 +1349,40 @@ int bf_ptp_get_tod_write_counter(uint8_t tod_index, uint8_t *out_write_counter) 
 }
 
 /**
+ * @brief Retrieves the historical read snapshot completion metrics from the specified TOD_READ_PRIMARY_n module.
+ * 
+ * @param tod_index Target TOD instance index (Valid range: 0 to 3).
+ * @param out_read_counter Output pointer populated with the raw hardware read count byte.
+ * @return int 0 on success; -1 on lookup or parameter error; -2 on hardware I2C transaction failure.
+ */
+static inline
+int bf_ptp_get_tod_read_counter(uint8_t tod_index, uint8_t *out_read_counter) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t reg_byte = 0;
+    char name_buf[64] = { 0 };
+
+    if (tod_index > 3 || !out_read_counter) {
+        return -1;
+    }
+
+    /* Dynamic string construction matching "TODn.READ_PRIMARY.COUNTER" within Page 0xCC */
+    snprintf(name_buf, sizeof(name_buf), "TOD%d.READ_PRIMARY.COUNTER", tod_index);
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    /* Execute paged read targeting 0xCC4B/0xCC5B/0xCC6B/0xCC8B */
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &reg_byte) < 0) {
+        return -3;
+    }
+
+    *out_read_counter = reg_byte;
+
+    return 0;
+}
+
+/**
  * @brief Retrieves and decodes the current configuration bits of the specified TOD_n.TOD_CFG register.
  * 
  * @param tod_index Target TOD instance index (Valid range: 0 to 3).
@@ -1407,7 +1395,7 @@ static inline
 int bf_ptp_get_tod_cfg(uint8_t tod_index, bool *out_enabled, bool *out_even_pps, bool *out_sync_disabled) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (tod_index > 3 || !out_enabled || !out_even_pps || !out_sync_disabled) {
         return -1;
@@ -1448,7 +1436,7 @@ int bf_ptp_set_tod_cfg(uint8_t tod_index, bool enable_tod, bool even_pps_mode, b
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t original_val = 0;
     uint8_t updated_val = 0;
-    char name_buf[BUFSIZ] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (tod_index > 3) {
         return -1;
@@ -1501,8 +1489,8 @@ int bf_ptp_set_tod_cfg(uint8_t tod_index, bool enable_tod, bool even_pps_mode, b
 static inline
 int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (tod_index > 3 || !out_sec || !out_ns) {
         return -1;
@@ -1565,8 +1553,8 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) 
 static inline
 int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns) {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[BUFSIZ] = { 0 };
-    char name_buf[BUFSIZ] = { 0 };
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
 
     if (tod_index > 3) {
         return -1;
