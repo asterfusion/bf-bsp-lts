@@ -1608,6 +1608,40 @@ finish:
     return rc;
 }
 
+int bf_pltfm_read_ptp_reg_burst(uint8_t page, uint8_t reg, uint8_t *value, size_t l) {
+    int rc = 0;
+    uint8_t pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
+    uint8_t ptp_addr = 0x58;
+
+    MASTER_I2C_LOCK;
+    // Select channel 5 to access PTP module
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x20)) {
+        fprintf (stdout, "\nFailed to select PTP.\n");
+        rc = -1;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_write_byte (ptp_addr, 0xFD, page)) {
+        fprintf (stdout, "\nFailed to select PTP page.\n");
+        rc = -2;
+        goto finish;
+    }
+
+    if (bf_pltfm_cp2112_reg_read_block (ptp_addr, reg, value, l)) {
+        fprintf (stdout, "\nFailed to read PTP reg.\n");
+        rc = -3;
+    }
+
+finish:
+    if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00)) {
+        fprintf (stdout, "\nFailed to de-select PTP.\n");
+        rc = -4;
+    }
+
+    MASTER_I2C_UNLOCK;
+    return rc;
+}
+
 // for X732Q-T-V2.0 only
 int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source) {
     bf_status_t bf_status = 0;
@@ -1948,7 +1982,7 @@ bf_pltfm_cpld_ucli_ucli__ptp_page (
     uint8_t page, page_start, page_end;
 
     UCLI_COMMAND_INFO (uc, "ptp-page", -1,
-                       "ptp-page <page: 0xC0-0xCF>");
+                       "ptp-page <page: 0x80-0xCF>");
 
     if (! platform_type_equal (AFN_X732QT) ||
         ! platform_subtype_equal (V2P0)) {
@@ -1965,7 +1999,7 @@ bf_pltfm_cpld_ucli_ucli__ptp_page (
         page_start = strtoul (uc->pargs->args[0], NULL, 0);
         page_end = page_start;
     } else {
-        page_start = 0xC0;
+        page_start = 0x80;
         page_end = 0xCF;
     }
 
@@ -2100,6 +2134,21 @@ bf_pltfm_cpld_ucli_ucli__ptp (
     aim_printf (&uc->pvs, "SCRATCH.SCRATCH3           : %x\n", regval);
     aim_printf (&uc->pvs, "\n");
 
+    /* System-wide status registers */
+    uint32_t boot_status = 0;
+    uint8_t  sys_dpll = 0, sys_apll = 0;
+
+    bf_ptp_get_boot_status(&boot_status);
+    bf_ptp_get_sys_dpll_status(0, &sys_dpll);
+    bf_ptp_get_sys_apll_status(0, &sys_apll);
+
+    aim_printf(&uc->pvs, "BOOT_STATUS                : 0x%08X  %s\n", boot_status,
+               (boot_status == 0xA0) ? "READY" : "BUSY");
+    aim_printf(&uc->pvs, "SYS_DPLL_STATUS            : 0x%02X     %s\n", sys_dpll, dpll_state_str(0, sys_dpll));
+    aim_printf(&uc->pvs, "SYS_APLL_STATUS            : 0x%02X     %s\n", sys_apll,
+               (sys_apll & 0x01) ? "UNLOCKED" : "LOCKED");
+    aim_printf(&uc->pvs, "\n");
+
     aim_printf(&uc->pvs, "\n=================================================================================================================\n");
     aim_printf(&uc->pvs, "                          8A34004 TIMING PLANE: DPLL CONFIGURATION & STATE MATRIX                         \n");
     aim_printf(&uc->pvs, "-----------------------------------------------------------------------------------------------------------------\n");
@@ -2143,7 +2192,7 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         snprintf(dpll_idx_str, sizeof(dpll_idx_str), "%d", dpll_index);
         if (pll_mode_check != 6) {
             op_mode_str = dpll_mode_op_str(drv_mode);
-            live_state_str = dpll_status_str(dpll_index, dpll_status);
+            live_state_str = dpll_state_str(dpll_index, dpll_status);
             snprintf(ref_str, sizeof(ref_str), "%s", dpll_refclk_str(dpll_ref));
             snprintf(sync_en_str, sizeof(sync_en_str), "%s", sync_en ? "ENABLED" : "DISABLED");
             snprintf(tod_src_str, sizeof(tod_src_str), "ToD%d", tod_src);

@@ -541,6 +541,7 @@ int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source);
 int bf_pltfm_read_ptp_reg(uint8_t page, uint8_t reg, uint8_t* value);
 int bf_pltfm_write_ptp_reg(uint8_t page, uint8_t reg, uint8_t value);
 int bf_pltfm_write_ptp_reg_burst(uint8_t page, uint8_t reg, uint8_t *value, size_t l);
+int bf_pltfm_read_ptp_reg_burst(uint8_t page, uint8_t reg, uint8_t *value, size_t l);
 
 #ifdef __cplusplus
 }

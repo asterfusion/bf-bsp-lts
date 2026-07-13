@@ -812,7 +812,8 @@ bool tlvinfo_add_tlv (u_int8_t *eeprom, int tcode,
         case TLV_CODE_VENDOR_NAME:
         case TLV_CODE_DIAG_VERSION:
         case TLV_CODE_SERVICE_TAG:
-            strncpy (data, strval, MAX_TLV_VALUE_LEN);
+            //strncpy (data, strval, MAX_TLV_VALUE_LEN);
+            snprintf(data, sizeof(data), "%s", strval);
             new_tlv_len = min (MAX_TLV_VALUE_LEN,
                                strlen (strval));
             break;
