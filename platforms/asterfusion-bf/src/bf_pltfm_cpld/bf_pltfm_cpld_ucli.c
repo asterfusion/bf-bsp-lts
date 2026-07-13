@@ -1982,7 +1982,7 @@ bf_pltfm_cpld_ucli_ucli__ptp_page (
     uint8_t page, page_start, page_end;
 
     UCLI_COMMAND_INFO (uc, "ptp-page", -1,
-                       "ptp-page <page: 0x80-0xCF>");
+                       "ptp-page <page: 0xC0-0xCF>");
 
     if (! platform_type_equal (AFN_X732QT) ||
         ! platform_subtype_equal (V2P0)) {
@@ -1995,11 +1995,11 @@ bf_pltfm_cpld_ucli_ucli__ptp_page (
        return 0;
     }
 
-    if (uc->pargs->count == 1) {
+    if (uc->pargs->count >= 1) {
         page_start = strtoul (uc->pargs->args[0], NULL, 0);
         page_end = page_start;
     } else {
-        page_start = 0x80;
+        page_start = 0xC0;
         page_end = 0xCF;
     }
 
@@ -2654,6 +2654,268 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode (
     return 0;
 }
 
+/* @brief Write the DPLL frequency control word (FCW) in FFO Q5.3 format.
+ *        A value of 0 represents the nominal frequency (zero-ppm offset). */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_dpll_freq (
+    ucli_context_t *uc)
+{
+    uint32_t dpll_index = 0;
+    int64_t fcw_val = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-dpll-freq", -1,
+                       "ptp-dpll-freq <dpll_index: 0~7> <fcw_ffo_q53>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count != 2) {
+        aim_printf (&uc->pvs, "Usage: ptp-dpll-freq <dpll_index: 0~7> <fcw_ffo_q53>\n");
+        return 0;
+    }
+
+    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
+    fcw_val = strtoll (uc->pargs->args[1], NULL, 0);
+
+    if (dpll_index > 7) {
+        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_set_dpll_freq((uint8_t)dpll_index, fcw_val);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to set DPLL%d frequency (error code: %d)\n", dpll_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully set DPLL%d FCW to %lld (0x%llX)\n", dpll_index,
+                    (long long)fcw_val, (long long)fcw_val);
+    }
+
+    return 0;
+}
+
+/* @brief Adjust DPLL frequency via FCW (wraps bf_ptp_adjfine).
+ *        Automatically switches DPLL to FREQ mode if needed. */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_adjfine (
+    ucli_context_t *uc)
+{
+    uint32_t dpll_index = 0;
+    int64_t scaled_ppm = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-adjfine", -1,
+                       "ptp-adjfine <dpll_index: 0~7> <scaled_ppm>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count != 2) {
+        aim_printf (&uc->pvs, "Usage: ptp-adjfine <dpll_index: 0~7> <scaled_ppm>\n");
+        return 0;
+    }
+
+    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
+    scaled_ppm = strtoll (uc->pargs->args[1], NULL, 0);
+
+    if (dpll_index > 7) {
+        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_adjfine((uint8_t)dpll_index, scaled_ppm);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to adjfine DPLL%d (error code: %d)\n", dpll_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully adjfine DPLL%d: scaled_ppm=%lld\n", dpll_index, (long long)scaled_ppm);
+    }
+    return 0;
+}
+
+/* @brief Phase-slew DPLL via PCW (wraps bf_ptp_adjphase).
+ *        Automatically switches DPLL to PHASE mode if needed.
+ *        Resolution: 50 ps / LSB. */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_adjphase (
+    ucli_context_t *uc)
+{
+    uint32_t dpll_index = 0;
+    int32_t delta_ns = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-adjphase", -1,
+                       "ptp-adjphase <dpll_index: 0~7> <delta_ns>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count != 2) {
+        aim_printf (&uc->pvs, "Usage: ptp-adjphase <dpll_index: 0~7> <delta_ns>\n");
+        return 0;
+    }
+
+    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
+    delta_ns = (int32_t)strtol (uc->pargs->args[1], NULL, 0);
+
+    if (dpll_index > 7) {
+        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_adjphase((uint8_t)dpll_index, delta_ns);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to adjphase DPLL%d (error code: %d)\n", dpll_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully adjphase DPLL%d: delta=%d ns\n", dpll_index, delta_ns);
+    }
+    return 0;
+}
+
+/* @brief Step-adjust ToD wall-clock (wraps bf_ptp_adjtime).
+ *        Read-modify-write on PRIMARY.ToD time. */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_adjtime (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 0;
+    int64_t delta_ns = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-adjtime", -1,
+                       "ptp-adjtime <tod_index: 0~3> <delta_ns>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count != 2) {
+        aim_printf (&uc->pvs, "Usage: ptp-adjtime <tod_index: 0~3> <delta_ns>\n");
+        return 0;
+    }
+
+    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    delta_ns = strtoll (uc->pargs->args[1], NULL, 0);
+
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_adjtime((uint8_t)tod_index, delta_ns);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to adjtime ToD%d (error code: %d)\n", tod_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully adjtime ToD%d: delta=%lld ns\n", tod_index, (long long)delta_ns);
+    }
+    return 0;
+}
+
+/* @brief Read ToD wall-clock via PRIMARY trigger-bit polling (bf_ptp_gettime). */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_gettime (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 0;
+    uint32_t sec = 0, ns = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-gettime", -1,
+                       "ptp-gettime <tod_index: 0~3>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count != 1) {
+        aim_printf (&uc->pvs, "Usage: ptp-gettime <tod_index: 0~3>\n");
+        return 0;
+    }
+
+    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_gettime((uint8_t)tod_index, &sec, &ns);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to gettime ToD%d (error code: %d)\n", tod_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "ToD%d: %u.%09u sec\n", tod_index, sec, ns);
+    }
+    return 0;
+}
+
+/* @brief Set ToD wall-clock (wraps bf_ptp_settime). */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_settime (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 0;
+    uint32_t sec = 0;
+    uint32_t ns = 0;
+
+    UCLI_COMMAND_INFO (uc, "ptp-settime", -1,
+                       "ptp-settime <tod_index: 0~3> <seconds> <nanoseconds>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count != 3) {
+        aim_printf (&uc->pvs, "Usage: ptp-settime <tod_index: 0~3> <seconds> <nanoseconds>\n");
+        return 0;
+    }
+
+    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    sec = strtoul (uc->pargs->args[1], NULL, 0);
+    ns = strtoul (uc->pargs->args[2], NULL, 0);
+
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_ptp_settime((uint8_t)tod_index, sec, ns);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to settime ToD%d (error code: %d)\n", tod_index, rc);
+    } else {
+        aim_printf (&uc->pvs, "Successfully set ToD%d to %u.%09u sec\n", tod_index, sec, ns);
+    }
+    return 0;
+}
+
 static ucli_status_t
 bf_pltfm_cpld_ucli_ucli__read_cpld (
     ucli_context_t *uc)
@@ -2789,14 +3051,20 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__devts,
     bf_pltfm_cpld_ucli_ucli__devts_cnt,
     bf_pltfm_cpld_ucli_ucli__bsync_cnt,
+    bf_pltfm_cpld_ucli_ucli__ptp,
     bf_pltfm_cpld_ucli_ucli__ptp_page,
     bf_pltfm_cpld_ucli_ucli__ptp_reg,
-    bf_pltfm_cpld_ucli_ucli__ptp,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_en,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_set,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode,
+    bf_pltfm_cpld_ucli_ucli__ptp_dpll_freq,
+    bf_pltfm_cpld_ucli_ucli__ptp_adjfine,
+    bf_pltfm_cpld_ucli_ucli__ptp_adjphase,
+    bf_pltfm_cpld_ucli_ucli__ptp_adjtime,
+    bf_pltfm_cpld_ucli_ucli__ptp_gettime,
+    bf_pltfm_cpld_ucli_ucli__ptp_settime,
 
     NULL
 };

@@ -2188,4 +2188,100 @@ int bf_ptp_adjfine(uint8_t dpll_index, int64_t scaled_ppm)
 
     return bf_ptp_set_dpll_freq(dpll_index, fcw);
 }
+
+/**
+ * @brief PRIMARY path — reads the current ToD with trigger-bit polling.
+ *
+ * Matches upstream _idtcm_gettime_immediate + _idtcm_gettime:
+ * writes IMMEDIATE to PRIMARY.TRIGGER, polls until the trigger bit
+ * clears (up to 10 iterations), then burst-reads the 11-byte snapshot.
+ * The polling loop is more robust than a fixed usleep against I2C
+ * bus latency variance.
+ *
+ * For hardware-gated (low-jitter) reads, use the SECONDARY path:
+ *   bf_ptp_arm_tod_read_trigger_refclk() + bf_ptp_get_tod_time_triggered().
+ *
+ * @param tod_index  Target TOD instance (0-3).
+ * @param out_sec    Output pointer populated with Unix Epoch seconds.
+ * @param out_ns     Output pointer populated with sub-second nanoseconds.
+ * @return int       0 on success; negative on error.
+ */
+static inline
+int bf_ptp_gettime(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) {
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t burst_buf[64] = { 0 };
+    char name_buf[64] = { 0 };
+    uint8_t trigger = 0;
+    int timeout = 10;
+
+    if (tod_index > 3 || !out_sec || !out_ns)
+        return -1;
+
+    /* 1. Fire IMMEDIATE trigger on PRIMARY */
+    snprintf(name_buf, sizeof(name_buf),
+             "TOD%d.READ_PRIMARY.TRIGGER", tod_index);
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+        return -2;
+
+    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+             (uint8_t)TOD_READ_TRIG_SEL_IMMEDIATE) < 0)
+        return -3;
+
+    /* 2. Poll TRIGGER register until the latch settles */
+    do {
+        if (timeout-- == 0)
+            return -4; /* EIO: timeout waiting for latch */
+
+        if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+                &trigger) < 0)
+            return -5;
+    } while (trigger & TOD_READ_TRIGGER_MASK);
+
+    /* 3. Burst-read the 11-byte snapshot from PRIMARY base */
+    snprintf(name_buf, sizeof(name_buf),
+             "TOD%d.READ_PRIMARY.SUB_NS", tod_index);
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+        return -6;
+
+    uint8_t page = REGPAGE(regdesc);
+    uint8_t addr = REGADDR(regdesc);
+
+    for (int offset = 0; offset < 11; offset++) {
+        if (bf_pltfm_read_ptp_reg(page, addr + offset,
+                &burst_buf[offset]) < 0)
+            return -7;
+    }
+
+    /* 4. Decode nanoseconds (LE across offsets 001h-004h) */
+    *out_ns = ((uint32_t)burst_buf[4] << 24) |
+              ((uint32_t)burst_buf[3] << 16) |
+              ((uint32_t)burst_buf[2] <<  8) |
+              ((uint32_t)burst_buf[1]);
+
+    /* 5. Decode seconds (LE across offsets 005h-008h) */
+    *out_sec = ((uint32_t)burst_buf[8] << 24) |
+               ((uint32_t)burst_buf[7] << 16) |
+               ((uint32_t)burst_buf[6] <<  8) |
+               ((uint32_t)burst_buf[5]);
+
+    return 0;
+}
+
+/**
+ * @brief PRIMARY path — writes an absolute time to the ToD counter.
+ *
+ * Matches upstream _idtcm_settime with SCSR_TOD_WR_TYPE_SEL_ABSOLUTE:
+ * preloads sub-ns=0, ns, and seconds into the WRITE registers, then
+ * fires the ABSOLUTE + IMMEDIATE commit trigger (0x01).
+ *
+ * @param tod_index  Target TOD instance (0-3).
+ * @param sec        Unix Epoch absolute seconds to set.
+ * @param ns         Residual sub-second nanoseconds to set.
+ * @return int       0 on success; negative on error.
+ */
+static inline
+int bf_ptp_settime(uint8_t tod_index, uint32_t sec, uint32_t ns) {
+    return bf_ptp_set_tod_time(tod_index, sec, ns);
+}
+
 #endif // AFN_8A34004_REGS_H
