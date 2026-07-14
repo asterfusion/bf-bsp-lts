@@ -2136,17 +2136,18 @@ bf_pltfm_cpld_ucli_ucli__ptp (
 
     /* System-wide status registers */
     uint32_t boot_status = 0;
-    uint8_t  sys_dpll = 0, sys_apll = 0;
+    enum dpll_state sys_dpll = 0;
+    uint8_t  sys_apll = 0;
 
     bf_ptp_get_boot_status(&boot_status);
-    bf_ptp_get_sys_dpll_status(0, &sys_dpll);
-    bf_ptp_get_sys_apll_status(0, &sys_apll);
+    bf_ptp_get_sys_dpll_state(0, &sys_dpll);
+    bf_ptp_get_sys_apll_state(0, &sys_apll);
 
     aim_printf(&uc->pvs, "BOOT_STATUS                : 0x%08X  %s\n", boot_status,
                (boot_status == 0xA0) ? "READY" : "BUSY");
-    aim_printf(&uc->pvs, "SYS_DPLL_STATUS            : 0x%02X     %s\n", sys_dpll, dpll_state_str(0, sys_dpll));
-    aim_printf(&uc->pvs, "SYS_APLL_STATUS            : 0x%02X     %s\n", sys_apll,
-               (sys_apll & 0x01) ? "UNLOCKED" : "LOCKED");
+    aim_printf(&uc->pvs, "SYS_DPLL_STATE             : 0x%02X     %s\n", sys_dpll, dpll_state_str(0, sys_dpll));
+    aim_printf(&uc->pvs, "SYS_APLL_STATE             : 0x%02X     %s\n", sys_apll,
+               (sys_apll & SYS_APLL_LOSS_LOCK_LIVE_UNLOCKED) ? "UNLOCKED" : "LOCKED");
     aim_printf(&uc->pvs, "\n");
 
     aim_printf(&uc->pvs, "\n=================================================================================================================\n");
@@ -2157,17 +2158,17 @@ bf_pltfm_cpld_ucli_ucli__ptp (
     aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-25s\n",
                "-----", "----------------", "----------------", "----------------", "--------", "--------", "-------------------------");
     for (uint8_t dpll_index = 0; dpll_index < 8; dpll_index++) {
-        uint8_t drv_mode = 0;
-        uint8_t dpll_status = 0;
+        enum pll_mode op_mode;
+        enum dpll_state dpll_state = 0;
         uint8_t dpll_ref = 0;
         bool sync_en = false;
         uint8_t tod_src = 0;
         double phase_ns = 0.0;
 
-        if (bf_ptp_get_dpll_mode(dpll_index, &drv_mode) != 0) {
+        if (bf_ptp_get_dpll_mode(dpll_index, &op_mode) != 0) {
             continue;
         }
-        if (bf_ptp_get_dpll_status(dpll_index, &dpll_status) != 0) {
+        if (bf_ptp_get_dpll_state(dpll_index, &dpll_state) != 0) {
             continue;
         }
         if (bf_ptp_get_dpll_ref_stat(dpll_index, &dpll_ref) != 0) {
@@ -2187,12 +2188,11 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         char phase_str[32] = "---";
         const char *op_mode_str = "---";
         const char *live_state_str = "---";
-        uint8_t pll_mode_check = (drv_mode >> 3) & 0x07;
 
         snprintf(dpll_idx_str, sizeof(dpll_idx_str), "%d", dpll_index);
-        if (pll_mode_check != 6) {
-            op_mode_str = dpll_mode_op_str(drv_mode);
-            live_state_str = dpll_state_str(dpll_index, dpll_status);
+        if (op_mode != PLL_MODE_DISABLED) {
+            op_mode_str = dpll_mode_op_str(op_mode);
+            live_state_str = dpll_state_str(dpll_index, dpll_state);
             snprintf(ref_str, sizeof(ref_str), "%s", dpll_refclk_str(dpll_ref));
             snprintf(sync_en_str, sizeof(sync_en_str), "%s", sync_en ? "ENABLED" : "DISABLED");
             snprintf(tod_src_str, sizeof(tod_src_str), "ToD%d", tod_src);
@@ -2301,9 +2301,9 @@ bf_pltfm_cpld_ucli_ucli__ptp (
         /* Determine DPLL driving mode label for all DPLLs (not just 5/6) */
         const char *sync_mode_str = "PLL";
         {
-            uint8_t drv_mode = 0;
-            if (bf_ptp_get_dpll_mode(clk_src, &drv_mode) == 0) {
-                sync_mode_str = dpll_mode_op_str(drv_mode);
+            enum pll_mode op_mode;
+            if (bf_ptp_get_dpll_mode(clk_src, &op_mode) == 0) {
+                sync_mode_str = dpll_mode_op_str(op_mode);
             }
         }
 
@@ -2585,8 +2585,8 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode (
     uint32_t dpll_index = 0;
     const char *op_mode_str = NULL;
     const char *sm_mode_str = NULL;
-    uint8_t op_mode = 0;
-    uint8_t sm_mode = 0;
+    enum pll_mode  op_mode = 0;
+    enum pll_state sm_mode = 0;
 
     UCLI_COMMAND_INFO (uc, "ptp-dpll-mode", -1,
                        "ptp-dpll-mode <dpll_index: 0~7> <op_mode: pll|phase|freq|gpio|synth|pmeas|off> <sm_mode: auto|force_lock|force_frun|force_hldover>");
@@ -2617,38 +2617,71 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode (
     }
 
     /* Parse operational mode string */
-    if (strcmp(op_mode_str, "pll") == 0)       op_mode = 0;
-    else if (strcmp(op_mode_str, "phase") == 0) op_mode = 1;
-    else if (strcmp(op_mode_str, "freq") == 0)  op_mode = 2;
-    else if (strcmp(op_mode_str, "gpio") == 0)  op_mode = 3;
-    else if (strcmp(op_mode_str, "synth") == 0) op_mode = 4;
-    else if (strcmp(op_mode_str, "pmeas") == 0) op_mode = 5;
-    else if (strcmp(op_mode_str, "off") == 0)   op_mode = 6;
+    if (strcmp(op_mode_str, "pll") == 0)       op_mode = PLL_MODE_PLL;
+    else if (strcmp(op_mode_str, "phase") == 0) op_mode = PLL_MODE_WRITE_PHASE;
+    else if (strcmp(op_mode_str, "freq") == 0)  op_mode = PLL_MODE_WRITE_FREQUENCY;
+    else if (strcmp(op_mode_str, "gpio") == 0)  op_mode = PLL_MODE_GPIO_INC_DEC;
+    else if (strcmp(op_mode_str, "synth") == 0) op_mode = PLL_MODE_SYNTHESIS;
+    else if (strcmp(op_mode_str, "pmeas") == 0) op_mode = PLL_MODE_PHASE_MEASUREMENT;
+    else if (strcmp(op_mode_str, "off") == 0)   op_mode = PLL_MODE_DISABLED;
     else {
         aim_printf (&uc->pvs, "Invalid op_mode: '%s' (Valid: pll|phase|freq|gpio|synth|pmeas|off)\n", op_mode_str);
         return 0;
     }
 
     /* Parse state machine mode string */
-    if (strcmp(sm_mode_str, "auto") == 0)          sm_mode = 0;
-    else if (strcmp(sm_mode_str, "force_lock") == 0)   sm_mode = 1;
-    else if (strcmp(sm_mode_str, "force_frun") == 0)   sm_mode = 2;
-    else if (strcmp(sm_mode_str, "force_hldover") == 0) sm_mode = 3;
+    if (strcmp(sm_mode_str, "auto") == 0)          sm_mode = PLL_STATE_AUTO;
+    else if (strcmp(sm_mode_str, "force_lock") == 0)   sm_mode = PLL_STATE_FORCE_LOCK;
+    else if (strcmp(sm_mode_str, "force_frun") == 0)   sm_mode = PLL_STATE_FORCE_FRUN;
+    else if (strcmp(sm_mode_str, "force_hldover") == 0) sm_mode = PLL_STATE_FORCE_HOLDOVER;
     else {
         aim_printf (&uc->pvs, "Invalid sm_mode: '%s' (Valid: auto|force_lock|force_frun|force_hldover)\n", sm_mode_str);
         return 0;
     }
 
-    int rc = bf_ptp_set_dpll_mode((uint8_t)dpll_index, op_mode, sm_mode);
+    int rc = bf_ptp_set_dpll_mode((uint8_t)dpll_index, op_mode);
     if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to set DPLL%d mode (error code: %d)\n", dpll_index, rc);
+        aim_printf (&uc->pvs, "Failed to set DPLL%d op_mode (error code: %d)\n", dpll_index, rc);
     } else {
-        /* Build the full mode byte to feed back through the existing decoder helpers */
-        uint8_t full_mode_byte = (op_mode << 3) | sm_mode;
-        aim_printf (&uc->pvs, "Successfully set DPPL%d mode: OP=%s, SM=%s\n",
-                    dpll_index,
-                    dpll_mode_op_str(full_mode_byte),
-                    dpll_mode_sm_str(full_mode_byte));
+        rc = bf_ptp_set_dpll_sm((uint8_t)dpll_index, sm_mode);
+        if (rc != 0) {
+            aim_printf (&uc->pvs, "Failed to set DPLL%d sm_mode (error code: %d)\n", dpll_index, rc);
+        } else {
+            /* Build the full mode byte to feed back through the existing decoder helpers */
+            aim_printf (&uc->pvs, "Successfully set DPPL%d mode: OP=%s, SM=%s\n",
+                        dpll_index,
+                        dpll_mode_op_str(op_mode),
+                        dpll_mode_sm_str(sm_mode));
+        }
+    }
+
+    return 0;
+}
+
+/* @brief Reset the 8A34004 state machine via SM_RESET command (0x5A).
+ *        Firmware reinitializes over ~3 seconds; check boot_status for readiness. */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_reset_sm (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "ptp-reset-sm", -1,
+                       "Reset the 8A34004 state machine");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    int rc = bf_ptp_reset_sm();
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to reset state machine (error code: %d)\n", rc);
+    } else {
+        aim_printf (&uc->pvs, "SM_RESET sent (0x5A). Firmware reinitializing (~3 sec)...\n");
     }
 
     return 0;
@@ -2695,33 +2728,35 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll (
                 "-----", "------", "--------------", "----------", "----------------", "----------------", "----------------", "--------", "--------");
 
     for (uint8_t i = dpll_start; i <= dpll_end; i++) {
-        uint8_t drv_mode = 0, dpll_status = 0, dpll_ref = 0;
+        enum pll_mode  op_mode = 0;
+        enum pll_state sm_mode = 0;
+        enum dpll_state dpll_state = 0;
         bool sync_en = false;
-        uint8_t tod_src = 0;
+        uint8_t tod_src = 0, dpll_ref = 0;
         double phase_ns = 0.0;
         int64_t fcw = 0;
 
-        if (bf_ptp_get_dpll_mode(i, &drv_mode) != 0) continue;
-        if (bf_ptp_get_dpll_status(i, &dpll_status) != 0) continue;
+        if (bf_ptp_get_dpll_mode(i, &op_mode) != 0) continue;
+        if (bf_ptp_get_dpll_sm(i, &sm_mode) != 0) continue;
+        if (bf_ptp_get_dpll_state(i, &dpll_state) != 0) continue;
         if (bf_ptp_get_dpll_ref_stat(i, &dpll_ref) != 0) continue;
         if (bf_ptp_get_dpll_tod_sync_cfg(i, &sync_en, &tod_src) != 0) continue;
         if (bf_ptp_get_dpll_phase_status(i, &phase_ns) != 0) continue;
         /* Frequency fetch is best-effort (may fail for OFF or uninitialised DPLLs) */
         bf_ptp_get_dpll_freq(i, &fcw);
 
-        uint8_t pll_mode_check = (drv_mode >> 3) & 0x07;
-        if (pll_mode_check == 6) continue; /* OFF — skip */
+        if (op_mode == PLL_MODE_DISABLED) continue; /* OFF — skip */
 
-        const char *op_str      = dpll_mode_op_str(drv_mode);
-        const char *sm_str      = dpll_mode_sm_str(drv_mode);
-        const char *live_str    = dpll_state_str(i, dpll_status);
+        const char *op_str      = dpll_mode_op_str(op_mode);
+        const char *sm_str      = dpll_mode_sm_str(sm_mode);
+        const char *live_str    = dpll_state_str(i, dpll_state);
         const char *ref_str     = dpll_refclk_str(dpll_ref);
         const char *sync_str    = sync_en ? "ENABLED" : "DISABLED";
 
         /* FCW (Q5.3) → ppb:  ppb = fcw * 1e9 / 2^53 */
         char freq_str[32];
         double fcw_ppb = (double)fcw * 1e9 / (double)(1LL << 53);
-        if (fcw == 0 && pll_mode_check != 2)
+        if (fcw == 0 && op_mode != PLL_MODE_WRITE_FREQUENCY)
             snprintf(freq_str, sizeof(freq_str), "---");
         else
             snprintf(freq_str, sizeof(freq_str), "% .3f", fcw_ppb);
@@ -2800,9 +2835,9 @@ bf_pltfm_cpld_ucli_ucli__ptp_tod (
 
         /* Driving DPLL mode label */
         const char *sync_mode_str = "PLL";
-        uint8_t drv_mode = 0;
-        if (bf_ptp_get_dpll_mode(clk_src, &drv_mode) == 0)
-            sync_mode_str = dpll_mode_op_str(drv_mode);
+        enum pll_mode op_mode;
+        if (bf_ptp_get_dpll_mode(clk_src, &op_mode) == 0)
+            sync_mode_str = dpll_mode_op_str(op_mode);
 
         char clk_buf[64], pri_buf[64], sec_buf[64];
         snprintf(clk_buf, sizeof(clk_buf), "DPLL%d (%s)", clk_src, sync_mode_str);
@@ -3261,6 +3296,7 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__ptp_tod_set,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_combo,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode,
+    bf_pltfm_cpld_ucli_ucli__ptp_reset_sm,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_freq,
     bf_pltfm_cpld_ucli_ucli__ptp_adjfine,
     bf_pltfm_cpld_ucli_ucli__ptp_adjphase,

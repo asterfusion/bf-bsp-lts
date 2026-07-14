@@ -17,6 +17,11 @@
 #include <stdbool.h>
 #include "8a34004.h"
 
+/* Mandatory internal Renesas firmware micro-sequencer latch settlement stall;
+ * after SM_RESET, chip transitions through BOOT_STATUS 0xA0
+ * over approximately 3 seconds (30 × 100ms polling windows). */
+#define CLKMATRIX_DELAY_US    (200)
+
 /**
  * @brief Reads the global System APLL Loss-of-Lock Live status register.
  *
@@ -25,16 +30,17 @@
  *          1 = SYS_APLL_LOSS_LOCK_LIVE_UNLOCKED
  *
  * @param sys_dpll_index  Reserved for future per-DPLL filtering; unused.
- * @param status          Output pointer receiving the raw 8-bit register value.
+ * @param state           Output pointer receiving the raw 8-bit register value.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_sys_apll_status(uint8_t sys_dpll_index, uint8_t *status)
+int bf_ptp_get_sys_apll_state(uint8_t sys_dpll_index, uint8_t *state)
 {
     (void)sys_dpll_index;  /* global register, index reserved */
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t reg_byte = 0;
 
-    if (!status) {
+    if (!state) {
         return -1;
     }
 
@@ -44,9 +50,11 @@ int bf_ptp_get_sys_apll_status(uint8_t sys_dpll_index, uint8_t *status)
     }
 
     if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-            status) < 0) {
+            &reg_byte) < 0) {
         return -3;
     }
+
+    *state = (reg_byte & SYS_APLL_STATE_MASK);
 
     return 0;
 }
@@ -59,16 +67,17 @@ int bf_ptp_get_sys_apll_status(uint8_t sys_dpll_index, uint8_t *status)
  *          3 = LOCKED, 4 = HOLDOVER, 5 = OPEN_LOOP
  *
  * @param sys_apll_index  Reserved for future per-APLL filtering; unused.
- * @param status          Output pointer receiving the raw 8-bit register value.
+ * @param state           Output pointer receiving the extracted DPLL_SYS_STATE field [3:0] (enum dpll_state).
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_sys_dpll_status(uint8_t sys_apll_index, uint8_t *status)
+int bf_ptp_get_sys_dpll_state(uint8_t sys_apll_index, enum dpll_state *state)
 {
     (void)sys_apll_index;  /* global register, index reserved */
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t reg_byte = 0;
 
-    if (!status) {
+    if (!state) {
         return -1;
     }
 
@@ -78,9 +87,11 @@ int bf_ptp_get_sys_dpll_status(uint8_t sys_apll_index, uint8_t *status)
     }
 
     if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-            status) < 0) {
+            &reg_byte) < 0) {
         return -3;
     }
+
+    *state = (reg_byte & DPLL_SYS_STATE_MASK);
 
     return 0;
 }
@@ -260,11 +271,7 @@ int bf_ptp_reset_sm(void)
         return -2;
     }
 
-    /* Renesas firmware micro-sequencer latch settlement stall;
-     * after SM_RESET, chip transitions through BOOT_STATUS 0xA0
-     * over approximately 3 seconds (30 × 100ms polling windows). */
-    usleep(200);
-
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -332,9 +339,7 @@ int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase)
         return -3;
     }
 
-    /* Renesas firmware micro-sequencer latch settlement stall */
-    usleep(200);
-
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -450,9 +455,7 @@ int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53)
         return -4;
     }
 
-    /* Renesas firmware micro-sequencer latch settlement stall */
-    usleep(200);
-
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -500,17 +503,17 @@ int bf_ptp_get_dpll_freq(uint8_t dpll_index, int64_t *out_freq_ffo_q53)
  * @brief Retrieves the current operational configuration mode byte of DPLL_n.
  * 
  * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param mode_val Output pointer populated with the raw operational mode control byte.
+ * @param op_mode Output pointer populated with the raw operational mode control byte.
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_mode(uint8_t dpll_index, uint8_t *mode_val)
+int bf_ptp_get_dpll_mode(uint8_t dpll_index, enum pll_mode *op_mode)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
     char name_buf[64] = { 0 };
 
-    if (dpll_index > 7 || !mode_val) {
+    if (dpll_index > 7 || !op_mode) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "DPLL%d.MODE", dpll_index);
@@ -522,7 +525,7 @@ int bf_ptp_get_dpll_mode(uint8_t dpll_index, uint8_t *mode_val)
             &reg_byte) < 0) {
         return -3;
     }
-    *mode_val = reg_byte;
+    *op_mode = (enum pll_mode)((reg_byte >> PLL_MODE_SHIFT) & PLL_MODE_MASK);
     return 0;
 }
 
@@ -536,14 +539,13 @@ int bf_ptp_get_dpll_mode(uint8_t dpll_index, uint8_t *mode_val)
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_set_dpll_mode(uint8_t dpll_index, uint8_t op_mode, uint8_t sm_mode)
+int bf_ptp_set_dpll_mode(uint8_t dpll_index, enum pll_mode op_mode)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t original_val = 0;
-    uint8_t updated_val = 0;
+    uint8_t dpll_mode = 0;
     char name_buf[64] = { 0 };
 
-    if (dpll_index > 7 || op_mode > 6 || sm_mode > 3) {
+    if (dpll_index > 7 || op_mode < PLL_MODE_MIN || op_mode > PLL_MODE_MAX) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "DPLL%d.MODE", dpll_index);
@@ -553,20 +555,90 @@ int bf_ptp_set_dpll_mode(uint8_t dpll_index, uint8_t op_mode, uint8_t sm_mode)
 
     /* Read-Modify-Write to protect RESERVED[7:6] bits */
     if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-            &original_val) < 0) {
+            &dpll_mode) < 0) {
         return -3;
     }
 
-    updated_val = original_val & 0xC0; /* Preserve [7:6] */
-    updated_val |= (op_mode & 0x07) << 3; /* Inject PLL_MODE[5:3] */
-    updated_val |= (sm_mode & 0x07);       /* Inject SM_MODE[2:0] */
+	dpll_mode &= ~(PLL_MODE_MASK << PLL_MODE_SHIFT);
+	dpll_mode |= (op_mode << PLL_MODE_SHIFT);
 
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-            updated_val) < 0) {
+            dpll_mode) < 0) {
         return -4;
     }
 
-    usleep(200); /* Latch settle stall */
+    usleep(CLKMATRIX_DELAY_US);
+    return 0;
+}
+
+/**
+ * @brief Retrieves the state-machine mode from the DPLL_MODE register of DPLL_n.
+ *
+ * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
+ * @param sm_mode Output pointer receiving the SM_MODE field [2:0]
+ *                (0=AUTO, 1=FORCE_LOCK, 2=FORCE_FRUN, 3=FORCE_HLDOVER).
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_get_dpll_sm(uint8_t dpll_index, enum pll_state *sm_mode)
+{
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t reg_byte = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || !sm_mode) {
+        return -1;
+    }
+    snprintf(name_buf, sizeof(name_buf), "DPLL%d.MODE", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &reg_byte) < 0) {
+        return -3;
+    }
+    *sm_mode = (reg_byte >> STATE_MODE_SHIFT) & STATE_MODE_MASK;
+    return 0;
+}
+
+/**
+ * @brief Sets the state-machine mode of DPLL_n via RMW, preserving OP_MODE and reserved bits.
+ *
+ * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
+ * @param sm_mode State machine mode (0=AUTO, 1=FORCE_LOCK, 2=FORCE_FRUN, 3=FORCE_HLDOVER).
+ * @return int 0 on success; negative on error.
+ */
+static inline
+int bf_ptp_set_dpll_sm(uint8_t dpll_index, enum pll_state sm_mode)
+{
+    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
+    uint8_t dpll_mode = 0;
+    char name_buf[64] = { 0 };
+
+    if (dpll_index > 7 || sm_mode < PLL_STATE_MIN || sm_mode > PLL_STATE_MAX) {
+        return -1;
+    }
+    snprintf(name_buf, sizeof(name_buf), "DPLL%d.MODE", dpll_index);
+    if (bf_ptp_lookup_register_dpll((int)dpll_index, name_buf, &regdesc)) {
+        return -2;
+    }
+
+    /* Read-Modify-Write to protect RESERVED[7:6] and PLL_MODE[5:3] bits */
+    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            &dpll_mode) < 0) {
+        return -3;
+    }
+
+	dpll_mode &= ~(STATE_MODE_MASK << STATE_MODE_SHIFT);
+	dpll_mode |= (sm_mode << STATE_MODE_SHIFT);
+
+    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
+            dpll_mode) < 0) {
+        return -4;
+    }
+
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -604,17 +676,17 @@ int bf_ptp_get_dpll_ref_stat(uint8_t dpll_index, uint8_t *ref_stat)
  * @brief Retrieves the core state machine lock configuration of DPLL_n.
  * 
  * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param status Output pointer populated with the raw state machine byte token.
+ * @param state Output pointer receiving the extracted DPLL_STATE field [3:0] (enum dpll_state).
  * @return int 0 on success; negative on error.
  */
 static inline
-int bf_ptp_get_dpll_status(uint8_t dpll_index, uint8_t *status)
+int bf_ptp_get_dpll_state(uint8_t dpll_index, enum dpll_state *state)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t reg_byte = 0;
     char name_buf[64] = { 0 };
 
-    if (dpll_index > 7 || !status) {
+    if (dpll_index > 7 || !state) {
         return -1;
     }
     snprintf(name_buf, sizeof(name_buf), "DPLL%d.STATUS", dpll_index);
@@ -627,7 +699,8 @@ int bf_ptp_get_dpll_status(uint8_t dpll_index, uint8_t *status)
         return -3;
     }
 
-    *status = reg_byte;
+    *state = (reg_byte & DPLL_STATE_MASK);
+
     return 0;
 }
 
@@ -712,8 +785,7 @@ int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_index,
         return -4;
     }
 
-    usleep(200); /* Latch settle stall */
-
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -803,7 +875,7 @@ int bf_ptp_set_dpll_combo_slave_pri_cfg(uint8_t dpll_index,
         return -4;
     }
 
-    usleep(200); /* settle stall */
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -893,7 +965,7 @@ int bf_ptp_set_dpll_combo_slave_sec_cfg(uint8_t dpll_index,
         return -4;
     }
 
-    usleep(200); /* settle stall */
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -920,7 +992,7 @@ int bf_ptp_commit_dpll_trigger(uint8_t trigger_type)
         return -2;
     }
 
-    usleep(200); // Critical microprocessor latch stall period
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -1120,9 +1192,7 @@ int bf_ptp_set_tod_cfg(uint8_t tod_index,
         return -4;
     }
 
-    /* Mandatory internal Renesas firmware micro-sequencer latch settlement stall */
-    usleep(200);
-
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -1257,8 +1327,7 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns)
         return -5;
     }
 
-    usleep(200); /* Latch settle stall */
-
+    usleep(CLKMATRIX_DELAY_US);
     return 0;
 }
 
@@ -1363,10 +1432,13 @@ int bf_ptp_arm_tod_read_trigger_refclk(uint8_t tod_index, uint8_t ref)
     /* Write selected reference clock index into SEL_CFG_0 */
     snprintf(name_buf, sizeof(name_buf),
              "TOD%d.READ_SECONDARY.SEL_CFG_0", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
+    }
 
-    reg_byte = (ref & TOD_REF_INDEX_MASK);
+	reg_byte &= ~(WR_REF_INDEX_MASK << WR_REF_INDEX_SHIFT);
+	reg_byte |= (ref << WR_REF_INDEX_SHIFT);
+
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
              reg_byte) < 0)
         return -3;
@@ -1377,7 +1449,8 @@ int bf_ptp_arm_tod_read_trigger_refclk(uint8_t tod_index, uint8_t ref)
     if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
         return -4;
 
-    reg_byte = (uint8_t)TOD_READ_TRIG_SEL_REFCLK;
+    reg_byte = 0 | (SCSR_TOD_READ_TRIG_SEL_REFCLK << TOD_READ_TRIGGER_SHIFT);
+
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
              reg_byte) < 0)
         return -5;
@@ -1415,7 +1488,7 @@ int bf_ptp_arm_tod_read_trigger_immediate(uint8_t tod_index)
     if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
         return -2;
 
-    reg_byte = (uint8_t)TOD_READ_TRIG_SEL_IMMEDIATE;
+    reg_byte = (uint8_t)SCSR_TOD_READ_TRIG_SEL_IMMEDIATE;
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
              reg_byte) < 0)
         return -3;
@@ -1507,18 +1580,17 @@ int bf_ptp_adjtime(uint8_t tod_index, int64_t delta_ns)
 static inline
 int bf_ptp_adjphase(uint8_t dpll_index, int32_t delta_ns)
 {
-    uint8_t mode = 0;
+    enum pll_mode mode;
 
     if (dpll_index > 7)
         return -1;
 
-    /* Ensure DPLL is in WRITE_PHASE (op_mode = 1) */
+    /* Ensure DPLL is in WRITE_PHASE (preserves SM_MODE via RMW) */
     if (bf_ptp_get_dpll_mode(dpll_index, &mode) < 0)
         return -2;
 
-    if (((mode >> 3) & 0x07) != 1) {
-        uint8_t sm_mode = mode & 0x07;
-        if (bf_ptp_set_dpll_mode(dpll_index, 1, sm_mode) < 0)
+    if (mode != PLL_MODE_WRITE_PHASE) {
+        if (bf_ptp_set_dpll_mode(dpll_index, PLL_MODE_WRITE_PHASE) < 0)
             return -3;
     }
 
@@ -1556,18 +1628,17 @@ int bf_ptp_adjphase(uint8_t dpll_index, int32_t delta_ns)
 static inline
 int bf_ptp_adjfine(uint8_t dpll_index, int64_t scaled_ppm)
 {
-    uint8_t mode = 0;
+    enum pll_mode mode;
 
     if (dpll_index > 7)
         return -1;
 
-    /* Ensure DPLL is in WRITE_FREQUENCY (op_mode = 2) */
+    /* Ensure DPLL is in WRITE_FREQUENCY (preserves SM_MODE via RMW) */
     if (bf_ptp_get_dpll_mode(dpll_index, &mode) < 0)
         return -2;
 
-    if (((mode >> 3) & 0x07) != 2) {
-        uint8_t sm_mode = mode & 0x07;
-        if (bf_ptp_set_dpll_mode(dpll_index, 2, sm_mode) < 0)
+    if (mode != PLL_MODE_WRITE_FREQUENCY) {
+        if (bf_ptp_set_dpll_mode(dpll_index, PLL_MODE_WRITE_FREQUENCY) < 0)
             return -3;
     }
 
@@ -1616,7 +1687,7 @@ int bf_ptp_gettime(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns) {
         return -2;
 
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-             (uint8_t)TOD_READ_TRIG_SEL_IMMEDIATE) < 0)
+             (uint8_t)SCSR_TOD_READ_TRIG_SEL_IMMEDIATE) < 0)
         return -3;
 
     /* 2. Poll TRIGGER register until the latch settles */
