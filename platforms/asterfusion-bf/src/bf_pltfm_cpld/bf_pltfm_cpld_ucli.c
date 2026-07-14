@@ -16,7 +16,7 @@
 #include <bf_pltfm_qsfp.h>
 #include <bf_pltfm_sfp.h>
 #include <pltfm_types.h>
-#include "8a34004.h"
+#include "clkmatrix.h"
 
 #define DEFAULT_TIMEOUT_MS 500
 
@@ -1592,7 +1592,7 @@ int bf_pltfm_write_ptp_reg_burst(uint8_t page, uint8_t reg, uint8_t *value, size
     }
 
     for (size_t i = 0; i < l; i++) {
-        if (bf_pltfm_cp2112_reg_write_byte(ptp_addr, reg, value[i]) < 0) {
+        if (bf_pltfm_cp2112_reg_write_byte(ptp_addr, reg + i, value[i]) < 0) {
             fprintf (stdout, "\nFailed to write PTP reg.\n");
             return -3;
         }
@@ -2654,6 +2654,179 @@ bf_pltfm_cpld_ucli_ucli__ptp_dpll_mode (
     return 0;
 }
 
+/* @brief Detailed DPLL configuration & state matrix.
+ *        Expands on the `ptp` summary with SM_MODE and frequency offset (ppb). */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_dpll (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "ptp-dpll", -1,
+                       "ptp-dpll [<dpll_index: 0~7>]");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    uint8_t dpll_start = 0, dpll_end = 7;
+    if (uc->pargs->count == 1) {
+        uint32_t idx = strtoul (uc->pargs->args[0], NULL, 0);
+        if (idx > 7) {
+            aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid: 0~7)\n", idx);
+            return 0;
+        }
+        dpll_start = dpll_end = (uint8_t)idx;
+    } else if (uc->pargs->count > 1) {
+        aim_printf (&uc->pvs, "Usage: ptp-dpll [<dpll_index: 0~7>]\n");
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "\n==========================================================================================================================================================\n");
+    aim_printf (&uc->pvs, "                                    8A34004 DPLL CONFIGURATION & STATE MATRIX (DETAILED)                                     \n");
+    aim_printf (&uc->pvs, "----------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    aim_printf (&uc->pvs, " %-5s | %-6s | %-14s | %-10s | %-16s | %-16s | %-16s | %-8s | %-8s\n",
+                "DPLL#", "OP", "SM_MODE", "LIVE", "REF CLK", "FREQ OFFSET (ppb)", "PHASE ERROR (ns)", "ToD SYNC", "ToD SRC");
+    aim_printf (&uc->pvs, " %-5s | %-6s | %-14s | %-10s | %-16s | %-16s | %-16s | %-8s | %-8s\n",
+                "-----", "------", "--------------", "----------", "----------------", "----------------", "----------------", "--------", "--------");
+
+    for (uint8_t i = dpll_start; i <= dpll_end; i++) {
+        uint8_t drv_mode = 0, dpll_status = 0, dpll_ref = 0;
+        bool sync_en = false;
+        uint8_t tod_src = 0;
+        double phase_ns = 0.0;
+        int64_t fcw = 0;
+
+        if (bf_ptp_get_dpll_mode(i, &drv_mode) != 0) continue;
+        if (bf_ptp_get_dpll_status(i, &dpll_status) != 0) continue;
+        if (bf_ptp_get_dpll_ref_stat(i, &dpll_ref) != 0) continue;
+        if (bf_ptp_get_dpll_tod_sync_cfg(i, &sync_en, &tod_src) != 0) continue;
+        if (bf_ptp_get_dpll_phase_status(i, &phase_ns) != 0) continue;
+        /* Frequency fetch is best-effort (may fail for OFF or uninitialised DPLLs) */
+        bf_ptp_get_dpll_freq(i, &fcw);
+
+        uint8_t pll_mode_check = (drv_mode >> 3) & 0x07;
+        if (pll_mode_check == 6) continue; /* OFF — skip */
+
+        const char *op_str      = dpll_mode_op_str(drv_mode);
+        const char *sm_str      = dpll_mode_sm_str(drv_mode);
+        const char *live_str    = dpll_state_str(i, dpll_status);
+        const char *ref_str     = dpll_refclk_str(dpll_ref);
+        const char *sync_str    = sync_en ? "ENABLED" : "DISABLED";
+
+        /* FCW (Q5.3) → ppb:  ppb = fcw * 1e9 / 2^53 */
+        char freq_str[32];
+        double fcw_ppb = (double)fcw * 1e9 / (double)(1LL << 53);
+        if (fcw == 0 && pll_mode_check != 2)
+            snprintf(freq_str, sizeof(freq_str), "---");
+        else
+            snprintf(freq_str, sizeof(freq_str), "% .3f", fcw_ppb);
+
+        aim_printf (&uc->pvs, " %-5d | %-6s | %-14s | %-10s | %-16s | %-16s | % 15.9f | %-8s | ToD%-6d\n",
+                    i, op_str, sm_str, live_str, ref_str, freq_str, phase_ns, sync_str, tod_src);
+    }
+    aim_printf (&uc->pvs, " %-5s | %-6s | %-14s | %-10s | %-16s | %-16s | %-16s | %-8s | %-8s\n",
+                "-----", "------", "--------------", "----------", "----------------", "----------------", "----------------", "--------", "--------");
+    aim_printf (&uc->pvs, "\n");
+
+    return 0;
+}
+
+/* @brief Focused Time-of-Day (ToD) multi-axis status with PRIMARY + SECONDARY snapshots. */
+static ucli_status_t
+bf_pltfm_cpld_ucli_ucli__ptp_tod (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "ptp-tod", -1,
+                       "ptp-tod [<tod_index: 0~3>]");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    uint8_t tod_start = 0, tod_end = 3;
+    if (uc->pargs->count == 1) {
+        uint32_t idx = strtoul (uc->pargs->args[0], NULL, 0);
+        if (idx > 3) {
+            aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid: 0~3)\n", idx);
+            return 0;
+        }
+        tod_start = tod_end = (uint8_t)idx;
+    } else if (uc->pargs->count > 1) {
+        aim_printf (&uc->pvs, "Usage: ptp-tod [<tod_index: 0~3>]\n");
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "\n======================================================================================================================================================================\n");
+    aim_printf (&uc->pvs, "                                    8A34004 TIME-OF-DAY (ToD) MULTI-AXIS STATUS (DETAILED)                                     \n");
+    aim_printf (&uc->pvs, "----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    aim_printf (&uc->pvs, " %-5s | %-22s | %-8s | %-12s | %-8s | %-8s | %-8s | %-25s | %-25s\n",
+                "ToD#", "DRIVEN BY", "ENABLED", "PPS MODE", "OUT_SYNC", "WR_CNTR", "RD_CNTR", "PRIMARY WALL-TIME", "SECONDARY WALL-TIME");
+    aim_printf (&uc->pvs, " %-5s | %-22s | %-8s | %-12s | %-8s | %-8s | %-8s | %-25s | %-25s\n",
+                "-----", "----------------------", "--------", "------------", "--------", "--------", "--------", "-------------------------", "-------------------------");
+
+    for (uint8_t idx = tod_start; idx <= tod_end; idx++) {
+        uint8_t clk_src = 0, write_counter = 0, read_counter = 0;
+        bool enabled = false, even_pps = false, sync_disabled = false;
+        uint32_t pri_sec = 0, pri_ns = 0, sec_sec = 0, sec_ns = 0;
+
+        /* Clock source */
+        if (bf_ptp_get_tod_clk_src(idx, &clk_src) != 0) clk_src = 0;
+
+        /* Configuration switches */
+        if (bf_ptp_get_tod_cfg(idx, &enabled, &even_pps, &sync_disabled) != 0) {
+            enabled = false; even_pps = false; sync_disabled = false;
+        }
+
+        /* Write/read counters */
+        if (bf_ptp_get_tod_write_counter(idx, &write_counter) != 0) write_counter = 0;
+        if (bf_ptp_get_tod_read_counter(idx, &read_counter) != 0) read_counter = 0;
+
+        /* PRIMARY snapshot */
+        if (bf_ptp_get_tod_time(idx, &pri_sec, &pri_ns) != 0) { pri_sec = 0; pri_ns = 0; }
+
+        /* SECONDARY snapshot (best-effort — may be empty/invalid if not armed) */
+        int sec_rc = bf_ptp_get_tod_time_triggered(idx, &sec_sec, &sec_ns);
+
+        /* Driving DPLL mode label */
+        const char *sync_mode_str = "PLL";
+        uint8_t drv_mode = 0;
+        if (bf_ptp_get_dpll_mode(clk_src, &drv_mode) == 0)
+            sync_mode_str = dpll_mode_op_str(drv_mode);
+
+        char clk_buf[64], pri_buf[64], sec_buf[64];
+        snprintf(clk_buf, sizeof(clk_buf), "DPLL%d (%s)", clk_src, sync_mode_str);
+        snprintf(pri_buf, sizeof(pri_buf), "%u.%09u sec", pri_sec, pri_ns);
+        if (sec_rc == 0)
+            snprintf(sec_buf, sizeof(sec_buf), "%u.%09u sec", sec_sec, sec_ns);
+        else
+            snprintf(sec_buf, sizeof(sec_buf), "--- (not armed)");
+
+        aim_printf (&uc->pvs, " %-5d | %-22s | %-8s | %-12s | %-8s | 0x%02X    | 0x%02X    | %-25s | %-25s\n",
+                    idx, clk_buf,
+                    enabled ? "TRUE" : "FALSE",
+                    even_pps ? "2-Sec EVENT" : "1-Sec STD",
+                    sync_disabled ? "DISABLED" : "ENABLED",
+                    write_counter, read_counter,
+                    pri_buf, sec_buf);
+    }
+    aim_printf (&uc->pvs, " %-5s | %-22s | %-8s | %-12s | %-8s | %-8s | %-8s | %-25s | %-25s\n",
+                "-----", "----------------------", "--------", "------------", "--------", "--------", "--------", "-------------------------", "-------------------------");
+    aim_printf (&uc->pvs, "\n");
+
+    return 0;
+}
+
 /* @brief Write the DPLL frequency control word (FCW) in FFO Q5.3 format.
  *        A value of 0 represents the nominal frequency (zero-ppm offset). */
 static ucli_status_t
@@ -2735,6 +2908,12 @@ bf_pltfm_cpld_ucli_ucli__ptp_adjfine (
         return 0;
     }
 
+    if (scaled_ppm > 65536000 || scaled_ppm < -65536000) {
+        aim_printf (&uc->pvs, "scaled_ppm out of range: %lld (Valid: -65536000~65536000, i.e. ±1000 ppm)\n",
+                    (long long)scaled_ppm);
+        return 0;
+    }
+
     int rc = bf_ptp_adjfine((uint8_t)dpll_index, scaled_ppm);
     if (rc != 0) {
         aim_printf (&uc->pvs, "Failed to adjfine DPLL%d (error code: %d)\n", dpll_index, rc);
@@ -2779,6 +2958,12 @@ bf_pltfm_cpld_ucli_ucli__ptp_adjphase (
         return 0;
     }
 
+    if (delta_ns > 107374182 || delta_ns < -107374182) {
+        aim_printf (&uc->pvs, "delta_ns out of range: %d (Valid: -107374182~107374182 ns, i.e. ±107 ms, HW phase limit)\n",
+                    delta_ns);
+        return 0;
+    }
+
     int rc = bf_ptp_adjphase((uint8_t)dpll_index, delta_ns);
     if (rc != 0) {
         aim_printf (&uc->pvs, "Failed to adjphase DPLL%d (error code: %d)\n", dpll_index, rc);
@@ -2819,6 +3004,12 @@ bf_pltfm_cpld_ucli_ucli__ptp_adjtime (
 
     if (tod_index > 3) {
         aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    if (delta_ns > 281474976710655LL || delta_ns < -281474976710655LL) {
+        aim_printf (&uc->pvs, "delta_ns out of range: %lld (Valid: ±281474976710655, 48-bit ToD counter max)\n",
+                    (long long)delta_ns);
         return 0;
     }
 
@@ -2904,6 +3095,15 @@ bf_pltfm_cpld_ucli_ucli__ptp_settime (
 
     if (tod_index > 3) {
         aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    if (sec > 281474) {
+        aim_printf (&uc->pvs, "seconds out of range: %u (Valid: 0~281474, 48-bit ns counter max)\n", sec);
+        return 0;
+    }
+    if (ns > 999999999) {
+        aim_printf (&uc->pvs, "nanoseconds out of range: %u (Valid: 0~999999999)\n", ns);
         return 0;
     }
 
@@ -3054,6 +3254,8 @@ bf_pltfm_cpld_ucli_ucli_handlers__[] = {
     bf_pltfm_cpld_ucli_ucli__ptp,
     bf_pltfm_cpld_ucli_ucli__ptp_page,
     bf_pltfm_cpld_ucli_ucli__ptp_reg,
+    bf_pltfm_cpld_ucli_ucli__ptp_dpll,
+    bf_pltfm_cpld_ucli_ucli__ptp_tod,
     bf_pltfm_cpld_ucli_ucli__ptp_dpll_tod,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_en,
     bf_pltfm_cpld_ucli_ucli__ptp_tod_set,
