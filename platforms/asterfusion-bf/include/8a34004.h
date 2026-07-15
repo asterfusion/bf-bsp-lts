@@ -854,6 +854,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL0.STATUS",                   0xC0, 0x3C, 0x18, 1, REG_PERM_R  },
         { "DPLL0.REF_STAT",                 0xC0, 0x3C, 0x22, 1, REG_PERM_R  },
         { "DPLL0.PHASE_STATUS",             0xC0, 0x3C, 0xDC, 5, REG_PERM_R  },
+        { "DPLL0.PHASE_PULL_IN",             0xC8, 0x80, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 1 */
@@ -867,6 +868,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL1.STATUS",                   0xC0, 0x3C, 0x19, 1, REG_PERM_R  },
         { "DPLL1.REF_STAT",                 0xC0, 0x3C, 0x23, 1, REG_PERM_R  },
         { "DPLL1.PHASE_STATUS",             0xC0, 0x3C, 0xE4, 5, REG_PERM_R  },
+        { "DPLL1.PHASE_PULL_IN",             0xC8, 0x88, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 2 */
@@ -880,6 +882,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL2.STATUS",                   0xC0, 0x3C, 0x1A, 1, REG_PERM_R  },
         { "DPLL2.REF_STAT",                 0xC0, 0x3C, 0x24, 1, REG_PERM_R  },
         { "DPLL2.PHASE_STATUS",             0xC0, 0x3C, 0xEC, 5, REG_PERM_R  },
+        { "DPLL2.PHASE_PULL_IN",             0xC8, 0x90, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 3 */
@@ -893,6 +896,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL3.STATUS",                   0xC0, 0x3C, 0x1B, 1, REG_PERM_R  },
         { "DPLL3.REF_STAT",                 0xC0, 0x3C, 0x25, 1, REG_PERM_R  },
         { "DPLL3.PHASE_STATUS",             0xC0, 0x3C, 0xF4, 5, REG_PERM_R  },
+        { "DPLL3.PHASE_PULL_IN",             0xC8, 0x98, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 4 */
@@ -906,6 +910,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL4.STATUS",                   0xC0, 0x3C, 0x1C, 1, REG_PERM_R  },
         { "DPLL4.REF_STAT",                 0xC0, 0x3C, 0x26, 1, REG_PERM_R  },
         { "DPLL4.PHASE_STATUS",             0xC0, 0x3C, 0xFC, 5, REG_PERM_R  },
+        { "DPLL4.PHASE_PULL_IN",             0xC8, 0xA0, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 5 */
@@ -919,6 +924,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL5.STATUS",                   0xC0, 0x3C, 0x1D, 1, REG_PERM_R  },
         { "DPLL5.REF_STAT",                 0xC0, 0x3C, 0x27, 1, REG_PERM_R  },
         { "DPLL5.PHASE_STATUS",             0xC0, 0x3C, 0x104, 5, REG_PERM_R },
+        { "DPLL5.PHASE_PULL_IN",             0xC8, 0xA8, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 6 */
@@ -932,6 +938,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL6.STATUS",                   0xC0, 0x3C, 0x1E, 1, REG_PERM_R  },
         { "DPLL6.REF_STAT",                 0xC0, 0x3C, 0x28, 1, REG_PERM_R  },
         { "DPLL6.PHASE_STATUS",             0xC0, 0x3C, 0x10C, 5, REG_PERM_R },
+        { "DPLL6.PHASE_PULL_IN",             0xC8, 0xB0, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     },
     /* DPLL 7 */
@@ -945,6 +952,7 @@ static const ptp_reg_desc_t g_8a34004_register_map_dpll[AFN_8A34004_MAX_DPLL][MA
         { "DPLL7.STATUS",                   0xC0, 0x3C, 0x1F, 1, REG_PERM_R  },
         { "DPLL7.REF_STAT",                 0xC0, 0x3C, 0x29, 1, REG_PERM_R  },
         { "DPLL7.PHASE_STATUS",             0xC0, 0x3C, 0x114, 5, REG_PERM_R },
+        { "DPLL7.PHASE_PULL_IN",             0xC8, 0xB8, 0x00, 8, REG_PERM_RW },
         __ptp_reg_desc_init_val__
     }
 };
@@ -1416,4 +1424,3 @@ int bf_ptp_lookup_register(const char *name, ptp_reg_desc_t *out_desc)
 }
 
 #endif // AFN_8A34004_REGS_H
-

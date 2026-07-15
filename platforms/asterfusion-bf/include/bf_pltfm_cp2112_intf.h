@@ -164,6 +164,56 @@ ucli_node_t *bf_pltfm_cp2112_ucli_node_create (
     ucli_node_t *m);
 #endif
 
+/** read bytes from slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to read
+*  @param val
+*   value to read into
+*  @return
+*   0 on success and otherwise in error
+*/
+int bf_pltfm_cp2112_reg_read_block (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t *read_buf,
+    uint32_t read_buf_size);
+
+/** write bytes to slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to write
+*  @param val
+*   value to write
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cp2112_reg_write_block (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t *write_buf,
+    uint32_t write_buf_size);
+
+/** write bytes to slave's register by cp2112.
+*
+*  @param hndl
+*   cp2112 handler
+*  @param reg
+*   register to write
+*  @param val
+*   value to write
+*  @return
+*   0 on success otherwise in error
+*/
+int bf_pltfm_cp2112_reg_write_byte (
+    uint8_t addr,
+    uint8_t reg,
+    uint8_t val);
+
 bf_pltfm_status_t bf_pltfm_cp2112_util_init (
     bf_pltfm_board_id_t board_id);
 

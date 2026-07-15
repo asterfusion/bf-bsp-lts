@@ -80,6 +80,8 @@ extern ucli_node_t
 *bf_pltfm_cpld_ucli_node_create (ucli_node_t *m);
 extern ucli_node_t
 *bf_pltfm_spi_ucli_node_create (ucli_node_t *m);
+extern ucli_node_t
+*bf_pltfm_clockmatrix_ucli_node_create (ucli_node_t *m);
 
 static ucli_node_t *bf_pltfm_ucli_node;
 static bf_sys_rmutex_t
@@ -2615,6 +2617,7 @@ ucli_node_t *bf_pltfm_ucli_node_create (void)
     bf_pltfm_spi_ucli_node_create(n);
     pltfm_mgrs_ucli_node_create (n);
     bf_pltfm_cpld_ucli_node_create (n);
+    bf_pltfm_clockmatrix_ucli_node_create(n);
 
     return n;
 }

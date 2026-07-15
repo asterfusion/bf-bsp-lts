@@ -142,56 +142,6 @@ typedef enum {
     X312P_PCA9548_L2_0x74 = 0x74
 } x312p_pca9548_addr_t;
 
-/** read bytes from slave's register by cp2112.
-*
-*  @param hndl
-*   cp2112 handler
-*  @param reg
-*   register to read
-*  @param val
-*   value to read into
-*  @return
-*   0 on success and otherwise in error
-*/
-int bf_pltfm_cp2112_reg_read_block (
-    uint8_t addr,
-    uint8_t reg,
-    uint8_t *read_buf,
-    uint32_t read_buf_size);
-
-/** write bytes to slave's register by cp2112.
-*
-*  @param hndl
-*   cp2112 handler
-*  @param reg
-*   register to write
-*  @param val
-*   value to write
-*  @return
-*   0 on success otherwise in error
-*/
-int bf_pltfm_cp2112_reg_write_block (
-    uint8_t addr,
-    uint8_t reg,
-    uint8_t *write_buf,
-    uint32_t write_buf_size);
-
-/** write bytes to slave's register by cp2112.
-*
-*  @param hndl
-*   cp2112 handler
-*  @param reg
-*   register to write
-*  @param val
-*   value to write
-*  @return
-*   0 on success otherwise in error
-*/
-int bf_pltfm_cp2112_reg_write_byte (
-    uint8_t addr,
-    uint8_t reg,
-    uint8_t val);
-
 /** read a byte from syscpld register
 *
 *  @param cpld_index

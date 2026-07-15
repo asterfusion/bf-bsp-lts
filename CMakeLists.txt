@@ -166,6 +166,8 @@ set(ASTERFUSIONBF_PLTFM_SRCS
   platforms/asterfusion-bf/src/bf_pltfm_led/bf_pltfm_mav_led_hc36y24c.c
   platforms/asterfusion-bf/src/bf_pltfm_led/bf_pltfm_mav_cpld_led.c
   platforms/asterfusion-bf/src/bf_pltfm_cpld/bf_pltfm_cpld_ucli.c
+  platforms/asterfusion-bf/src/bf_pltfm_clockmatrix/bf_pltfm_clockmatrix.c
+  platforms/asterfusion-bf/src/bf_pltfm_clockmatrix/bf_pltfm_clockmatrix_ucli.c
   platforms/asterfusion-bf/src/bf_pltfm_spi/bf_pltfm_spi.c
 )
 ## Asterfusion QSFP Sources
@@ -352,6 +354,8 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/bf_pl
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/bf_mav_led.h DESTINATION include/bf_pltfm/asterfusion-bf)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/bf_pltfm_master_i2c.h DESTINATION include/bf_pltfm/asterfusion-bf)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/bf_pltfm_uart.h DESTINATION include/bf_pltfm/asterfusion-bf)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/8a34004.h DESTINATION include/bf_pltfm/asterfusion-bf)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/bf_pltfm_clockmatrix.h DESTINATION include/bf_pltfm/asterfusion-bf)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/pltfm_types.h DESTINATION include/bf_pltfm/asterfusion-bf)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platforms/asterfusion-bf/include/version.h DESTINATION include/bf_pltfm/asterfusion-bf)
 
