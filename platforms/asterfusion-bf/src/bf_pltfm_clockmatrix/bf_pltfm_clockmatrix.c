@@ -13,6 +13,23 @@
 #include <bf_pltfm_syscpld.h>
 #include <bf_pltfm_clockmatrix.h>
 
+struct clockmatrix_t clockmatrix;
+
+static inline
+void do_lock()
+{
+	struct clockmatrix_t *matrix = &clockmatrix;
+    pthread_mutex_lock(&matrix->lock);
+}
+
+static inline
+void do_unlock()
+{
+	struct clockmatrix_t *matrix = &clockmatrix;
+    pthread_mutex_unlock(&matrix->lock);
+}
+
+
 int bf_pltfm_read_ptp_reg(uint8_t page, uint8_t reg, uint8_t* value) {
     int rc = 0;
     uint8_t pca9548_addr = BF_MAV_MASTER_PCA9548_ADDR74;
@@ -99,18 +116,11 @@ int bf_pltfm_write_ptp_reg_burst(uint8_t page, uint8_t reg, uint8_t *value, size
         rc = -2;
         goto finish;
     }
-#if 0
-    for (size_t i = 0; i < l; i++) {
-        if (bf_pltfm_cp2112_reg_write_byte(ptp_addr, reg + i, value[i]) < 0) {
-            fprintf (stdout, "\nFailed to write PTP reg.\n");
-            return -3;
-        }
-    }
-#else
+
     if (bf_pltfm_cp2112_reg_write_block(ptp_addr, reg, value, l)) {
         rc = -3;
     }
-#endif
+
 finish:
     if (bf_pltfm_cp2112_reg_write_byte (pca9548_addr, 0x00, 0x00)) {
         fprintf (stdout, "\nFailed to de-select PTP.\n");
@@ -231,17 +241,6 @@ int bf_pltfm_tx_rst_pulse()
     return 0;
 }
 
-/**
- * @brief Reads the global System APLL Loss-of-Lock Live status register.
- *
- *        STATUS.SYS_APLL_STATUS (0xC03C / 0x0021) bit 0:
- *          0 = SYS_APLL_LOSS_LOCK_LIVE_LOCKED (all APLLs locked)
- *          1 = SYS_APLL_LOSS_LOCK_LIVE_UNLOCKED
- *
- * @param sys_dpll_index  Reserved for future per-DPLL filtering; unused.
- * @param state           Output pointer receiving the raw 8-bit register value.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_sys_apll_state(uint8_t sys_dpll_index, uint8_t *state)
 {
     (void)sys_dpll_index;  /* global register, index reserved */
@@ -267,17 +266,6 @@ int bf_ptp_get_sys_apll_state(uint8_t sys_dpll_index, uint8_t *state)
     return 0;
 }
 
-/**
- * @brief Reads the global System DPLL State status register.
- *
- *        STATUS.SYS_DPLL_STATUS (0xC03C / 0x0020) bits [3:0]:
- *          0 = FREERUN, 1 = LOCKACQ, 2 = LOCKREC,
- *          3 = LOCKED, 4 = HOLDOVER, 5 = OPEN_LOOP
- *
- * @param sys_apll_index  Reserved for future per-APLL filtering; unused.
- * @param state           Output pointer receiving the extracted DPLL_SYS_STATE field [3:0] (enum dpll_state).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_sys_dpll_state(uint8_t sys_apll_index, enum dpll_state *state)
 {
     (void)sys_apll_index;  /* global register, index reserved */
@@ -303,14 +291,6 @@ int bf_ptp_get_sys_dpll_state(uint8_t sys_apll_index, enum dpll_state *state)
     return 0;
 }
 
-/**
- * @brief Clears the BOOT_STATUS register (4 bytes) to prepare for
- *        post-reset polling.
- *
- *        GENERAL_STATUS.BOOT_STATUS at page 0xC0, base 0x14, offset 0x00.
- *
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_clr_boot_status(void)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -330,17 +310,6 @@ int bf_ptp_clr_boot_status(void)
     return 0;
 }
 
-/**
- * @brief Reads the 32-bit BOOT_STATUS register and packs it into
- *        a little-endian uint32_t.
- *
- *        After SM_RESET, the chip firmware loads from EEPROM and
- *        transitions through BOOT_STATUS; readiness is confirmed
- *        when the value reaches 0x000000A0.
- *
- * @param status Output pointer receiving the 32-bit boot status value.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_boot_status(uint32_t *status)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -367,12 +336,6 @@ int bf_ptp_get_boot_status(uint32_t *status)
     return 0;
 }
 
-/**
- * @brief Retrieves the 16-bit Product ID from the GENERAL_STATUS registers.
- * 
- * @param product_id Output pointer populated with the 16-bit hardware Product ID.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_product_id(uint16_t *product_id)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -403,14 +366,6 @@ int bf_ptp_get_product_id(uint16_t *product_id)
     return 0;
 }
 
-/**
- * @brief Retrieves the firmware Release Number (Major, Minor, and Revision).
- * 
- * @param major Output pointer populated with the Major release version.
- * @param minor Output pointer populated with the Minor release version.
- * @param rev Output pointer populated with the Revision version.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_release_no(uint8_t *major, uint8_t *minor, uint8_t *rev)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -446,44 +401,6 @@ int bf_ptp_get_release_no(uint8_t *major, uint8_t *minor, uint8_t *rev)
     return 0;
 }
 
-/**
- * @brief Triggers a hard state-machine reset of all DPLL and ToD state engines
- *        via the RESET_CTRL.SM_RESET register, forcing them back through
- *        the FULL acquisition sequence (FREE_RUN → LOCKACQ → LOCKED).
- *
- *        This is a write-only fire-and-forget command per the Renesas H/W API:
- *        writes 0x5A (SM_RESET_CMD) to SM_RESET at offset 0x12 (pre-V520).
- *        The register auto-clears upon completion.
- *
- * @note  FW v4.8.1 uses SM_RESET offset 0x12. V520+ uses 0x13.
- *
- * @return int 0 on success; negative on error.
- */
-int bf_ptp_reset_sm(void)
-{
-    ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-
-    if (bf_ptp_lookup_register_general("RESET_CTRL.SM_RESET",
-            &regdesc)) {
-        return -1;
-    }
-
-    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-            0x5A) < 0) {
-        return -2;
-    }
-
-    usleep(CLKMATRIX_DELAY_US);
-    return 0;
-}
-
-/**
- * @brief Retrieves the input clock frequency for physical clock inputs (INPUT_0 or INPUT_1).
- * 
- * @param input_index Target input channel index (Valid range: 0 or 1).
- * @param freq Output pointer populated with the calculated input frequency in Hz.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_input_freq(int input_index, double *freq)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -509,15 +426,6 @@ int bf_ptp_get_input_freq(int input_index, double *freq)
     return 0;
 }
 
-/**
- * @brief Sets the 32-bit signed phase increment for DPLL_n.
- *        Performs sequential per-byte writes over the 4-byte phase offset region
- *        with a 200 µs micro-sequencer latch settlement stall.
- *
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param phase Signed 32-bit phase target value.
- * @return int 0 on success; negative on hardware fault.
- */
 int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -543,13 +451,6 @@ int bf_ptp_set_dpll_phase(uint8_t dpll_index, int32_t phase)
     return 0;
 }
 
-/**
- * @brief Gets the 32-bit signed phase increment currently cached or running in DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param out_phase Output pointer populated with the running 32-bit signed phase.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -574,13 +475,6 @@ int bf_ptp_get_dpll_phase(uint8_t dpll_index, int32_t *out_phase)
     return 0;
 }
 
-/**
- * @brief Atomically extracts and decodes the 40-bit residual sub-ns phase offset error of DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param phase_ns Output pointer populated with the decoded absolute phase error in nanoseconds.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_phase_status(uint8_t dpll_index, double *phase_ns)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -607,22 +501,11 @@ int bf_ptp_get_dpll_phase_status(uint8_t dpll_index, double *phase_ns)
     return 0;
 }
 
-/**
- * @brief Sets the 42-bit signed frequency micro-adjustment (FFO) to DPLL_n.
- *        Enforces Read-Modify-Write on byte D5 to safeguard [7:2] Reserved bits,
- *        then performs sequential per-byte writes over the 6-byte frequency offset region
- *        with a 200 µs micro-sequencer latch settlement stall.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param freq_ffo_q53 Signed 42-bit frequency offset in units of 2^-53 (Q53 format).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[64] = { 0 };
     char name_buf[64] = { 0 };
-    uint8_t original_d5 = 0;
 
     if (dpll_index > 7) {
         return -1;
@@ -632,20 +515,18 @@ int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53)
         return -2;
     }
 
-    int64_t cleaned_freq = freq_ffo_q53 & 0x3FFFFFFFFFFLL;
+    /* Write full 48-bit FCW (matches upstream ptp_clockmatrix.c).
+     * The 8A34004 DPLL_WR_FREQ is a 6-byte register — masking to
+     * 42 bits was truncating the upper 6 bits and causing FCW
+     * overflow at ±1000 ppm. */
+    int64_t cleaned_freq = freq_ffo_q53 & 0xFFFFFFFFFFFFLL;
 
     burst_buf[0] = (uint8_t)(cleaned_freq & 0xFF);
     burst_buf[1] = (uint8_t)((cleaned_freq >> 8) & 0xFF);
     burst_buf[2] = (uint8_t)((cleaned_freq >> 16) & 0xFF);
     burst_buf[3] = (uint8_t)((cleaned_freq >> 24) & 0xFF);
     burst_buf[4] = (uint8_t)((cleaned_freq >> 32) & 0xFF);
-
-    if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc) + 5,
-            &original_d5) < 0) {
-        return -3;
-    }
-
-    burst_buf[5] = (original_d5 & 0xFC) | (uint8_t)((cleaned_freq >> 40) & 0x03);
+    burst_buf[5] = (uint8_t)((cleaned_freq >> 40) & 0xFF);
 
     if (bf_pltfm_write_ptp_reg_burst(REGPAGE(regdesc), REGADDR(regdesc),
             burst_buf, 6) < 0) {
@@ -656,13 +537,6 @@ int bf_ptp_set_dpll_freq(uint8_t dpll_index, int64_t freq_ffo_q53)
     return 0;
 }
 
-/**
- * @brief Gets the 42-bit signed frequency offset currently configured in DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param out_freq_ffo_q53 Output pointer populated with the signed 42-bit frequency offset in Q53 format.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_freq(uint8_t dpll_index, int64_t *out_freq_ffo_q53)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -695,13 +569,6 @@ int bf_ptp_get_dpll_freq(uint8_t dpll_index, int64_t *out_freq_ffo_q53)
     return 0;
 }
 
-/**
- * @brief Retrieves the current operational configuration mode byte of DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param op_mode Output pointer populated with the raw operational mode control byte.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_mode(uint8_t dpll_index, enum pll_mode *op_mode)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -724,15 +591,6 @@ int bf_ptp_get_dpll_mode(uint8_t dpll_index, enum pll_mode *op_mode)
     return 0;
 }
 
-/**
- * @brief Configures the operational mode and state machine mode of DPLL_n.
- *        Enforces Read-Modify-Write to protect RESERVED[7:6] bits.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param op_mode Operational mode (0=PLL, 1=PHASE, 2=FREQ, 3=GPIO, 4=SYNTH, 5=PMEAS, 6=OFF).
- * @param sm_mode State machine mode (0=AUTO, 1=FORCE_LOCK, 2=FORCE_FRUN, 3=FORCE_HLDOVER).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_dpll_mode(uint8_t dpll_index, enum pll_mode op_mode)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -765,14 +623,6 @@ int bf_ptp_set_dpll_mode(uint8_t dpll_index, enum pll_mode op_mode)
     return 0;
 }
 
-/**
- * @brief Retrieves the state-machine mode from the DPLL_MODE register of DPLL_n.
- *
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param sm_mode Output pointer receiving the SM_MODE field [2:0]
- *                (0=AUTO, 1=FORCE_LOCK, 2=FORCE_FRUN, 3=FORCE_HLDOVER).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_sm(uint8_t dpll_index, enum pll_state *sm_mode)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -795,13 +645,6 @@ int bf_ptp_get_dpll_sm(uint8_t dpll_index, enum pll_state *sm_mode)
     return 0;
 }
 
-/**
- * @brief Sets the state-machine mode of DPLL_n via RMW, preserving OP_MODE and reserved bits.
- *
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param sm_mode State machine mode (0=AUTO, 1=FORCE_LOCK, 2=FORCE_FRUN, 3=FORCE_HLDOVER).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_dpll_sm(uint8_t dpll_index, enum pll_state sm_mode)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -834,13 +677,6 @@ int bf_ptp_set_dpll_sm(uint8_t dpll_index, enum pll_state sm_mode)
     return 0;
 }
 
-/**
- * @brief Retrieves the live tracking reference status of DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param ref_stat Output pointer populated with the upstream physical CLK channel index.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_ref_stat(uint8_t dpll_index, uint8_t *ref_stat)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -863,13 +699,6 @@ int bf_ptp_get_dpll_ref_stat(uint8_t dpll_index, uint8_t *ref_stat)
     return 0;
 }
 
-/**
- * @brief Retrieves the core state machine lock configuration of DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param state Output pointer receiving the extracted DPLL_STATE field [3:0] (enum dpll_state).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_state(uint8_t dpll_index, enum dpll_state *state)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -894,14 +723,6 @@ int bf_ptp_get_dpll_state(uint8_t dpll_index, enum dpll_state *state)
     return 0;
 }
 
-/**
- * @brief Retrieves the TOD synchronization configuration for DPLL_n.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param out_enabled Output pointer populated with the ToD sync enable status.
- * @param out_tod_source Output pointer populated with the ToD source index (0 to 3).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_tod_sync_cfg(uint8_t dpll_index,
         bool *out_enabled, uint8_t *out_tod_source)
 {
@@ -929,15 +750,6 @@ int bf_ptp_get_dpll_tod_sync_cfg(uint8_t dpll_index,
     return 0;
 }
 
-/**
- * @brief Modifies the TOD synchronization configuration for DPLL_n.
- *        Enforces Read-Modify-Write to protect RESERVED[7:3] bits.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param enable_sync Enables ToD synchronization.
- * @param tod_source The ToD source index to synchronize to (0 to 3).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_index,
         bool enable_sync, uint8_t tod_source)
 {
@@ -977,15 +789,6 @@ int bf_ptp_set_dpll_tod_sync_cfg(uint8_t dpll_index,
     return 0;
 }
 
-/**
- * @brief Retrieves the Combo Mode Slave Primary Source configuration for a given DPLL.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param out_pri_en Output pointer populated with the primary source enablement state.
- * @param out_pri_filt Output pointer populated with the filtered DCO configuration state.
- * @param out_pri_src_id Output pointer populated with the primary combo source DPLL index (0 to 8, where 8 is SYSDPLL).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_combo_slave_pri_cfg(uint8_t dpll_index,
         bool *out_pri_en, bool *out_pri_filt, uint8_t *out_pri_src_id)
 {
@@ -1014,16 +817,6 @@ int bf_ptp_get_dpll_combo_slave_pri_cfg(uint8_t dpll_index,
     return 0;
 }
 
-/**
- * @brief Configures the Combo Mode Slave Primary Source for a given DPLL.
- *        Enforces Read-Modify-Write to protect RESERVED[7:6] bits.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param pri_en Enable the primary combo source.
- * @param pri_filt Select filtered configuration for the primary combo source.
- * @param pri_src_id Primary combo source DPLL index (0 to 8, where 8 is SYSDPLL).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_dpll_combo_slave_pri_cfg(uint8_t dpll_index,
         bool pri_en, bool pri_filt, uint8_t pri_src_id)
 {
@@ -1065,15 +858,6 @@ int bf_ptp_set_dpll_combo_slave_pri_cfg(uint8_t dpll_index,
     return 0;
 }
 
-/**
- * @brief Retrieves the Combo Mode Slave Secondary Source configuration for a given DPLL.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param out_sec_en Output pointer populated with the secondary source enablement state.
- * @param out_sec_filt Output pointer populated with the filtered configuration state.
- * @param out_sec_src_id Output pointer populated with the secondary combo source DPLL index (0 to 8, where 8 is SYSDPLL).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_dpll_combo_slave_sec_cfg(uint8_t dpll_index,
         bool *out_sec_en, bool *out_sec_filt, uint8_t *out_sec_src_id)
 {
@@ -1102,16 +886,6 @@ int bf_ptp_get_dpll_combo_slave_sec_cfg(uint8_t dpll_index,
     return 0;
 }
 
-/**
- * @brief Configures the Combo Mode Slave Secondary Source for a given DPLL.
- *        Enforces Read-Modify-Write to protect RESERVED[7:6] bits.
- * 
- * @param dpll_index Target DPLL block index (Valid range: 0 to 7).
- * @param sec_en Enable the secondary combo source.
- * @param sec_filt Select filtered configuration for the secondary combo source.
- * @param sec_src_id Secondary combo source DPLL index (0 to 8, where 8 is SYSDPLL).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_dpll_combo_slave_sec_cfg(uint8_t dpll_index,
         bool sec_en, bool sec_filt, uint8_t sec_src_id)
 {
@@ -1153,13 +927,6 @@ int bf_ptp_set_dpll_combo_slave_sec_cfg(uint8_t dpll_index,
     return 0;
 }
 
-/**
- * @brief Executes the mandatory hardware commit trigger to enforce phase pull-in / frequency step alignment.
- *        Maps perfectly to DPLL_PHASE_PULL_IN_n and FREQ alignment triggers.
- * 
- * @param trigger_type 0 for Phase Pull-In (0x0F), 1 for Frequency Commit (0x3F).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_commit_dpll_trigger(uint8_t trigger_type)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -1179,19 +946,6 @@ int bf_ptp_commit_dpll_trigger(uint8_t trigger_type)
     return 0;
 }
 
-/**
- * @brief Writes the target phase offset for the FW phase pull-in state machine.
- *
- *        DPLL_n.PULL_IN_OFFSET is a signed 32-bit register at 50 ps/LSB,
- *        identical in format to DPLL_n.PHASE.
- *
- *        The pull-in slews the phase error *toward zero*: write the negated
- *        correction here so the FW drives the DCO to cancel the measured error.
- *
- * @param dpll_index    Target DPLL block (0-7).
- * @param offset_50ps   Signed 50 ps phase offset (negate the desired correction).
- * @return int          0 on success; negative on error.
- */
 int bf_ptp_set_phase_pull_in_offset(uint8_t dpll_index, int32_t offset_50ps)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -1217,16 +971,6 @@ int bf_ptp_set_phase_pull_in_offset(uint8_t dpll_index, int32_t offset_50ps)
     return 0;
 }
 
-/**
- * @brief Caps the maximum frequency offset during the FW phase pull-in slew.
- *
- *        DPLL_n.PULL_IN_SLOPE_LIMIT is an unsigned 24-bit register in ppb.
- *        A value of 0 lets the firmware use its internal default.
- *
- * @param dpll_index    Target DPLL block (0-7).
- * @param max_ffo_ppb   Maximum fractional frequency offset in ppb (0 = firmware default).
- * @return int          0 on success; negative on error.
- */
 int bf_ptp_set_phase_pull_in_slope_limit(uint8_t dpll_index, uint32_t max_ffo_ppb)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -1257,18 +1001,6 @@ int bf_ptp_set_phase_pull_in_slope_limit(uint8_t dpll_index, uint32_t max_ffo_pp
     return 0;
 }
 
-/**
- * @brief Kicks off the firmware autonomous phase pull-in state machine.
- *
- *        Writes 0x01 to DPLL_n.PULL_IN_CTRL.  The firmware then autonomously
- *        slews the DCO output phase toward the programmed PULL_IN_OFFSET,
- *        respecting PULL_IN_SLOPE_LIMIT.
- *
- *        Returns negative if a pull-in is already in progress on this DPLL.
- *
- * @param dpll_index    Target DPLL block (0-7).
- * @return int          0 on success; negative if already active or on error.
- */
 int bf_ptp_start_phase_pull_in(uint8_t dpll_index)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -1302,28 +1034,13 @@ int bf_ptp_start_phase_pull_in(uint8_t dpll_index)
     return 0;
 }
 
-/**
- * @brief Combined FW phase pull-in convenience: offset + slope + start.
- *
- *        Programs DPLL_n.PULL_IN_OFFSET (negated delta), PULL_IN_SLOPE_LIMIT,
- *        then writes 0x01 to PULL_IN_CTRL to kick off the firmware autonomous
- *        phase-slewing state machine.
- *
- *        This is the preferred path for small ToD corrections (< 15 µs) —
- *        the ToD counter slews continuously without a backward jump.
- *
- * @param dpll_index    Target DPLL block (0-7).
- * @param delta_ns      Desired phase correction in nanoseconds (signed).
- * @param max_ffo_ppb   Max frequency offset during pull-in (0 = default).
- * @return int          0 on success; negative on error.
- */
-int bf_ptp_phase_pull_in(uint8_t dpll_index, int32_t delta_ns, uint32_t max_ffo_ppb)
+int bf_ptp_phase_pull_in(uint8_t dpll_index, int32_t delta, uint32_t max_ffo_ppb)
 {
     int rc;
 
     /* PULL_IN_OFFSET expects the target offset (negated correction).
-     * Convert ns -> 50 ps LSBs: phase_50ps = -delta_ns * 20 */
-    int64_t offset_50ps = (int64_t)(-delta_ns) * 20;
+     * Convert ns -> 50 ps LSBs: phase_50ps = -delta * 20 */
+    int64_t offset_50ps = (int64_t)(-delta) * 20;
     if (offset_50ps >  INT32_MAX) offset_50ps =  INT32_MAX;
     if (offset_50ps < -INT32_MAX) offset_50ps = -INT32_MAX;
 
@@ -1336,15 +1053,6 @@ int bf_ptp_phase_pull_in(uint8_t dpll_index, int32_t delta_ns, uint32_t max_ffo_
     return bf_ptp_start_phase_pull_in(dpll_index);
 }
 
-/**
- * @brief Retrieves the live driving clock source (DPLL linkage index) of a specified TOD instance.
- *        Queries DPLL_n.DPLL_TOD_SYNC_CFG registers to locate which DPLL is actively synchronized
- *        with this ToD index.
- * 
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param out_dpll_src Output pointer populated with the driving DPLL index (Range: 0 to 7).
- * @return int 0 on success; -1 on lookup or parameter error; -2 on hardware I2C transaction failure.
- */
 int bf_ptp_get_tod_clk_src(uint8_t tod_index, uint8_t *out_dpll_src)
 {
     bool enabled = false;
@@ -1368,14 +1076,6 @@ int bf_ptp_get_tod_clk_src(uint8_t tod_index, uint8_t *out_dpll_src)
     return -1;
 }
 
-/**
- * @brief Retrieves the historical write completion metrics from the specified TOD_WRITE_n module.
- *        Corresponds to StepC logic.
- * 
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param out_write_counter Output pointer populated with the raw hardware write count byte.
- * @return int 0 on success; -1 on lookup or parameter error; -2 on hardware I2C transaction failure.
- */
 int bf_ptp_get_tod_write_counter(uint8_t tod_index, uint8_t *out_write_counter)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -1403,13 +1103,6 @@ int bf_ptp_get_tod_write_counter(uint8_t tod_index, uint8_t *out_write_counter)
     return 0;
 }
 
-/**
- * @brief Retrieves the historical read snapshot completion metrics from the specified TOD_READ_PRIMARY_n module.
- * 
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param out_read_counter Output pointer populated with the raw hardware read count byte.
- * @return int 0 on success; -1 on lookup or parameter error; -2 on hardware I2C transaction failure.
- */
 int bf_ptp_get_tod_read_counter(uint8_t tod_index, uint8_t *out_read_counter)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
@@ -1437,15 +1130,6 @@ int bf_ptp_get_tod_read_counter(uint8_t tod_index, uint8_t *out_read_counter)
     return 0;
 }
 
-/**
- * @brief Retrieves and decodes the current configuration bits of the specified TOD_n.TOD_CFG register.
- * 
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param out_enabled Output pointer populated with the TOD_ENABLE[0] status.
- * @param out_even_pps Output pointer populated with the TOD_EVEN_PPS_MODE[2] status.
- * @param out_sync_disabled Output pointer populated with the TOD_OUT_SYNC_DISABLE[1] status.
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_get_tod_cfg(uint8_t tod_index,
         bool *out_enabled, bool *out_even_pps, bool *out_sync_disabled)
 {
@@ -1477,16 +1161,6 @@ int bf_ptp_get_tod_cfg(uint8_t tod_index,
     return 0;
 }
 
-/**
- * @brief Modifies the specified TOD_n.TOD_CFG register to activate or freeze the clock core.
- *        Enforces strict Read-Modify-Write to isolate and protect the RESERVED[7:3] high bits.
- * 
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param enable_tod Sets the TOD_ENABLE[0] bit (True = run, False = stop).
- * @param even_pps_mode Sets the TOD_EVEN_PPS_MODE[2] bit (True = 2-second pulse, False = 1-second pulse).
- * @param disable_out_sync Sets the TOD_OUT_SYNC_DISABLE[1] bit (True = disable, False = enable sync).
- * @return int 0 on success; negative on error.
- */
 int bf_ptp_set_tod_cfg(uint8_t tod_index,
         bool enable_tod, bool even_pps_mode, bool disable_out_sync)
 {
@@ -1531,22 +1205,7 @@ int bf_ptp_set_tod_cfg(uint8_t tod_index,
     return 0;
 }
 
-/**
- * @brief Software-triggered ToD read via the PRIMARY snapshot buffer.
- *
- * Writes an IMMEDIATE trigger to TODn.READ_PRIMARY.TRIGGER, polls for
- * the hardware latch to settle, then burst-reads the 11-byte time array.
- * The snapshot is software-gated — jitter depends on I2C bus + CPU scheduling.
- *
- * For hardware-gated (low-jitter) reads, use the SECONDARY path:
- *   bf_ptp_arm_tod_read_trigger_refclk() + bf_ptp_get_tod_time_triggered().
- *
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param out_sec   Output pointer populated with the decoded Unix Epoch seconds.
- * @param out_ns    Output pointer populated with the residual sub-second nanoseconds.
- * @return int 0 on success; negative on error.
- */
-int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns)
+int bf_ptp_get_tod_time(uint8_t tod_index, uint64_t *out_sec, uint64_t *out_ns)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[64] = { 0 };
@@ -1574,43 +1233,31 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns)
     if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -3;
     }
-    uint8_t page = REGPAGE(regdesc);
-    uint8_t addr = REGADDR(regdesc);
 
     /* 3. CONTINUOUS STRIDE BURST READ: Extract all 11 bytes sequentially to prevent phase tearing */
-    for (int offset = 0; offset < 11; offset++) {
-        if (bf_pltfm_read_ptp_reg(page, addr + offset,
-                &burst_buf[offset]) < 0) {
-            return -4;
-        }
-    }
+	if (bf_pltfm_read_ptp_reg_burst(REGPAGE(regdesc), REGADDR(regdesc),
+            burst_buf, 11) < 0) {
+		return -4;
+	}
 
     /* 4. DECODE NANOSECONDS (Little-Endian assembly across offsets 001h to 004h) */
-    *out_ns = ((uint32_t)burst_buf[4] << 24) |
-              ((uint32_t)burst_buf[3] << 16) |
-              ((uint32_t)burst_buf[2] << 8)  |
-              ((uint32_t)burst_buf[1]);
+    *out_ns = ((uint64_t)burst_buf[4] << 24) |
+              ((uint64_t)burst_buf[3] << 16) |
+              ((uint64_t)burst_buf[2] << 8)  |
+              ((uint64_t)burst_buf[1]);
 
-    /* 5. DECODE SECONDS (Little-Endian assembly across offsets 005h to 008h) */
-    *out_sec = ((uint32_t)burst_buf[8] << 24) |
-               ((uint32_t)burst_buf[7] << 16) |
-               ((uint32_t)burst_buf[6] << 8)  |
-               ((uint32_t)burst_buf[5]);
+    /* 5. DECODE SECONDS (48-bit Little-Endian across offsets 005h to 00Ah) */
+    *out_sec = ((uint64_t)burst_buf[10] << 40) |
+               ((uint64_t)burst_buf[9]  << 32) |
+               ((uint64_t)burst_buf[8]  << 24) |
+               ((uint64_t)burst_buf[7]  << 16) |
+               ((uint64_t)burst_buf[6]  << 8)  |
+               ((uint64_t)burst_buf[5]);
 
     return 0; /* Coherent ToD fetched successfully */
 }
 
-/**
- * @brief Preloads and commits a 64-bit absolute Time-of-Day (ToD)
- *        to any specified hardware TOD instance (0 to 3).
- *        Writes sub-nanoseconds, nanoseconds, and seconds, then triggers the commit.
- * 
- * @param tod_index Target TOD instance index (Valid range: 0 to 3).
- * @param sec Unix Epoch absolute seconds to set.
- * @param ns Residual sub-second nanoseconds to set.
- * @return int 0 on success; negative on error.
- */
-int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns)
+int bf_ptp_set_tod_time(uint8_t tod_index, uint64_t sec, uint64_t ns)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[64] = { 0 };
@@ -1629,13 +1276,13 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns)
     burst_buf[3] = (uint8_t)((ns >> 16) & 0xFF);
     burst_buf[4] = (uint8_t)((ns >> 24) & 0xFF);
 
-    /* 3. Preload seconds (Little-Endian assembly) */
-    burst_buf[5] = (uint8_t)(sec & 0xFF);
-    burst_buf[6] = (uint8_t)((sec >> 8) & 0xFF);
-    burst_buf[7] = (uint8_t)((sec >> 16) & 0xFF);
-    burst_buf[8] = (uint8_t)((sec >> 24) & 0xFF);
-    burst_buf[9] = 0x00;
-    burst_buf[10] = 0x00;
+    /* 3. Preload seconds (48-bit Little-Endian, offsets 005h-00Ah) */
+    burst_buf[5]  = (uint8_t)(sec & 0xFF);
+    burst_buf[6]  = (uint8_t)((sec >> 8)  & 0xFF);
+    burst_buf[7]  = (uint8_t)((sec >> 16) & 0xFF);
+    burst_buf[8]  = (uint8_t)((sec >> 24) & 0xFF);
+    burst_buf[9]  = (uint8_t)((sec >> 32) & 0xFF);
+    burst_buf[10] = (uint8_t)((sec >> 40) & 0xFF);
 
     /* 4. Write all 11 bytes starting from SUB_NS using burst write */
     snprintf(name_buf, sizeof(name_buf), "TOD%d.WRITE.SUB_NS", tod_index);
@@ -1664,101 +1311,74 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns)
     return 0;
 }
 
-/**
- * @brief SECONDARY path — reads a hardware-latched ToD snapshot.
- *
- * Unlike bf_ptp_get_tod_time() (PRIMARY, software-gated trigger), this
- * reads the pre-latched snapshot from the SECONDARY buffer — the trigger
- * was fired by an external hardware event, not by software.
- *
- * Checks the TRIGGER register is not already pending, then reads the
- * 11-byte snapshot from the secondary base and decodes seconds + nanoseconds.
- *
- * @param tod_index  Target TOD instance (0-3).
- * @param out_sec    Output pointer populated with the latched seconds.
- * @param out_ns     Output pointer populated with the latched nanoseconds.
- * @return int       0 on success; -4 if trigger still pending (EBUSY).
- */
 int bf_ptp_get_tod_time_triggered(uint8_t tod_index,
-                                   uint32_t *out_sec, uint32_t *out_ns)
+                                   uint64_t *out_sec, uint64_t *out_ns)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     uint8_t burst_buf[64] = { 0 };
     char name_buf[64] = { 0 };
     uint8_t trigger = 0;
 
-    if (tod_index > 3 || !out_sec || !out_ns)
+    if (tod_index > 3 || !out_sec || !out_ns) {
         return -1;
+    }
 
     /* 1. Check that a snapshot is ready (trigger bit cleared → latched) */
     snprintf(name_buf, sizeof(name_buf),
              "TOD%d.READ_SECONDARY.TRIGGER", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
+    }
 
     if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-            &trigger) < 0)
+            &trigger) < 0) {
         return -3;
+    }
 
-    if (trigger & TOD_READ_TRIGGER_MASK)
-        return -4; /* EBUSY: previous trigger still pending */
+    if (trigger & TOD_READ_TRIGGER_MASK) {
+	    /* EBUSY: previous trigger still pending */
+        return -4;
+    }
 
     /* 2. BURST-READ 11-byte snapshot array from SECONDARY BASE */
     snprintf(name_buf, sizeof(name_buf),
              "TOD%d.READ_SECONDARY.SUB_NS", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -5;
-
-    uint8_t page = REGPAGE(regdesc);
-    uint8_t addr = REGADDR(regdesc);
-
-    for (int offset = 0; offset < 11; offset++) {
-        if (bf_pltfm_read_ptp_reg(page, addr + offset,
-                &burst_buf[offset]) < 0)
-            return -6;
     }
 
-    /* 3. DECODE NANOSECONDS (Little-Endian across offsets 001h-004h) */
-    *out_ns = ((uint32_t)burst_buf[4] << 24) |
-              ((uint32_t)burst_buf[3] << 16) |
-              ((uint32_t)burst_buf[2] <<  8) |
-              ((uint32_t)burst_buf[1]);
+	if (bf_pltfm_read_ptp_reg_burst(REGPAGE(regdesc), REGADDR(regdesc),
+            burst_buf, 11) < 0) {
+		return -6;
+	}
 
-    /* 4. DECODE SECONDS (Little-Endian across offsets 005h-008h) */
-    *out_sec = ((uint32_t)burst_buf[8] << 24) |
-               ((uint32_t)burst_buf[7] << 16) |
-               ((uint32_t)burst_buf[6] <<  8) |
-               ((uint32_t)burst_buf[5]);
+    /* 3. DECODE NANOSECONDS (Little-Endian across offsets 001h-004h) */
+    *out_ns = ((uint64_t)burst_buf[4] << 24) |
+              ((uint64_t)burst_buf[3] << 16) |
+              ((uint64_t)burst_buf[2] <<  8) |
+              ((uint64_t)burst_buf[1]);
+
+    /* 4. DECODE SECONDS (48-bit Little-Endian across offsets 005h-00Ah) */
+    *out_sec = ((uint64_t)burst_buf[10] << 40) |
+               ((uint64_t)burst_buf[9]  << 32) |
+               ((uint64_t)burst_buf[8]  << 24) |
+               ((uint64_t)burst_buf[7]  << 16) |
+               ((uint64_t)burst_buf[6]  <<  8) |
+               ((uint64_t)burst_buf[5]);
 
     return 0;
 }
 
-/**
- * @brief SECONDARY path — arms a hardware-gated ToD snapshot on a refclk edge.
- *
- * Unlike bf_ptp_get_tod_time() (PRIMARY, software-triggered), this configures
- * the SECONDARY read buffer to auto-latch the time on an external reference
- * clock edge, eliminating software jitter from the trigger path.
- *
- * Writes the reference clock index to SEL_CFG_0 and sets the trigger mode
- * to REFCLK in the TRIGGER (CMD) register. The hardware will auto-latch a
- * snapshot on the next selected refclk edge.
- *
- * After the edge fires, call bf_ptp_get_tod_time_triggered() to retrieve
- * the latched snapshot.
- *
- * @param tod_index  Target TOD instance (0-3).
- * @param ref        Reference clock index (0-15).
- * @return int       0 on success; negative on error.
- */
 int bf_ptp_arm_tod_read_trigger_refclk(uint8_t tod_index, uint8_t ref)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     char name_buf[64] = { 0 };
     uint8_t reg_byte = 0;
 
-    if (tod_index > 3 || ref > 15)
+    if (tod_index > 3 || ref > 15) {
         return -1;
+    }
 
     /* Write selected reference clock index into SEL_CFG_0 */
     snprintf(name_buf, sizeof(name_buf),
@@ -1771,322 +1391,400 @@ int bf_ptp_arm_tod_read_trigger_refclk(uint8_t tod_index, uint8_t ref)
 	reg_byte |= (ref << WR_REF_INDEX_SHIFT);
 
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-             reg_byte) < 0)
+             reg_byte) < 0) {
         return -3;
+    }
 
     /* Arm trigger: REFCLK edge detect */
     snprintf(name_buf, sizeof(name_buf),
              "TOD%d.READ_SECONDARY.TRIGGER", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -4;
+    }
 
     reg_byte = 0 | (SCSR_TOD_READ_TRIG_SEL_REFCLK << TOD_READ_TRIGGER_SHIFT);
 
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-             reg_byte) < 0)
+             reg_byte) < 0) {
         return -5;
+    }
 
     return 0;
 }
 
-/**
- * @brief SECONDARY path — arms a one-shot immediate trigger for quick test/debug.
- *
- * Writes TOD_READ_TRIG_SEL_IMMEDIATE to the SECONDARY TRIGGER register.
- * Unlike bf_ptp_get_tod_time() which uses PRIMARY, this routes through the
- * SECONDARY buffer — useful for testing the secondary path without external
- * hardware events.  After calling, poll bf_ptp_get_tod_time_triggered() until
- * it returns 0 (the trigger bit auto-clears once the latch completes).
- *
- * For production 1PPS/EXTTS timestamping, use
- * bf_ptp_arm_tod_read_trigger_refclk() instead.
- *
- * @param tod_index  Target TOD instance (0-3).
- * @return int       0 on success; negative on error.
- */
 int bf_ptp_arm_tod_read_trigger_immediate(uint8_t tod_index)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
     char name_buf[64] = { 0 };
     uint8_t reg_byte = 0;
 
-    if (tod_index > 3)
+    if (tod_index > 3) {
         return -1;
+    }
 
     snprintf(name_buf, sizeof(name_buf),
              "TOD%d.READ_SECONDARY.TRIGGER", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
+    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc)) {
         return -2;
+    }
 
     reg_byte = (uint8_t)SCSR_TOD_READ_TRIG_SEL_IMMEDIATE;
     if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-             reg_byte) < 0)
+             reg_byte) < 0) {
         return -3;
+    }
 
     return 0;
 }
 
-/*
- *  PTP Adjustment API Family
- *
- *  ----------------------------------------------------------------------------
- *  │ API            | Target               | Effect                           │
- *  -----------------|----------------------|-----------------------------------
- *  | bf_ptp_adjtime | ToD counter (wall-   | Instant step on the time-of-     │
- *  | (below)        | clock).  RMW via     | day.  Reads current PRIMARY      |
- *  |                | PRIMARY+WRITE paths. | snapshot, adds delta_ns,         |
- *  |                |                      | commits via WRITE shadow.        |
- *  -----------------|----------------------|-----------------------------------
- *  | bf_ptp_adjphase| DPLL output phase.   | Gradual slew of the DCO output   |
- *  |                | PCW -> DPLL_n.PHASE  | waveform.  Auto-switches DPLL    |
- *  |                | (50 ps / LSB).       | to WRITE_PHASE op_mode.          |
- *  -----------------|----------------------|-----------------------------------
- *  | bf_ptp_adjfine | DPLL DCO frequency.  | Persistent rate offset on the    |
- *  |                | FCW -> DPLL_n.FREQ   | oscillator.  Auto-switches DPLL  |
- *  |                | (Q5.3 format).       | to WRITE_FREQUENCY op_mode.      |
- *  ----------------------------------------------------------------------------
- *
- *  PTP servo mapping:
- *    SERVO_JUMP   -> bf_ptp_adjtime()    brute-force correction on ToD
- *    SERVO_LOCKED -> bf_ptp_adjfine()    continuous frequency discipline
- *    SERVO_LOCKED -> bf_ptp_adjphase()   fine-grained phase alignment
- */
-
-/**
- * @brief Adjusts the Time-of-Day by a signed nanosecond delta.
- *
- *        Dual-path correction strategy (matches upstream idtcm_adjtime):
- *
- *        - |delta| <  PHASE_PULL_IN_THRESHOLD_NS (15 µs):
- *          FW phase pull-in via the driving DPLL — the DCO slews the
- *          ToD counter gradually without a backward time jump.
- *
- *        - |delta| >= PHASE_PULL_IN_THRESHOLD_NS:
- *          Absolute read-modify-write step via the PRIMARY path
- *          (bf_ptp_get_tod_time + bf_ptp_set_tod_time).
- *
- *        For stand-alone DPLL phase adjustment, see bf_ptp_adjphase().
- *        For continuous frequency offset, see bf_ptp_adjfine().
- *
- * @param tod_index  Target TOD instance (0-3).
- * @param delta_ns   Signed nanosecond offset (positive = advance).
- * @return int       0 on success; negative on error.
- */
-int bf_ptp_adjtime(uint8_t tod_index, int64_t delta_ns)
+int bf_ptp_adjtime(uint8_t tod_index, int64_t delta)
 {
-    uint32_t sec = 0, ns = 0;
+    uint64_t sec = 0, ns = 0;
+	uint8_t dpll_index = 0;
+    int err = 0;
 
-    if (tod_index > 3)
+    if (tod_index > 3) {
         return -1;
+    }
 
-    /* Small deltas: use FW phase pull-in via the driving DPLL.
+	do_lock();
+
+	/* Small deltas: use FW phase pull-in via the driving DPLL.
      * This avoids an instant ToD counter step that would confuse
      * userspace clock_gettime consumers. */
-    if ((delta_ns > -PHASE_PULL_IN_THRESHOLD_NS) &&
-        (delta_ns <  PHASE_PULL_IN_THRESHOLD_NS)) {
+    if ((delta > -PHASE_PULL_IN_THRESHOLD_NS) &&
+        (delta <  PHASE_PULL_IN_THRESHOLD_NS)) {
 
-        uint8_t dpll_src = 0;
-        if (bf_ptp_get_tod_clk_src(tod_index, &dpll_src) < 0)
+        if (bf_ptp_get_tod_clk_src(tod_index, &dpll_index) < 0)
             goto fallback_step;
 
-        return bf_ptp_phase_pull_in(dpll_src, (int32_t)delta_ns, 0);
+        err = bf_ptp_phase_pull_in(dpll_index, (int32_t)delta, 0);
+        goto finish;
     }
 
 fallback_step:
-    if (bf_ptp_get_tod_time(tod_index, &sec, &ns) < 0)
-        return -2;
-
-    int64_t total_ns = (int64_t)sec * 1000000000LL + (int64_t)ns + delta_ns;
-
-    if (total_ns < 0) {
-        sec = 0;
-        ns  = 0;
-    } else {
-        sec = (uint32_t)(total_ns / 1000000000LL);
-        ns  = (uint32_t)(total_ns % 1000000000LL);
+    err = bf_ptp_get_tod_time(tod_index, &sec, &ns);
+    if (err < 0) {
+        goto finish;
     }
 
-    return bf_ptp_set_tod_time(tod_index, sec, ns);
+    int64_t total_ns = (int64_t)sec * NSEC_PER_SEC + (int64_t)ns + delta;
+
+    /* Validate: ToD + offset must stay >= Unix epoch (0) */
+    if (total_ns < 0) {
+        fprintf (stdout,
+                "Epoch guardrail: resulting time would be %lld ns before epoch\n",
+                (long long)total_ns);
+        err = -ERANGE;
+        goto finish;
+    }
+
+    sec = (total_ns / NSEC_PER_SEC);
+    ns  = (total_ns % NSEC_PER_SEC);
+
+    err = bf_ptp_set_tod_time(tod_index, sec, ns);
+
+finish:
+    do_unlock();
+    return err;
 }
 
-/**
- * @brief Adjusts DPLL phase by a signed nanosecond delta (gradual slew).
- *
- * Converts delta_ns -> picoseconds, divides by 50 ps/step, writes LE
- * to DPLL_n.PHASE.  Auto-switches the DPLL to WRITE_PHASE op_mode.
- *
- * This is a gradual phase slew — not an instant time-step.
- * For time-step correction, see bf_ptp_adjtime().
- * For frequency offset, see bf_ptp_adjfine().
- *
- * @param dpll_index  Target DPLL block (0-7).
- * @param delta_ns    Signed nanosecond phase offset (resolution: 50 ps).
- * @return int        0 on success; negative on error.
- */
-int bf_ptp_adjphase(uint8_t dpll_index, int32_t delta_ns)
+int bf_ptp_adjphase(uint8_t tod_index, int32_t delta)
 {
     enum pll_mode mode;
+	uint8_t dpll_index = 0;
+    int err;
 
-    if (dpll_index > 7)
+    if (tod_index > 3) {
         return -1;
+    }
+
+	do_lock();
+    err = bf_ptp_get_tod_clk_src(tod_index, &dpll_index);
+    if (err < 0) {
+	    goto finish;
+    }
 
     /* Ensure DPLL is in WRITE_PHASE (preserves SM_MODE via RMW) */
-    if (bf_ptp_get_dpll_mode(dpll_index, &mode) < 0)
-        return -2;
+    err = bf_ptp_get_dpll_mode(dpll_index, &mode);
+    if (err < 0) {
+        goto finish;
+    }
 
     if (mode != PLL_MODE_WRITE_PHASE) {
-        if (bf_ptp_set_dpll_mode(dpll_index, PLL_MODE_WRITE_PHASE) < 0)
-            return -3;
+        err = bf_ptp_set_dpll_mode(dpll_index, PLL_MODE_WRITE_PHASE);
+        if (err < 0) {
+            goto finish;
+        }
     }
 
     /*
      * Phase register resolution: 50 ps / LSB.
+     *           offset_ps = (s64)delta * 1000
      *           phase_50ps = div_s64(offset_ps, 50)
-     *           offset_ps = (s64)delta_ns * 1000
-     * So: phase_raw = delta_ns * 1000 / 50 = delta_ns * 20
+     * So: phase_50ps = delta * 1000 / 50 = delta * 20
      */
-    int64_t phase_raw = (int64_t)delta_ns * 20;
+    int64_t phase_50ps = (int64_t)delta * DPLL_PHASE_PER_NS;
 
     /* Clamp to 32-bit signed range (HW register is int32) */
-    if (phase_raw >  INT32_MAX) phase_raw =  INT32_MAX;
-    if (phase_raw < -INT32_MAX) phase_raw = -INT32_MAX;
+    if (phase_50ps >  INT32_MAX) phase_50ps =  INT32_MAX;
+    if (phase_50ps < -INT32_MAX) phase_50ps = -INT32_MAX;
 
-    return bf_ptp_set_dpll_phase(dpll_index, (int32_t)phase_raw);
+    err = bf_ptp_set_dpll_phase(dpll_index, (int32_t)phase_50ps);
+
+finish:
+    do_unlock();
+    return err;
 }
 
-/**
- * @brief Adjusts DPLL frequency using a scaled PPM offset (persistent rate).
- *
- * Converts scaled_ppm (2^-16 ppm) to raw FCW via
- *   FCW = scaled_ppm * 5^12 / (111 * 2^4) = scaled_ppm * 244140625 / 1776,
- * writes LE to DPLL_n.FREQ in Q5.3 format.  Auto-switches the DPLL to
- * WRITE_FREQUENCY op_mode.
- *
- * This is a persistent frequency offset — not a time-step or phase slew.
- * For time-step correction, see bf_ptp_adjtime().
- * For gradual phase slew, see bf_ptp_adjphase().
- *
- * @param dpll_index  Target DPLL block (0-7).
- * @param scaled_ppm  Signed frequency offset in 2^-16 ppm units.
- * @return int        0 on success; negative on error.
- */
-int bf_ptp_adjfine(uint8_t dpll_index, int64_t scaled_ppm)
+int bf_ptp_adjfine(uint8_t tod_index, int64_t scaled_ppm)
 {
     enum pll_mode mode;
+	uint8_t dpll_index = 0;
+    int err;
 
-    if (dpll_index > 7)
+    if (tod_index > 3) {
         return -1;
-
-    /* Ensure DPLL is in WRITE_FREQUENCY (preserves SM_MODE via RMW) */
-    if (bf_ptp_get_dpll_mode(dpll_index, &mode) < 0)
-        return -2;
-
-    if (mode != PLL_MODE_WRITE_FREQUENCY) {
-        if (bf_ptp_set_dpll_mode(dpll_index, PLL_MODE_WRITE_FREQUENCY) < 0)
-            return -3;
     }
 
+	do_lock();
+
+    err = bf_ptp_get_tod_clk_src(tod_index, &dpll_index);
+    if (err < 0) {
+	    goto finish;
+    }
+
+    /* Ensure DPLL is in WRITE_FREQUENCY (preserves SM_MODE via RMW) */
+    err = bf_ptp_get_dpll_mode(dpll_index, &mode);
+    if (err < 0) {
+	    goto finish;
+    }
+
+    if (mode != PLL_MODE_WRITE_FREQUENCY) {
+        err = bf_ptp_set_dpll_mode(dpll_index, PLL_MODE_WRITE_FREQUENCY);
+        if (err < 0) {
+            goto finish;
+        }
+    }
+
+	/*
+	 * Frequency Control Word unit is: 1.11 * 10^-10 ppm
+	 *
+	 * adjfreq:
+	 *       ppb * 10^9
+	 * FCW = ----------
+	 *          111
+	 *
+	 * adjfine:
+	 *       ppm_16 * 5^12
+	 * FCW = -------------
+	 *         111 * 2^4
+	 */
+
+	/* 2 ^ -53 = 1.1102230246251565404236316680908e-16 */
+
     /*
-     * FCW conversion:
+     * FCW conversion (matches upstream ptp_clockmatrix.c):
      *   FCW = scaled_ppm * 5^12 / (111 * 2^4)
      *       = scaled_ppm * 244140625 / 1776
      */
     int64_t fcw = (scaled_ppm * 244140625LL) / 1776;
+    err = bf_ptp_set_dpll_freq(dpll_index, fcw);
 
-    return bf_ptp_set_dpll_freq(dpll_index, fcw);
+finish:
+    do_unlock();
+    return err;
 }
 
-/**
- * @brief PRIMARY path — reads the current ToD with trigger-bit polling.
- *
- * Matches upstream _idtcm_gettime_immediate + _idtcm_gettime:
- * writes IMMEDIATE to PRIMARY.TRIGGER, polls until the trigger bit
- * clears (up to 10 iterations), then burst-reads the 11-byte snapshot.
- * The polling loop is more robust than a fixed usleep against I2C
- * bus latency variance.
- *
- * For hardware-gated (low-jitter) reads, use the SECONDARY path:
- *   bf_ptp_arm_tod_read_trigger_refclk() + bf_ptp_get_tod_time_triggered().
- *
- * @param tod_index  Target TOD instance (0-3).
- * @param out_sec    Output pointer populated with Unix Epoch seconds.
- * @param out_ns     Output pointer populated with sub-second nanoseconds.
- * @return int       0 on success; negative on error.
- */
-int bf_ptp_gettime(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns)
+int bf_clock_reset(void)
 {
     ptp_reg_desc_t regdesc = __ptp_reg_desc_init_val__;
-    uint8_t burst_buf[64] = { 0 };
-    char name_buf[64] = { 0 };
-    uint8_t trigger = 0;
-    int timeout = 10;
+    int err;
 
-    if (tod_index > 3 || !out_sec || !out_ns)
-        return -1;
+	do_lock();
 
-    /* 1. Fire IMMEDIATE trigger on PRIMARY */
-    snprintf(name_buf, sizeof(name_buf),
-             "TOD%d.READ_PRIMARY.TRIGGER", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
-        return -2;
-
-    if (bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-             (uint8_t)SCSR_TOD_READ_TRIG_SEL_IMMEDIATE) < 0)
-        return -3;
-
-    /* 2. Poll TRIGGER register until the latch settles */
-    do {
-        if (timeout-- == 0)
-            return -4; /* EIO: timeout waiting for latch */
-
-        if (bf_pltfm_read_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc),
-                &trigger) < 0)
-            return -5;
-    } while (trigger & TOD_READ_TRIGGER_MASK);
-
-    /* 3. Burst-read the 11-byte snapshot from PRIMARY base */
-    snprintf(name_buf, sizeof(name_buf),
-             "TOD%d.READ_PRIMARY.SUB_NS", tod_index);
-    if (bf_ptp_lookup_register_tod((int)tod_index, name_buf, &regdesc))
-        return -6;
-
-    uint8_t page = REGPAGE(regdesc);
-    uint8_t addr = REGADDR(regdesc);
-
-    for (int offset = 0; offset < 11; offset++) {
-        if (bf_pltfm_read_ptp_reg(page, addr + offset,
-                &burst_buf[offset]) < 0)
-            return -7;
+    err = bf_ptp_lookup_register_general("RESET_CTRL.SM_RESET",
+            &regdesc);
+    if (err) {
+        goto finish;
     }
 
-    /* 4. Decode nanoseconds (LE across offsets 001h-004h) */
-    *out_ns = ((uint32_t)burst_buf[4] << 24) |
-              ((uint32_t)burst_buf[3] << 16) |
-              ((uint32_t)burst_buf[2] <<  8) |
-              ((uint32_t)burst_buf[1]);
+    err = bf_pltfm_write_ptp_reg(REGPAGE(regdesc), REGADDR(regdesc), 0x5A);
+    if (err < 0) {
+        goto finish;
+    }
 
-    /* 5. Decode seconds (LE across offsets 005h-008h) */
-    *out_sec = ((uint32_t)burst_buf[8] << 24) |
-               ((uint32_t)burst_buf[7] << 16) |
-               ((uint32_t)burst_buf[6] <<  8) |
-               ((uint32_t)burst_buf[5]);
+    usleep(CLKMATRIX_DELAY_US);
+finish:
+	do_unlock();
+    return err;
+}
 
+int bf_clock_settime(clockid_t clkid, struct timespec *tp)
+{
+    uint8_t tod_index = (uint8_t)clkid;
+	int err;
+
+    if (tod_index > 3 || !tp) {
+        return -EINVAL;
+    }
+
+    /* No sec range check — 8A34004 ToD has 48-bit seconds
+     * (max ~8.9 million years).  bf_ptp_set_tod_time takes uint32_t
+     * sec (~136 years from epoch, sufficient until 2106). */
+    if (tp->tv_sec < 0 || tp->tv_nsec < 0 ||
+        (unsigned long)tp->tv_nsec >= NSEC_PER_SEC ||
+        (uint64_t)tp->tv_sec >= (1ULL << 48)) {
+        return -ERANGE;
+    }
+
+	do_lock();
+	err = bf_ptp_set_tod_time(tod_index, tp->tv_sec, tp->tv_nsec);
+	do_unlock();
+
+    return err;
+}
+
+int bf_clock_gettime(clockid_t clkid, struct timespec *tp)
+{
+    uint8_t  tod_index = (uint8_t)clkid;
+    uint64_t sec = 0, ns = 0;
+	int rc;
+
+    if (tod_index > 3 || !tp) {
+        return -EINVAL;
+    }
+
+    tp->tv_sec  = 0;
+    tp->tv_nsec = 0;
+
+    rc = bf_ptp_get_tod_time(tod_index,
+			&sec, &ns);
+    if (rc < 0) {
+        return rc;
+    }
+
+    tp->tv_sec  = (time_t)sec;
+    tp->tv_nsec = (long)ns;
+    return 0;
+}
+
+int bf_clock_getres(clockid_t clkid, struct timespec *res)
+{
+    uint8_t tod_index = (uint8_t)clkid;
+
+    if (tod_index > 3 || !res) {
+        return -EINVAL;
+    }
+
+    res->tv_sec  = 0;
+    res->tv_nsec = 1;  /* 8A34004 ToD resolution: 1 ns */
     return 0;
 }
 
 /**
- * @brief PRIMARY path — writes an absolute time to the ToD counter.
+ * scaled_ppm_to_ppb() - convert scaled ppm to ppb
  *
- * Matches upstream _idtcm_settime with SCSR_TOD_WR_TYPE_SEL_ABSOLUTE:
- * preloads sub-ns=0, ns, and seconds into the WRITE registers, then
- * fires the ABSOLUTE + IMMEDIATE commit trigger (0x01).
- *
- * @param tod_index  Target TOD instance (0-3).
- * @param sec        Unix Epoch absolute seconds to set.
- * @param ns         Residual sub-second nanoseconds to set.
- * @return int       0 on success; negative on error.
+ * @ppm:    Parts per million, but with a 16 bit binary fractional field
  */
-int bf_ptp_settime(uint8_t tod_index, uint32_t sec, uint32_t ns)
+static inline long scaled_ppm_to_ppb(long ppm)
 {
-    return bf_ptp_set_tod_time(tod_index, sec, ns);
+	/*
+	 * The 'freq' field in the 'struct timex' is in parts per
+	 * million, but with a 16 bit binary fractional field.
+	 *
+	 * We want to calculate
+	 *
+	 *    ppb = scaled_ppm * 1000 / 2^16
+	 *
+	 * which simplifies to
+	 *
+	 *    ppb = scaled_ppm * 125 / 2^13
+	 */
+	int64_t ppb = 1 + ppm;
+
+	ppb *= 125;
+	ppb >>= 13;
+	return (long)ppb;
+}
+
+int bf_clock_adjtime(clockid_t clkid, struct timex *tx)
+{
+    int err = -EOPNOTSUPP;
+	struct clockmatrix_t *matrix = &clockmatrix;
+    uint8_t tod_index = (uint8_t)clkid;
+
+    if (tx->modes & ADJ_SETOFFSET) {
+        int64_t delta;
+		struct timespec64 ts;
+
+        /* tx->time.{tv_sec, tv_usec} carries the offset (not absolute
+         * time).  tv_usec -> nanoseconds unless ADJ_NANO is set. */
+        ts.tv_sec  = tx->time.tv_sec;
+        ts.tv_nsec = tx->time.tv_usec;
+
+        if (!(tx->modes & ADJ_NANO)) {
+            ts.tv_nsec *= NSEC_PER_USEC;
+        }
+
+		if ((unsigned long) ts.tv_nsec >= NSEC_PER_SEC)
+			return -EINVAL;
+
+        delta = (int64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
+        err = bf_ptp_adjtime(tod_index, delta);
+
+    } else if (tx->modes & ADJ_FREQUENCY) {
+        long ppb = scaled_ppm_to_ppb(tx->freq);
+        if (ppb > DPLL_PPB_THRESHOLD || ppb < -DPLL_PPB_THRESHOLD) {
+            fprintf (stdout,
+                    "Ppb out of range: %ld (|max| = %d ~ ±%d ppm)\n",
+                    ppb, DPLL_PPB_THRESHOLD, DPLL_PPB_THRESHOLD);
+            return -ERANGE;
+        }
+
+        err = bf_ptp_adjfine(tod_index, tx->freq);
+		if (!err) {
+			matrix->_tod[tod_index].dialed_frequency = tx->freq;
+		}
+
+	} else if (tx->modes & ADJ_OFFSET) {
+        int32_t offset = (int32_t)tx->offset;
+
+        /* tx->offset is in µs unless ADJ_NANO is set */
+        if (!(tx->modes & ADJ_NANO)) {
+            offset *= NSEC_PER_USEC;
+        }
+
+        if (offset > DPLL_PHASE_THRESHOLD || offset < -DPLL_PHASE_THRESHOLD) {
+            fprintf (stdout,
+                    "Offset out of range: %d (|max| = INT32_MAX/20 ~ 107.4 ms, HW phase limit)\n", offset);
+            return -ERANGE;
+        }
+
+        err = bf_ptp_adjphase(tod_index, offset);
+
+    } else if (tx->modes == 0) {
+		tx->freq = matrix->_tod[tod_index].dialed_frequency;
+        err = 0;
+    }
+
+    return err;
+}
+
+int bf_clockmatrix_init(void)
+{
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        return 0;
+    }
+
+    fprintf (stdout,
+             "\n\nInitializing clockmatrix   ...\n");
+
+	pthread_mutex_init(&clockmatrix.lock, NULL);
+
+	memset(&clockmatrix._tod, 0, sizeof(clockmatrix._tod));
+	memset(&clockmatrix._pll, 0, sizeof(clockmatrix._pll));
+
+	return 0;
 }

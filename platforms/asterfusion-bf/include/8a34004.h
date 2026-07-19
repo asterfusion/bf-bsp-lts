@@ -10,12 +10,6 @@
 #ifndef AFN_8A34004_REGS_H
 #define AFN_8A34004_REGS_H
 
-#include <stdint.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdbool.h>
-
 #define MAX_TOD		(4)
 #define MAX_PLL		(8)
 
@@ -25,6 +19,25 @@
 
 #define MAX_ENTRIES_PER_DPLL    (16 + 1)
 #define MAX_ENTRIES_PER_TOD     (24 + 1)
+
+/* The 8A34004 ToD has 48-bit seconds + 32-bit nanoseconds registers
+ * (max ~8.9 million years).  The validation caps at 2^48 seconds as
+ * a practical guard, not a hardware limitation. */
+#define TOD_MAX_NSEC            (1ULL << 48)
+
+/* 65536 = 1 ppm in 2^-16, fixed-point units.
+ * The DPLL DCO tuning range on the 8A34004
+ * is ±1000 ppm → 65536 × 1000 = 65536000 scaled_ppm
+ *              → 1000 × 1000 = 1000000 ppb. */
+#define DPLL_FREQ_PER_PPM       (65536)
+#define DPLL_PPM_THRESHOLD      (1000)
+#define DPLL_FREQ_THRESHOLD     (DPLL_PPM_THRESHOLD * DPLL_FREQ_PER_PPM)
+#define DPLL_PPB_THRESHOLD      (1000000)
+
+/* HW DPLL phase register is int32 with 50 ps / LSB.
+ *   1 ns = 20 LSB  →  max = INT32_MAX / 20 ≈ 107374182 ns. */
+#define DPLL_PHASE_PER_NS       (20)
+#define DPLL_PHASE_THRESHOLD    (107374182)
 
 #define PAGE_ADDR_BASE                    0x0000
 #define PAGE_ADDR                         0x00fc

@@ -39,7 +39,7 @@
 #include <bf_pltfm_qsfp.h>
 #include <bf_pltfm_sfp.h>
 #include <bf_pltfm_bd_cfg.h>
-
+#include <bf_pltfm_clockmatrix.h>
 #include "version.h"
 #include "pltfm_types.h"
 
@@ -2785,6 +2785,12 @@ bf_status_t bf_pltfm_platform_init (
     err = bf_pltfm_sfp_init (NULL);
     if (err) {
         LOG_ERROR ("pltfm_mgr: Error in sfp init \n");
+        return BF_PLTFM_COMM_FAILED;
+    }
+
+    err = bf_clockmatrix_init();
+    if (err) {
+        LOG_ERROR ("pltfm_mgr: Error in clockmatrix init \n");
         return BF_PLTFM_COMM_FAILED;
     }
 

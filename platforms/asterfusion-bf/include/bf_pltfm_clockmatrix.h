@@ -10,6 +10,14 @@
 #ifndef BF_PLTFM_CLOCKMATRIX_H
 #define BF_PLTFM_CLOCKMATRIX_H
 
+#include <stdint.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+#include <time.h>
+#include <sys/timex.h>
+#include <pthread.h>
 #include "8a34004.h"
 
 /* Mandatory internal Renesas firmware micro-sequencer latch settlement stall;
@@ -22,7 +30,52 @@
  * Matches upstream PHASE_PULL_IN_THRESHOLD_NS (15000 ns). */
 #define PHASE_PULL_IN_THRESHOLD_NS  (15000)
 
+
 #define CLOCKMATRIX_ADDR        (0x58)
+
+/* ── POSIX clock_adjtime mode bits (matching UAPI <linux/timex.h>) ───
+ * Used by bf_clock_adjtime() to dispatch between adjtime/adjfine/adjphase/read. */
+#ifndef ADJ_OFFSET
+#define ADJ_OFFSET               0x0001  /* time offset (→ adjphase) */
+#endif
+#ifndef ADJ_FREQUENCY
+#define ADJ_FREQUENCY            0x0002  /* frequency offset (→ adjfine) */
+#endif
+#ifndef ADJ_SETOFFSET
+#define ADJ_SETOFFSET            0x0100  /* add 'time' to current time (→ adjtime) */
+#endif
+#ifndef ADJ_NANO
+#define ADJ_NANO                 0x2000  /* nanosecond resolution */
+#endif
+
+#ifndef NSEC_PER_SEC
+#define NSEC_PER_SEC             1000000000LL
+#endif
+#ifndef NSEC_PER_USEC
+#define NSEC_PER_USEC            1000L
+#endif
+
+struct timespec64 {
+	int64_t		tv_sec;		/* seconds */
+	long		tv_nsec;	/* nanoseconds */
+};
+
+struct tod_priv_t {
+	long 		dialed_frequency;
+};
+struct pll_priv_t {
+	int  		resv;
+};
+
+struct clockmatrix_t {
+	struct tod_priv_t _tod[MAX_TOD];
+	struct pll_priv_t _pll[MAX_PLL];
+	pthread_mutex_t lock;
+};
+
+extern struct clockmatrix_t clockmatrix;
+
+int bf_clockmatrix_init(void);
 
 int bf_pltfm_tx_rst_pulse();
 int bf_pltfm_set_clk(bf_pltfm_clk_source clk_source);
@@ -99,21 +152,6 @@ int bf_ptp_get_product_id(uint16_t *product_id);
  * @return int 0 on success; negative on error.
  */
 int bf_ptp_get_release_no(uint8_t *major, uint8_t *minor, uint8_t *rev);
-
-/**
- * @brief Triggers a hard state-machine reset of all DPLL and ToD state engines
- *        via the RESET_CTRL.SM_RESET register, forcing them back through
- *        the FULL acquisition sequence (FREE_RUN → LOCKACQ → LOCKED).
- *
- *        This is a write-only fire-and-forget command per the Renesas H/W API:
- *        writes 0x5A (SM_RESET_CMD) to SM_RESET at offset 0x12 (pre-V520).
- *        The register auto-clears upon completion.
- *
- * @note  FW v4.8.1 uses SM_RESET offset 0x12. V520+ uses 0x13.
- *
- * @return int 0 on success; negative on error.
- */
-int bf_ptp_reset_sm(void);
 
 /**
  * @brief Retrieves the input clock frequency for physical clock inputs (INPUT_0 or INPUT_1).
@@ -441,7 +479,7 @@ int bf_ptp_set_tod_cfg(uint8_t tod_index,
  * @param out_ns    Output pointer populated with the residual sub-second nanoseconds.
  * @return int 0 on success; negative on error.
  */
-int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns);
+int bf_ptp_get_tod_time(uint8_t tod_index, uint64_t *out_sec, uint64_t *out_ns);
 
 /**
  * @brief Preloads and commits a 64-bit absolute Time-of-Day (ToD)
@@ -453,7 +491,7 @@ int bf_ptp_get_tod_time(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns);
  * @param ns Residual sub-second nanoseconds to set.
  * @return int 0 on success; negative on error.
  */
-int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns);
+int bf_ptp_set_tod_time(uint8_t tod_index, uint64_t sec, uint64_t ns);
 
 /**
  * @brief SECONDARY path — reads a hardware-latched ToD snapshot.
@@ -471,7 +509,7 @@ int bf_ptp_set_tod_time(uint8_t tod_index, uint32_t sec, uint32_t ns);
  * @return int       0 on success; -4 if trigger still pending (EBUSY).
  */
 int bf_ptp_get_tod_time_triggered(uint8_t tod_index,
-                                   uint32_t *out_sec, uint32_t *out_ns);
+                                   uint64_t *out_sec, uint64_t *out_ns);
 
 /**
  * @brief SECONDARY path — arms a hardware-gated ToD snapshot on a refclk edge.
@@ -509,6 +547,21 @@ int bf_ptp_arm_tod_read_trigger_refclk(uint8_t tod_index, uint8_t ref);
  * @return int       0 on success; negative on error.
  */
 int bf_ptp_arm_tod_read_trigger_immediate(uint8_t tod_index);
+
+/**
+ * @brief Triggers a hard state-machine reset of all DPLL and ToD state engines
+ *        via the RESET_CTRL.SM_RESET register, forcing them back through
+ *        the FULL acquisition sequence (FREE_RUN → LOCKACQ → LOCKED).
+ *
+ *        This is a write-only fire-and-forget command per the Renesas H/W API:
+ *        writes 0x5A (SM_RESET_CMD) to SM_RESET at offset 0x12 (pre-V520).
+ *        The register auto-clears upon completion.
+ *
+ * @note  FW v4.8.1 uses SM_RESET offset 0x12. V520+ uses 0x13.
+ *
+ * @return int 0 on success; negative on error.
+ */
+int bf_clock_reset(void);
 
 /*
  *  PTP Adjustment API Family
@@ -553,10 +606,10 @@ int bf_ptp_arm_tod_read_trigger_immediate(uint8_t tod_index);
  *        For continuous frequency offset, see bf_ptp_adjfine().
  *
  * @param tod_index  Target TOD instance (0-3).
- * @param delta_ns   Signed nanosecond offset (positive = advance).
+ * @param delta      Signed nanosecond offset (positive = advance).
  * @return int       0 on success; negative on error.
  */
-int bf_ptp_adjtime(uint8_t tod_index, int64_t delta_ns);
+int bf_ptp_adjtime(uint8_t tod_index, int64_t delta);
 
 /**
  * @brief Adjusts DPLL phase by a signed nanosecond delta (gradual slew).
@@ -568,17 +621,17 @@ int bf_ptp_adjtime(uint8_t tod_index, int64_t delta_ns);
  * For time-step correction, see bf_ptp_adjtime().
  * For frequency offset, see bf_ptp_adjfine().
  *
- * @param dpll_index  Target DPLL block (0-7).
- * @param delta_ns    Signed nanosecond phase offset (resolution: 50 ps).
+ * @param tod_index  Target TOD instance (0-3).
+ * @param delta      Signed nanosecond phase offset (resolution: 50 ps).
  * @return int        0 on success; negative on error.
  */
-int bf_ptp_adjphase(uint8_t dpll_index, int32_t delta_ns);
+int bf_ptp_adjphase(uint8_t tod_index, int32_t delta);
 
 /**
  * @brief Adjusts DPLL frequency using a scaled PPM offset (persistent rate).
  *
  * Converts scaled_ppm (2^-16 ppm) to raw FCW via
- *   FCW = scaled_ppm * 5^12 / (111 * 2^4) = scaled_ppm * 244140625 / 1776,
+ *   FCW = scaled_ppm * 5^8 / (111 * 2^8) = scaled_ppm * 390625 / 28416,
  * writes LE to DPLL_n.FREQ in Q5.3 format.  Auto-switches the DPLL to
  * WRITE_FREQUENCY op_mode.
  *
@@ -586,43 +639,88 @@ int bf_ptp_adjphase(uint8_t dpll_index, int32_t delta_ns);
  * For time-step correction, see bf_ptp_adjtime().
  * For gradual phase slew, see bf_ptp_adjphase().
  *
- * @param dpll_index  Target DPLL block (0-7).
+ * @param tod_index  Target TOD instance (0-3).
  * @param scaled_ppm  Signed frequency offset in 2^-16 ppm units.
  * @return int        0 on success; negative on error.
  */
-int bf_ptp_adjfine(uint8_t dpll_index, int64_t scaled_ppm);
+int bf_ptp_adjfine(uint8_t tod_index, int64_t scaled_ppm);
 
 /**
- * @brief PRIMARY path — reads the current ToD with trigger-bit polling.
+ * @brief Unified PTP clock adjustment — POSIX clock_adjtime equivalent.
  *
- * Matches upstream _idtcm_gettime_immediate + _idtcm_gettime:
- * writes IMMEDIATE to PRIMARY.TRIGGER, polls until the trigger bit
- * clears (up to 10 iterations), then burst-reads the 11-byte snapshot.
- * The polling loop is more robust than a fixed usleep against I2C
- * bus latency variance.
+ *        Dispatches based on tx->modes:
  *
- * For hardware-gated (low-jitter) reads, use the SECONDARY path:
- *   bf_ptp_arm_tod_read_trigger_refclk() + bf_ptp_get_tod_time_triggered().
+ *        - ADJ_SETOFFSET → bf_ptp_adjtime  (ToD step / phase pull-in)
+ *          Bounds: |delta| < 2^48 ns (~78.1 h); epoch >= 0 enforced.
+ *          Returns: 0 on success; -1 on range/param error; -3 on epoch
+ *          underflow (step would go below Unix epoch).
  *
- * @param tod_index  Target TOD instance (0-3).
- * @param out_sec    Output pointer populated with Unix Epoch seconds.
- * @param out_ns     Output pointer populated with sub-second nanoseconds.
- * @return int       0 on success; negative on error.
+ *        - ADJ_FREQUENCY → bf_ptp_adjfine  (DPLL FCW, persistent rate)
+ *          Bounds: |scaled_ppm| ≤ 65536000 (±1000 ppm, DPLL DCO limit).
+ *          Returns: 0 on success; -1 on error.
+ *
+ *        - ADJ_OFFSET    → bf_ptp_adjphase (DPLL phase slew, gradual)
+ *          Bounds: |offset_ns| ≤ 107374182 ns (~107.4 ms, phase reg limit).
+ *          Returns: 0 on success; -1 on error.
+ *
+ *        - modes == 0    → read-back (tx->freq returned unchanged).
+ *          Returns: 0.
+ *
+ *        For ADJ_FREQUENCY and ADJ_OFFSET, the driving DPLL is resolved
+ *        from the given ToD index via bf_ptp_get_tod_clk_src().
+ *
+ *        For ADJ_SETOFFSET, the current ToD is read to validate that the
+ *        resulting time stays within the valid Unix epoch range.
+ *
+ * @param clkid      Clock ID (mapped to tod_index 0-3 via (uint8_t) cast).
+ * @param tx         POSIX timex struct with mode bits and adjustment params.
+ * @return int       0 on success; -1 on error; -3 on epoch underflow.
  */
-int bf_ptp_gettime(uint8_t tod_index, uint32_t *out_sec, uint32_t *out_ns);
+int bf_clock_adjtime(clockid_t clkid, struct timex *tx);
 
 /**
- * @brief PRIMARY path — writes an absolute time to the ToD counter.
+ * @brief POSIX clock_settime — sets the ToD counter to an absolute time.
  *
- * Matches upstream _idtcm_settime with SCSR_TOD_WR_TYPE_SEL_ABSOLUTE:
- * preloads sub-ns=0, ns, and seconds into the WRITE registers, then
- * fires the ABSOLUTE + IMMEDIATE commit trigger (0x01).
+ *        Validates: tv_sec in [0, 2^48-1] and tv_nsec in [0, 999999999],
+ *        then writes to the hardware PRIMARY WRITE path via
+ *        bf_ptp_set_tod_time().
  *
- * @param tod_index  Target TOD instance (0-3).
- * @param sec        Unix Epoch absolute seconds to set.
- * @param ns         Residual sub-second nanoseconds to set.
- * @return int       0 on success; negative on error.
+ *        The 8A34004 ToD has 48-bit seconds + 32-bit nanoseconds registers
+ *        (max ~8.9 million years).  The validation caps at 2^48 seconds as
+ *        a practical guard, not a hardware limitation.
+ *
+ * @param clkid  Clock ID (mapped to tod_index 0-3 via (uint8_t) cast).
+ * @param tp     Absolute time to set (seconds + nanoseconds).
+ * @return int   0 on success; -1 on invalid parameter or out of range.
  */
-int bf_ptp_settime(uint8_t tod_index, uint32_t sec, uint32_t ns);
+int bf_clock_settime(clockid_t clkid, struct timespec *tp);
+
+/**
+ * @brief POSIX clock_gettime — reads the current ToD counter value.
+ *
+ *        Matches upstream ptp_clock_gettime(): fires an IMMEDIATE trigger
+ *        on the PRIMARY snapshot buffer, polls for latch settle (up to 10
+ *        iterations), then burst-reads and decodes the 11-byte time array.
+ *
+ * @param clkid  Clock ID (mapped to tod_index 0-3 via (uint8_t) cast).
+ * @param tp     Output pointer populated with seconds + nanoseconds.
+ * @return int   0 on success; negative on error.
+ */
+int bf_clock_gettime(clockid_t clkid, struct timespec *tp);
+
+/**
+ * @brief POSIX clock_getres — returns the ToD counter resolution.
+ *
+ *        The 8A34004 ToD counter increments in 1-nanosecond steps,
+ *        so the resolution reported is 1 ns, matching upstream
+ *        ptp_clock_getres().
+ *
+ * @param clkid  Clock ID (mapped to tod_index 0-3 via (uint8_t) cast).
+ * @param res    Output pointer: tv_sec=0, tv_nsec=1 (1 ns resolution).
+ * @return int   0 on success; negative on error.
+ */
+int bf_clock_getres(clockid_t clkid, struct timespec *res);
+
+int bf_clockmatrix_init(void);
 
 #endif // BF_PLTFM_CLOCKMATRIX_H

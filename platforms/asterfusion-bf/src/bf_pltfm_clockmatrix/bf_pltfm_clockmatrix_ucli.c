@@ -7,11 +7,9 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/timex.h>
 #include <dvm/bf_dma_types.h>
 #include <dvm/bf_drv_intf.h>
 #include <lld/bf_ts_if.h>
@@ -335,7 +333,7 @@ bf_pltfm_clockmatrix_ucli_ucli__reg(ucli_context_t *uc)
     } else if (uc->pargs->count == 3) {
         write_op = true;
     } else {
-        aim_printf(&uc->pvs, "ptp-reg <page> <reg> [<val>]\n");
+        aim_printf(&uc->pvs, "reg <page> <reg> [<val>]\n");
         return 0;
     }
 
@@ -545,7 +543,7 @@ bf_pltfm_clockmatrix_ucli_ucli__ptp (
         uint8_t write_counter = 0;
         uint8_t read_counter = 0;
         bool enabled = false, even_pps = false, sync_disabled = false;
-        uint32_t seconds = 0, nanoseconds = 0;
+        uint64_t seconds = 0, nanoseconds = 0;
 
         /* Step A API: Fetch live driving clock source (DPLL linkage) */
         if (bf_ptp_get_tod_clk_src(idx, &clk_src) != 0) {
@@ -597,7 +595,7 @@ bf_pltfm_clockmatrix_ucli_ucli__ptp (
         snprintf(out_sync_str, sizeof(out_sync_str), "%s", sync_disabled ? "DISABLED" : "ENABLED");
         snprintf(write_cnt_str, sizeof(write_cnt_str), "0x%02X", write_counter);
         snprintf(read_cnt_str, sizeof(read_cnt_str), "0x%02X", read_counter);
-        snprintf(tod_time_str, sizeof(tod_time_str), "%u.%09u sec", seconds, nanoseconds);
+        snprintf(tod_time_str, sizeof(tod_time_str), "%lu.%09lu sec", seconds, nanoseconds);
 
         aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s | %-25s\n",
                    idx_str, clk_heart_buf, enabled_str, pps_mode_str, out_sync_str, write_cnt_str, read_cnt_str, tod_time_str);
@@ -605,35 +603,6 @@ bf_pltfm_clockmatrix_ucli_ucli__ptp (
     aim_printf(&uc->pvs, " %-5s | %-16s | %-16s | %-16s | %-8s | %-8s | %-8s | %-25s\n",
                "-----", "----------------", "----------------", "----------------", "--------", "--------", "--------", "-------------------------");
     aim_printf (&uc->pvs, "\n");
-
-    return 0;
-}
-
-/* @brief Reset the 8A34004 state machine via SM_RESET command (0x5A).
- *        Firmware reinitializes over ~3 seconds; check boot_status for readiness. */
-static ucli_status_t
-bf_pltfm_clockmatrix_ucli_ucli__reset_sm (
-    ucli_context_t *uc)
-{
-    UCLI_COMMAND_INFO (uc, "reset-sm", -1,
-                       "Reset the ClockMatrix's state machine");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-
-    int rc = bf_ptp_reset_sm();
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to reset state machine (error code: %d)\n", rc);
-    } else {
-        aim_printf (&uc->pvs, "SM_RESET sent (0x5A). Firmware reinitializing (~3 sec)...\n");
-    }
 
     return 0;
 }
@@ -666,7 +635,7 @@ bf_pltfm_clockmatrix_ucli_ucli__dpll (
         }
         dpll_start = dpll_end = (uint8_t)idx;
     } else if (uc->pargs->count > 1) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll [<dpll_index: 0~7>]\n");
+        aim_printf (&uc->pvs, "Usage: dpll [<dpll_index: 0~7>]\n");
         return 0;
     }
 
@@ -748,7 +717,7 @@ bf_pltfm_clockmatrix_ucli_ucli__dpll_tod (
     }
 
     if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll-tod <dpll_index: 0~7> <0|1>\n");
+        aim_printf (&uc->pvs, "Usage: dpll-tod <dpll_index: 0~7> <0|1>\n");
         return 0;
     }
 
@@ -806,7 +775,7 @@ bf_pltfm_clockmatrix_ucli_ucli__dpll_combo (
     }
 
     if (uc->pargs->count != 5) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~8>\n");
+        aim_printf (&uc->pvs, "Usage: dpll-combo <dpll_index: 0~7> <pri|sec> <enable: 0|1> <filtered: 0|1> <src_dpll_idx: 0~8>\n");
         return 0;
     }
 
@@ -881,7 +850,7 @@ bf_pltfm_clockmatrix_ucli_ucli__dpll_mode (
     }
 
     if (uc->pargs->count != 3) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll-mode <dpll_index: 0~7> <op_mode: pll|phase|freq|gpio|synth|pmeas|off> <sm_mode: auto|force_lock|force_frun|force_hldover>\n");
+        aim_printf (&uc->pvs, "Usage: dpll-mode <dpll_index: 0~7> <op_mode: pll|phase|freq|gpio|synth|pmeas|off> <sm_mode: auto|force_lock|force_frun|force_hldover>\n");
         return 0;
     }
 
@@ -960,7 +929,7 @@ bf_pltfm_clockmatrix_ucli_ucli__dpll_freq (
     }
 
     if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-dpll-freq <dpll_index: 0~7> <fcw_ffo_q53>\n");
+        aim_printf (&uc->pvs, "Usage: dpll-freq <dpll_index: 0~7> <fcw_ffo_q53>\n");
         return 0;
     }
 
@@ -1010,7 +979,7 @@ bf_pltfm_clockmatrix_ucli_ucli__tod (
         }
         tod_start = tod_end = (uint8_t)idx;
     } else if (uc->pargs->count > 1) {
-        aim_printf (&uc->pvs, "Usage: ptp-tod [<tod_index: 0~3>]\n");
+        aim_printf (&uc->pvs, "Usage: tod [<tod_index: 0~3>]\n");
         return 0;
     }
 
@@ -1025,7 +994,7 @@ bf_pltfm_clockmatrix_ucli_ucli__tod (
     for (uint8_t idx = tod_start; idx <= tod_end; idx++) {
         uint8_t clk_src = 0, write_counter = 0, read_counter = 0;
         bool enabled = false, even_pps = false, sync_disabled = false;
-        uint32_t pri_sec = 0, pri_ns = 0, sec_sec = 0, sec_ns = 0;
+        uint64_t pri_sec = 0, pri_ns = 0, sec_sec = 0, sec_ns = 0;
 
         /* Clock source */
         if (bf_ptp_get_tod_clk_src(idx, &clk_src) != 0) clk_src = 0;
@@ -1053,9 +1022,9 @@ bf_pltfm_clockmatrix_ucli_ucli__tod (
 
         char clk_buf[64], pri_buf[64], sec_buf[64];
         snprintf(clk_buf, sizeof(clk_buf), "DPLL%d (%s)", clk_src, sync_mode_str);
-        snprintf(pri_buf, sizeof(pri_buf), "%u.%09u sec", pri_sec, pri_ns);
+        snprintf(pri_buf, sizeof(pri_buf), "%lu.%09lu sec", pri_sec, pri_ns);
         if (sec_rc == 0)
-            snprintf(sec_buf, sizeof(sec_buf), "%u.%09u sec", sec_sec, sec_ns);
+            snprintf(sec_buf, sizeof(sec_buf), "%lu.%09lu sec", sec_sec, sec_ns);
         else
             snprintf(sec_buf, sizeof(sec_buf), "--- (not armed)");
 
@@ -1101,7 +1070,7 @@ bf_pltfm_clockmatrix_ucli_ucli__tod_en (
     }
 
     if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-tod-en <tod_index: 0~3> <0|1>\n");
+        aim_printf (&uc->pvs, "Usage: tod-en <tod_index: 0~3> <0|1>\n");
         return 0;
     }
 
@@ -1142,8 +1111,8 @@ bf_pltfm_clockmatrix_ucli_ucli__tod_set (
     ucli_context_t *uc)
 {
     uint32_t tod_index = 0;
-    uint32_t seconds = 0;
-    uint32_t nanoseconds = 0;
+    uint64_t seconds = 0;
+    uint64_t nanoseconds = 0;
 
     UCLI_COMMAND_INFO (uc, "tod-set", -1,
                        "tod-set <tod_index: 0~3> <seconds> <nanoseconds>");
@@ -1160,7 +1129,7 @@ bf_pltfm_clockmatrix_ucli_ucli__tod_set (
     }
 
     if (uc->pargs->count != 3) {
-        aim_printf (&uc->pvs, "Usage: ptp-tod-set <tod_index: 0~3> <seconds> <nanoseconds>\n");
+        aim_printf (&uc->pvs, "Usage: tod-set <tod_index: 0~3> <seconds> <nanoseconds>\n");
         return 0;
     }
 
@@ -1177,251 +1146,9 @@ bf_pltfm_clockmatrix_ucli_ucli__tod_set (
     if (rc != 0) {
         aim_printf (&uc->pvs, "Failed to set ToD%d time (error code: %d)\n", tod_index, rc);
     } else {
-        aim_printf (&uc->pvs, "Successfully set ToD%d to %u.%09u sec\n", tod_index, seconds, nanoseconds);
+        aim_printf (&uc->pvs, "Successfully set ToD%d to %lu.%09lu sec\n", tod_index, seconds, nanoseconds);
     }
 
-    return 0;
-}
-
-/* @brief Adjust DPLL frequency via FCW (wraps bf_ptp_adjfine).
- *        Automatically switches DPLL to FREQ mode if needed. */
-static ucli_status_t
-bf_pltfm_clockmatrix_ucli_ucli__adjfine (
-    ucli_context_t *uc)
-{
-    uint32_t dpll_index = 0;
-    int64_t scaled_ppm = 0;
-
-    UCLI_COMMAND_INFO (uc, "adjfine", -1,
-                       "adjfine <dpll_index: 0~7> <scaled_ppm>");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-    if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-adjfine <dpll_index: 0~7> <scaled_ppm>\n");
-        return 0;
-    }
-
-    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
-    scaled_ppm = strtoll (uc->pargs->args[1], NULL, 0);
-
-    if (dpll_index > 7) {
-        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
-        return 0;
-    }
-
-    if (scaled_ppm > 65536000 || scaled_ppm < -65536000) {
-        aim_printf (&uc->pvs, "scaled_ppm out of range: %lld (Valid: -65536000~65536000, i.e. ±1000 ppm)\n",
-                    (long long)scaled_ppm);
-        return 0;
-    }
-
-    int rc = bf_ptp_adjfine((uint8_t)dpll_index, scaled_ppm);
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to adjfine DPLL%d (error code: %d)\n", dpll_index, rc);
-    } else {
-        aim_printf (&uc->pvs, "Successfully adjfine DPLL%d: scaled_ppm=%lld\n", dpll_index, (long long)scaled_ppm);
-    }
-    return 0;
-}
-
-/* @brief Phase-slew DPLL via PCW (wraps bf_ptp_adjphase).
- *        Automatically switches DPLL to PHASE mode if needed.
- *        Resolution: 50 ps / LSB. */
-static ucli_status_t
-bf_pltfm_clockmatrix_ucli_ucli__adjphase (
-    ucli_context_t *uc)
-{
-    uint32_t dpll_index = 0;
-    int32_t delta_ns = 0;
-
-    UCLI_COMMAND_INFO (uc, "adjphase", -1,
-                       "adjphase <dpll_index: 0~7> <delta_ns>");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-    if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-adjphase <dpll_index: 0~7> <delta_ns>\n");
-        return 0;
-    }
-
-    dpll_index = strtoul (uc->pargs->args[0], NULL, 0);
-    delta_ns = (int32_t)strtol (uc->pargs->args[1], NULL, 0);
-
-    if (dpll_index > 7) {
-        aim_printf (&uc->pvs, "Invalid dpll_index: %d (Valid range: 0~7)\n", dpll_index);
-        return 0;
-    }
-
-    if (delta_ns > 107374182 || delta_ns < -107374182) {
-        aim_printf (&uc->pvs, "delta_ns out of range: %d (Valid: -107374182~107374182 ns, i.e. ±107 ms, HW phase limit)\n",
-                    delta_ns);
-        return 0;
-    }
-
-    int rc = bf_ptp_adjphase((uint8_t)dpll_index, delta_ns);
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to adjphase DPLL%d (error code: %d)\n", dpll_index, rc);
-    } else {
-        aim_printf (&uc->pvs, "Successfully adjphase DPLL%d: delta=%d ns\n", dpll_index, delta_ns);
-    }
-    return 0;
-}
-
-/* @brief Step-adjust ToD wall-clock (wraps bf_ptp_adjtime).
- *        Uses FW phase pull-in for |delta| < 15 µs; absolute step otherwise. */
-static ucli_status_t
-bf_pltfm_clockmatrix_ucli_ucli__adjtime (
-    ucli_context_t *uc)
-{
-    uint32_t tod_index = 0;
-    int64_t delta_ns = 0;
-
-    UCLI_COMMAND_INFO (uc, "adjtime", -1,
-                       "adjtime <tod_index: 0~3> <delta_ns>");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-    if (uc->pargs->count != 2) {
-        aim_printf (&uc->pvs, "Usage: ptp-adjtime <tod_index: 0~3> <delta_ns>\n");
-        return 0;
-    }
-
-    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
-    delta_ns = strtoll (uc->pargs->args[1], NULL, 0);
-
-    if (tod_index > 3) {
-        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
-        return 0;
-    }
-
-    if (delta_ns > 281474976710655LL || delta_ns < -281474976710655LL) {
-        aim_printf (&uc->pvs, "delta_ns out of range: %lld (Valid: ±281474976710655, 48-bit ToD counter max)\n",
-                    (long long)delta_ns);
-        return 0;
-    }
-
-    int rc = bf_ptp_adjtime((uint8_t)tod_index, delta_ns);
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to adjtime ToD%d (error code: %d)\n", tod_index, rc);
-    } else {
-        aim_printf (&uc->pvs, "Successfully adjtime ToD%d: delta=%lld ns\n", tod_index, (long long)delta_ns);
-    }
-    return 0;
-}
-
-/* @brief Read ToD wall-clock via PRIMARY trigger-bit polling (bf_ptp_gettime). */
-static ucli_status_t
-bf_pltfm_clockmatrix_ucli_ucli__gettime (
-    ucli_context_t *uc)
-{
-    uint32_t tod_index = 0;
-    uint32_t sec = 0, ns = 0;
-
-    UCLI_COMMAND_INFO (uc, "gettime", -1,
-                       "gettime <tod_index: 0~3>");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-    if (uc->pargs->count != 1) {
-        aim_printf (&uc->pvs, "Usage: ptp-gettime <tod_index: 0~3>\n");
-        return 0;
-    }
-
-    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
-
-    if (tod_index > 3) {
-        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
-        return 0;
-    }
-
-    int rc = bf_ptp_gettime((uint8_t)tod_index, &sec, &ns);
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to gettime ToD%d (error code: %d)\n", tod_index, rc);
-    } else {
-        aim_printf (&uc->pvs, "ToD%d: %u.%09u sec\n", tod_index, sec, ns);
-    }
-    return 0;
-}
-
-/* @brief Set ToD wall-clock (wraps bf_ptp_settime). */
-static ucli_status_t
-bf_pltfm_clockmatrix_ucli_ucli__settime (
-    ucli_context_t *uc)
-{
-    uint32_t tod_index = 0;
-    uint32_t sec = 0;
-    uint32_t ns = 0;
-
-    UCLI_COMMAND_INFO (uc, "settime", -1,
-                       "settime <tod_index: 0~3> <seconds> <nanoseconds>");
-
-    if (! platform_type_equal (AFN_X732QT) ||
-        ! platform_subtype_equal (V2P0)) {
-        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
-        return 0;
-    }
-    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
-        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
-        return 0;
-    }
-    if (uc->pargs->count != 3) {
-        aim_printf (&uc->pvs, "Usage: ptp-settime <tod_index: 0~3> <seconds> <nanoseconds>\n");
-        return 0;
-    }
-
-    tod_index = strtoul (uc->pargs->args[0], NULL, 0);
-    sec = strtoul (uc->pargs->args[1], NULL, 0);
-    ns = strtoul (uc->pargs->args[2], NULL, 0);
-
-    if (tod_index > 3) {
-        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
-        return 0;
-    }
-
-    if (sec > 281474) {
-        aim_printf (&uc->pvs, "seconds out of range: %u (Valid: 0~281474, 48-bit ns counter max)\n", sec);
-        return 0;
-    }
-    if (ns > 999999999) {
-        aim_printf (&uc->pvs, "nanoseconds out of range: %u (Valid: 0~999999999)\n", ns);
-        return 0;
-    }
-
-    int rc = bf_ptp_settime((uint8_t)tod_index, sec, ns);
-    if (rc != 0) {
-        aim_printf (&uc->pvs, "Failed to settime ToD%d (error code: %d)\n", tod_index, rc);
-    } else {
-        aim_printf (&uc->pvs, "Successfully set ToD%d to %u.%09u sec\n", tod_index, sec, ns);
-    }
     return 0;
 }
 
@@ -1450,7 +1177,7 @@ bf_pltfm_clockmatrix_ucli_ucli__phase_pull_in (
         return 0;
     }
     if (uc->pargs->count < 2 || uc->pargs->count > 3) {
-        aim_printf (&uc->pvs, "Usage: ptp-phase-pull-in <dpll_index: 0~7> <delta_ns> [max_ppb]\n");
+        aim_printf (&uc->pvs, "Usage: phase-pull-in <dpll_index: 0~7> <delta_ns> [max_ppb]\n");
         return 0;
     }
 
@@ -1481,6 +1208,412 @@ bf_pltfm_clockmatrix_ucli_ucli__phase_pull_in (
     return 0;
 }
 
+/* @brief Reset the 8A34004 state machine via SM_RESET command (0x5A).
+ *        Firmware reinitializes over ~3 seconds; check boot_status for readiness. */
+static ucli_status_t
+bf_pltfm_clockmatrix_ucli_ucli__reset (
+    ucli_context_t *uc)
+{
+    UCLI_COMMAND_INFO (uc, "reset", -1,
+                       "Reset the ClockMatrix's state machine");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    int rc = bf_clock_reset();
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed to reset state machine (error code: %d)\n", rc);
+    } else {
+        aim_printf (&uc->pvs, "SM_RESET sent (0x5A). Firmware reinitializing (~3 sec)...\n");
+    }
+
+    return 0;
+}
+
+/* ── POSIX-style clock API wrappers ─────────────────────────────
+ * These test bf_clock_gettime / bf_clock_settime / bf_clock_getres /
+ * bf_clock_adjtime which are the target interfaces for linuxptp4. */
+
+/* @brief Read ToD clock via bf_clock_gettime (POSIX-style). */
+static ucli_status_t
+bf_pltfm_clockmatrix_ucli_ucli__gettime (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 2;
+    struct timespec tp = { 0, 0 };
+
+    UCLI_COMMAND_INFO (uc, "gettime", -1,
+                       "gettime [<tod_index: 0~3>]");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count >= 1) {
+        tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    }
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_clock_gettime((clockid_t)tod_index, &tp);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed (error: %d)\n", rc);
+    } else {
+        aim_printf (&uc->pvs, "ToD%d: %lu.%09lu sec\n", tod_index, tp.tv_sec, tp.tv_nsec);
+    }
+    return 0;
+}
+
+/* @brief Set ToD clock via bf_clock_settime (POSIX-style).
+ *        Up to 48-bit seconds (hardware max).
+ *        Defaults to tod_index=2 if omitted. */
+static ucli_status_t
+bf_pltfm_clockmatrix_ucli_ucli__settime (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 2;
+    int arg_off = 0;
+    struct timespec tp = { 0, 0 };
+
+    UCLI_COMMAND_INFO (uc, "settime", -1,
+                       "settime [<tod_index: 0~3>] <seconds> <nanoseconds>");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count < 2 || uc->pargs->count > 3) {
+        aim_printf (&uc->pvs, "Usage: settime [<tod_index: 0~3>] <seconds> <nanoseconds>\n");
+        return 0;
+    }
+
+    if (uc->pargs->count == 3) {
+        tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+        arg_off = 1;
+    }
+
+    tp.tv_sec  = strtoll (uc->pargs->args[arg_off + 0], NULL, 0);
+    tp.tv_nsec = strtol  (uc->pargs->args[arg_off + 1], NULL, 0);
+
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_clock_settime((clockid_t)tod_index, &tp);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed (error: %d)\n", rc);
+    } else {
+        aim_printf (&uc->pvs, "ToD%d set to %lu.%09lu sec\n", tod_index, tp.tv_sec, tp.tv_nsec);
+    }
+    return 0;
+}
+
+/* @brief Read ToD clock resolution via bf_clock_getres.
+ *        Defaults to tod_index=2 if omitted. */
+static ucli_status_t
+bf_pltfm_clockmatrix_ucli_ucli__getres (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 2;
+    struct timespec res = { 0, 0 };
+
+    UCLI_COMMAND_INFO (uc, "getres", -1,
+                       "getres [<tod_index: 0~3>]");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count > 1) {
+        aim_printf (&uc->pvs, "Usage: getres [<tod_index: 0~3>]\n");
+        return 0;
+    }
+
+    if (uc->pargs->count == 1) {
+        tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    }
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    int rc = bf_clock_getres((clockid_t)tod_index, &res);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed (error: %d)\n", rc);
+    } else {
+        aim_printf (&uc->pvs, "ToD%d resolution: %lu.%09lu sec\n", tod_index, res.tv_sec, res.tv_nsec);
+    }
+    return 0;
+}
+
+/* @brief Adjust clock via bf_clock_adjtime (POSIX-style).
+ *        Defaults to tod_index=2 if args[0] is not a bare 0-3.
+ *
+ *        Sub-commands:
+ *          setoffset <sec> <usec>       ADJ_SETOFFSET step
+ *          frequency <scaled_ppm>       ADJ_FREQUENCY rate
+ *          offset    <ns>               ADJ_OFFSET | ADJ_NANO phase
+ *          read                          read-back (modes == 0) */
+static ucli_status_t
+bf_pltfm_clockmatrix_ucli_ucli__adjtime (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 2;
+    int arg_off = 0;
+    struct timex tx;
+
+    UCLI_COMMAND_INFO (uc, "adjtime", -1,
+                       "adjtime [<tod_index: 0~3>] setoffset <sec> <usec> | frequency <scaled_ppm> | offset <ns> | read");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+    if (uc->pargs->count < 1) {
+        aim_printf (&uc->pvs, "Usage: adjtime [<tod_index: 0~3>] setoffset <sec> <usec> | frequency <scaled_ppm> | offset <ns> | read\n");
+        return 0;
+    }
+
+    /* Detect: is args[0] a bare 0-3 (tod index) or a subcommand? */
+    if (uc->pargs->count >= 2) {
+        char *endptr = NULL;
+        unsigned long val = strtoul (uc->pargs->args[0], &endptr, 0);
+        if (endptr && *endptr == '\0' && val <= 3) {
+            tod_index = (uint32_t)val;
+            arg_off = 1;
+        }
+    }
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    memset(&tx, 0, sizeof(tx));
+
+    const char *subcmd = uc->pargs->args[arg_off];
+    int nargs = uc->pargs->count - arg_off;
+
+    if (!strcasecmp(subcmd, "setoffset")) {
+        if (nargs != 3) {
+            aim_printf (&uc->pvs, "Usage: ... setoffset <sec> <usec>\n");
+            return 0;
+        }
+        tx.modes = ADJ_SETOFFSET;
+        tx.time.tv_sec  = strtol (uc->pargs->args[arg_off + 1], NULL, 0);
+        tx.time.tv_usec = strtol (uc->pargs->args[arg_off + 2], NULL, 0);
+
+    } else if (!strcasecmp(subcmd, "frequency")) {
+        if (nargs != 2) {
+            aim_printf (&uc->pvs, "Usage: ... frequency <scaled_ppm>\n");
+            return 0;
+        }
+        tx.modes = ADJ_FREQUENCY;
+        tx.freq = strtoll (uc->pargs->args[arg_off + 1], NULL, 0);
+
+    } else if (!strcasecmp(subcmd, "offset")) {
+        if (nargs != 2) {
+            aim_printf (&uc->pvs, "Usage: ... offset <ns>\n");
+            return 0;
+        }
+        tx.modes = ADJ_OFFSET | ADJ_NANO;
+        tx.offset = strtoll (uc->pargs->args[arg_off + 1], NULL, 0);
+
+    } else if (!strcasecmp(subcmd, "read")) {
+        tx.modes = 0;
+
+    } else {
+        aim_printf (&uc->pvs, "Unknown sub-command: %s\n", subcmd);
+        return 0;
+    }
+
+    int rc = bf_clock_adjtime((clockid_t)tod_index, &tx);
+    if (rc != 0) {
+        aim_printf (&uc->pvs, "Failed (error: %d)\n", rc);
+    } else {
+        aim_printf (&uc->pvs, "ok\n");
+    }
+    return 0;
+}
+
+#define TEST(label, expr) do {                                      \
+    aim_printf (&uc->pvs, "  %-36s ", label);                       \
+    int _rc = (expr);                                                \
+    if (_rc == 0) { aim_printf (&uc->pvs, "[PASS]\n"); pass++; }     \
+    else { aim_printf (&uc->pvs, "[FAIL] rc=%d\n", _rc); fail++; }   \
+} while(0)
+
+/* @brief Automated smoke test for bf_clock_adjtime covering all sub-modes
+ *        exercised by ptp4l (ADJ_SETOFFSET, ADJ_FREQUENCY, ADJ_OFFSET, read).
+ *        Seeds ToD with a known epoch, runs each mode, reports PASS/FAIL,
+ *        then restores the original time. */
+static ucli_status_t
+bf_pltfm_clockmatrix_ucli_ucli__adjtest (
+    ucli_context_t *uc)
+{
+    uint32_t tod_index = 2;
+    struct timespec tp, saved;
+    struct timex tx;
+    int pass = 0, fail = 0;
+
+    UCLI_COMMAND_INFO (uc, "adjtest", -1,
+                       "adjtest [<tod_index: 0~3>]");
+
+    if (! platform_type_equal (AFN_X732QT) ||
+        ! platform_subtype_equal (V2P0)) {
+        aim_printf (&uc->pvs, "\nNot supported on this device!\n");
+        return 0;
+    }
+    if (! (bf_pltfm_mgr_ctx()->flags & AF_PLAT_MNTR_PTPX_INSTALLED)) {
+        aim_printf (&uc->pvs, "\nPTP board not installed!\n");
+        return 0;
+    }
+
+    if (uc->pargs->count >= 1)
+        tod_index = strtoul (uc->pargs->args[0], NULL, 0);
+    if (tod_index > 3) {
+        aim_printf (&uc->pvs, "Invalid tod_index: %d (Valid range: 0~3)\n", tod_index);
+        return 0;
+    }
+
+    /* Save the current time so we can restore it at the end. */
+    if (bf_clock_gettime((clockid_t)tod_index, &saved) < 0) {
+        aim_printf (&uc->pvs, "FATAL: cannot read ToD%d\n", tod_index);
+        return 0;
+    }
+
+    aim_printf (&uc->pvs, "\n=== bf_clock_adjtime smoke test (ToD%d) ===\n", tod_index);
+    aim_printf (&uc->pvs, "Saved: %lu.%09lu\n\n", saved.tv_sec, saved.tv_nsec);
+
+    /* ── 1. ADJ_SETOFFSET (bf_clockadj_step path) ─────────────── */
+    aim_printf (&uc->pvs, "-- ADJ_SETOFFSET --\n");
+
+    tp.tv_sec = 1752441600; tp.tv_nsec = 0;
+    bf_clock_settime((clockid_t)tod_index, &tp);
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = ADJ_SETOFFSET;
+    tx.time.tv_sec = 1; tx.time.tv_usec = 0;
+    TEST("setoffset +1s", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    bf_clock_gettime((clockid_t)tod_index, &tp);
+    aim_printf (&uc->pvs, "           -> %lu.%09lu (expect %lu)\n",
+                tp.tv_sec, tp.tv_nsec, 1752441601UL);
+
+    tp.tv_sec = 1752441600; tp.tv_nsec = 0;
+    bf_clock_settime((clockid_t)tod_index, &tp);
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = ADJ_SETOFFSET;
+    tx.time.tv_sec = -1; tx.time.tv_usec = 500000;
+    TEST("setoffset -1s +500ms (-500ms)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tp.tv_sec = 1752441600; tp.tv_nsec = 0;
+    bf_clock_settime((clockid_t)tod_index, &tp);
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = ADJ_SETOFFSET;
+    tx.time.tv_sec = 1000; tx.time.tv_usec = 0;
+    TEST("setoffset +1000s", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    /* ── 2. ADJ_FREQUENCY (PI servo tracking path) ────────────── */
+    aim_printf (&uc->pvs, "\n-- ADJ_FREQUENCY --\n");
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = ADJ_FREQUENCY;
+    tx.freq = 65536;
+    TEST("frequency +1 ppm", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.freq = -32768;
+    TEST("frequency -0.5 ppm", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.freq = 6553600;
+    TEST("frequency +100 ppm", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.freq = 65536000;
+    TEST("frequency +1000 ppm (max)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.freq = -65536000;
+    TEST("frequency -1000 ppm (min)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.freq = 65536001;
+    TEST("frequency +1001 ppm (expect fail)",
+         bf_clock_adjtime((clockid_t)tod_index, &tx) != 0 ? 0 : -1);
+
+    /* ── 3. ADJ_OFFSET (phase pull-in / ToD step) ─────────────── */
+    aim_printf (&uc->pvs, "\n-- ADJ_OFFSET | ADJ_NANO --\n");
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = ADJ_OFFSET | ADJ_NANO;
+    tx.offset = 500;
+    TEST("offset +500 ns (FW pull-in)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.offset = -2000;
+    TEST("offset -2 us (FW pull-in)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.offset = 1000000;
+    TEST("offset +1 ms (ToD step)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    tx.offset = 0;
+    TEST("offset 0 (no-op)", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    /* ── 4. read (modes == 0) ─────────────────────────────────── */
+    aim_printf (&uc->pvs, "\n-- READ (modes == 0) --\n");
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = 0;
+    TEST("read", bf_clock_adjtime((clockid_t)tod_index, &tx));
+
+    /* ── 5. Epoch guardrail ───────────────────────────────────── */
+    aim_printf (&uc->pvs, "\n-- Epoch guardrail --\n");
+
+    tp.tv_sec = 5; tp.tv_nsec = 0;
+    bf_clock_settime((clockid_t)tod_index, &tp);
+
+    memset(&tx, 0, sizeof(tx));
+    tx.modes = ADJ_SETOFFSET;
+    tx.time.tv_sec = -10; tx.time.tv_usec = 0;
+    TEST("setoffset -10s @ T=5s (expect fail)",
+         bf_clock_adjtime((clockid_t)tod_index, &tx) != 0 ? 0 : -1);
+
+    /* ── Restore ──────────────────────────────────────────────── */
+    bf_clock_settime((clockid_t)tod_index, &saved);
+    aim_printf (&uc->pvs, "\nRestored: %lu.%09lu\n", saved.tv_sec, saved.tv_nsec);
+    aim_printf (&uc->pvs, "=== %d pass, %d fail ===\n\n", pass, fail);
+
+#undef TEST
+    return 0;
+}
+
 static ucli_command_handler_f
 bf_pltfm_clockmatrix_ucli_ucli_handlers__[] = {
     bf_pltfm_clockmatrix_ucli_ucli__set_clk,
@@ -1494,7 +1627,6 @@ bf_pltfm_clockmatrix_ucli_ucli_handlers__[] = {
     bf_pltfm_clockmatrix_ucli_ucli__page,
     bf_pltfm_clockmatrix_ucli_ucli__reg,
     bf_pltfm_clockmatrix_ucli_ucli__ptp,
-    bf_pltfm_clockmatrix_ucli_ucli__reset_sm,
 
     bf_pltfm_clockmatrix_ucli_ucli__dpll,
     bf_pltfm_clockmatrix_ucli_ucli__dpll_tod,
@@ -1506,12 +1638,12 @@ bf_pltfm_clockmatrix_ucli_ucli_handlers__[] = {
     bf_pltfm_clockmatrix_ucli_ucli__tod_en,
     bf_pltfm_clockmatrix_ucli_ucli__tod_set,
 
-    bf_pltfm_clockmatrix_ucli_ucli__adjfine,
-    bf_pltfm_clockmatrix_ucli_ucli__adjphase,
-    bf_pltfm_clockmatrix_ucli_ucli__adjtime,
-
+    bf_pltfm_clockmatrix_ucli_ucli__reset,
     bf_pltfm_clockmatrix_ucli_ucli__gettime,
     bf_pltfm_clockmatrix_ucli_ucli__settime,
+    bf_pltfm_clockmatrix_ucli_ucli__getres,
+    bf_pltfm_clockmatrix_ucli_ucli__adjtime,
+    bf_pltfm_clockmatrix_ucli_ucli__adjtest,
 
     bf_pltfm_clockmatrix_ucli_ucli__phase_pull_in,
 
